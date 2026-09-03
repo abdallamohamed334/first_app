@@ -19,7 +19,7 @@ class FoodOffer extends Equatable {
   final double longitude;
   final String? image;
   final FoodOfferStatus status;
-  final String? businessId; // ✅ بدلاً من restaurantId
+  final String? businessId;
   final String? charityId;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -44,6 +44,16 @@ class FoodOffer extends Equatable {
   final int views;
   final int interestedCount;
   final int shares;
+
+  // ✅ حقول الطلبات الجديدة
+  final int requestCount;
+  final bool isRequestedByUser;
+  final bool isAccepted;
+  final String? userRequestStatus;
+
+  // ✅ السعر
+  final double? salePrice;
+  final double? originalPrice;
 
   const FoodOffer({
     required this.id,
@@ -79,9 +89,14 @@ class FoodOffer extends Equatable {
     this.views = 0,
     this.interestedCount = 0,
     this.shares = 0,
+    this.requestCount = 0,
+    this.isRequestedByUser = false,
+    this.isAccepted = false,
+    this.userRequestStatus,
+    this.salePrice,
+    this.originalPrice,
   });
 
-  // ✅ Factory method from JSON (Supabase)
   factory FoodOffer.fromJson(Map<String, dynamic> json) {
     final business = json['businesses'] as Map<String, dynamic>?;
 
@@ -138,10 +153,15 @@ class FoodOffer extends Equatable {
       views: json['views'] as int? ?? 0,
       interestedCount: json['interested_count'] as int? ?? 0,
       shares: json['shares'] as int? ?? 0,
+      requestCount: json['request_count'] as int? ?? 0,
+      isRequestedByUser: json['is_requested_by_user'] as bool? ?? false,
+      isAccepted: json['is_accepted'] as bool? ?? false,
+      userRequestStatus: json['user_request_status'] as String?,
+      salePrice: (json['sale_price'] as num?)?.toDouble(),
+      originalPrice: (json['original_price'] as num?)?.toDouble(),
     );
   }
 
-  // ✅ To JSON for Supabase
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -176,7 +196,120 @@ class FoodOffer extends Equatable {
       'views': views,
       'interested_count': interestedCount,
       'shares': shares,
+      'sale_price': salePrice,
+      'original_price': originalPrice,
     };
+  }
+
+  bool get isAvailable => status == FoodOfferStatus.available;
+  bool get isReserved => status == FoodOfferStatus.reserved;
+  bool get isCompleted => status == FoodOfferStatus.completed;
+  bool get isCancelled => status == FoodOfferStatus.cancelled;
+  bool get isExpired => DateTime.now().isAfter(expiryTime);
+
+  bool get isUrgent {
+    final hoursRemaining = expiryTime.difference(DateTime.now()).inHours;
+    return hoursRemaining <= 2 && isAvailable;
+  }
+
+  bool get canRequest => isAvailable && !isRequestedByUser;
+
+  bool get isRequestPending => userRequestStatus == 'pending';
+  bool get isRequestAccepted => userRequestStatus == 'accepted';
+  bool get isRequestRejected => userRequestStatus == 'rejected';
+
+  String get timeRemaining {
+    final now = DateTime.now();
+    final difference = expiryTime.difference(now);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} يوم';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} ساعة';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} دقيقة';
+    } else {
+      return 'انتهى';
+    }
+  }
+
+  String get statusDisplay {
+    switch (status) {
+      case FoodOfferStatus.available:
+        return 'متاح';
+      case FoodOfferStatus.reserved:
+        return 'محجوز';
+      case FoodOfferStatus.completed:
+        return 'مكتمل';
+      case FoodOfferStatus.cancelled:
+        return 'ملغي';
+      case FoodOfferStatus.expired:
+        return 'منتهي';
+    }
+  }
+
+  Color get statusColor {
+    switch (status) {
+      case FoodOfferStatus.available:
+        return const Color(0xFF0D631B);
+      case FoodOfferStatus.reserved:
+        return const Color(0xFFFF9800);
+      case FoodOfferStatus.completed:
+        return const Color(0xFF2196F3);
+      case FoodOfferStatus.cancelled:
+        return const Color(0xFFF44336);
+      case FoodOfferStatus.expired:
+        return const Color(0xFF9E9E9E);
+    }
+  }
+
+  String get userRequestStatusDisplay {
+    switch (userRequestStatus) {
+      case 'pending':
+        return '⏳ في انتظار الموافقة';
+      case 'accepted':
+        return '✅ تم القبول';
+      case 'rejected':
+        return '❌ مرفوض';
+      case 'cancelled':
+        return '🚫 ملغي';
+      default:
+        return '';
+    }
+  }
+
+  Color get userRequestStatusColor {
+    switch (userRequestStatus) {
+      case 'pending':
+        return const Color(0xFFFF9800);
+      case 'accepted':
+        return const Color(0xFF0D631B);
+      case 'rejected':
+        return const Color(0xFFF44336);
+      case 'cancelled':
+        return const Color(0xFF9E9E9E);
+      default:
+        return const Color(0xFF9E9E9E);
+    }
+  }
+
+  // ✅ هل السعر موجود؟
+  bool get hasPrice => salePrice != null && salePrice! > 0;
+
+  // ✅ نص السعر
+  String get priceDisplay {
+    if (salePrice != null && salePrice! > 0) {
+      return '${salePrice!.toStringAsFixed(0)} ج.م';
+    }
+    return 'مجاني';
+  }
+
+  // ✅ السعر الأصلي
+  String get originalPriceDisplay {
+    if (originalPrice != null && originalPrice! > 0) {
+      return '${originalPrice!.toStringAsFixed(0)} ج.م';
+    }
+    return '';
   }
 
   List<String> get displayImages {
@@ -237,96 +370,40 @@ class FoodOffer extends Equatable {
     }
   }
 
-  // ✅ Get business name
   String get businessName {
     return business?['name'] as String? ?? 'مطعم';
   }
 
-  // ✅ Get business logo
   String? get businessLogo {
     return business?['logo'] as String?;
   }
 
-  // ✅ Get business rating
   double get businessRating {
     final rating = business?['rating'] as num?;
     return rating?.toDouble() ?? 0.0;
   }
 
-  // ✅ Get business type
   String get businessType {
     return business?['business_type'] as String? ?? 'restaurant';
   }
 
-  // ✅ إحداثيات الخريطة
   double get mapLatitude =>
       (business?['latitude'] as num?)?.toDouble() ?? latitude;
   double get mapLongitude =>
       (business?['longitude'] as num?)?.toDouble() ?? longitude;
 
-  // ✅ العنوان اللي يتعرض
   String get displayLocation =>
       pickupLocation.isNotEmpty && pickupLocation != 'موقع غير محدد'
           ? pickupLocation
           : (business?['address'] as String? ?? 'طنطا - شارع البحر');
 
-  // ✅ Helper properties
-  bool get isAvailable => status == FoodOfferStatus.available;
-  bool get isReserved => status == FoodOfferStatus.reserved;
-  bool get isCompleted => status == FoodOfferStatus.completed;
-  bool get isCancelled => status == FoodOfferStatus.cancelled;
-
-  bool get isExpired => DateTime.now().isAfter(expiryTime);
-
-  bool get isUrgent {
-    final hoursRemaining = expiryTime.difference(DateTime.now()).inHours;
-    return hoursRemaining <= 2 && isAvailable;
+  String get requestCountDisplay {
+    if (requestCount == 0) return 'لا يوجد طلبات';
+    if (requestCount == 1) return 'شخص واحد طلب هذا العرض';
+    return '$requestCount شخص طلبوا هذا العرض';
   }
 
-  String get timeRemaining {
-    final now = DateTime.now();
-    final difference = expiryTime.difference(now);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays} يوم';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} ساعة';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} دقيقة';
-    } else {
-      return 'انتهى';
-    }
-  }
-
-  String get statusDisplay {
-    switch (status) {
-      case FoodOfferStatus.available:
-        return 'متاح';
-      case FoodOfferStatus.reserved:
-        return 'محجوز';
-      case FoodOfferStatus.completed:
-        return 'مكتمل';
-      case FoodOfferStatus.cancelled:
-        return 'ملغي';
-      case FoodOfferStatus.expired:
-        return 'منتهي';
-    }
-  }
-
-  Color get statusColor {
-    switch (status) {
-      case FoodOfferStatus.available:
-        return const Color(0xFF0D631B);
-      case FoodOfferStatus.reserved:
-        return const Color(0xFFFF9800);
-      case FoodOfferStatus.completed:
-        return const Color(0xFF2196F3);
-      case FoodOfferStatus.cancelled:
-        return const Color(0xFFF44336);
-      case FoodOfferStatus.expired:
-        return const Color(0xFF9E9E9E);
-    }
-  }
+  bool get hasRequests => requestCount > 0;
 
   @override
   List<Object?> get props => [
@@ -363,5 +440,96 @@ class FoodOffer extends Equatable {
         views,
         interestedCount,
         shares,
+        requestCount,
+        isRequestedByUser,
+        isAccepted,
+        userRequestStatus,
+        salePrice,
+        originalPrice,
       ];
+
+  FoodOffer copyWith({
+    String? id,
+    String? title,
+    String? description,
+    int? quantity,
+    String? foodType,
+    DateTime? expiryTime,
+    DateTime? pickupBefore,
+    String? pickupLocation,
+    double? latitude,
+    double? longitude,
+    String? image,
+    FoodOfferStatus? status,
+    String? businessId,
+    String? charityId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Map<String, dynamic>? business,
+    List<String>? images,
+    String? estimatedWeight,
+    int? servesCount,
+    String? foodCondition,
+    String? packaging,
+    bool? requiresRefrigeration,
+    bool? isHalal,
+    bool? isVegetarian,
+    String? pickupNotes,
+    String? contactName,
+    String? contactPhone,
+    int? pickupWindowMinutes,
+    String? priority,
+    int? views,
+    int? interestedCount,
+    int? shares,
+    int? requestCount,
+    bool? isRequestedByUser,
+    bool? isAccepted,
+    String? userRequestStatus,
+    double? salePrice,
+    double? originalPrice,
+  }) {
+    return FoodOffer(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      quantity: quantity ?? this.quantity,
+      foodType: foodType ?? this.foodType,
+      expiryTime: expiryTime ?? this.expiryTime,
+      pickupBefore: pickupBefore ?? this.pickupBefore,
+      pickupLocation: pickupLocation ?? this.pickupLocation,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      image: image ?? this.image,
+      status: status ?? this.status,
+      businessId: businessId ?? this.businessId,
+      charityId: charityId ?? this.charityId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      business: business ?? this.business,
+      images: images ?? this.images,
+      estimatedWeight: estimatedWeight ?? this.estimatedWeight,
+      servesCount: servesCount ?? this.servesCount,
+      foodCondition: foodCondition ?? this.foodCondition,
+      packaging: packaging ?? this.packaging,
+      requiresRefrigeration:
+          requiresRefrigeration ?? this.requiresRefrigeration,
+      isHalal: isHalal ?? this.isHalal,
+      isVegetarian: isVegetarian ?? this.isVegetarian,
+      pickupNotes: pickupNotes ?? this.pickupNotes,
+      contactName: contactName ?? this.contactName,
+      contactPhone: contactPhone ?? this.contactPhone,
+      pickupWindowMinutes: pickupWindowMinutes ?? this.pickupWindowMinutes,
+      priority: priority ?? this.priority,
+      views: views ?? this.views,
+      interestedCount: interestedCount ?? this.interestedCount,
+      shares: shares ?? this.shares,
+      requestCount: requestCount ?? this.requestCount,
+      isRequestedByUser: isRequestedByUser ?? this.isRequestedByUser,
+      isAccepted: isAccepted ?? this.isAccepted,
+      userRequestStatus: userRequestStatus ?? this.userRequestStatus,
+      salePrice: salePrice ?? this.salePrice,
+      originalPrice: originalPrice ?? this.originalPrice,
+    );
+  }
 }

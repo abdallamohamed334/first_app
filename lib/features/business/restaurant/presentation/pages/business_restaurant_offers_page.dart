@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/material.dart';
 
-import 'package:loqma/core/errors/app_error_mapper.dart';
 import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
 import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
 import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
@@ -104,7 +103,8 @@ class _BusinessRestaurantOffersPageState
       );
     } catch (error) {
       if (!mounted) return;
-      RestaurantOperationFeedback.error(context, error);
+      RestaurantOperationFeedback.error(
+          context, 'تعذر تحديث العرض حاليًا. حاول مرة أخرى.');
     }
   }
 
@@ -156,10 +156,8 @@ class _BusinessRestaurantOffersPageState
             }
             if (snapshot.hasError) {
               return _OffersErrorView(
-                message: AppErrorMapper.message(
-                  snapshot.error!,
-                  fallback: 'تعذر تحميل عروض المطعم.',
-                ),
+                message:
+                    'تعذر تحميل العروض حاليًا. اسحب لأسفل للمحاولة مرة أخرى.',
                 onRetry: () async {
                   await _refresh();
                 },
@@ -292,8 +290,34 @@ class _OfferCard extends StatelessWidget {
         ? offer['title'].toString()
         : 'عرض بدون عنوان';
     final quantity = offer['quantity']?.toString() ?? '—';
-    final image = offer['image_url'] ?? offer['image'] ?? offer['cover_image'];
-    final imageUrl = image?.toString();
+    // معالجة الصورة داخل build نفسه، بدون الاعتماد على دالة خارجية.
+    final imageUrl = () {
+      final candidates = <dynamic>[
+        offer['image_url'],
+        offer['image'],
+        offer['cover_image'],
+        if (offer['images'] is List) ...List<dynamic>.from(offer['images']),
+      ];
+
+      for (final candidate in candidates) {
+        final raw = candidate?.toString().trim() ?? '';
+        if (raw.isEmpty || raw == 'null') continue;
+        if (raw.startsWith('http://') || raw.startsWith('https://')) {
+          return raw;
+        }
+
+        var path = raw.replaceFirst(RegExp(r'^/+'), '');
+        const bucket = 'restaurant-offers';
+        if (path.startsWith('$bucket/')) {
+          path = path.substring(bucket.length + 1);
+        }
+        if (path.isNotEmpty) {
+          return 'https://gsrhoqdtcyfdmvgahqvl.supabase.co'
+              '/storage/v1/object/public/$bucket/$path';
+        }
+      }
+      return null;
+    }();
     final borderColor = status == 'active'
         ? const Color(0xFF0B7650)
         : status == 'expired'

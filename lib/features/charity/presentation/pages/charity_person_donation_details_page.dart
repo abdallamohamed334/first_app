@@ -25,6 +25,7 @@ class _CharityPersonDonationDetailsPageState
 
   final _repository = SeparateCharityDonationRepository();
   bool _loading = false;
+  bool _assignmentDialogOpen = false;
   late String _status;
 
   Map<String, dynamic> get donation => widget.donation;
@@ -37,6 +38,15 @@ class _CharityPersonDonationDetailsPageState
       donation['user_name']?.toString() ??
       _nestedName(donation['users']) ??
       'متبرع';
+
+  List<String> get _images {
+    final raw = donation['images'];
+    if (raw is! List) return const [];
+    return raw
+        .map((value) => value.toString())
+        .where((url) => url.startsWith('http'))
+        .toList();
+  }
 
   @override
   void initState() {
@@ -65,46 +75,69 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  Future<void> _assignRepresentative() async {
-    if (_loading || donationId.isEmpty) return;
-    final nameController = TextEditingController();
-    final phoneController = TextEditingController();
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _RepresentativeSheet(
-        nameController: nameController,
-        phoneController: phoneController,
-        onConfirm: () {
-          if (nameController.text.trim().isEmpty ||
-              phoneController.text.trim().isEmpty) {
-            return;
-          }
-          Navigator.of(sheetContext).pop(true);
-        },
-      ),
-    );
-    nameController.dispose();
-    phoneController.dispose();
-    if (confirmed != true || !mounted) return;
+  Future<void> _assignVolunteer() async {
+    if (_assignmentDialogOpen || _loading || donationId.isEmpty || !mounted) {
+      return;
+    }
+    _assignmentDialogOpen = true;
 
-    setState(() => _loading = true);
     try {
-      await _repository.assignExternalRepresentative(
-        requestId: donationId,
-        name: nameController.text.trim(),
-        phone: phoneController.text.trim(),
+      final volunteers = await _repository.getMyCharityVolunteers();
+      if (!mounted) {
+        _assignmentDialogOpen = false;
+        return;
+      }
+
+      final activeVolunteers = volunteers
+          .where((v) => v['status']?.toString() == 'active')
+          .toList(growable: false);
+
+      final nameController = TextEditingController();
+      final phoneController = TextEditingController();
+
+      final assignment = await showDialog<_VolunteerAssignment>(
+        barrierDismissible: false,
+        context: context,
+        builder: (dialogContext) => _VolunteerDialog(
+          volunteers: activeVolunteers,
+          nameController: nameController,
+          phoneController: phoneController,
+        ),
       );
+
+      final externalName = nameController.text.trim();
+      final externalPhone = phoneController.text.trim();
+      nameController.dispose();
+      phoneController.dispose();
+
+      if (assignment == null || !mounted) {
+        _assignmentDialogOpen = false;
+        return;
+      }
+
+      setState(() => _loading = true);
+
+      final isExternal = assignment.id == null;
+      final volunteerName = isExternal ? externalName : assignment.name;
+      final volunteerPhone = isExternal ? externalPhone : assignment.phone;
+
+      await _repository.assignVolunteer(
+        requestId: donationId,
+        volunteerType: isExternal ? 'external' : 'charity_volunteer',
+        volunteerId: assignment.id,
+        volunteerName: volunteerName,
+        volunteerPhone: volunteerPhone,
+      );
+
       if (!mounted) return;
       setState(() => _status = 'volunteer_assigned');
-      CharityActionFeedback.showSuccess(
-          context, 'تم تعيين مندوب الاستلام بنجاح');
+      CharityActionFeedback.showSuccess(context, 'تم تعيين المندوب بنجاح');
     } catch (error) {
       if (mounted) {
         CharityActionFeedback.showError(context, _friendlyError(error));
       }
     } finally {
+      _assignmentDialogOpen = false;
       if (mounted) setState(() => _loading = false);
     }
   }
@@ -214,40 +247,140 @@ class _CharityPersonDonationDetailsPageState
     );
   }
 
-  Widget _hero() => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-              colors: [_deepGreen, _green],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft),
-          borderRadius: BorderRadius.all(Radius.circular(26)),
-        ),
-        child: Row(children: [
-          const CircleAvatar(
-              radius: 30,
-              backgroundColor: Color(0x35FFFFFF),
-              child: Icon(Icons.volunteer_activism_rounded,
-                  color: Colors.white, size: 31)),
-          const SizedBox(width: 13),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _hero() {
+    final images = _images;
+    final heroImage = images.isNotEmpty ? images.first : null;
+
+    return Container(
+      height: 190,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: _green.withAlpha(40),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (heroImage == null)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [_deepGreen, _green],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+              ),
+              child: Center(
+                child: Icon(Icons.volunteer_activism_rounded,
+                    color: Colors.white, size: 52),
+              ),
+            )
+          else
+            Image.network(
+              heroImage,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_deepGreen, _green],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(Icons.image_not_supported_outlined,
+                      color: Colors.white, size: 42),
+                ),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.35, 1],
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withAlpha(190),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 16,
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Color(0x35FFFFFF),
+                  child: Icon(Icons.volunteer_activism_rounded,
+                      color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 3),
+                      Text(donorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: Colors.white.withAlpha(220),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (images.length > 1)
+            Positioned(
+              top: 14,
+              left: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(140),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                Text(title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(height: 6),
-                Text(donorName,
-                    style: const TextStyle(
-                        color: Colors.white70, fontWeight: FontWeight.w700)),
-              ])),
-        ]),
-      );
+                    const Icon(Icons.photo_library_outlined,
+                        color: Colors.white, size: 13),
+                    const SizedBox(width: 4),
+                    Text('${images.length}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _detailsCard() => _card(
         title: 'بيانات التبرع',
@@ -265,15 +398,17 @@ class _CharityPersonDonationDetailsPageState
     const steps = [
       'pending',
       'accepted',
+      'donor_ready',
       'volunteer_assigned',
       'picked_up_from_donor',
       'completed'
     ];
     final current = switch (_status) {
       'accepted' => 1,
-      'volunteer_assigned' || 'donor_ready' => 2,
-      'picked_up_from_donor' || 'in_transit' => 3,
-      'completed' => 4,
+      'donor_ready' => 2,
+      'volunteer_assigned' => 3,
+      'picked_up_from_donor' || 'in_transit' => 4,
+      'completed' => 5,
       _ => 0,
     };
     return _card(
@@ -338,12 +473,15 @@ class _CharityPersonDonationDetailsPageState
       ]);
     }
     if (_status == 'accepted') {
-      return _actionButton('تعيين مندوب الاستلام',
-          Icons.person_add_alt_1_rounded, _assignRepresentative);
+      return _notice('بانتظار أن يضغط المتبرع «أنا جاهز لتسليم الحاجة».');
     }
-    if (_status == 'volunteer_assigned' || _status == 'donor_ready') {
+    if (_status == 'donor_ready') {
       return _actionButton(
-          'تأكيد كود الاستلام', Icons.password_rounded, _verifyPickup);
+          'إرسال مندوب الجمعية', Icons.badge_outlined, _assignVolunteer);
+    }
+    if (_status == 'volunteer_assigned') {
+      return _actionButton(
+          'إدخال كود المتبرع والتحقق', Icons.password_rounded, _verifyPickup);
     }
     if (_status == 'completed') {
       return _notice('تم استلام التبرع وإغلاق العملية بنجاح');
@@ -372,11 +510,12 @@ class _CharityPersonDonationDetailsPageState
                       borderRadius: BorderRadius.circular(17)))));
 
   Widget _notice(String text) => Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(15),
       decoration:
           BoxDecoration(color: _mint, borderRadius: BorderRadius.circular(17)),
       child: Row(children: [
-        const Icon(Icons.check_circle_rounded, color: _green),
+        const Icon(Icons.hourglass_top_rounded, color: _green),
         const SizedBox(width: 9),
         Expanded(
             child: Text(text,
@@ -431,12 +570,14 @@ class _CharityPersonDonationDetailsPageState
         return 'في انتظار المراجعة';
       case 'accepted':
         return 'تم القبول';
-      case 'volunteer_assigned':
-        return 'تم تعيين مندوب';
       case 'donor_ready':
         return 'المتبرع أعلن الجاهزية';
+      case 'volunteer_assigned':
+        return 'تم تعيين مندوب';
       case 'picked_up_from_donor':
         return 'استلم المندوب التبرع';
+      case 'in_transit':
+        return 'في الطريق للجمعية';
       case 'completed':
         return 'تم الوصول';
       case 'rejected':
@@ -455,56 +596,224 @@ class _CharityPersonDonationDetailsPageState
   }
 }
 
-class _RepresentativeSheet extends StatelessWidget {
+class _VolunteerAssignment {
+  final String? id;
+  final String name;
+  final String phone;
+
+  const _VolunteerAssignment({
+    required this.id,
+    required this.name,
+    required this.phone,
+  });
+}
+
+class _VolunteerDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> volunteers;
   final TextEditingController nameController;
   final TextEditingController phoneController;
-  final VoidCallback onConfirm;
 
-  const _RepresentativeSheet(
-      {required this.nameController,
-      required this.phoneController,
-      required this.onConfirm});
+  const _VolunteerDialog({
+    required this.volunteers,
+    required this.nameController,
+    required this.phoneController,
+  });
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-      child: Padding(
-          padding:
-              EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-          child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-              decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(28))),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                        color: Colors.grey,
-                        borderRadius: BorderRadius.circular(8))),
-                const SizedBox(height: 14),
-                const Text('تعيين مندوب الاستلام',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 14),
-                TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                        labelText: 'اسم المندوب',
-                        prefixIcon: Icon(Icons.person_outline_rounded))),
-                const SizedBox(height: 10),
-                TextField(
-                    controller: phoneController,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                        labelText: 'رقم الهاتف',
-                        prefixIcon: Icon(Icons.phone_outlined))),
-                const SizedBox(height: 16),
-                SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                        onPressed: onConfirm,
-                        child: const Text('تعيين المندوب')))
-              ]))));
+  State<_VolunteerDialog> createState() => _VolunteerDialogState();
+}
+
+class _VolunteerDialogState extends State<_VolunteerDialog> {
+  static const _green = Color(0xFF087A52);
+  static const _mint = Color(0xFFE9F7F0);
+  static const _deepGreen = Color(0xFF123D31);
+
+  bool _fromCharity = true;
+  String? _selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.volunteers.where(
+      (item) => item['id']?.toString() == _selectedId,
+    );
+    final volunteer = selected.isEmpty ? null : selected.first;
+
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+      ),
+      title: Row(
+        children: const [
+          Icon(Icons.badge_outlined, color: _green),
+          SizedBox(width: 10),
+          Text(
+            'تعيين مندوب',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'اختر مندوب من الجمعية أو أضف مندوبًا خارجيًا',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text('من الجمعية'),
+                  icon: Icon(Icons.groups_outlined),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text('خارجي'),
+                  icon: Icon(Icons.person_add_alt_1),
+                ),
+              ],
+              selected: {_fromCharity},
+              onSelectionChanged: (values) {
+                setState(() {
+                  _fromCharity = values.first;
+                  _selectedId = null;
+                  widget.nameController.clear();
+                  widget.phoneController.clear();
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            if (_fromCharity)
+              widget.volunteers.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'لا يوجد مندوبون نشطون داخل الجمعية',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : DropdownButtonFormField<String>(
+                      value: _selectedId,
+                      decoration: const InputDecoration(
+                        labelText: 'اختيار مندوب الجمعية',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                      ),
+                      items: widget.volunteers.map((item) {
+                        final itemId = item['id']?.toString() ?? '';
+                        final itemName = item['name']?.toString() ?? 'مندوب';
+                        final itemPhone = item['phone']?.toString() ?? '';
+                        return DropdownMenuItem<String>(
+                          value: itemId,
+                          child: Text(
+                            '$itemName${itemPhone.isEmpty ? '' : ' — $itemPhone'}',
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) => setState(() => _selectedId = value),
+                    )
+            else ...[
+              TextField(
+                controller: widget.nameController,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'اسم المندوب الخارجي',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: widget.phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'رقم هاتف المندوب الخارجي',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+            if (_fromCharity && volunteer != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _mint,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: _green, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'سيتم تعيين: ${volunteer['name'] ?? 'مندوب الجمعية'}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _deepGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (_fromCharity) {
+              if (volunteer == null) return;
+              Navigator.pop(
+                context,
+                _VolunteerAssignment(
+                  id: volunteer['id']?.toString(),
+                  name: volunteer['name']?.toString().trim() ?? '',
+                  phone: volunteer['phone']?.toString().trim() ?? '',
+                ),
+              );
+            } else {
+              if (widget.nameController.text.trim().isEmpty ||
+                  widget.phoneController.text.trim().isEmpty) return;
+              Navigator.pop(
+                context,
+                _VolunteerAssignment(
+                  id: null,
+                  name: widget.nameController.text.trim(),
+                  phone: widget.phoneController.text.trim(),
+                ),
+              );
+            }
+          },
+          style: FilledButton.styleFrom(
+            backgroundColor: _green,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('تعيين المندوب'),
+        ),
+      ],
+    );
+  }
 }

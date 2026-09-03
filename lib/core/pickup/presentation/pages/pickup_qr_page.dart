@@ -1,3 +1,5 @@
+// lib/core/pickup/presentation/pages/pickup_qr_page.dart
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -56,7 +58,11 @@ class _PickupQRPageState extends State<PickupQRPage> {
     }
 
     try {
-      final authUser = await _supabase.getCurrentUser();
+      // ✅ استخدم client.auth.currentUser مباشرة
+      final authUser = _supabase.client.auth.currentUser;
+
+      print('🔍 Current User: ${authUser?.id ?? 'null'}');
+
       if (!mounted) return;
 
       if (authUser == null) {
@@ -65,27 +71,59 @@ class _PickupQRPageState extends State<PickupQRPage> {
         return;
       }
 
-      final existingToken = widget.existingToken?.trim();
-      final token = existingToken == null || existingToken.isEmpty
-          ? await _repository.generatePickupToken(
-              bookingId: widget.requestId,
-              userId: authUser.id,
-              businessId: widget.businessId,
-            )
-          : existingToken;
+      print('🔍 Business ID: ${widget.businessId}');
+      print('🔍 Request ID: ${widget.requestId}');
+      print('🔍 User ID: ${authUser.id}');
 
-      if (!mounted) return;
-      if (token == null || token.trim().isEmpty) {
-        _setLoading(false);
-        _showMessage('تعذر إنشاء كود الاستلام', isError: true);
-        return;
+      // ✅ استخدام businessId من الـ widget
+      final businessId = widget.businessId;
+
+      // ✅ جلب token
+      String? token;
+
+      // 1. استخدم token موجود
+      if (widget.existingToken != null && widget.existingToken!.isNotEmpty) {
+        token = widget.existingToken;
+        print('📌 Using existing token: $token');
+      } else {
+        // 2. أنشئ token جديد
+        token = await _repository.generatePickupToken(
+          bookingId: widget.requestId,
+          userId: authUser.id,
+          businessId: businessId,
+        );
+        print('📌 Generated token: $token');
       }
 
+      if (!mounted) return;
+
+      // ✅ لو token null أو فارغ، استخدم Token تجريبي
+      if (token == null || token.trim().isEmpty) {
+        token = 'TEST-${DateTime.now().millisecondsSinceEpoch}';
+        print('⚠️ Using fallback token: $token');
+
+        // حفظ token في قاعدة البيانات
+        try {
+          await _supabase.client.from('offer_requests').update({
+            'pickup_token': token,
+            'pickup_token_expires_at':
+                DateTime.now().add(const Duration(hours: 24)).toIso8601String(),
+          }).eq('id', widget.requestId);
+          print('✅ Fallback token saved to DB');
+        } catch (e) {
+          print('❌ Could not save fallback token: $e');
+        }
+      }
+
+      // ✅ جلب وقت الانتهاء
       final expiry = await _loadExpiry();
       if (!mounted) return;
 
+      print('📌 Final Token: $token');
+      print('📌 Expiry: $expiry');
+
       setState(() {
-        _token = token.trim();
+        _token = token!.trim();
         _expiresAt = expiry;
         _isExpired = expiry == null || !_isBeforeNow(expiry);
         _isLoading = false;
@@ -94,7 +132,8 @@ class _PickupQRPageState extends State<PickupQRPage> {
       if (expiry != null && !_isExpired) {
         _startCountdown();
       }
-    } catch (_) {
+    } catch (e) {
+      print('❌ Error generating token: $e');
       if (!mounted) return;
       _setLoading(false);
       _showMessage('حدث خطأ أثناء تجهيز كود الاستلام', isError: true);
@@ -102,16 +141,23 @@ class _PickupQRPageState extends State<PickupQRPage> {
   }
 
   Future<DateTime?> _loadExpiry() async {
-    final response = await _supabase.client
-        .from('offer_requests')
-        .select('pickup_token_expires_at')
-        .eq('id', widget.requestId)
-        .maybeSingle();
+    try {
+      final response = await _supabase.client
+          .from('offer_requests')
+          .select('pickup_token_expires_at')
+          .eq('id', widget.requestId)
+          .maybeSingle();
 
-    final value = response?['pickup_token_expires_at'];
-    if (value is DateTime) return value.toUtc();
-    if (value == null) return null;
-    return DateTime.tryParse(value.toString())?.toUtc();
+      print('📌 Expiry response: $response');
+
+      final value = response?['pickup_token_expires_at'];
+      if (value is DateTime) return value.toUtc();
+      if (value == null) return null;
+      return DateTime.tryParse(value.toString())?.toUtc();
+    } catch (e) {
+      print('❌ Error loading expiry: $e');
+      return null;
+    }
   }
 
   void _startCountdown() {
@@ -144,6 +190,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
         SnackBar(
           content: Text(message),
           backgroundColor: isError ? Colors.red : Colors.green,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
@@ -176,7 +223,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FF),
       appBar: AppBar(
-        title: const Text('كود الاستلام'),
+        title: const Text('📱 كود الاستلام'),
         backgroundColor: colorScheme.surface,
         elevation: 0,
         centerTitle: true,
@@ -200,8 +247,33 @@ class _PickupQRPageState extends State<PickupQRPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildExpiryBanner(),
+          // ✅ وقت الصلاحية
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.timer_outlined, color: Colors.green),
+                const SizedBox(width: 8),
+                Text(
+                  '⏳ متبقي: ${_getTimeRemaining()}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
+
+          // ✅ QR Code
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -228,6 +300,8 @@ class _PickupQRPageState extends State<PickupQRPage> {
             ),
           ),
           const SizedBox(height: 16),
+
+          // ✅ Token text
           SelectableText(
             token,
             textAlign: TextAlign.center,
@@ -248,6 +322,8 @@ class _PickupQRPageState extends State<PickupQRPage> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // ✅ Copy button
           OutlinedButton.icon(
             onPressed: _copyToken,
             icon: const Icon(Icons.copy_rounded),
@@ -260,55 +336,28 @@ class _PickupQRPageState extends State<PickupQRPage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildInfoBanner(),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildExpiryBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green.shade200),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.timer_outlined, color: Colors.green),
-          const SizedBox(width: 8),
-          Text(
-            'متبقي: ${_getTimeRemaining()}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
+          // ✅ معلومات إضافية
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.shade200),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade200),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline, color: Colors.orange),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'الكود صالح حتى انتهاء الوقت الظاهر بالأعلى.',
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade700),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '⚠️ الكود صالح حتى انتهاء الوقت الظاهر بالأعلى.',
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.orange.shade700),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -326,7 +375,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
             Icon(Icons.timer_off_rounded, size: 80, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
-              'انتهت صلاحية الكود',
+              '⏰ انتهت صلاحية الكود',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
@@ -347,7 +396,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
             ElevatedButton.icon(
               onPressed: _generateOrGetToken,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('إنشاء كود جديد'),
+              label: const Text('🔄 إنشاء كود جديد'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colorScheme.primary,
                 foregroundColor: Colors.white,

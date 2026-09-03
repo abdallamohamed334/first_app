@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 
 import '../../data/repositories/institutions_repository.dart';
 
@@ -27,6 +28,7 @@ class _InstitutionOfferRequestsManagementPageState
   late Future<List<Map<String, dynamic>>> _future;
   StreamSubscription? _subscription;
   bool _isVerifying = false;
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -35,15 +37,19 @@ class _InstitutionOfferRequestsManagementPageState
     debugPrint(
         '[InstitutionRequests] init institutionId=${widget.institutionId}');
     _future = _loadRequests();
-    _subscription = SupabaseService()
-        .client
-        .from('institution_offer_requests')
-        .stream(primaryKey: ['id']).listen((_) {
-      _reloadAfterFrame();
-    }, onError: (error, stackTrace) {
-      debugPrint('[InstitutionRequests] realtime error=$error');
-      debugPrint('[InstitutionRequests] realtime stack=$stackTrace');
-    });
+
+    try {
+      _subscription = SupabaseService()
+          .client
+          .from('institution_offer_requests')
+          .stream(primaryKey: ['id']).handleError((error) {
+        debugPrint('[InstitutionRequests] realtime error: $error');
+      }).listen((_) {
+        _reloadAfterFrame();
+      });
+    } catch (e) {
+      debugPrint('[InstitutionRequests] realtime setup failed: $e');
+    }
   }
 
   @override
@@ -62,142 +68,198 @@ class _InstitutionOfferRequestsManagementPageState
   }
 
   Future<void> _reload() async {
-    final future = _loadRequests();
-    if (mounted) {
-      setState(() => _future = future);
-    }
-    await future;
+    if (!mounted) return;
+    setState(() {
+      _future = _loadRequests();
+    });
+    await _future;
   }
 
   void _reloadAfterFrame() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_reload().catchError((error, stackTrace) {
+      _reload().catchError((error) {
         debugPrint('[InstitutionRequests] deferred reload error=$error');
-      }));
+      });
     });
   }
 
-  void _showMessage(String message) {
+  void _showMessage(String message, {bool isError = false}) {
     if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? const Color(0xFFD64545) : null,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
       );
     });
   }
 
+  void _handleError(dynamic error, {String? customMessage}) {
+    debugPrint('[InstitutionRequests] Error: $error');
+    String message = customMessage ?? 'حدث خطأ غير متوقع';
+
+    if (error is PostgrestException) {
+      switch (error.code) {
+        case 'PGRST116':
+          message = 'الطلب غير موجود أو تم حذفه';
+          break;
+        case '23505':
+          message = 'حدث تعارض في البيانات';
+          break;
+        case '42501':
+          message = 'غير مصرح لك بهذا الإجراء';
+          break;
+        default:
+          message = error.message ?? message;
+      }
+    }
+
+    _showMessage(message, isError: true);
+  }
+
   Future<void> _ready(String requestId) async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+
     try {
       await _repository.markOfferRequestReady(requestId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تجهيز الطلب للاستلام')),
-      );
+      _showMessage('✅ تم تجهيز الطلب للاستلام');
       await _reload();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تجهيز الطلب للاستلام')),
-      );
+    } catch (error) {
+      _handleError(error, customMessage: 'تعذر تجهيز الطلب للاستلام');
+    } finally {
+      _isProcessing = false;
     }
   }
 
   Future<void> _verifyCode(String requestId) async {
-    if (_isVerifying) return;
+    if (!mounted || _isVerifying) return;
     _isVerifying = true;
     final controller = TextEditingController();
-    String? rawCode;
+
     try {
-      rawCode = await showDialog<String>(
+      final rawCode = await showDialog<String>(
         context: context,
         useRootNavigator: true,
         barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('تحقق من كود المستخدم'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            decoration: InputDecoration(
-              hintText: '000000',
-              counterText: '',
-              filled: true,
-              fillColor: const Color(0xFFF4F8F5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
+        builder: (dialogContext) {
+          var invalidCode = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) => AlertDialog(
+              title: const Text('تحقق من كود المستخدم'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'اطلب من المستخدم إعطائك الكود المكون من 6 أرقام',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF71837C)),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF123F31),
+                    ),
+                    onChanged: (_) {
+                      if (invalidCode)
+                        setDialogState(() => invalidCode = false);
+                    },
+                    decoration: InputDecoration(
+                      hintText: '000000',
+                      counterText: '',
+                      errorText: invalidCode ? 'أدخل 6 أرقام' : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF4F8F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFF0B7650)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('إلغاء',
+                      style: TextStyle(color: Color(0xFF71837C))),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final normalized = _normalizeDigits(controller.text);
+                    if (normalized != null) {
+                      Navigator.of(dialogContext).pop(normalized);
+                    } else {
+                      setDialogState(() => invalidCode = true);
+                    }
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B7650),
+                  ),
+                  child: const Text('تحقق'),
+                ),
+              ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-              child: const Text('تحقق'),
-            ),
-          ],
-        ),
+          );
+        },
       );
-    } finally {
-      controller.dispose();
-    }
 
-    final code = _normalizeDigits(rawCode);
-    if (code == null) {
-      _isVerifying = false;
-      if (mounted) {
-        _showMessage('اكتب كودًا مكونًا من 6 أرقام');
+      if (!mounted || rawCode == null) return;
+      final code = _normalizeDigits(rawCode);
+      if (code == null) {
+        _showMessage('اكتب كودًا مكونًا من 6 أرقام', isError: true);
+        return;
       }
-      return;
-    }
 
-    try {
       debugPrint(
           '[InstitutionRequests] verifying user pickup code request=$requestId');
       await _repository.verifyOfferRequestPickupCode(
           requestId: requestId, code: code);
-      _isVerifying = false;
       if (!mounted) return;
-      _showMessage('تم التحقق واستلام الطلب');
-      _reloadAfterFrame();
-    } on PostgrestException catch (error, stackTrace) {
+      _showMessage('تم التحقق واستلام الطلب بنجاح');
+      await _reload();
+    } catch (error) {
+      if (mounted) {
+        _handleError(error, customMessage: 'كود الاستلام غير صحيح أو منتهي');
+      }
+    } finally {
+      controller.dispose();
       _isVerifying = false;
-      debugPrint('[InstitutionRequests] verify code failed code=${error.code}');
-      debugPrint('[InstitutionRequests] verify code message=${error.message}');
-      debugPrint('[InstitutionRequests] verify code details=${error.details}');
-      debugPrint('[InstitutionRequests] verify code stack=$stackTrace');
-      if (!mounted) return;
-      _showMessage('كود الاستلام غير صحيح أو منتهي');
-    } catch (error, stackTrace) {
-      _isVerifying = false;
-      debugPrint('[InstitutionRequests] verify unexpected error=$error');
-      debugPrint('[InstitutionRequests] verify unexpected stack=$stackTrace');
-      if (!mounted) return;
-      _showMessage('تعذر التحقق من الكود حاليًا');
     }
   }
 
   Future<void> _decide(String requestId, bool accept) async {
+    if (_isProcessing) return;
+    _isProcessing = true;
+
     try {
       await _repository.updateOfferRequest(
           requestId: requestId, accept: accept);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(accept ? 'تم قبول الطلب' : 'تم رفض الطلب')),
-      );
+      _showMessage(accept ? '✅ تم قبول الطلب' : '❌ تم رفض الطلب');
       await _reload();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تحديث الطلب حاليًا')),
-      );
+    } catch (error) {
+      _handleError(error, customMessage: 'تعذر تحديث الطلب حاليًا');
+    } finally {
+      _isProcessing = false;
     }
   }
 
@@ -218,43 +280,152 @@ class _InstitutionOfferRequestsManagementPageState
     return RegExp(r'^\d{6}$').hasMatch(normalized) ? normalized : null;
   }
 
+  List<Map<String, dynamic>> _groupRequestsByOffer(
+      List<Map<String, dynamic>> requests) {
+    final Map<String, Map<String, dynamic>> grouped = {};
+
+    for (var request in requests) {
+      final offer = request['institution_offers_core'] as Map? ?? {};
+      final offerId = offer['id']?.toString() ?? 'unknown';
+
+      if (!grouped.containsKey(offerId)) {
+        grouped[offerId] = {
+          'offer': offer,
+          'requests': <Map<String, dynamic>>[],
+          'totalQuantity': 0,
+          'pendingCount': 0,
+          'acceptedCount': 0,
+          'readyCount': 0,
+          'completedCount': 0,
+        };
+      }
+
+      grouped[offerId]!['requests'].add(request);
+      grouped[offerId]!['totalQuantity'] =
+          (grouped[offerId]!['totalQuantity'] as int) +
+              (request['quantity'] as int? ?? 0);
+
+      final status = request['status']?.toString() ?? '';
+      if (status == 'pending') {
+        grouped[offerId]!['pendingCount'] =
+            (grouped[offerId]!['pendingCount'] as int) + 1;
+      } else if (status == 'accepted') {
+        grouped[offerId]!['acceptedCount'] =
+            (grouped[offerId]!['acceptedCount'] as int) + 1;
+      } else if (status == 'ready_for_pickup') {
+        grouped[offerId]!['readyCount'] =
+            (grouped[offerId]!['readyCount'] as int) + 1;
+      } else if (status == 'completed' || status == 'picked_up') {
+        grouped[offerId]!['completedCount'] =
+            (grouped[offerId]!['completedCount'] as int) + 1;
+      }
+    }
+
+    return grouped.values.toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('طلبات العملاء')),
+        appBar: AppBar(
+          title: const Text('طلبات العملاء'),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          foregroundColor: const Color(0xFF123F31),
+        ),
         backgroundColor: const Color(0xFFFCF9F2),
         body: FutureBuilder<List<Map<String, dynamic>>>(
           future: _future,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF0B7650),
+                ),
+              );
             }
             if (snapshot.hasError) {
               return Center(
-                  child: FilledButton.tonal(
-                      onPressed: _reload, child: const Text('إعادة المحاولة')));
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: Color(0xFFD64545),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'حدث خطأ أثناء التحميل',
+                      style: const TextStyle(
+                        color: Color(0xFF123F31),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('إعادة المحاولة'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0B7650),
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
             final requests = snapshot.data ?? const <Map<String, dynamic>>[];
-            if (requests.isEmpty)
-              return const Center(
-                  child: Text('لا توجد طلبات على عروضك حتى الآن'));
+            if (requests.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.inbox_rounded,
+                      size: 64,
+                      color: Color(0xFFB8C8C0),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'لا توجد طلبات على عروضك حتى الآن',
+                      style: TextStyle(
+                        color: Color(0xFF71837C),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'عندما يطلب العملاء عروضك، ستظهر هنا',
+                      style: TextStyle(
+                        color: Color(0xFF71837C).withOpacity(0.7),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            final groupedOffers = _groupRequestsByOffer(requests);
+
             return RefreshIndicator(
               onRefresh: _reload,
+              color: const Color(0xFF0B7650),
               child: ListView.separated(
                 padding: const EdgeInsets.all(16),
-                itemCount: requests.length,
+                itemCount: groupedOffers.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, index) => _RequestCard(
-                  row: requests[index],
-                  onAccept: () =>
-                      _decide(requests[index]['id'].toString(), true),
-                  onReject: () =>
-                      _decide(requests[index]['id'].toString(), false),
-                  onReady: () => _ready(requests[index]['id'].toString()),
-                  onVerifyCode: () =>
-                      _verifyCode(requests[index]['id'].toString()),
+                itemBuilder: (_, index) => _OfferGroupCard(
+                  group: groupedOffers[index],
+                  onAccept: (requestId) => _decide(requestId, true),
+                  onReject: (requestId) => _decide(requestId, false),
+                  onReady: (requestId) => _ready(requestId),
+                  onVerifyCode: (requestId) => _verifyCode(requestId),
+                  isProcessing: _isProcessing,
                 ),
               ),
             );
@@ -265,40 +436,203 @@ class _InstitutionOfferRequestsManagementPageState
   }
 }
 
-class _RequestCard extends StatelessWidget {
-  final Map<String, dynamic> row;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-  final VoidCallback onReady;
-  final VoidCallback onVerifyCode;
+// ============================================================
+// ✅ كارد تجميع الطلبات حسب العرض
+// ============================================================
 
-  const _RequestCard({
-    required this.row,
+class _OfferGroupCard extends StatelessWidget {
+  final Map<String, dynamic> group;
+  final Function(String) onAccept;
+  final Function(String) onReject;
+  final Function(String) onReady;
+  final Function(String) onVerifyCode;
+  final bool isProcessing;
+
+  const _OfferGroupCard({
+    required this.group,
     required this.onAccept,
     required this.onReject,
     required this.onReady,
     required this.onVerifyCode,
+    this.isProcessing = false,
   });
+
+  void _showAllRequesters(
+      BuildContext context, List<Map<String, dynamic>> requests) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCEBE3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'جميع المستخدمين',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF123F31),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.separated(
+                  controller: scrollController,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  itemCount: requests.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, index) {
+                    final request = requests[index];
+                    final requester = request['users'] as Map? ?? {};
+                    final name =
+                        requester['name']?.toString().trim().isNotEmpty == true
+                            ? requester['name'].toString().trim()
+                            : 'مستخدم Loqma';
+                    final avatar =
+                        requester['avatar_url']?.toString().trim() ?? '';
+                    final quantity = request['quantity']?.toString() ?? '1';
+                    final status = request['status']?.toString() ?? 'pending';
+                    final userId = requester['id']?.toString().trim() ?? '';
+                    final userPhone =
+                        requester['phone']?.toString().trim() ?? '';
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 20,
+                        backgroundColor: const Color(0xFFE8F5EE),
+                        backgroundImage:
+                            avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                        child: avatar.isEmpty
+                            ? const Icon(
+                                Icons.person_rounded,
+                                color: Color(0xFF0B7650),
+                                size: 22,
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF123F31),
+                        ),
+                      ),
+                      subtitle: Text(
+                        'طلب $quantity وحدة • ${_getStatusLabel(status)}',
+                        style: const TextStyle(
+                          color: Color(0xFF71837C),
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          if (userId.isNotEmpty) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => UserProfilePage(
+                                  userId: userId,
+                                  userName: name,
+                                  userAvatar: avatar,
+                                  userPhone: userPhone,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(
+                          Icons.person_outline_rounded,
+                          color: Color(0xFF0B7650),
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (userId.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserProfilePage(
+                                userId: userId,
+                                userName: name,
+                                userAvatar: avatar,
+                                userPhone: userPhone,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'pending':
+        return 'قيد المراجعة';
+      case 'accepted':
+        return 'مقبول';
+      case 'ready_for_pickup':
+        return 'جاهز';
+      case 'picked_up':
+        return 'تم الاستلام';
+      case 'completed':
+        return 'مكتمل';
+      case 'rejected':
+        return 'مرفوض';
+      case 'cancelled':
+        return 'ملغي';
+      case 'expired':
+        return 'منتهي';
+      default:
+        return status;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final offer = row['institution_offers_core'] is Map
-        ? Map<String, dynamic>.from(row['institution_offers_core'] as Map)
-        : row['institution_offers'] is Map
-            ? Map<String, dynamic>.from(row['institution_offers'] as Map)
-            : const <String, dynamic>{};
-    final status = row['status']?.toString() ?? 'pending';
-    final title = offer['title']?.toString().trim();
-    final requester = _firstText(row, const [
-      'requester_name',
-      'user_name',
-      'customer_name',
-      'requester_full_name',
-    ]);
-    final phone =
-        _firstText(row, const ['requester_phone', 'user_phone', 'phone']);
-    final quantity = row['quantity']?.toString() ?? '1';
-    final palette = _statusPalette(status);
+    final offer = group['offer'] as Map<String, dynamic>? ?? {};
+    final requests = group['requests'] as List<Map<String, dynamic>>? ?? [];
+    final totalQuantity = group['totalQuantity'] as int? ?? 0;
+    final pendingCount = group['pendingCount'] as int? ?? 0;
+    final acceptedCount = group['acceptedCount'] as int? ?? 0;
+    final readyCount = group['readyCount'] as int? ?? 0;
+    final completedCount = group['completedCount'] as int? ?? 0;
+
+    final title = offer['title']?.toString().trim() ?? 'عرض بدون عنوان';
+    final images = offer['images'] as List? ?? [];
+    final imageUrl = images.isNotEmpty ? images.first.toString() : null;
+
+    final totalRequests = requests.length;
+    final hasPending = pendingCount > 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -327,15 +661,28 @@ class _RequestCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF123F31),
-                      borderRadius: BorderRadius.circular(17),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(17),
+                    child: Container(
+                      width: 54,
+                      height: 54,
+                      color: const Color(0xFFE8F5EE),
+                      child: imageUrl != null && imageUrl.isNotEmpty
+                          ? Image.network(
+                              imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.shopping_bag_outlined,
+                                color: Color(0xFF0B7650),
+                                size: 28,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.shopping_bag_outlined,
+                              color: Color(0xFF0B7650),
+                              size: 28,
+                            ),
                     ),
-                    child: const Icon(Icons.shopping_bag_outlined,
-                        color: Colors.white, size: 28),
                   ),
                   const SizedBox(width: 13),
                   Expanded(
@@ -343,9 +690,7 @@ class _RequestCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title?.isNotEmpty == true
-                              ? title!
-                              : 'طلب على عرض المؤسسة',
+                          title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -354,316 +699,252 @@ class _RequestCard extends StatelessWidget {
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 4),
                         Text(
-                          'طلب جديد على عرضك',
-                          style: TextStyle(
-                              color: const Color(0xFF53665E), fontSize: 12.5),
+                          '$totalRequests طلب • $totalQuantity وحدة',
+                          style: const TextStyle(
+                            color: Color(0xFF53665E),
+                            fontSize: 12.5,
+                          ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _StatusBadge(
-                      label: _statusLabel(status),
-                      color: palette.$1,
-                      background: palette.$2),
+                  if (hasPending)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF0DA),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$pendingCount جديد',
+                        style: const TextStyle(
+                          color: Color(0xFFB36B12),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoTile(
-                          icon: Icons.person_outline,
-                          label: 'مقدم الطلب',
-                          value: requester ?? 'مستخدم التطبيق',
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _InfoTile(
-                          icon: Icons.inventory_2_outlined,
-                          label: 'الكمية المطلوبة',
-                          value: '$quantity وحدة',
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (phone != null) ...[
-                    const SizedBox(height: 10),
-                    _InfoTile(
-                        icon: Icons.phone_outlined,
-                        label: 'رقم الهاتف',
-                        value: phone),
-                  ],
-                  const SizedBox(height: 18),
-                  _RequestTimeline(status: status),
-                  if (status == 'pending') ...[
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: onReject,
-                            icon: const Icon(Icons.close_rounded, size: 18),
-                            label: const Text('رفض الطلب'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFB04444),
-                              side: const BorderSide(color: Color(0xFFE7BABA)),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: onAccept,
-                            icon: const Icon(Icons.check_rounded, size: 18),
-                            label: const Text('قبول الطلب'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF123F31),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (status == 'accepted') ...[
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: onReady,
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      label: const Text('العرض جاهز للاستلام'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF123F31),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ] else if (status == 'ready_for_pickup') ...[
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: onVerifyCode,
-                        icon: const Icon(Icons.verified_outlined, size: 19),
-                        label: const Text('تحقق من كود المستخدم'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF123F31),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  ],
+                  _buildStatChip(
+                      '⏳ قيد المراجعة', pendingCount, const Color(0xFFB36B12)),
+                  const SizedBox(width: 8),
+                  _buildStatChip(
+                      '✅ مقبول', acceptedCount, const Color(0xFF3679C8)),
+                  const SizedBox(width: 8),
+                  _buildStatChip(
+                      '📦 جاهز', readyCount, const Color(0xFF0B7650)),
+                  const SizedBox(width: 8),
+                  _buildStatChip(
+                      '🎉 مكتمل', completedCount, const Color(0xFF2F6DA5)),
                 ],
               ),
             ),
+            const Divider(height: 1, color: Color(0xFFE7ECE8)),
+            if (requests.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                child: Column(
+                  children: [
+                    ...requests.take(3).map(
+                        (request) => _buildRequesterTile(context, request)),
+                    if (requests.length > 3)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: TextButton.icon(
+                          onPressed: () {
+                            _showAllRequesters(context, requests);
+                          },
+                          icon: const Icon(Icons.people_outline_rounded,
+                              size: 18),
+                          label: Text(
+                            'عرض كل المستخدمين (${requests.length})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF0B7650),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  String? _firstText(Map<String, dynamic> source, List<String> keys) {
-    for (final key in keys) {
-      final value = source[key]?.toString().trim();
-      if (value != null && value.isNotEmpty && value != 'null') return value;
-    }
-    return null;
-  }
-
-  (Color, Color) _statusPalette(String status) {
-    switch (status) {
-      case 'accepted':
-      case 'ready_for_pickup':
-        return (const Color(0xFF0B7650), const Color(0xFFE5F4EC));
-      case 'rejected':
-      case 'cancelled':
-      case 'expired':
-        return (const Color(0xFFB04444), const Color(0xFFFBEAEA));
-      case 'picked_up':
-      case 'completed':
-        return (const Color(0xFF245F9E), const Color(0xFFE9F1FB));
-      default:
-        return (const Color(0xFF8A6B20), const Color(0xFFFFF4D8));
-    }
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'accepted':
-        return 'تم القبول';
-      case 'rejected':
-        return 'تم الرفض';
-      case 'ready_for_pickup':
-        return 'جاهز للاستلام';
-      case 'picked_up':
-        return 'تم الاستلام';
-      case 'completed':
-        return 'مكتمل';
-      case 'cancelled':
-        return 'ملغي';
-      case 'expired':
-        return 'منتهي';
-      default:
-        return 'في انتظار المراجعة';
-    }
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final Color background;
-
-  const _StatusBadge(
-      {required this.label, required this.color, required this.background});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatChip(String label, int count, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-          color: background, borderRadius: BorderRadius.circular(30)),
-      child: Text(label,
-          style: TextStyle(
-              color: color, fontSize: 11.5, fontWeight: FontWeight.w800)),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoTile(
-      {required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAF8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8EEE9)),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFF38715E), size: 21),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: const TextStyle(
-                        color: Color(0xFF718079), fontSize: 11)),
-                const SizedBox(height: 3),
-                Text(value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xFF1B332A),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13)),
-              ],
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Container(
+            width: 16,
+            height: 16,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _RequestTimeline extends StatelessWidget {
-  final String status;
+  Widget _buildRequesterTile(
+      BuildContext context, Map<String, dynamic> request) {
+    final requester = request['users'] as Map? ?? {};
+    final name = requester['name']?.toString().trim().isNotEmpty == true
+        ? requester['name'].toString().trim()
+        : 'مستخدم Loqma';
+    final avatar = requester['avatar_url']?.toString().trim() ?? '';
+    final quantity = request['quantity']?.toString() ?? '1';
+    final status = request['status']?.toString() ?? 'pending';
+    final userId = requester['id']?.toString().trim() ?? '';
+    final userPhone = requester['phone']?.toString().trim() ?? '';
 
-  const _RequestTimeline({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    const steps = [
-      ('pending', 'مراجعة الطلب'),
-      ('accepted', 'قبول الطلب'),
-      ('ready_for_pickup', 'جاهز للاستلام'),
-      ('completed', 'اكتمل التسليم'),
-    ];
-    final current = switch (status) {
-      'pending' => 0,
-      'accepted' => 1,
-      'ready_for_pickup' => 2,
-      'picked_up' || 'completed' => 3,
-      _ => 0,
+    final statusColors = {
+      'pending': (const Color(0xFFB36B12), '⏳'),
+      'accepted': (const Color(0xFF3679C8), '✅'),
+      'ready_for_pickup': (const Color(0xFF0B7650), '📦'),
+      'picked_up': (const Color(0xFF6651B5), '📋'),
+      'completed': (const Color(0xFF0B7650), '🎉'),
+      'rejected': (const Color(0xFFB04444), '❌'),
+      'cancelled': (const Color(0xFFB04444), '🚫'),
+      'expired': (const Color(0xFF71837C), '⏰'),
     };
+    final statusInfo = statusColors[status] ?? (const Color(0xFF71837C), '🔄');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('خط سير الطلب',
-            style: TextStyle(
-                color: Color(0xFF123F31),
-                fontWeight: FontWeight.w900,
-                fontSize: 14)),
-        const SizedBox(height: 12),
-        Row(
-          children: List.generate(steps.length, (index) {
-            final done = index <= current &&
-                status != 'rejected' &&
-                status != 'cancelled' &&
-                status != 'expired';
-            return Expanded(
-              child: Row(
+    return GestureDetector(
+      onTap: () {
+        if (userId.isNotEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserProfilePage(
+                userId: userId,
+                userName: name,
+                userAvatar: avatar,
+                userPhone: userPhone,
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: const Color(0xFFE7ECE8).withOpacity(0.3),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: const Color(0xFFE8F5EE),
+              backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar.isEmpty
+                  ? const Icon(
+                      Icons.person_rounded,
+                      color: Color(0xFF0B7650),
+                      size: 18,
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Color(0xFF123F31),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  Row(
                     children: [
-                      Container(
-                        width: 25,
-                        height: 25,
-                        decoration: BoxDecoration(
-                          color: done
-                              ? const Color(0xFF123F31)
-                              : const Color(0xFFE4EAE5),
-                          shape: BoxShape.circle,
+                      Text(
+                        'طلب $quantity وحدة',
+                        style: const TextStyle(
+                          color: Color(0xFF71837C),
+                          fontSize: 11,
                         ),
-                        child: Icon(done ? Icons.check : Icons.circle,
-                            color:
-                                done ? Colors.white : const Color(0xFFA8B4AC),
-                            size: done ? 15 : 8),
                       ),
-                      const SizedBox(height: 6),
-                      Text(steps[index].$2,
-                          textAlign: TextAlign.center,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: statusInfo.$1.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${statusInfo.$2} ${_getStatusLabel(status)}',
                           style: TextStyle(
-                              color: done
-                                  ? const Color(0xFF123F31)
-                                  : const Color(0xFF89958E),
-                              fontSize: 9.5,
-                              fontWeight:
-                                  done ? FontWeight.w800 : FontWeight.w500)),
+                            color: statusInfo.$1,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  if (index < steps.length - 1)
-                    Expanded(
-                        child: Container(
-                            height: 2,
-                            margin: const EdgeInsets.only(
-                                bottom: 23, left: 5, right: 5),
-                            color: index < current
-                                ? const Color(0xFF123F31)
-                                : const Color(0xFFE4EAE5))),
                 ],
               ),
-            );
-          }),
+            ),
+            Icon(
+              Icons.chevron_left_rounded,
+              color: const Color(0xFF71837C),
+              size: 20,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

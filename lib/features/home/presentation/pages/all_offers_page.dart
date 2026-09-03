@@ -1,9 +1,12 @@
+// lib/features/home/presentation/pages/all_offers_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
-
+import 'package:loqma/features/home/presentation/bloc/home_bloc.dart';
+import 'package:loqma/features/home/presentation/bloc/home_state.dart';
 import 'package:loqma/features/map/presentation/pages/map_page.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_state.dart';
@@ -12,9 +15,9 @@ import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
 
 class AllOffersPage extends StatefulWidget {
-  final List<FoodOffer> offers;
+  final List<FoodOffer>? offers;
 
-  const AllOffersPage({super.key, required this.offers});
+  const AllOffersPage({super.key, this.offers});
 
   @override
   State<AllOffersPage> createState() => _AllOffersPageState();
@@ -29,6 +32,7 @@ class _AllOffersPageState extends State<AllOffersPage> {
   String _query = '';
   String _category = 'الكل';
   int _selectedTab = 2;
+  List<FoodOffer> _allOffers = [];
 
   static const _categories = <String>[
     'الكل',
@@ -37,12 +41,16 @@ class _AllOffersPageState extends State<AllOffersPage> {
     'حلويات',
     'فواكه',
     'مشروبات',
+    'ملابس',
+    'أثاث',
+    'إلكترونيات',
   ];
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController()..addListener(_onSearchChanged);
+    _loadOffers();
   }
 
   @override
@@ -53,6 +61,23 @@ class _AllOffersPageState extends State<AllOffersPage> {
     super.dispose();
   }
 
+  void _loadOffers() {
+    if (widget.offers != null && widget.offers!.isNotEmpty) {
+      setState(() {
+        _allOffers = widget.offers!;
+      });
+      return;
+    }
+
+    // ✅ إذا لم تكن العروض موجودة، جلبها من الـ Bloc
+    final state = context.read<HomeBloc>().state;
+    if (state is HomeLoaded) {
+      setState(() {
+        _allOffers = state.offers;
+      });
+    }
+  }
+
   void _onSearchChanged() {
     final next = _searchController.text.trim();
     if (next == _query || !mounted) return;
@@ -61,13 +86,13 @@ class _AllOffersPageState extends State<AllOffersPage> {
 
   List<FoodOffer> get _filteredOffers {
     final query = _query.toLowerCase();
-    return widget.offers.where((offer) {
+    return _allOffers.where((offer) {
       final available = offer.isAvailable && !offer.isExpired;
-      final isRestaurantOffer = (offer.businessId ?? '').trim().isNotEmpty;
-      if (!available || !isRestaurantOffer) return false;
+      if (!available) return false;
 
       final categoryMatches = _category == 'الكل' ||
-          _categoryText(offer.foodType).contains(_category);
+          _categoryText(offer.foodType).contains(_category) ||
+          _categoryMatchesFoodType(offer.foodType, _category);
       if (!categoryMatches) return false;
 
       if (query.isEmpty) return true;
@@ -81,8 +106,42 @@ class _AllOffersPageState extends State<AllOffersPage> {
     }).toList(growable: false);
   }
 
+  bool _categoryMatchesFoodType(String foodType, String category) {
+    final ft = foodType.toLowerCase();
+    final cat = category.toLowerCase();
+
+    if (cat == 'ملابس') {
+      return ft.contains('ملابس') ||
+          ft.contains('clothing') ||
+          ft.contains('ثياب');
+    }
+    if (cat == 'أثاث') {
+      return ft.contains('أثاث') ||
+          ft.contains('furniture') ||
+          ft.contains('كرسي') ||
+          ft.contains('طاولة');
+    }
+    if (cat == 'إلكترونيات') {
+      return ft.contains('إلكترونيات') ||
+          ft.contains('electronics') ||
+          ft.contains('لابتوب') ||
+          ft.contains('موبايل');
+    }
+    return false;
+  }
+
   String _categoryText(String value) {
     final normalized = value.trim().toLowerCase();
+    if (normalized.contains('ملابس') || normalized.contains('clothing')) {
+      return 'ملابس';
+    }
+    if (normalized.contains('أثاث') || normalized.contains('furniture')) {
+      return 'أثاث';
+    }
+    if (normalized.contains('إلكترونيات') ||
+        normalized.contains('electronics')) {
+      return 'إلكترونيات';
+    }
     if (normalized.contains('bread') || normalized.contains('bakery')) {
       return 'مخبوزات';
     }
@@ -111,6 +170,7 @@ class _AllOffersPageState extends State<AllOffersPage> {
             : RefreshIndicator(
                 color: _green,
                 onRefresh: () async {
+                  _loadOffers();
                   if (mounted) setState(() {});
                 },
                 child: ListView(
@@ -274,11 +334,10 @@ class _AllOffersPageState extends State<AllOffersPage> {
   }
 
   Widget _buildStatisticsCards(ColorScheme colorScheme) {
-    final available = widget.offers.where((o) =>
-        o.isAvailable &&
-        !o.isExpired &&
-        (o.businessId ?? '').trim().isNotEmpty);
+    final available = _allOffers.where((o) => o.isAvailable && !o.isExpired);
     final urgent = available.where((o) => o.isUrgent).length;
+    final total = available.length;
+
     return Row(
       children: [
         Expanded(
@@ -286,7 +345,7 @@ class _AllOffersPageState extends State<AllOffersPage> {
             colorScheme,
             icon: Icons.restaurant_rounded,
             label: 'العروض المتاحة',
-            value: '${available.length}',
+            value: '$total',
             color: _green,
           ),
         ),
@@ -363,6 +422,8 @@ class _AllOffersPageState extends State<AllOffersPage> {
     ColorScheme colorScheme,
     FoodOffer offer,
   ) {
+    final imageUrl = offer.displayImage;
+
     return InkWell(
       onTap: () => _navigateToDetails(context, offer),
       borderRadius: BorderRadius.circular(22),
@@ -371,10 +432,10 @@ class _AllOffersPageState extends State<AllOffersPage> {
         decoration: BoxDecoration(
           color: _darkGreen,
           borderRadius: BorderRadius.circular(22),
-          image: offer.displayImage == null
+          image: imageUrl == null
               ? null
               : DecorationImage(
-                  image: NetworkImage(offer.displayImage!),
+                  image: NetworkImage(imageUrl),
                   fit: BoxFit.cover,
                   colorFilter: const ColorFilter.mode(
                     Color(0x99000000),
@@ -566,6 +627,18 @@ class _AllOffersPageState extends State<AllOffersPage> {
           itemBuilder: (_, index) => Image.network(
             imageUrls[index],
             fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                color: const Color(0xFFE6F2EC),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _green,
+                  ),
+                ),
+              );
+            },
             errorBuilder: (_, __, ___) => Container(
               color: const Color(0xFFE6F2EC),
               child: const Icon(Icons.restaurant_rounded, color: _green),
@@ -597,101 +670,28 @@ class _AllOffersPageState extends State<AllOffersPage> {
     );
   }
 
-  Widget _buildBottomNavigation(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    final items = <({IconData icon, String label})>[
-      (icon: Icons.home_rounded, label: 'الرئيسية'),
-      (icon: Icons.map_rounded, label: 'الخريطة'),
-      (icon: Icons.local_offer_rounded, label: 'العروض'),
-      (icon: Icons.shopping_bag_rounded, label: 'الطلبات'),
-      (icon: Icons.person_rounded, label: 'الملف'),
-    ];
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE1ECE6))),
-        ),
-        child: Row(
-          children: List.generate(items.length, (index) {
-            final selected = index == _selectedTab;
-            final item = items[index];
-            return Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(15),
-                onTap: () => _navigateTab(context, index),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.icon,
-                        color: selected ? _green : const Color(0xFF91A49B),
-                        size: 22,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          color: selected ? _green : const Color(0xFF91A49B),
-                          fontSize: 10,
-                          fontWeight:
-                              selected ? FontWeight.w900 : FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  void _navigateTab(BuildContext context, int index) {
-    if (!mounted) return;
-    if (index == 2) {
-      setState(() => _selectedTab = index);
-      return;
-    }
-
-    final page = switch (index) {
-      0 => null,
-      1 => const MapPage(),
-      3 => const MyBookingsPage(),
-      4 => const ProfilePage(),
-      _ => null,
-    };
-
-    if (page == null) {
-      Navigator.of(context).maybePop();
-      return;
-    }
-
-    setState(() => _selectedTab = index);
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-  }
-
   Widget _buildEmptyState(BuildContext context, ColorScheme colorScheme) {
     final filtered = _query.isNotEmpty || _category != 'الكل';
+    final hasOffers = _allOffers.isNotEmpty;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off_rounded, color: _green, size: 64),
+            Icon(
+              hasOffers ? Icons.search_off_rounded : Icons.restaurant_rounded,
+              color: _green,
+              size: 64,
+            ),
             const SizedBox(height: 18),
             Text(
-              filtered ? 'لا توجد نتائج مطابقة' : 'لا توجد عروض متاحة حاليًا',
+              hasOffers
+                  ? (filtered
+                      ? 'لا توجد نتائج مطابقة'
+                      : 'لا توجد عروض متاحة حاليًا')
+                  : 'جاري تحميل العروض...',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: colorScheme.onSurface,
@@ -701,14 +701,16 @@ class _AllOffersPageState extends State<AllOffersPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              filtered
-                  ? 'جرّب تغيير البحث أو اختيار تصنيف آخر.'
-                  : 'سنخبرك فور إضافة عروض جديدة.',
+              hasOffers
+                  ? (filtered
+                      ? 'جرّب تغيير البحث أو اختيار تصنيف آخر.'
+                      : 'سنخبرك فور إضافة عروض جديدة.')
+                  : 'برجاء الانتظار لتحميل العروض',
               textAlign: TextAlign.center,
               style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
-            if (filtered)
+            if (hasOffers && filtered)
               FilledButton(
                 onPressed: () => setState(() {
                   _query = '';
@@ -716,6 +718,11 @@ class _AllOffersPageState extends State<AllOffersPage> {
                   _searchController.clear();
                 }),
                 child: const Text('مسح الفلاتر'),
+              )
+            else if (!hasOffers)
+              ElevatedButton(
+                onPressed: _loadOffers,
+                child: const Text('إعادة المحاولة'),
               )
             else
               OutlinedButton.icon(

@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Required for notifications on Android 13+; request it at runtime in FCM. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:label="loqma"
         android:name="${applicationName}"
@@ -33,6 +36,11 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Use the same channel ID created by FcmNotificationService. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="loqma_general_notifications" />
 
         <!-- Flutter embedding -->
         <meta-data

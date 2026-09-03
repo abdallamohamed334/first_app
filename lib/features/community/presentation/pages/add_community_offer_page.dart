@@ -1,3 +1,5 @@
+// lib/features/community/presentation/pages/add_community_offer_page.dart
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';

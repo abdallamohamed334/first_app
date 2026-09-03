@@ -42,103 +42,218 @@ class _BusinessRestaurantDonationsPageState
   String _status(Map<String, dynamic> row) =>
       (row['status'] ?? 'pending').toString().toLowerCase().trim();
 
+  // ✅ _statusLabel المعدلة
   String _statusLabel(String status) {
     switch (status) {
+      case 'pending':
+        return '⏳ قيد المراجعة';
       case 'accepted':
-        return 'مقبول';
-      case 'donor_ready':
-      case 'ready_for_pickup':
-        return 'جاهز للاستلام';
+        return '✅ تم القبول';
+      case 'institution_ready':
+        return '📦 جاهز للتسليم';
       case 'volunteer_assigned':
-        return 'تم تعيين مندوب';
-      case 'picked_up_from_donor':
-      case 'in_transit':
-        return 'قيد النقل';
+        return '👤 تم تعيين مندوب';
+      case 'volunteer_departed':
+        return '🚗 المندوب في الطريق';
+      case 'volunteer_arrived':
+        return '📍 المندوب وصلني';
+      case 'code_generated':
+        return '🔑 تم إنشاء الكود';
+      case 'picked_up':
+        return '📋 تم الاستلام';
       case 'completed':
-        return 'مكتمل';
+        return '✅ مكتمل';
       case 'rejected':
-        return 'مرفوض';
+        return '❌ مرفوض';
       case 'cancelled':
       case 'expired':
-        return 'منتهي';
+        return '⏰ منتهي';
       default:
-        return 'قيد المراجعة';
+        return '⏳ قيد المراجعة';
     }
   }
 
+  // ✅ _statusColor المعدلة
   Color _statusColor(String status) {
     if (status == 'completed') return green;
     if (status == 'rejected' || status == 'cancelled' || status == 'expired') {
       return const Color(0xFFBA1A1A);
     }
-    if (status == 'volunteer_assigned' ||
-        status == 'picked_up_from_donor' ||
-        status == 'in_transit') {
-      return const Color(0xFF8A5B13);
-    }
+    if (status == 'pending') return Colors.orange;
+    if (status == 'accepted') return Colors.blue;
+    if (status == 'institution_ready') return Colors.purple;
+    if (status == 'volunteer_assigned') return Colors.teal;
+    if (status == 'volunteer_departed') return Colors.deepOrange;
+    if (status == 'volunteer_arrived') return Colors.lightBlue;
+    if (status == 'code_generated') return Colors.amber;
+    if (status == 'picked_up') return Colors.indigo;
     return const Color(0xFF2B6954);
   }
 
+  // ✅ _actionLabel المعدلة - مع التحقق من التواريخ
   String? _actionLabel(Map<String, dynamic> row) {
     final status = _status(row);
-    if (status != 'volunteer_assigned') return null;
-    final readyAt = row['restaurant_ready_at']?.toString();
-    final departedAt = row['volunteer_departed_at']?.toString();
-    final verifiedAt = row['pickup_verified_at']?.toString();
-    bool missing(String? value) =>
-        value == null || value.isEmpty || value == 'null';
-    if (missing(readyAt)) {
-      return 'أنا جاهز للتسليم';
+    final restaurantReadyAt = row['restaurant_ready_at']?.toString();
+    final volunteerDepartedAt = row['volunteer_departed_at']?.toString();
+
+    print('📌 Action label for status: $status');
+    print('📌 restaurant_ready_at: $restaurantReadyAt');
+    print('📌 volunteer_departed_at: $volunteerDepartedAt');
+
+    final hasRestaurantReady = restaurantReadyAt != null &&
+        restaurantReadyAt.isNotEmpty &&
+        restaurantReadyAt != 'null';
+    final hasVolunteerDeparted = volunteerDepartedAt != null &&
+        volunteerDepartedAt.isNotEmpty &&
+        volunteerDepartedAt != 'null';
+
+    if (status == 'accepted') {
+      return '📦 أنا جاهز للتسليم';
     }
-    if (missing(departedAt)) {
-      return null;
+    if (['volunteer_departed', 'volunteer_assigned'].contains(status)) {
+      return '📍 تأكيد وصول المندوب';
     }
-    if (missing(verifiedAt)) {
-      return 'إظهار كود الاستلام';
+    if (status == 'volunteer_arrived') {
+      if (!hasRestaurantReady) {
+        return '⚠️ أنا جاهز للتسليم';
+      }
+      if (!hasVolunteerDeparted) {
+        return '⚠️ انتظار تحرك المندوب';
+      }
+      final existingCode = row['pickup_code']?.toString();
+      if (existingCode != null && existingCode.isNotEmpty) {
+        return '🔑 عرض كود الاستلام';
+      }
+      return '🔑 إنشاء كود الاستلام';
+    }
+    if (status == 'code_generated') {
+      return '🔑 عرض كود الاستلام';
     }
     return null;
   }
 
+  // ✅ دالة عرض الكود
+  Future<void> _showCodeDialog(String code) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('🔑 كود استلام التبرع'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('أعط هذا الكود للمندوب'),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: SelectableText(
+                code,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 4,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '📌 الكود صالح لمدة 24 ساعة',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ دالة عرض تنبيه
+  void _showWarningDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('⚠️ تنبيه'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ _runAction المعدلة
   Future<void> _runAction(Map<String, dynamic> row) async {
     final donationId = row['id']?.toString();
     final label = _actionLabel(row);
     if (donationId == null || label == null) return;
+
     try {
-      if (label == 'أنا جاهز للتسليم') {
-        await _repository.markDonationReady(donationId);
+      if (label == '📦 أنا جاهز للتسليم' || label == '⚠️ أنا جاهز للتسليم') {
+        await _repository.updateDonationStatus(donationId, 'institution_ready');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('تم تسجيل جاهزية المطعم')));
-      } else if (label == 'إظهار كود الاستلام') {
+            const SnackBar(content: Text('📦 تم تأكيد جاهزية التبرع للتسليم')));
+      } else if (label == '📍 تأكيد وصول المندوب') {
+        await _repository.updateDonationStatus(donationId, 'volunteer_arrived');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('📍 تم تأكيد وصول المندوب')));
+      } else if (label == '⚠️ انتظار تحرك المندوب') {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('⏳ انتظر حتى يتحرك المندوب من الجمعية'),
+          backgroundColor: Colors.orange,
+        ));
+      } else if (label == '🔑 إنشاء كود الاستلام') {
         final result = await _repository.generateDonationPickupCode(donationId);
         if (!mounted) return;
-        final code = result['pickup_code']?.toString();
-        if (code == null || code.length != 6)
+        final code = result['code']?.toString();
+        if (code == null || code.isEmpty) {
           throw const FormatException('تعذر إنشاء كود الاستلام');
-        await showDialog<void>(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('كود استلام التبرع'),
-            content: SelectableText(code,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 5)),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('تم'))
-            ],
-          ),
-        );
+        }
+        await _showCodeDialog(code);
+      } else if (label == '🔑 عرض كود الاستلام') {
+        final existingCode = row['pickup_code']?.toString();
+        if (existingCode != null && existingCode.isNotEmpty) {
+          await _showCodeDialog(existingCode);
+        } else {
+          final result =
+              await _repository.generateDonationPickupCode(donationId);
+          if (!mounted) return;
+          final code = result['code']?.toString();
+          if (code == null || code.isEmpty) {
+            throw const FormatException('تعذر إنشاء كود الاستلام');
+          }
+          await _showCodeDialog(code);
+        }
       }
       await _refresh();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppErrorMapper.message(error,
-              fallback: 'تعذر تنفيذ الإجراء حاليًا.'))));
+      final errorMsg = error.toString();
+      if (errorMsg
+          .contains('لا يمكن إصدار الكود قبل جاهزية المطعم وتحرك المندوب')) {
+        _showWarningDialog('⚠️ يجب أولاً:\n'
+            '1. تأكيد جاهزية المطعم\n'
+            '2. انتظار تحرك المندوب من الجمعية\n'
+            'ثم حاول مرة أخرى');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(AppErrorMapper.message(error,
+                fallback: 'تعذر تنفيذ الإجراء حاليًا.'))));
+      }
     }
   }
 
@@ -469,6 +584,7 @@ class _DonationCard extends StatelessWidget {
   }
 }
 
+// ✅ _Timeline المعدلة
 class _Timeline extends StatelessWidget {
   final String status;
   final Color color;
@@ -477,7 +593,11 @@ class _Timeline extends StatelessWidget {
   static const statuses = <String>[
     'pending',
     'accepted',
+    'institution_ready',
     'volunteer_assigned',
+    'volunteer_departed',
+    'volunteer_arrived',
+    'code_generated',
     'picked_up',
     'completed',
   ];
@@ -485,8 +605,12 @@ class _Timeline extends StatelessWidget {
   static const labels = <String, String>{
     'pending': 'قيد المراجعة',
     'accepted': 'مقبول',
-    'volunteer_assigned': 'تم تعيين المندوب',
-    'picked_up': 'تم الاستلام',
+    'institution_ready': 'جاهز',
+    'volunteer_assigned': 'مندوب',
+    'volunteer_departed': 'في الطريق',
+    'volunteer_arrived': 'وصل',
+    'code_generated': 'كود',
+    'picked_up': 'استلام',
     'completed': 'مكتمل',
   };
 
@@ -498,9 +622,7 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final current = status == 'picked_up_from_donor' || status == 'in_transit'
-        ? 'picked_up'
-        : status;
+    final current = status;
     final currentIndex = statuses.indexOf(current);
     final terminalRejected = terminalLabels.containsKey(current);
 
@@ -520,7 +642,7 @@ class _Timeline extends StatelessWidget {
                 ),
                 if (index < statuses.length - 1)
                   Container(
-                    width: 18,
+                    width: 12,
                     height: 2,
                     color: !terminalRejected && currentIndex > index
                         ? color
@@ -571,7 +693,7 @@ class _TimelineStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final highlighted = active || terminal;
     return SizedBox(
-      width: 72,
+      width: 60,
       child: Column(
         children: [
           Container(

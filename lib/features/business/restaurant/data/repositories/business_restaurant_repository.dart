@@ -43,7 +43,21 @@ class BusinessRestaurantRepository {
 
   Future<List<Map<String, dynamic>>> listMyOffers() async {
     final rows = await _client.rpc('restaurant_list_my_offers');
-    return _maps(rows);
+    final offers = _maps(rows);
+
+    // توحيد حقول الصور حتى تعمل كل الشاشات سواء رجعت image أو images.
+    for (final offer in offers) {
+      final image = _firstImage(offer);
+      if (image != null && image.isNotEmpty) {
+        offer['image'] = image;
+        final currentImages = offer['images'];
+        if (currentImages is! List || currentImages.isEmpty) {
+          offer['images'] = <String>[image];
+        }
+      }
+    }
+
+    return offers;
   }
 
   Future<List<Map<String, dynamic>>> listMyRequests() async {
@@ -63,6 +77,12 @@ class BusinessRestaurantRepository {
     String? pickupLocation,
     String? image,
   }) async {
+    final cleanImage = image?.trim();
+    final databaseImage =
+        cleanImage == null || cleanImage.isEmpty ? null : cleanImage;
+
+    print('📌 createFoodOffer p_image = $databaseImage');
+
     final result = await _client.rpc(
       'restaurant_create_food_offer',
       params: {
@@ -75,12 +95,13 @@ class BusinessRestaurantRepository {
         'p_sale_price': salePrice,
         'p_original_price': originalPrice,
         'p_pickup_location': pickupLocation?.trim(),
-        'p_image': image?.trim(),
+        'p_image': databaseImage,
       },
     );
     return _map(result);
   }
 
+  // ✅ إنشاء عرض مع صورة واحدة - معدل
   Future<Map<String, dynamic>> createFoodOfferWithImage({
     required XFile image,
     required String title,
@@ -93,7 +114,7 @@ class BusinessRestaurantRepository {
     double? originalPrice,
     String? pickupLocation,
   }) async {
-    final imageUrl = await _imageStorage.uploadRestaurantOfferImage(image);
+    final imagePath = await _imageStorage.uploadRestaurantOfferImage(image);
     try {
       return await createFoodOffer(
         title: title,
@@ -105,11 +126,55 @@ class BusinessRestaurantRepository {
         salePrice: salePrice,
         originalPrice: originalPrice,
         pickupLocation: pickupLocation,
-        image: imageUrl,
+        image: imagePath,
       );
     } catch (_) {
       // The database error remains the user-visible error; orphan cleanup can
       // be added server-side later without hiding the original failure.
+      rethrow;
+    }
+  }
+
+  // ✅ إنشاء عرض مع صور متعددة - جديد
+  Future<Map<String, dynamic>> createFoodOfferWithImages({
+    required List<XFile> images,
+    required String title,
+    required String description,
+    required int quantity,
+    required String foodType,
+    required DateTime expiryTime,
+    required DateTime pickupBefore,
+    required double salePrice,
+    double? originalPrice,
+    String? pickupLocation,
+  }) async {
+    try {
+      // ✅ 1. رفع الصور أولاً
+      final imagePaths =
+          await _imageStorage.uploadRestaurantOfferImages(images);
+
+      // ✅ 2. إنشاء العرض مع الصور
+      final result = await _client.rpc(
+        'restaurant_create_food_offer',
+        params: {
+          'p_title': title.trim(),
+          'p_description': description.trim(),
+          'p_quantity': quantity,
+          'p_food_type': foodType.trim(),
+          'p_expiry_time': expiryTime.toUtc().toIso8601String(),
+          'p_pickup_before': pickupBefore.toUtc().toIso8601String(),
+          'p_sale_price': salePrice,
+          'p_original_price': originalPrice,
+          'p_pickup_location': pickupLocation?.trim(),
+          'p_image': imagePaths.isNotEmpty ? imagePaths.first : null,
+          'p_images': imagePaths,
+        },
+      );
+
+      print('✅ Food offer created with ${imagePaths.length} images');
+      return _map(result);
+    } catch (e) {
+      print('❌ Error creating food offer with images: $e');
       rethrow;
     }
   }
@@ -241,25 +306,66 @@ class BusinessRestaurantRepository {
   Future<List<String>> uploadCharityDonationImages(List<XFile> images) async {
     final urls = <String>[];
     for (final image in images) {
-      urls.add(await _imageStorage.uploadRestaurantOfferImage(image));
+      urls.add(await _imageStorage.uploadCharityDonationImage(image));
     }
     return urls;
   }
 
-  Future<Map<String, dynamic>> markDonationReady(String donationId) async {
-    final result = await _client.rpc('restaurant_mark_charity_donation_ready',
-        params: {'p_donation_id': donationId});
-    return _map(result);
+  // ✅ دالة تحديث حالة التبرع
+  Future<Map<String, dynamic>> updateDonationStatus(
+      String donationId, String status) async {
+    try {
+      print('📌 Updating donation status: $donationId -> $status');
+
+      final result = await _client
+          .from('restaurant_charity_donations')
+          .update({
+            'status': status,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', donationId)
+          .select()
+          .single();
+
+      print('✅ Donation status updated to: $status');
+      return Map<String, dynamic>.from(result);
+    } catch (e) {
+      print('❌ Error updating donation status: $e');
+      rethrow;
+    }
   }
 
+  // ✅ دالة تأكيد جاهزية التبرع
+  Future<Map<String, dynamic>> markDonationReady(String donationId) async {
+    try {
+      return await updateDonationStatus(donationId, 'institution_ready');
+    } catch (e) {
+      print('❌ Error marking donation ready: $e');
+      rethrow;
+    }
+  }
+
+  // ✅ دالة إنشاء كود الاستلام
   Future<Map<String, dynamic>> generateDonationPickupCode(
       String donationId) async {
-    final result = await _client.rpc(
-        'restaurant_generate_charity_donation_pickup_code',
-        params: {'p_donation_id': donationId});
-    return _map(result);
+    try {
+      print('📌 Generating pickup code for donation: $donationId');
+
+      final result = await _client.rpc(
+          'restaurant_generate_charity_donation_pickup_code',
+          params: {'p_donation_id': donationId});
+
+      await updateDonationStatus(donationId, 'code_generated');
+
+      print('✅ Pickup code generated: $result');
+      return _map(result);
+    } catch (e) {
+      print('❌ Error generating pickup code: $e');
+      rethrow;
+    }
   }
 
+  // ✅ دالة التحقق من كود الاستلام
   Future<Map<String, dynamic>> verifyCharityDonationPickupCode(
       {required String donationId, required String code}) async {
     final value = code.trim();

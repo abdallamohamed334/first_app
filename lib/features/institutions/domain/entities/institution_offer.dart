@@ -1,3 +1,7 @@
+// lib/features/institutions/domain/entities/institution_offer.dart
+
+import 'dart:ui';
+
 class InstitutionOffer {
   final String id;
   final String institutionId;
@@ -19,6 +23,17 @@ class InstitutionOffer {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // ✅ حقول إضافية من institution_offers
+  final String? foodType;
+  final bool? isHalal;
+  final bool? isVegetarian;
+  final String? foodCondition;
+  final bool? requiresRefrigeration;
+  final String? pickupNotes;
+  final String? contactPhone;
+  final String? pickupTime;
+  final DateTime? deletedAt;
+
   const InstitutionOffer({
     required this.id,
     required this.institutionId,
@@ -39,12 +54,54 @@ class InstitutionOffer {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    // ✅ حقول إضافية
+    this.foodType,
+    this.isHalal,
+    this.isVegetarian,
+    this.foodCondition,
+    this.requiresRefrigeration,
+    this.pickupNotes,
+    this.contactPhone,
+    this.pickupTime,
+    this.deletedAt,
   });
 
   bool get isExpired => DateTime.now().toUtc().isAfter(expiresAt.toUtc());
   bool get isSoldOut => remainingQuantity <= 0 || status == 'sold_out';
   bool get isActive => status == 'active' && !isExpired && !isSoldOut;
   String? get firstImage => images.isEmpty ? null : images.first;
+
+  // ✅ دالة للحصول على حالة المنتج بالعربي
+  String get conditionLabel {
+    switch (foodCondition) {
+      case 'new':
+        return 'جديد';
+      case 'very_good':
+        return 'ممتاز';
+      case 'good':
+        return 'جيد';
+      case 'needs_repair':
+        return 'يحتاج إصلاح';
+      default:
+        return foodCondition ?? 'غير محدد';
+    }
+  }
+
+  // ✅ دالة للحصول على لون حالة المنتج
+  Color get conditionColor {
+    switch (foodCondition) {
+      case 'new':
+        return const Color(0xFF0B7650);
+      case 'very_good':
+        return const Color(0xFF3679C8);
+      case 'good':
+        return const Color(0xFFB77700);
+      case 'needs_repair':
+        return const Color(0xFFD64545);
+      default:
+        return const Color(0xFF71837C);
+    }
+  }
 
   double? get discountPercent {
     if (originalPrice == null || originalPrice! <= 0) return null;
@@ -82,6 +139,18 @@ class InstitutionOffer {
       status: _text(json['status'], fallback: 'active'),
       createdAt: createdAt,
       updatedAt: _date(json['updated_at']) ?? createdAt,
+      // ✅ حقول إضافية
+      foodType: _nullableText(json['food_type']),
+      isHalal: json['is_halal'] as bool?,
+      isVegetarian: json['is_vegetarian'] as bool?,
+      foodCondition: _nullableText(json['food_condition']),
+      requiresRefrigeration: json['requires_refrigeration'] as bool?,
+      pickupNotes: _nullableText(json['pickup_notes']),
+      contactPhone: _nullableText(json['contact_phone']),
+      pickupTime: _nullableText(json['pickup_time']),
+      deletedAt: json['deleted_at'] != null
+          ? DateTime.tryParse(json['deleted_at'].toString())
+          : null,
     );
   }
 
@@ -103,7 +172,81 @@ class InstitutionOffer {
       'status': status,
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
+      // ✅ حقول إضافية
+      'food_type': foodType,
+      'is_halal': isHalal,
+      'is_vegetarian': isVegetarian,
+      'food_condition': foodCondition,
+      'requires_refrigeration': requiresRefrigeration,
+      'pickup_notes': pickupNotes,
+      'contact_phone': contactPhone,
+      'pickup_time': pickupTime,
+      'deleted_at': deletedAt?.toUtc().toIso8601String(),
     };
+  }
+
+  // ✅ دالة لنسخ الكائن مع تحديث بعض الحقول
+  InstitutionOffer copyWith({
+    String? id,
+    String? institutionId,
+    String? institutionName,
+    String? institutionType,
+    String? institutionLogoUrl,
+    String? title,
+    String? description,
+    String? category,
+    int? quantity,
+    int? remainingQuantity,
+    double? symbolicPrice,
+    double? originalPrice,
+    List<String>? images,
+    String? pickupLocation,
+    DateTime? expiresAt,
+    DateTime? pickupBefore,
+    String? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? foodType,
+    bool? isHalal,
+    bool? isVegetarian,
+    String? foodCondition,
+    bool? requiresRefrigeration,
+    String? pickupNotes,
+    String? contactPhone,
+    String? pickupTime,
+    DateTime? deletedAt,
+  }) {
+    return InstitutionOffer(
+      id: id ?? this.id,
+      institutionId: institutionId ?? this.institutionId,
+      institutionName: institutionName ?? this.institutionName,
+      institutionType: institutionType ?? this.institutionType,
+      institutionLogoUrl: institutionLogoUrl ?? this.institutionLogoUrl,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      quantity: quantity ?? this.quantity,
+      remainingQuantity: remainingQuantity ?? this.remainingQuantity,
+      symbolicPrice: symbolicPrice ?? this.symbolicPrice,
+      originalPrice: originalPrice ?? this.originalPrice,
+      images: images ?? this.images,
+      pickupLocation: pickupLocation ?? this.pickupLocation,
+      expiresAt: expiresAt ?? this.expiresAt,
+      pickupBefore: pickupBefore ?? this.pickupBefore,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      foodType: foodType ?? this.foodType,
+      isHalal: isHalal ?? this.isHalal,
+      isVegetarian: isVegetarian ?? this.isVegetarian,
+      foodCondition: foodCondition ?? this.foodCondition,
+      requiresRefrigeration:
+          requiresRefrigeration ?? this.requiresRefrigeration,
+      pickupNotes: pickupNotes ?? this.pickupNotes,
+      contactPhone: contactPhone ?? this.contactPhone,
+      pickupTime: pickupTime ?? this.pickupTime,
+      deletedAt: deletedAt ?? this.deletedAt,
+    );
   }
 
   static Map<String, dynamic> _asMap(dynamic value) {

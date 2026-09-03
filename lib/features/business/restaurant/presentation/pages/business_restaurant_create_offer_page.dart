@@ -150,6 +150,7 @@ class _BusinessRestaurantCreateOfferPageState
       if (_selectedImage != null) {
         imageUrl = await _repository.uploadOfferImage(_selectedImage!);
       }
+      debugPrint('📌 OFFER IMAGE URL BEFORE RPC: $imageUrl');
       await _repository.createFoodOffer(
         title: _title.text.trim(),
         description: _description.text.trim(),
@@ -161,7 +162,7 @@ class _BusinessRestaurantCreateOfferPageState
         originalPrice: originalPrice,
         pickupLocation:
             _location.text.trim().isEmpty ? null : _location.text.trim(),
-        image: _imageUrl.text.trim().isEmpty ? null : _imageUrl.text.trim(),
+        image: imageUrl,
       );
       if (!mounted) return;
       RestaurantOperationFeedback.success(context, 'تم نشر العرض بنجاح.');

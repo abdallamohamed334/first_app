@@ -1,154 +1,246 @@
+// supabase/functions/send-notification/index.ts
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SignJWT, importPKCS8 } from 'https://esm.sh/jose@5.9.6';
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const resendApiKey = Deno.env.get('RESEND_API_KEY');
-const fromEmail = Deno.env.get('RESEND_FROM_EMAIL');
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
-if (!supabaseUrl || !serviceRoleKey || !resendApiKey || !fromEmail) {
-  throw new Error('Missing required server secrets');
-}
-
-const admin = createClient(supabaseUrl, serviceRoleKey, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
-
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? value as Record<string, unknown> : {};
-
-const escapeHtml = (value: unknown) => String(value ?? '')
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#039;');
-
-const donationEmailHtml = (payload: Record<string, unknown>) => {
-  const restaurant = escapeHtml(payload.restaurant_name ?? 'مطعم مشارك');
-  const charity = escapeHtml(payload.charity_name ?? 'الجمعية المستفيدة');
-  const title = escapeHtml(payload.item_title ?? 'تبرع غذائي');
-  const description = escapeHtml(payload.description ?? '');
-  const quantity = escapeHtml(payload.quantity ?? 'غير محددة');
-
-  return `<!doctype html>
-<html lang="ar" dir="rtl">
-  <body style="margin:0;background:#f5f8f6;font-family:Arial,Tahoma,sans-serif;color:#12352b;direction:rtl">
-    <div style="max-width:620px;margin:32px auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dce9e2">
-      <div style="background:#003527;color:#ffffff;padding:28px 30px">
-        <div style="font-size:13px;opacity:.82">لقمة • إشعار تبرع جديد</div>
-        <h1 style="font-size:25px;margin:12px 0 0">طلب تبرع جديد من ${restaurant}</h1>
-      </div>
-      <div style="padding:28px 30px;line-height:1.9">
-        <p style="font-size:17px;margin-top:0">مرحبًا، وصل إلى جمعيتكم طلب تبرع جديد يحتاج إلى المراجعة.</p>
-        <div style="background:#f4faf6;border:1px solid #d9eadf;border-radius:14px;padding:18px;margin:20px 0">
-          <p style="margin:0 0 8px"><strong>المطعم:</strong> ${restaurant}</p>
-          <p style="margin:0 0 8px"><strong>التبرع:</strong> ${title}</p>
-          <p style="margin:0 0 8px"><strong>الكمية:</strong> ${quantity}</p>
-          <p style="margin:0"><strong>الجمعية:</strong> ${charity}</p>
-        </div>
-        ${description ? `<p><strong>الوصف:</strong><br>${description}</p>` : ''}
-        <p style="color:#557168">افتحي التطبيق لمراجعة الطلب واتخاذ الإجراء المناسب.</p>
-      </div>
-      <div style="background:#f8fbf9;color:#6a7f76;padding:16px 30px;font-size:12px">هذا بريد آلي من تطبيق لقمة، يرجى عدم الرد عليه.</div>
-    </div>
-  </body>
-</html>`;
-};
-
-const signupEmailHtml = (payload: Record<string, unknown>) => {
-  const code = escapeHtml(payload.verification_code ?? '------');
-  const expires = escapeHtml(payload.expires_minutes ?? '10');
-  return `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f5f8f6;font-family:Arial,Tahoma,sans-serif;color:#12352b;direction:rtl"><div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;border:1px solid #dce9e2"><div style="background:#003527;color:#fff;padding:28px 30px"><div style="font-size:13px;opacity:.82">لقمة • تأكيد البريد الإلكتروني</div><h1 style="font-size:25px;margin:12px 0 0">كود تفعيل حسابك</h1></div><div style="padding:30px;text-align:center;line-height:1.9"><p style="font-size:17px;margin-top:0">استخدم الكود التالي لتفعيل حسابك في تطبيق لقمة:</p><div style="display:inline-block;background:#f0f8f3;border:1px solid #cfe7d8;border-radius:16px;padding:16px 30px;font-size:34px;letter-spacing:8px;font-weight:800;color:#08724d;direction:ltr">${code}</div><p style="color:#557168;margin-bottom:0">الكود صالح لمدة ${expires} دقائق، ولا تشاركه مع أي شخص.</p></div><div style="background:#f8fbf9;color:#6a7f76;padding:16px 30px;font-size:12px;text-align:center">هذا بريد آلي من تطبيق لقمة، يرجى عدم الرد عليه.</div></div></body></html>`;
-};
-
-Deno.serve(async (request) => {
-  if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-
-  let incoming: Record<string, unknown>;
-  try {
-    incoming = asRecord(await request.json());
-  } catch {
-    return json({ error: 'invalid_json' }, 400);
+serve(async (req) => {
+  if (req.method !== 'POST') {
+    return json({ error: 'method_not_allowed' }, 405);
   }
 
-  const record = asRecord(incoming.record ?? incoming);
-  const outboxId = String(record.id ?? incoming.id ?? '').trim();
-  if (!outboxId) return json({ error: 'missing_outbox_id' }, 400);
-
-  const { data: claimed, error: claimError } = await admin
-    .from('restaurant_charity_email_outbox')
-    .update({
-      status: 'processing',
-      attempts: (Number(record.attempts) || 0) + 1,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', outboxId)
-    .in('status', ['pending', 'failed'])
-    .lt('attempts', 5)
-    .select('*')
-    .maybeSingle();
-
-  if (claimError) return json({ error: 'outbox_claim_failed' }, 500);
-  if (!claimed) return json({ ok: true, skipped: true, reason: 'already_claimed_or_sent' });
-
-  const payload = asRecord(claimed.payload);
-  const recipient = String(claimed.recipient_email ?? '').trim().toLowerCase();
-  if (!recipient) {
-    await admin.from('restaurant_charity_email_outbox').update({
-      status: 'failed',
-      last_error: 'missing_recipient_email',
-      updated_at: new Date().toISOString(),
-    }).eq('id', outboxId);
-    return json({ error: 'missing_recipient_email' }, 422);
+  if (!isAuthorizedInternalRequest(req)) {
+    return json({ error: 'unauthorized' }, 401);
   }
 
   try {
-    const resendResponse = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${resendApiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [recipient],
-        subject: payload.email_kind === 'signup_verification' ? 'كود تفعيل حسابك في لقمة' : `طلب تبرع جديد من ${String(payload.restaurant_name ?? 'مطعم مشارك')}`,
-        html: payload.email_kind === 'signup_verification' ? signupEmailHtml(payload) : donationEmailHtml(payload),
-      }),
-    });
+    const payload = await req.json();
+    const userId = cleanText(payload?.userId, 100);
+    const title = cleanText(payload?.title, 120);
+    const body = cleanText(payload?.body, 1000);
+    const data = normalizeData(payload?.data);
 
-    if (!resendResponse.ok) {
-      const providerBody = await resendResponse.text();
-      throw new Error(`resend_${resendResponse.status}: ${providerBody.slice(0, 500)}`);
+    if (!userId || !title || !body) {
+      return json({ error: 'userId, title and body are required' }, 400);
     }
 
-    const providerResult = await resendResponse.json();
-    const { error: sentUpdateError } = await admin
-      .from('restaurant_charity_email_outbox')
-      .update({
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        last_error: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', outboxId)
-      .eq('status', 'processing');
+    const supabaseUrl = requiredEnv('SUPABASE_URL');
+    const serviceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const projectId = requiredEnv('FIREBASE_PROJECT_ID');
 
-    if (sentUpdateError) return json({ error: 'sent_but_status_update_failed' }, 500);
-    return json({ ok: true, email_id: providerResult?.id ?? null });
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data: devices, error: devicesError } = await supabase
+      .from('user_devices')
+      .select('id, fcm_token')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+
+    if (devicesError) {
+      console.error('[send-notification] device lookup failed', devicesError.code);
+      return json({ error: 'device_lookup_failed' }, 500);
+    }
+
+    if (!devices || devices.length === 0) {
+      return json({ error: 'no_active_devices' }, 404);
+    }
+
+    const accessToken = await getGoogleAccessToken();
+    const results = await Promise.all(
+      devices.map((device) =>
+        sendToDevice({
+          deviceId: String(device.id),
+          projectId,
+          accessToken,
+          token: String(device.fcm_token),
+          title,
+          body,
+          data,
+        }),
+      ),
+    );
+
+    const invalidDeviceIds = results
+      .filter((result) => result.invalidToken)
+      .map((result) => result.deviceId)
+      .filter((id): id is string => Boolean(id));
+
+    if (invalidDeviceIds.length > 0) {
+      await supabase
+        .from('user_devices')
+        .update({
+          is_active: false,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', invalidDeviceIds);
+    }
+
+    const sent = results.filter((result) => result.sent).length;
+    const failed = results.length - sent;
+
+    if (sent === 0) {
+      return json({ success: false, sent, failed }, 502);
+    }
+
+    return json({
+      success: true,
+      sent,
+      failed,
+      deactivated: invalidDeviceIds.length,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'email_send_failed';
-    await admin.from('restaurant_charity_email_outbox').update({
-      status: 'failed',
-      last_error: message.slice(0, 1000),
-      updated_at: new Date().toISOString(),
-    }).eq('id', outboxId).eq('status', 'processing');
-    return json({ error: 'email_send_failed' }, 502);
+    console.error(
+      '[send-notification] request failed',
+      error instanceof Error ? error.name : 'unknown_error',
+    );
+    return json({ error: 'notification_delivery_failed' }, 500);
   }
 });
+
+async function sendToDevice({
+  deviceId,
+  projectId,
+  accessToken,
+  token,
+  title,
+  body,
+  data,
+}: {
+  deviceId: string;
+  projectId: string;
+  accessToken: string;
+  token: string;
+  title: string;
+  body: string;
+  data: Record<string, string>;
+}): Promise<{ sent: boolean; invalidToken: boolean; deviceId?: string }> {
+  const response = await fetch(
+    `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          token,
+          notification: { title, body },
+          data,
+          android: { priority: 'HIGH' },
+          apns: { payload: { aps: { sound: 'default' } } },
+        },
+      }),
+    },
+  );
+
+  if (response.ok) {
+    return { sent: true, invalidToken: false, deviceId };
+  }
+
+  let errorCode = '';
+  try {
+    const result = await response.json();
+    errorCode = String(result?.error?.status ?? '');
+  } catch (_) {
+    // Do not expose or log the provider response body.
+  }
+
+  return {
+    sent: false,
+    invalidToken:
+      errorCode === 'UNREGISTERED' || errorCode === 'INVALID_ARGUMENT',
+    deviceId,
+  };
+}
+
+function isAuthorizedInternalRequest(req: Request): boolean {
+  const expected = Deno.env.get('NOTIFICATION_INTERNAL_SECRET')?.trim();
+  const provided = req.headers.get('x-notification-secret')?.trim();
+  return Boolean(expected && provided && provided === expected);
+}
+
+function requiredEnv(name: string): string {
+  const value = Deno.env.get(name)?.trim();
+  if (!value) throw new Error(`${name}_not_configured`);
+  return value;
+}
+
+function cleanText(value: unknown, maxLength: number): string {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  return normalized.length > maxLength ? '' : normalized;
+}
+
+function normalizeData(value: unknown): Record<string, string> {
+  if (value == null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('data_must_be_an_object');
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, rawValue] of Object.entries(value)) {
+    if (Object.keys(result).length >= 20) break;
+    const cleanKey = cleanText(key, 40);
+    if (!cleanKey) continue;
+    if (
+      typeof rawValue !== 'string' &&
+      typeof rawValue !== 'number' &&
+      typeof rawValue !== 'boolean'
+    ) {
+      continue;
+    }
+    result[cleanKey] = String(rawValue).slice(0, 200);
+  }
+  return result;
+}
+
+async function getGoogleAccessToken(): Promise<string> {
+  const raw = requiredEnv('GOOGLE_SERVICE_ACCOUNT');
+  const account = JSON.parse(raw) as {
+    client_email?: string;
+    private_key?: string;
+  };
+  const clientEmail = account.client_email?.trim();
+  const privateKeyText = account.private_key?.replace(/\\n/g, '\n');
+  if (!clientEmail || !privateKeyText) {
+    throw new Error('google_service_account_invalid');
+  }
+
+  const privateKey = await importPKCS8(privateKeyText, 'RS256');
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = await new SignJWT({
+    iss: clientEmail,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+  })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(privateKey);
+
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion,
+    }),
+  });
+
+  const result = await response.json();
+  if (!response.ok || typeof result?.access_token !== 'string') {
+    throw new Error('google_access_token_failed');
+  }
+  return result.access_token;
+}
+
+function json(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: JSON_HEADERS,
+  });
+}

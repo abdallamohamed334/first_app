@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
 
@@ -211,11 +212,40 @@ class _CommunityOffersPageState extends State<CommunityOffersPage> {
   }
 }
 
+// ✅ _OfferCard المحسن مع Carousel Slider وصور واضحة
 class _OfferCard extends StatelessWidget {
+  static const _green = Color(0xFF0B7650);
+  static const _darkGreen = Color(0xFF123F31);
+
   final Map<String, dynamic> offer;
   final VoidCallback onTap;
 
   const _OfferCard({required this.offer, required this.onTap});
+
+  List<String> _getImages() {
+    final List<String> images = [];
+
+    // ✅ جلب الصور من مصفوفة images
+    final imagesList = offer['images'];
+    if (imagesList is List) {
+      for (final item in imagesList) {
+        final url = item.toString();
+        if (url.isNotEmpty && url != 'null') {
+          images.add(url);
+        }
+      }
+    }
+
+    // ✅ إذا مفيش صور في المصفوفة، جرب الصورة الفردية
+    if (images.isEmpty) {
+      final single = offer['image']?.toString() ?? '';
+      if (single.isNotEmpty && single != 'null') {
+        images.add(single);
+      }
+    }
+
+    return images;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +255,7 @@ class _OfferCard extends StatelessWidget {
     final condition = _text('item_condition', 'good');
     final location = _text('pickup_location', 'مكان الاستلام غير محدد');
     final price = (offer['price'] as num?)?.toDouble() ?? 0;
-    final image = _imageUrl();
+    final images = _getImages();
     final isSale = type == 'symbolic_sale';
     final isCharity = type == 'charity_donation';
 
@@ -234,100 +264,240 @@ class _OfferCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(22),
       child: Ink(
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE1ECE6)),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withAlpha(9),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5))
-            ]),
-        child: Row(children: [
-          ClipRRect(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE1ECE6)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(9),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ✅ Carousel Slider مع صور واضحة
+            ClipRRect(
               borderRadius:
-                  const BorderRadius.horizontal(right: Radius.circular(22)),
-              child: SizedBox(
-                  width: 118,
-                  height: 155,
-                  child: image == null
-                      ? Container(
+                  const BorderRadius.vertical(top: Radius.circular(22)),
+              child: Container(
+                height: 200,
+                width: double.infinity,
+                color: const Color(0xFFF5F9F7),
+                child: images.isEmpty
+                    ? Container(
+                        color: const Color(0xFFE8F5EE),
+                        child: Icon(
+                          category == 'furniture'
+                              ? Icons.chair_rounded
+                              : Icons.checkroom_rounded,
+                          color: const Color(0xFF0B7650),
+                          size: 50,
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          CarouselSlider.builder(
+                            itemCount: images.length,
+                            itemBuilder: (context, index, realIndex) {
+                              return Container(
+                                color: const Color(0xFFF5F9F7),
+                                child: Image.network(
+                                  images[index],
+                                  fit:
+                                      BoxFit.contain, // ✅ يحافظ على نسبة الصورة
+                                  width: double.infinity,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: const Color(0xFFE8F5EE),
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: _green,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFE8F5EE),
+                                    child: Icon(
+                                      category == 'furniture'
+                                          ? Icons.chair_rounded
+                                          : Icons.checkroom_rounded,
+                                      color: const Color(0xFF0B7650),
+                                      size: 50,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            options: CarouselOptions(
+                              height: 200,
+                              viewportFraction: 1.0,
+                              autoPlay: images.length > 1,
+                              autoPlayInterval: const Duration(seconds: 4),
+                              enableInfiniteScroll: images.length > 1,
+                              pauseAutoPlayOnTouch: true,
+                              enlargeCenterPage: false,
+                            ),
+                          ),
+                          // ✅ نقاط التصفح
+                          if (images.length > 1)
+                            Positioned(
+                              bottom: 10,
+                              left: 0,
+                              right: 0,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(
+                                  images.length > 5 ? 5 : images.length,
+                                  (index) => AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    width: index == 0 ? 20 : 8,
+                                    height: 4,
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 3),
+                                    decoration: BoxDecoration(
+                                      color: index == 0
+                                          ? Colors.white
+                                          : Colors.white.withAlpha(150),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          // ✅ عدد الصور
+                          if (images.length > 1)
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withAlpha(180),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.image_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${images.length}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+              ),
+            ),
+
+            // ✅ تفاصيل العرض
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF123F31),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
                           color: const Color(0xFFE8F5EE),
-                          child: Icon(
-                              category == 'furniture'
-                                  ? Icons.chair_rounded
-                                  : Icons.checkroom_rounded,
-                              color: const Color(0xFF0B7650),
-                              size: 40))
-                      : Image.network(image,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                              color: const Color(0xFFE8F5EE),
-                              child: const Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: Color(0xFF0B7650),
-                                  size: 32))))),
-          Expanded(
-              child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          Expanded(
-                              child: Text(title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF123F31),
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900))),
-                          const Icon(Icons.arrow_back_ios_new_rounded,
-                              color: Color(0xFF0B7650), size: 15)
-                        ]),
-                        const SizedBox(height: 8),
-                        Wrap(spacing: 5, runSpacing: 5, children: [
-                          _tag(_categoryLabel(category),
-                              const Color(0xFFE8F5EE), const Color(0xFF0B7650)),
-                          _tag(
-                              isCharity
-                                  ? 'تبرع لجمعية'
-                                  : isSale
-                                      ? '${price.toStringAsFixed(0)} جنيه'
-                                      : 'تبرع مجاني',
-                              isSale
-                                  ? const Color(0xFFFFF0DA)
-                                  : const Color(0xFFE8F5EE),
-                              isSale
-                                  ? const Color(0xFFB36B12)
-                                  : const Color(0xFF0B7650))
-                        ]),
-                        const SizedBox(height: 9),
-                        Row(children: [
-                          const Icon(Icons.check_circle_outline_rounded,
-                              size: 15, color: Color(0xFF71837C)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                              child: Text(_conditionLabel(condition),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF71837C), fontSize: 11)))
-                        ]),
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 15, color: Color(0xFF71837C)),
-                          const SizedBox(width: 4),
-                          Expanded(
-                              child: Text(location,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF71837C), fontSize: 11)))
-                        ]),
-                      ]))),
-        ]),
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Color(0xFF0B7650),
+                          size: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 5,
+                    runSpacing: 5,
+                    children: [
+                      _tag(
+                        _categoryLabel(category),
+                        const Color(0xFFE8F5EE),
+                        const Color(0xFF0B7650),
+                      ),
+                      _tag(
+                        isCharity
+                            ? 'تبرع لجمعية'
+                            : isSale
+                                ? '${price.toStringAsFixed(0)} جنيه'
+                                : 'تبرع مجاني',
+                        isSale
+                            ? const Color(0xFFFFF0DA)
+                            : const Color(0xFFE8F5EE),
+                        isSale
+                            ? const Color(0xFFB36B12)
+                            : const Color(0xFF0B7650),
+                      ),
+                      _tag(
+                        _conditionLabel(condition),
+                        const Color(0xFFE3F0FF),
+                        const Color(0xFF1A6CB5),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 15,
+                        color: Color(0xFF71837C),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF71837C),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -335,114 +505,33 @@ class _OfferCard extends StatelessWidget {
   String _text(String key, String fallback) =>
       (offer[key] ?? fallback).toString();
 
-  String? _imageUrl() {
-    final direct = offer['image']?.toString();
-    if (direct != null && direct.isNotEmpty) return direct;
-    final images = offer['images'];
-    if (images is List && images.isNotEmpty) return images.first?.toString();
-    return null;
-  }
-
   Widget _tag(String text, Color background, Color foreground) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-          color: background, borderRadius: BorderRadius.circular(20)),
-      child: Text(text,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          text,
           style: TextStyle(
-              color: foreground, fontSize: 10, fontWeight: FontWeight.w900)));
+            color: foreground,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
 
   String _categoryLabel(String value) =>
       value == 'furniture' ? 'أثاث' : 'ملابس';
+
   String _conditionLabel(String value) =>
       {
         'new': 'جديد أو شبه جديد',
         'very_good': 'جيد جدًا',
         'good': 'جيد',
-        'needs_repair': 'يحتاج إصلاحًا بسيطًا'
+        'needs_repair': 'يحتاج إصلاحًا بسيطًا',
       }[value] ??
       'حالة جيدة';
-}
-
-class _LegacyCommunityOfferDetailsPage extends StatelessWidget {
-  final Map<String, dynamic> offer;
-
-  const _LegacyCommunityOfferDetailsPage({required this.offer});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = (offer['title'] ?? 'عرض').toString();
-    final description = (offer['description'] ?? 'لا يوجد وصف').toString();
-    final image = offer['image']?.toString();
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6FAF8),
-        appBar: AppBar(
-            title: const Text('تفاصيل العرض'),
-            centerTitle: true,
-            backgroundColor: const Color(0xFFF6FAF8),
-            foregroundColor: const Color(0xFF123F31),
-            elevation: 0),
-        body: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
-            children: [
-              ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: SizedBox(
-                      height: 250,
-                      child: image == null || image.isEmpty
-                          ? Container(
-                              color: const Color(0xFFE8F5EE),
-                              child: const Icon(
-                                  Icons.volunteer_activism_rounded,
-                                  color: Color(0xFF0B7650),
-                                  size: 70))
-                          : Image.network(image,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                  color: const Color(0xFFE8F5EE),
-                                  child: const Icon(
-                                      Icons.image_not_supported_outlined,
-                                      color: Color(0xFF0B7650),
-                                      size: 48))))),
-              const SizedBox(height: 18),
-              Text(title,
-                  style: const TextStyle(
-                      color: Color(0xFF123F31),
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900)),
-              const SizedBox(height: 10),
-              Text(description,
-                  style: const TextStyle(
-                      color: Color(0xFF5F786C), fontSize: 14, height: 1.6)),
-              const SizedBox(height: 22),
-              Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18)),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('الخطوة التالية',
-                            style: TextStyle(
-                                color: Color(0xFF123F31),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 7),
-                        Text(
-                            'سيتم تفعيل طلب العرض والتواصل مع صاحبه في الخطوة التالية.',
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                                fontSize: 12,
-                                height: 1.5))
-                      ])),
-            ]),
-      ),
-    );
-  }
 }
 
 class _EmptyState extends StatelessWidget {
@@ -451,30 +540,52 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-      child: Padding(
+        child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
                 width: 76,
                 height: 76,
                 alignment: Alignment.center,
                 decoration: const BoxDecoration(
-                    color: Color(0xFFE8F5EE), shape: BoxShape.circle),
-                child: const Icon(Icons.search_off_rounded,
-                    color: Color(0xFF0B7650), size: 38)),
-            const SizedBox(height: 16),
-            const Text('لا توجد عروض بهذا الفلتر',
+                  color: Color(0xFFE8F5EE),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.search_off_rounded,
+                  color: Color(0xFF0B7650),
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'لا توجد عروض بهذا الفلتر',
                 style: TextStyle(
-                    color: Color(0xFF123F31),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900)),
-            const SizedBox(height: 7),
-            const Text('جرّب اختيار فلتر آخر أو ارجع لكل العروض.',
+                  color: Color(0xFF123F31),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 7),
+              const Text(
+                'جرّب اختيار فلتر آخر أو ارجع لكل العروض.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF71837C), fontSize: 12)),
-            const SizedBox(height: 16),
-            OutlinedButton(onPressed: onReset, child: const Text('عرض الكل'))
-          ])));
+                style: TextStyle(
+                  color: Color(0xFF71837C),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: onReset,
+                child: const Text('عرض الكل'),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _ErrorState extends StatelessWidget {
@@ -484,25 +595,43 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-      child: Padding(
+        child: Padding(
           padding: const EdgeInsets.all(28),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            const Icon(Icons.cloud_off_rounded,
-                color: Color(0xFFB54747), size: 48),
-            const SizedBox(height: 12),
-            const Text('تعذر تحميل العروض',
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.cloud_off_rounded,
+                color: Color(0xFFB54747),
+                size: 48,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'تعذر تحميل العروض',
                 style: TextStyle(
-                    color: Color(0xFF123F31),
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900)),
-            const SizedBox(height: 8),
-            Text(message,
+                  color: Color(0xFF123F31),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF71837C), fontSize: 11)),
-            const SizedBox(height: 15),
-            ElevatedButton(
-                onPressed: onRetry, child: const Text('إعادة المحاولة'))
-          ])));
+                style: const TextStyle(
+                  color: Color(0xFF71837C),
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 15),
+              ElevatedButton(
+                onPressed: onRetry,
+                child: const Text('إعادة المحاولة'),
+              ),
+            ],
+          ),
+        ),
+      );
 }

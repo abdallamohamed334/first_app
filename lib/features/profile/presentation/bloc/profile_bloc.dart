@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/models/user_model.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/crashlytics_service.dart';
 import '../../../../core/services/storage_service.dart';
 import '../../../../core/services/supabase_service.dart';
 import 'profile_event.dart';
@@ -12,14 +13,17 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   final SupabaseService _supabaseService;
   final StorageService _storageService;
   final AuthService _authService;
+  final LoqmaCrashlytics _crashlytics;
 
   ProfileBloc({
     SupabaseService? supabaseService,
     StorageService? storageService,
     AuthService? authService,
+    LoqmaCrashlytics? crashlytics,
   })  : _supabaseService = supabaseService ?? SupabaseService(),
         _storageService = storageService ?? StorageService.instance,
         _authService = authService ?? AuthService(),
+        _crashlytics = crashlytics ?? LoqmaCrashlytics(),
         super(const ProfileInitial()) {
     on<ProfileStarted>(_onStarted);
     on<ProfileUpdateUser>(_onUpdateUser);
@@ -33,6 +37,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     Emitter<ProfileState> emit,
   ) async {
     emit(const ProfileLoading());
+    await _crashlytics.setCurrentScreen('profile');
+
     try {
       final authUser = await _supabaseService.getCurrentUser();
       final email = authUser?.email?.trim();
@@ -75,8 +81,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         rewards: rewards,
         completedTasks: tasks,
       ));
-    } catch (error) {
-      _log('profile load', error);
+    } catch (error, stackTrace) {
+      await _log('profile_load_failed', error, stackTrace);
       emit(const ProfileError('تعذر تحميل بيانات الملف الشخصي حاليًا'));
     }
   }
@@ -103,8 +109,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         avatarUrl: _optional(event.avatarUrl),
       );
       emit(ProfileUpdated(user: updatedUser));
-    } catch (error) {
-      _log('profile update', error);
+    } catch (error, stackTrace) {
+      await _log('profile_update_failed', error, stackTrace);
       emit(const ProfileError('تعذر تحديث البيانات حاليًا'));
     }
   }
@@ -122,8 +128,9 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       }
       await _supabaseService.updatePasswordInAuth(email, event.newPassword);
       emit(const ProfilePasswordUpdated());
-    } catch (error) {
-      _log('profile password update', error);
+    } catch (error, stackTrace) {
+      // The error and the password are never sent to Crashlytics.
+      await _log('profile_password_update_failed', error, stackTrace);
       emit(const ProfileError('تعذر تحديث كلمة المرور حاليًا'));
     }
   }
@@ -133,12 +140,12 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     Emitter<ProfileState> emit,
   ) async {
     try {
-      // AuthService signs out from Supabase and always clears all local
-      // identity/business cache values in its finally block.
+      // AuthService remains responsible for clearing Supabase and local
+      // identity/business cache values.
       await _authService.signOut();
       if (!isClosed) emit(const ProfileSignedOut());
-    } catch (error) {
-      _log('profile sign out', error);
+    } catch (error, stackTrace) {
+      await _log('profile_sign_out_failed', error, stackTrace);
       if (!isClosed) {
         emit(const ProfileError('تعذر تسجيل الخروج حاليًا. حاول مرة أخرى'));
       }
@@ -168,8 +175,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       // StorageService already persists avatar_url and verifies the updated row.
       // Do not issue a second update here; it can race with the first request.
       emit(ProfileUpdated(user: user.copyWith(avatarUrl: avatarUrl)));
-    } catch (error) {
-      _log('profile avatar upload', error);
+    } catch (error, stackTrace) {
+      await _log('profile_avatar_upload_failed', error, stackTrace);
       emit(const ProfileError('تعذر رفع الصورة حاليًا'));
     }
   }
@@ -192,7 +199,18 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  void _log(String operation, Object error) {
+  Future<void> _log(
+    String operation,
+    Object error,
+    StackTrace stackTrace,
+  ) async {
     if (kDebugMode) debugPrint('$operation failed: ${error.runtimeType}');
+
+    await _crashlytics.recordNonFatal(
+      StateError(operation),
+      stackTrace,
+      reason: operation,
+      information: const <Object>['profile_bloc'],
+    );
   }
 }

@@ -402,6 +402,10 @@ class _LoginPageState extends State<LoginPage>
           } catch (e) {
             debugPrint('⚠️ FCM initialization failed: ${e.runtimeType}');
           }
+
+          // ✅ تسجيل الجهاز بعد نجاح تسجيل الدخول
+          await _registerDevice();
+
           if (mounted) await _navigateToHome(user);
         },
       );
@@ -409,6 +413,17 @@ class _LoginPageState extends State<LoginPage>
       if (mounted) _showError('تعذر تسجيل الدخول: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ✅ دالة تسجيل الجهاز
+  Future<void> _registerDevice() async {
+    try {
+      final supabase = SupabaseService();
+      await supabase.registerCurrentDevice();
+      debugPrint('✅ Device registered successfully');
+    } catch (e) {
+      debugPrint('❌ Error registering device: $e');
     }
   }
 

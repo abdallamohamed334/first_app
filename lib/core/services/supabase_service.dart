@@ -1,9 +1,14 @@
 // lib/core/services/supabase_service.dart
 
+import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/user_model.dart';
 import '../models/community_stats.dart';
+import 'fcm_notification_service.dart';
 
 class RewardData {
   final String id;
@@ -50,11 +55,10 @@ class SupabaseService {
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
+  final FcmNotificationService _fcmNotifications = FcmNotificationService();
+
   SupabaseClient get client => Supabase.instance.client;
 
-  // لا تضع Service Role Key داخل تطبيق Flutter.
-  // هذا getter مؤقت للتوافق البرمجي فقط، ويستخدم عميل المستخدم.
-  // العمليات الإدارية يجب نقلها لاحقًا إلى Edge Functions أو RPC آمنة.
   SupabaseClient get adminClient => client;
 
   // ============ AUTH ============
@@ -77,11 +81,125 @@ class SupabaseService {
   }
 
   Future<void> signOut() async {
-    await client.auth.signOut();
+    final userId = client.auth.currentUser?.id;
+    try {
+      if (userId != null && userId.isNotEmpty) {
+        await deactivateCurrentFcmDevice(userId);
+      }
+    } catch (error) {
+      debugPrint('[FCM] logout cleanup skipped: $error');
+    }
+
+    await _fcmNotifications.dispose();
+    await _fcmNotifications.unregister();
+    await client.auth.signOut(scope: SignOutScope.local);
   }
 
   Future<User?> getCurrentUser() async {
     return client.auth.currentUser;
+  }
+
+  // ============ FCM DEVICES ============
+
+  Future<void> initializeFcmForUser(
+    String userId, {
+    String? webVapidKey,
+    FutureOr<void> Function(Map<String, dynamic> data)? onNotificationTap,
+  }) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) return;
+
+    try {
+      await _fcmNotifications.dispose();
+      await _fcmNotifications.initialize(
+        webVapidKey: webVapidKey,
+        onTokenChanged: (token) => upsertFcmDevice(
+          userId: cleanUserId,
+          fcmToken: token,
+        ),
+        onNotificationTap: onNotificationTap,
+      );
+      debugPrint('[FCM] initialized for authenticated user');
+    } catch (error, stack) {
+      debugPrint('[FCM] initialization skipped: $error');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
+  Future<void> initializeFcmForCurrentUser({
+    String? webVapidKey,
+    FutureOr<void> Function(Map<String, dynamic> data)? onNotificationTap,
+  }) async {
+    final userId = client.auth.currentUser?.id;
+    if (userId == null || userId.trim().isEmpty) return;
+
+    await initializeFcmForUser(
+      userId,
+      webVapidKey: webVapidKey,
+      onNotificationTap: onNotificationTap,
+    );
+  }
+
+  String _currentDevicePlatform() {
+    if (kIsWeb) return 'web';
+    return Platform.operatingSystem;
+  }
+
+  Future<void> upsertFcmDevice({
+    required String userId,
+    required String fcmToken,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanToken = fcmToken.trim();
+    if (cleanUserId.isEmpty || cleanToken.isEmpty) return;
+
+    try {
+      await client.from('user_devices').upsert(
+        {
+          'user_id': cleanUserId,
+          'fcm_token': cleanToken,
+          'platform': _currentDevicePlatform(),
+          if (deviceName != null && deviceName.trim().isNotEmpty)
+            'device_name': deviceName.trim(),
+          if (appVersion != null && appVersion.trim().isNotEmpty)
+            'app_version': appVersion.trim(),
+          'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+          'is_active': true,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: 'user_id,fcm_token',
+      );
+      debugPrint('[FCM] device upserted for user=$cleanUserId');
+    } catch (error, stack) {
+      debugPrint('[FCM] device upsert failed: $error');
+      debugPrintStack(stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  Future<void> deactivateCurrentFcmDevice(String userId) async {
+    final token = await _readCurrentFcmTokenSafely();
+    if (token == null || token.isEmpty) return;
+
+    await client
+        .from('user_devices')
+        .update({
+          'is_active': false,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('user_id', userId.trim())
+        .eq('fcm_token', token);
+  }
+
+  Future<String?> _readCurrentFcmTokenSafely() async {
+    try {
+      return await _fcmNotifications.currentToken();
+    } catch (error) {
+      debugPrint('[FCM] current token unavailable: $error');
+      return null;
+    }
   }
 
   Future<void> updatePasswordInAuth(String email, String newPassword) async {
@@ -95,8 +213,6 @@ class SupabaseService {
         throw Exception('كلمة المرور يجب أن تحتوي على 6 أحرف على الأقل');
       }
 
-      // التغيير يتم عبر Supabase Auth للمستخدم الحالي فقط.
-      // لا نبحث عن مستخدم بالبريد من الهاتف، ولا نخزن كلمة المرور في public.users.
       await client.auth.updateUser(
         UserAttributes(password: newPassword.trim()),
       );
@@ -202,7 +318,6 @@ class SupabaseService {
       print('📌 User found: $response');
       var user = UserModel.fromJson(response);
 
-      // ✅ جلب businessId من جدول businesses
       final userType = user.type.value.toLowerCase();
       if (userType == 'restaurant' ||
           userType == 'business' ||
@@ -228,7 +343,6 @@ class SupabaseService {
         }
       }
 
-      // ✅ جلب charityId لو كان جمعية
       if (userType == 'charity') {
         final charityResponse = await adminClient
             .from('charities')
@@ -265,7 +379,6 @@ class SupabaseService {
       print('📌 User found: $response');
       var user = UserModel.fromJson(response);
 
-      // ✅ جلب businessId
       final userType = user.type.value.toLowerCase();
       if (userType == 'restaurant' ||
           userType == 'business' ||
@@ -289,7 +402,6 @@ class SupabaseService {
         }
       }
 
-      // ✅ جلب charityId
       if (userType == 'charity') {
         final charityResponse = await adminClient
             .from('charities')
@@ -444,84 +556,141 @@ class SupabaseService {
 
   // ============ USER STATS ============
 
+  // ✅ جلب النقاط من جدول users مباشرة
   Future<int> getUserTotalPoints(String userId) async {
     try {
       final response = await adminClient
-          .from('reward_points')
+          .from('users')
           .select('points')
-          .eq('user_id', userId);
+          .eq('id', userId)
+          .maybeSingle();
 
-      int total = 0;
-      if (response.isNotEmpty) {
-        for (var item in response) {
-          total += (item['points'] as int? ?? 0);
-        }
-      }
-      return total;
+      return response?['points'] as int? ?? 0;
     } catch (e) {
       print('❌ Error getting user points: $e');
       return 0;
     }
   }
 
+  // ✅ جلب مستوى المستخدم من جدول users
+  Future<int> getUserLevel(String userId) async {
+    try {
+      final response = await adminClient
+          .from('users')
+          .select('level')
+          .eq('id', userId)
+          .maybeSingle();
+
+      return response?['level'] as int? ?? 1;
+    } catch (e) {
+      print('❌ Error getting user level: $e');
+      return 1;
+    }
+  }
+
+  // ✅ جلب عدد التوصيلات
   Future<int> getUserDeliveriesCount(String userId) async {
     try {
       final response = await adminClient
           .from('deliveries')
           .select('id')
           .eq('volunteer_id', userId)
-          .eq('status', 'delivered');
+          .eq('status', 'completed');
 
-      return response.length ?? 0;
+      return response.length;
     } catch (e) {
       print('❌ Error getting deliveries count: $e');
       return 0;
     }
   }
 
+  // ✅ جلب عدد الوجبات المنقذة
   Future<int> getUserMealsSaved(String userId) async {
     try {
-      final deliveries = await adminClient
-          .from('deliveries')
-          .select('offer_id')
-          .eq('volunteer_id', userId)
-          .eq('status', 'delivered');
+      final response = await adminClient
+          .from('donations')
+          .select('id')
+          .eq('donor_id', userId)
+          .eq('status', 'completed');
 
-      if (deliveries.isEmpty) return 0;
-
-      int totalMeals = 0;
-      for (var delivery in deliveries) {
-        final offer = await adminClient
-            .from('food_offers')
-            .select('quantity')
-            .eq('id', delivery['offer_id'])
-            .maybeSingle();
-        if (offer != null) {
-          totalMeals += (offer['quantity'] as int? ?? 0);
-        }
-      }
-      return totalMeals;
+      return response.length;
     } catch (e) {
-      print('❌ Error getting meals saved: $e');
-      return 0;
+      try {
+        final response = await adminClient
+            .from('rescued_meals')
+            .select('id')
+            .eq('user_id', userId);
+
+        return response.length;
+      } catch (_) {
+        return 0;
+      }
     }
   }
 
+  // ✅ جلب عدد المهام المكتملة
   Future<int> getUserCompletedTasks(String userId) async {
     try {
       final response = await adminClient
           .from('deliveries')
           .select('id')
           .eq('volunteer_id', userId)
-          .eq('status', 'delivered');
+          .eq('status', 'completed');
 
-      return response.length ?? 0;
+      return response.length;
     } catch (e) {
       print('❌ Error getting completed tasks: $e');
       return 0;
     }
   }
 
+  // ✅ جلب جميع إحصائيات المستخدم مرة واحدة
+  Future<Map<String, dynamic>> getUserStats(String userId) async {
+    try {
+      // جلب المستخدم كامل
+      final userResponse = await adminClient
+          .from('users')
+          .select()
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userResponse == null) {
+        return {
+          'points': 0,
+          'level': 1,
+          'deliveriesCount': 0,
+          'mealsSaved': 0,
+          'tasksCompleted': 0,
+        };
+      }
+
+      final points = userResponse['points'] as int? ?? 0;
+      final level = userResponse['level'] as int? ?? 1;
+
+      final deliveries = await getUserDeliveriesCount(userId);
+      final mealsSaved = await getUserMealsSaved(userId);
+      final tasksCompleted = await getUserCompletedTasks(userId);
+
+      return {
+        'points': points,
+        'level': level,
+        'deliveriesCount': deliveries,
+        'mealsSaved': mealsSaved,
+        'tasksCompleted': tasksCompleted,
+      };
+    } catch (e) {
+      print('❌ Error getting user stats: $e');
+      return {
+        'points': 0,
+        'level': 1,
+        'deliveriesCount': 0,
+        'mealsSaved': 0,
+        'tasksCompleted': 0,
+      };
+    }
+  }
+
+  // ✅ جلب المكافآت المتاحة للمستخدم
   Future<List<RewardData>> getUserRewards(String userId) async {
     try {
       final points = await getUserTotalPoints(userId);
@@ -548,44 +717,48 @@ class SupabaseService {
     }
   }
 
-  Future<UserStats> getUserStats(String userId) async {
+  // ✅ إضافة نقاط للمستخدم (تحديث في جدول users)
+  Future<void> addPoints({
+    required String userId,
+    required int points,
+    required String reason,
+    String? deliveryId,
+  }) async {
     try {
-      final deliveriesResponse = await client
-          .from('deliveries')
-          .select('id, food_offers(quantity)')
-          .eq('volunteer_id', userId)
-          .eq('status', 'delivered');
-
-      final tasksCompleted = deliveriesResponse.length ?? 0;
-
-      int mealsSaved = 0;
-      if (deliveriesResponse.isNotEmpty) {
-        for (var delivery in deliveriesResponse) {
-          final offerData = delivery['food_offers'] as Map<String, dynamic>?;
-          if (offerData != null) {
-            mealsSaved += offerData['quantity'] as int? ?? 0;
-          }
-        }
-      }
-
-      final pointsResponse = await client
-          .from('reward_points')
+      // ✅ جلب النقاط الحالية
+      final current = await adminClient
+          .from('users')
           .select('points')
-          .eq('user_id', userId);
+          .eq('id', userId)
+          .maybeSingle();
 
-      int totalPoints = 0;
-      for (var point in pointsResponse) {
-        totalPoints += point['points'] as int? ?? 0;
-      }
+      final currentPoints = current?['points'] as int? ?? 0;
+      final newPoints = currentPoints + points;
 
-      return UserStats(
-        mealsSaved: mealsSaved,
-        tasksCompleted: tasksCompleted,
-        points: totalPoints,
-      );
+      // ✅ تحديث النقاط في جدول users
+      await adminClient.from('users').update({
+        'points': newPoints,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+
+      // ✅ تحديث المستوى بناءً على النقاط
+      int newLevel = 1;
+      if (newPoints >= 1000)
+        newLevel = 5;
+      else if (newPoints >= 500)
+        newLevel = 4;
+      else if (newPoints >= 200)
+        newLevel = 3;
+      else if (newPoints >= 50) newLevel = 2;
+
+      await adminClient
+          .from('users')
+          .update({'level': newLevel}).eq('id', userId);
+
+      print(
+          '✅ Added $points points to user $userId (total: $newPoints, level: $newLevel)');
     } catch (e) {
-      print('❌ Error getting user stats: $e');
-      return const UserStats();
+      print('❌ Error adding points: $e');
     }
   }
 
@@ -595,7 +768,6 @@ class SupabaseService {
     try {
       await client.rpc('expire_overdue_food_offers');
     } catch (e) {
-      // لا نمنع عرض البيانات إذا كانت دالة التنظيف غير متاحة مؤقتًا.
       print('⚠️ Expiry cleanup skipped: $e');
     }
   }
@@ -650,6 +822,58 @@ class SupabaseService {
       return response;
     } catch (e) {
       print('❌ Error getting food offer: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getFoodOfferWithDetails(
+    String offerId,
+    String userId,
+  ) async {
+    await _expireOverdueFoodOffers();
+    try {
+      final response = await client.from('food_offers').select('''
+            *,
+            businesses:business_id (
+              id,
+              name,
+              logo,
+              address,
+              phone,
+              rating,
+              description,
+              latitude,
+              longitude,
+              business_type
+            )
+          ''').eq('id', offerId).maybeSingle();
+
+      if (response == null) return null;
+
+      final requestCountResponse = await client
+          .from('offer_requests')
+          .select('id')
+          .eq('offer_id', offerId)
+          .filter('status', 'in', '("pending","accepted","ready_for_pickup")');
+
+      response['request_count'] = requestCountResponse.length;
+      response['interested_count'] = requestCountResponse.length;
+
+      final userRequest = await client
+          .from('offer_requests')
+          .select('id, status')
+          .eq('offer_id', offerId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      response['is_requested_by_user'] = userRequest != null;
+      response['is_accepted'] =
+          userRequest != null && userRequest['status'] == 'accepted';
+      response['user_request_status'] = userRequest?['status'];
+
+      return response;
+    } catch (e) {
+      print('❌ Error getting food offer with details: $e');
       return null;
     }
   }
@@ -739,6 +963,68 @@ class SupabaseService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getAvailableOffersWithRequests(
+      String userId) async {
+    await _expireOverdueFoodOffers();
+    try {
+      final response = await client
+          .from('food_offers')
+          .select('''
+            *,
+            businesses:business_id (
+              id,
+              name,
+              logo,
+              address,
+              phone,
+              rating,
+              latitude,
+              longitude,
+              business_type
+            )
+          ''')
+          .eq('status', 'available')
+          .gt('expiry_time', DateTime.now().toIso8601String())
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      final List<Map<String, dynamic>> offers = [];
+
+      for (var offer in response) {
+        final offerId = offer['id'] as String;
+
+        final requestCountResponse = await client
+            .from('offer_requests')
+            .select('id')
+            .eq('offer_id', offerId)
+            .filter(
+                'status', 'in', '("pending","accepted","ready_for_pickup")');
+
+        offer['request_count'] = requestCountResponse.length;
+        offer['interested_count'] = requestCountResponse.length;
+
+        final userRequest = await client
+            .from('offer_requests')
+            .select('id, status')
+            .eq('offer_id', offerId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        offer['is_requested_by_user'] = userRequest != null;
+        offer['is_accepted'] =
+            userRequest != null && userRequest['status'] == 'accepted';
+        offer['user_request_status'] = userRequest?['status'];
+
+        offers.add(offer);
+      }
+
+      return offers;
+    } catch (e) {
+      print('❌ Error getting offers with requests: $e');
+      return [];
+    }
+  }
+
   Future<Map<String, dynamic>?> getOfferById(String id) async {
     await _expireOverdueFoodOffers();
     try {
@@ -763,40 +1049,271 @@ class SupabaseService {
     }
   }
 
+  // ============ OFFER REQUESTS ============
+
+  Future<Map<String, dynamic>> acceptOfferRequest(String requestId) async {
+    try {
+      final request = await client
+          .from('offer_requests')
+          .select('offer_id, user_id, status')
+          .eq('id', requestId)
+          .maybeSingle();
+
+      if (request == null) {
+        throw Exception('الطلب غير موجود');
+      }
+
+      if (request['status'] != 'pending') {
+        throw Exception('لا يمكن قبول طلب غير معلق');
+      }
+
+      final offerId = request['offer_id'] as String;
+
+      final updatedRequest = await client
+          .from('offer_requests')
+          .update({
+            'status': 'accepted',
+            'updated_at': DateTime.now().toIso8601String(),
+            'notified_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId)
+          .select()
+          .single();
+
+      await client.from('food_offers').update({
+        'status': 'reserved',
+        'reserved_by': request['user_id'],
+        'reserved_at': DateTime.now().toIso8601String(),
+        'is_paused': true,
+        'paused_at': DateTime.now().toIso8601String(),
+        'paused_reason': 'تم قبول طلب استلام',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', offerId);
+
+      return updatedRequest;
+    } catch (e) {
+      print('❌ acceptOfferRequest error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectOfferRequest(String requestId) async {
+    try {
+      final request = await client
+          .from('offer_requests')
+          .select('offer_id, user_id')
+          .eq('id', requestId)
+          .maybeSingle();
+
+      if (request == null) {
+        throw Exception('الطلب غير موجود');
+      }
+
+      final updatedRequest = await client
+          .from('offer_requests')
+          .update({
+            'status': 'rejected',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId)
+          .select()
+          .single();
+
+      return updatedRequest;
+    } catch (e) {
+      print('❌ rejectOfferRequest error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelOfferRequest(String requestId) async {
+    try {
+      final request = await client
+          .from('offer_requests')
+          .select('offer_id, status')
+          .eq('id', requestId)
+          .maybeSingle();
+
+      if (request == null) {
+        throw Exception('الطلب غير موجود');
+      }
+
+      final offerId = request['offer_id'] as String;
+      final wasAccepted = request['status'] == 'accepted';
+
+      final cancelledRequest = await client
+          .from('offer_requests')
+          .update({
+            'status': 'cancelled',
+            'cancellation_reason': 'تم الإلغاء من قبل العميل',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', requestId)
+          .select()
+          .single();
+
+      if (wasAccepted) {
+        await client.from('food_offers').update({
+          'status': 'available',
+          'reserved_by': null,
+          'reserved_at': null,
+          'is_paused': false,
+          'paused_at': null,
+          'paused_reason': null,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', offerId);
+      }
+
+      return cancelledRequest;
+    } catch (e) {
+      print('❌ cancelOfferRequest error: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOfferRequestsForBusiness(
+    String businessId,
+    String offerId,
+  ) async {
+    try {
+      final response = await client
+          .from('offer_requests')
+          .select('''
+            *,
+            users (
+              id,
+              name,
+              phone,
+              avatar_url
+            )
+          ''')
+          .eq('offer_id', offerId)
+          .eq('food_offers.business_id', businessId)
+          .order('requested_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ getOfferRequestsForBusiness error: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserOfferRequest(
+    String offerId,
+    String userId,
+  ) async {
+    try {
+      final response = await client
+          .from('offer_requests')
+          .select()
+          .eq('offer_id', offerId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      return response;
+    } catch (e) {
+      print('❌ getUserOfferRequest error: $e');
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getBusinessAllOfferRequests(
+      String businessId) async {
+    try {
+      final response = await client
+          .from('offer_requests')
+          .select('''
+            *,
+            users (
+              id,
+              name,
+              phone,
+              avatar_url
+            ),
+            food_offers!inner (
+              id,
+              title,
+              quantity,
+              pickup_location,
+              expiry_time,
+              business_id,
+              businesses:business_id (
+                id,
+                name,
+                logo,
+                address,
+                phone
+              )
+            )
+          ''')
+          .eq('food_offers.business_id', businessId)
+          .order('requested_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ getBusinessAllOfferRequests error: $e');
+      return [];
+    }
+  }
+
   // ============ COMMUNITY STATS ============
 
   Future<CommunityStats> getCommunityStats() async {
     try {
-      final deliveriesResponse = await client
-          .from('deliveries')
-          .select('id, food_offers(quantity)')
-          .eq('status', 'delivered');
-
+      // ✅ جلب عدد الوجبات المنقذة من donations
       int mealsSaved = 0;
-      for (var delivery in deliveriesResponse) {
-        final offerData = delivery['food_offers'] as Map<String, dynamic>?;
-        if (offerData != null) {
-          mealsSaved += offerData['quantity'] as int? ?? 0;
+      try {
+        final donationsResponse = await client
+            .from('donations')
+            .select('quantity')
+            .eq('status', 'completed');
+        for (var donation in donationsResponse) {
+          mealsSaved += donation['quantity'] as int? ?? 1;
         }
+      } catch (_) {
+        mealsSaved = 0;
       }
 
-      final volunteersResponse = await client
-          .from('users')
-          .select('id')
-          .eq('user_type', 'user')
-          .eq('is_active', true);
+      // ✅ جلب عدد المتطوعين النشطين
+      int activeVolunteers = 0;
+      try {
+        final volunteersResponse = await client
+            .from('users')
+            .select('id')
+            .eq('user_type', 'user')
+            .eq('is_active', true);
+        activeVolunteers = volunteersResponse.length;
+      } catch (_) {
+        activeVolunteers = 0;
+      }
 
-      final restaurantsResponse =
-          await client.from('restaurants').select('id').eq('status', 'active');
+      // ✅ جلب عدد المطاعم المشاركة
+      int participatingRestaurants = 0;
+      try {
+        final restaurantsResponse = await client
+            .from('restaurants')
+            .select('id')
+            .eq('status', 'active');
+        participatingRestaurants = restaurantsResponse.length;
+      } catch (_) {
+        participatingRestaurants = 0;
+      }
 
-      final charitiesResponse =
-          await client.from('charities').select('id').eq('status', 'active');
+      // ✅ جلب عدد الجمعيات المستفيدة
+      int beneficiaryCharities = 0;
+      try {
+        final charitiesResponse =
+            await client.from('charities').select('id').eq('status', 'active');
+        beneficiaryCharities = charitiesResponse.length;
+      } catch (_) {
+        beneficiaryCharities = 0;
+      }
 
       return CommunityStats(
         mealsSaved: mealsSaved,
-        activeVolunteers: volunteersResponse.length ?? 0,
-        participatingRestaurants: restaurantsResponse.length ?? 0,
-        beneficiaryCharities: charitiesResponse.length ?? 0,
+        activeVolunteers: activeVolunteers,
+        participatingRestaurants: participatingRestaurants,
+        beneficiaryCharities: beneficiaryCharities,
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
@@ -874,28 +1391,139 @@ class SupabaseService {
     }
   }
 
-  // ============ REWARD POINTS ============
-
-  Future<void> addPoints({
+  Future<void> sendNotification({
     required String userId,
-    required int points,
-    required String reason,
-    String? deliveryId,
+    required String title,
+    required String body,
+    String? type,
+    Map<String, dynamic>? data,
   }) async {
     try {
-      await client.from('reward_points').insert({
+      print('📌 Sending notification to user: $userId');
+      print('📌 Title: $title');
+      print('📌 Body: $body');
+
+      await client.from('notifications').insert({
         'user_id': userId,
-        'points': points,
-        'reason': reason,
-        'delivery_id': deliveryId,
+        'title': title,
+        'body': body,
+        'type': type ?? 'general',
+        'is_read': false,
+        'data': data,
+        'created_at': DateTime.now().toIso8601String(),
       });
 
-      await client.rpc('add_user_points', params: {
-        'user_id': userId,
-        'points_to_add': points,
-      });
+      print('✅ Notification saved to database');
     } catch (e) {
-      print('❌ Error adding points: $e');
+      print('❌ Error sending notification: $e');
+    }
+  }
+
+  Future<int> getUnreadNotificationsCount(String userId) async {
+    try {
+      final response = await client
+          .from('notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_read', false);
+
+      return response.length;
+    } catch (e) {
+      print('❌ Error getting unread count: $e');
+      return 0;
+    }
+  }
+
+  Future<void> sendNotificationToAllDevices({
+    required String userId,
+    required String title,
+    required String body,
+    String? type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      print('📌 Sending notification to all devices of user: $userId');
+
+      await client.from('notifications').insert({
+        'user_id': userId,
+        'title': title,
+        'body': body,
+        'type': type ?? 'general',
+        'is_read': false,
+        'data': data,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      final devices = await client
+          .from('user_devices')
+          .select('fcm_token')
+          .eq('user_id', userId)
+          .eq('is_active', true);
+
+      if (devices.isEmpty) {
+        print('⚠️ No active devices found for user: $userId');
+        return;
+      }
+
+      print('📌 Sending to ${devices.length} devices');
+
+      for (final device in devices) {
+        final token = device['fcm_token']?.toString();
+        if (token != null && token.isNotEmpty) {
+          print('📌 Sending to device: ${token.substring(0, 10)}...');
+        }
+      }
+
+      print('✅ Notification sent to ${devices.length} devices');
+    } catch (e) {
+      print('❌ Error sending notification to all devices: $e');
+    }
+  }
+
+  Future<void> registerCurrentDevice() async {
+    try {
+      final user = client.auth.currentUser;
+      if (user == null) {
+        debugPrint('⚠️ No user logged in, skipping device registration');
+        return;
+      }
+
+      final fcmToken = await _fcmNotifications.currentToken();
+      if (fcmToken == null || fcmToken.isEmpty) {
+        debugPrint('⚠️ No FCM token available');
+        return;
+      }
+
+      final deviceName = await _getDeviceName();
+      final appVersion = await _getAppVersion();
+
+      await upsertFcmDevice(
+        userId: user.id,
+        fcmToken: fcmToken,
+        deviceName: deviceName,
+        appVersion: appVersion,
+      );
+
+      debugPrint('✅ Device registered for user: ${user.id}');
+    } catch (e) {
+      debugPrint('❌ Error registering device: $e');
+    }
+  }
+
+  Future<String> _getDeviceName() async {
+    try {
+      if (kIsWeb) return 'Web Browser';
+      return Platform.localHostname;
+    } catch (e) {
+      return Platform.operatingSystem;
+    }
+  }
+
+  Future<String> _getAppVersion() async {
+    try {
+      return '1.0.0';
+    } catch (e) {
+      return '1.0.0';
     }
   }
 
@@ -912,7 +1540,6 @@ class SupabaseService {
           .order('created_at', ascending: false);
 
       print('📌 Charities found: ${response.length ?? 0}');
-      print('📌 Response: $response');
 
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
@@ -1024,7 +1651,7 @@ class SupabaseService {
     }
   }
 
-  // ============ OFFER REQUESTS ============
+  // ============ OFFER REQUESTS (EXISTING METHODS) ============
 
   Future<String?> _resolveRestaurantIdFromBusinessId(
     String businessId,
@@ -1332,6 +1959,151 @@ class SupabaseService {
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
       print('❌ getAvailableOffersFiltered error: $e');
+      return [];
+    }
+  }
+
+  // ============ COMMUNITY OFFERS ============
+
+  // ✅ جلب صورة العرض المجتمعي
+  Future<String?> getCommunityOfferImage(String offerId) async {
+    try {
+      final response = await client
+          .from('community_offers')
+          .select('image')
+          .eq('id', offerId)
+          .maybeSingle();
+
+      return response?['image']?.toString();
+    } catch (e) {
+      print('❌ Error getting community offer image: $e');
+      return null;
+    }
+  }
+
+  // ✅ جلب جميع صور العرض المجتمعي
+  Future<List<String>> getCommunityOfferImages(String offerId) async {
+    try {
+      final response = await client
+          .from('community_offers')
+          .select('images')
+          .eq('id', offerId)
+          .maybeSingle();
+
+      if (response == null) return [];
+
+      final images = response['images'] as List? ?? [];
+      return images
+          .map((url) => url.toString())
+          .where((url) => url.isNotEmpty)
+          .toList();
+    } catch (e) {
+      print('❌ Error getting community offer images: $e');
+      return [];
+    }
+  }
+
+  // ✅ جلب الصورة الأساسية مع الـ URL الكامل
+  Future<String?> getCommunityOfferPrimaryImageUrl(String offerId) async {
+    try {
+      final image = await getCommunityOfferImage(offerId);
+      if (image == null || image.isEmpty) return null;
+      return _buildCommunityImageUrl(image);
+    } catch (e) {
+      print('❌ Error getting community offer primary image URL: $e');
+      return null;
+    }
+  }
+
+  // ✅ جلب العرض المجتمعي كامل مع الصور
+  Future<Map<String, dynamic>?> getCommunityOfferWithImages(
+      String offerId) async {
+    try {
+      final response = await client
+          .from('community_offers')
+          .select()
+          .eq('id', offerId)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      final images = await getCommunityOfferImages(offerId);
+      final primaryImage = await getCommunityOfferImage(offerId);
+
+      response['images_list'] = images;
+      response['primary_image'] = primaryImage;
+      response['image_url'] = _buildCommunityImageUrl(primaryImage ?? '');
+
+      return response;
+    } catch (e) {
+      print('❌ Error getting community offer with images: $e');
+      return null;
+    }
+  }
+
+  // ✅ دالة مساعدة لبناء رابط الصورة
+  String _buildCommunityImageUrl(String imagePath) {
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+
+    if (imagePath.startsWith('file:///')) {
+      return '';
+    }
+
+    final baseUrl =
+        'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/community-offers/';
+    return '$baseUrl$imagePath';
+  }
+
+  // ✅ جلب الصور لعرض معين (للعروض التانية - institution_offer_media)
+  Future<List<Map<String, dynamic>>> getOfferMedia(String offerId) async {
+    try {
+      final response = await adminClient
+          .from('institution_offer_media')
+          .select()
+          .eq('offer_id', offerId)
+          .order('sort_order', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('❌ Error getting offer media: $e');
+      return [];
+    }
+  }
+
+  // ✅ جلب الصورة الأساسية للعرض (من institution_offer_media)
+  Future<String?> getOfferPrimaryImage(String offerId) async {
+    try {
+      final response = await adminClient
+          .from('institution_offer_media')
+          .select('public_url')
+          .eq('offer_id', offerId)
+          .eq('is_primary', true)
+          .maybeSingle();
+
+      return response?['public_url']?.toString();
+    } catch (e) {
+      print('❌ Error getting primary image: $e');
+      return null;
+    }
+  }
+
+  // ✅ جلب جميع صور العرض (من institution_offer_media)
+  Future<List<String>> getOfferImages(String offerId) async {
+    try {
+      final response = await adminClient
+          .from('institution_offer_media')
+          .select('public_url')
+          .eq('offer_id', offerId)
+          .order('sort_order', ascending: true);
+
+      return response
+          .map((item) => item['public_url'].toString())
+          .where((url) => url.isNotEmpty)
+          .toList();
+    } catch (e) {
+      print('❌ Error getting offer images: $e');
       return [];
     }
   }

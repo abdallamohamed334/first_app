@@ -85,6 +85,10 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     setState(() => _busy = true);
     try {
       final imageUrls = await _repository.uploadDonationImages(_images);
+      debugPrint('✅ DONATION IMAGE PATHS: $imageUrls');
+      if (imageUrls.isEmpty) {
+        throw Exception('لم يتم رفع صور التبرع');
+      }
       await _repository.createDonation(
         charityId: _charity!.id,
         title: _title.text,
@@ -100,16 +104,26 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
       if (!mounted) return;
       _message('تم إرسال التبرع للجمعية بنجاح', success: true);
       Navigator.pop(context, true);
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('❌ ADD CHARITY DONATION ERROR: $error');
+      debugPrint('❌ ERROR TYPE: ${error.runtimeType}');
+      debugPrintStack(stackTrace: stackTrace);
+
       if (mounted) {
         final raw = error.toString().toLowerCase();
         final message = raw.contains('row-level security') ||
                 raw.contains('permission denied') ||
                 raw.contains('not authorized') ||
                 raw.contains('42501')
-            ? 'لا توجد صلاحية لرفع الصور أو إرسال التبرع. شغّل ملف صلاحيات التبرع في Supabase ثم حاول مرة أخرى.'
-            : AppErrorMapper.message(error,
-                fallback: 'تعذر إرسال التبرع. حاول مرة أخرى.');
+            ? 'لا توجد صلاحية لرفع الصور أو إرسال التبرع. راجع سياسات Supabase.'
+            : raw.contains('check constraint') || raw.contains('23514')
+                ? 'إحدى قيم التبرع غير مقبولة في قاعدة البيانات. راجع النوع أو الحالة أو الكمية.'
+                : raw.contains('foreign key') || raw.contains('23503')
+                    ? 'الجمعية المختارة غير موجودة أو لم تعد متاحة.'
+                    : AppErrorMapper.message(
+                        error,
+                        fallback: 'تعذر إرسال التبرع. حاول مرة أخرى.',
+                      );
         _message(message);
       }
     } finally {

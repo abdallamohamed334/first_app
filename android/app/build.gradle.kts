@@ -12,6 +12,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
         // Required by flutter_local_notifications.
         isCoreLibraryDesugaringEnabled = true
     }
@@ -26,6 +27,8 @@ android {
 
     buildTypes {
         release {
+            // Temporary signing configuration for local release testing.
+            // Replace with your real release keystore before publishing.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -44,7 +47,4 @@ flutter {
 dependencies {
     // Required by flutter_local_notifications.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-
-    implementation("com.google.firebase:firebase-messaging:23.4.0")
-    implementation("com.google.firebase:firebase-analytics:21.5.0")
 }

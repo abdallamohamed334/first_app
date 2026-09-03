@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
 import 'community_my_requests_page.dart';
-import 'community_owner_requests_page.dart';
+import 'community_my_offers_page.dart'; // ✅ استورد الصفحة الجديدة
 
 class CommunityTrackingPage extends StatelessWidget {
   const CommunityTrackingPage({super.key});
@@ -97,7 +97,8 @@ class CommunityTrackingPage extends StatelessWidget {
               title: 'العروض التي نشرتها',
               subtitle:
                   'شاهد طلبات عروضك، افتح تفاصيلها، واقبل أو ارفض ثم جهّز الطلب للتسليم.',
-              onTap: () => _open(context, const CommunityOwnerRequestsPage()),
+              // ✅ هنا نفتح الصفحة الجديدة
+              onTap: () => _open(context, const CommunityMyOffersPage()),
             ),
           ],
         ),

@@ -29,7 +29,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
 
   final _imagePicker = ImagePicker();
   final _imageStorage = LoqmaImageStorageService();
-  XFile? _selectedImage;
+  List<XFile> _selectedImages = [];
   bool _isLoading = false;
   bool _isHalal = false;
   bool _isVegetarian = false;
@@ -50,47 +50,89 @@ class _AddOfferPageState extends State<AddOfferPage> {
     super.dispose();
   }
 
+  // ✅ اختيار صور متعددة
+  Future<void> _pickOfferImages() async {
+    try {
+      final images = await _imagePicker.pickMultiImage(
+        imageQuality: 84,
+        maxWidth: 1400,
+      );
+      if (!mounted || images.isEmpty) return;
+      setState(() => _selectedImages = images);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر اختيار الصور، حاول مرة أخرى')),
+      );
+    }
+  }
+
+  // ✅ إزالة صورة
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
   Future<void> _submitOffer() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_selectedImages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء اختيار صورة على الأقل للعرض'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
       final supabase = SupabaseService();
 
-      // ✅ حساب وقت الانتهاء (بعد 4 ساعات من الآن)
-      final expiryTime = DateTime.now().add(const Duration(hours: 4));
-
-      String? imageUrl;
-      if (_selectedImage != null) {
-        imageUrl =
-            await _imageStorage.uploadRestaurantOfferImage(_selectedImage!);
+      // ✅ رفع جميع الصور
+      final List<String> imagePaths = [];
+      for (final image in _selectedImages) {
+        final path = await _imageStorage.uploadRestaurantOfferImage(image);
+        if (path.trim().isNotEmpty) {
+          imagePaths.add(path);
+        }
       }
 
-      // ✅ ✅ ✅ استخدم business_id فقط (مش restaurant_id)
-      final data = {
-        'business_id': widget.businessId, // ✅ business_id فقط
+      if (imagePaths.isEmpty) {
+        throw Exception('فشل رفع الصور');
+      }
+
+      debugPrint('✅ IMAGES PATHS UPLOADED: $imagePaths');
+
+      final now = DateTime.now().toUtc();
+      final expiryTime = now.add(const Duration(hours: 4));
+
+      // ✅ حفظ البيانات مع الصور
+      final data = <String, dynamic>{
+        'business_id': widget.businessId,
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'quantity': int.parse(_quantityController.text),
+        'quantity': int.parse(_quantityController.text.trim()),
         'food_type': _foodTypeController.text.trim(),
         'pickup_location': _pickupLocationController.text.trim(),
         'expiry_time': expiryTime.toIso8601String(),
+        'pickup_before': expiryTime.toIso8601String(),
         'status': 'available',
         'is_halal': _isHalal,
         'is_vegetarian': _isVegetarian,
         'requires_refrigeration': _requiresRefrigeration,
         'food_condition': _selectedCondition,
         'packaging': _selectedPackaging,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-        'image': imageUrl,
-        'images': imageUrl == null ? <String>[] : <String>[imageUrl],
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+        'image': imagePaths.first,
+        'images': imagePaths,
       };
 
-      // ✅ ✅ ✅ تأكد من أن البيانات مفيش فيها restaurant_id
-      print('📌 Data being sent: $data');
-      print('📌 Keys: ${data.keys}');
+      debugPrint('📌 DATA BEFORE INSERT: $data');
 
       final response = await supabase.client
           .from('food_offers')
@@ -98,33 +140,47 @@ class _AddOfferPageState extends State<AddOfferPage> {
           .select()
           .single();
 
-      print('✅ Offer created: $response');
+      debugPrint('✅ OFFER CREATED: $response');
+      debugPrint('✅ SAVED IMAGE: ${response['image']}');
+      debugPrint('✅ SAVED IMAGES: ${response['images']}');
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ تم إضافة العرض بنجاح!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print('❌ Error creating offer: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ حدث خطأ: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ تم إضافة العرض بنجاح مع ${imagePaths.length} صور'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context, true);
+    } catch (e, stackTrace) {
+      debugPrint('❌ ERROR CREATING OFFER: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('❌ حدث خطأ أثناء إضافة العرض: ${_getUserFriendlyError(e)}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  String _getUserFriendlyError(Object error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('duplicate')) return 'يوجد عرض مكرر';
+    if (msg.contains('foreign key')) return 'بيانات المطعم غير صالحة';
+    if (msg.contains('storage')) return 'فشل رفع الصور، تأكد من الاتصال';
+    if (msg.contains('permission')) return 'ليس لديك صلاحية لهذا الإجراء';
+    return 'حاول مرة أخرى';
   }
 
   @override
@@ -223,6 +279,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
               ),
               const SizedBox(height: 16),
 
+              // ✅ اختيار الصور
               _buildImagePickerCard(),
               const SizedBox(height: 16),
 
@@ -417,26 +474,10 @@ class _AddOfferPageState extends State<AddOfferPage> {
 
   // ============ Widgets ============
 
-  Future<void> _pickOfferImage() async {
-    try {
-      final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 84,
-        maxWidth: 1400,
-      );
-      if (!mounted || image == null) return;
-      setState(() => _selectedImage = image);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر اختيار صورة الوجبة، حاول مرة أخرى')),
-      );
-    }
-  }
-
+  // ✅ عرض معاينة الصور المختارة
   Widget _buildImagePickerCard() {
     return InkWell(
-      onTap: _isLoading ? null : _pickOfferImage,
+      onTap: _isLoading ? null : _pickOfferImages,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
@@ -446,41 +487,136 @@ class _AddOfferPageState extends State<AddOfferPage> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.green.shade200),
         ),
-        child: _selectedImage == null
-            ? const Column(
-                children: [
-                  Icon(Icons.add_photo_alternate_rounded,
-                      size: 42, color: Colors.green),
-                  SizedBox(height: 8),
-                  Text('إضافة صورة الوجبة',
-                      style: TextStyle(fontWeight: FontWeight.w800)),
-                  SizedBox(height: 4),
-                  Text('الصورة ستظهر في كروت العروض وتفاصيل العرض'),
-                ],
-              )
-            : FutureBuilder<Uint8List>(
-                future: _selectedImage!.readAsBytes(),
-                builder: (_, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const SizedBox(
-                        height: 120,
-                        child: Center(child: CircularProgressIndicator()));
-                  }
-                  return Column(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.add_photo_alternate_rounded, color: Colors.green),
+                SizedBox(width: 8),
+                Text(
+                  'اختيار الصور',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+                Spacer(),
+                Text(
+                  'اضغط للاختيار',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // ✅ عرض الصور المختارة
+            if (_selectedImages.isEmpty)
+              Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.memory(snapshot.data!,
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover),
+                      Icon(Icons.image, size: 30, color: Colors.grey),
+                      SizedBox(height: 4),
+                      Text(
+                        'لم تختر أي صورة بعد',
+                        style: TextStyle(color: Colors.grey),
                       ),
-                      const SizedBox(height: 8),
-                      const Text('اضغط لتغيير الصورة'),
                     ],
-                  );
-                },
+                  ),
+                ),
+              )
+            else
+              SizedBox(
+                height: 120,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _selectedImages.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: FutureBuilder<Uint8List>(
+                            future: _selectedImages[index].readAsBytes(),
+                            builder: (_, snapshot) {
+                              if (!snapshot.hasData) {
+                                return Container(
+                                  width: 120,
+                                  height: 120,
+                                  color: Colors.grey.shade200,
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+                              return Image.memory(
+                                snapshot.data!,
+                                width: 120,
+                                height: 120,
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          ),
+                        ),
+                        if (_selectedImages.length > 1)
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: Colors.red,
+                              child: IconButton(
+                                onPressed: () => _removeImage(index),
+                                icon: const Icon(Icons.close,
+                                    size: 12, color: Colors.white),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ),
+                        if (index == 0)
+                          Positioned(
+                            bottom: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'رئيسية',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
               ),
+
+            const SizedBox(height: 8),
+            Text(
+              _selectedImages.isEmpty
+                  ? '⚠️ يجب اختيار صورة واحدة على الأقل'
+                  : '✅ تم اختيار ${_selectedImages.length} صورة',
+              style: TextStyle(
+                fontSize: 12,
+                color: _selectedImages.isEmpty ? Colors.orange : Colors.green,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

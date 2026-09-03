@@ -406,6 +406,8 @@ class _RegisterPageState extends State<RegisterPage> {
     final result = await _authRepo.issueSignupEmailCode(
       userId: userId,
       email: email,
+      name: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
     );
     if (!mounted) return;
 
@@ -455,9 +457,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (phone.startsWith('0020')) phone = phone.substring(4);
     if (phone.startsWith('20') && phone.length == 12)
       phone = phone.substring(2);
-    if (phone.length == 10 && phone.startsWith('1')) phone = '0$phone';
-    if (phone.length == 10 && phone.startsWith('01') == false)
-      phone = '0$phone';
+    if (phone.length == 10) phone = '0$phone';
     return phone;
   }
 

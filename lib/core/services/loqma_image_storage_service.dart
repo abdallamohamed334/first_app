@@ -1,36 +1,95 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Uploads image bytes to the two dedicated public buckets and returns the
-/// public URL stored in database rows.
+/// خدمة رفع الصور إلى Supabase Storage.
+///
+/// المسارات مطابقة لسياسات Storage الحالية:
+/// - charity-images: charities/<user-id>/<file>
+/// - restaurant-offers: <user-id>/<file>
+/// - community-offers: direct/<user-id>/<file>
 class LoqmaImageStorageService {
   final SupabaseClient _client;
 
   LoqmaImageStorageService({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
-  Future<String> uploadCharityLogo(XFile image) async {
+  Future<User> _requireUser() async {
     final user = _client.auth.currentUser;
-    if (user == null) throw const AuthException('يجب تسجيل الدخول أولًا');
+    if (user == null) {
+      throw const LoqmaStorageAuthException('يجب تسجيل الدخول أولًا');
+    }
+    return user;
+  }
+
+  Future<String> uploadCharityLogo(XFile image) async {
+    final user = await _requireUser();
+
     return _upload(
       bucket: 'charity-images',
       path: 'charities/${user.id}/${_fileName(image)}',
       image: image,
-      errorMessage: 'تعذر رفع صورة الجمعية، حاول مرة أخرى.',
+      errorMessage: 'تعذر رفع صورة الجمعية. حاول مرة أخرى.',
     );
   }
 
   Future<String> uploadRestaurantOfferImage(XFile image) async {
-    final user = _client.auth.currentUser;
-    if (user == null) throw const AuthException('يجب تسجيل الدخول أولًا');
+    final user = await _requireUser();
+
+    // مطابق لسياسة UUID-first الخاصة بـ restaurant-offers
+    final path = '${user.id}/${_fileName(image)}';
+
+    debugPrint('UPLOAD BUCKET: restaurant-offers');
+    debugPrint('UPLOAD PATH: $path');
+    debugPrint('AUTH USER: ${user.id}');
+
     return _upload(
       bucket: 'restaurant-offers',
-      path: 'restaurants/${user.id}/${_fileName(image)}',
+      path: path,
       image: image,
-      errorMessage: 'تعذر رفع صورة الوجبة، حاول مرة أخرى.',
+      errorMessage: 'تعذر رفع صورة العرض. حاول مرة أخرى.',
     );
+  }
+
+  Future<List<String>> uploadRestaurantOfferImages(
+    List<XFile> images,
+  ) async {
+    final paths = <String>[];
+    for (final image in images) {
+      paths.add(await uploadRestaurantOfferImage(image));
+    }
+    return paths;
+  }
+
+  Future<String> uploadCharityDonationImage(XFile image) async {
+    final user = await _requireUser();
+
+    // مطابق لسياسة direct_donation_images_insert.
+    // هنا direct صحيح لأن policy تقرأ UUID من الجزء الثاني.
+    final path = 'direct/${user.id}/${_fileName(image)}';
+
+    debugPrint('DONATION IMAGE BUCKET: community-offers');
+    debugPrint('DONATION IMAGE PATH: $path');
+    debugPrint('AUTH USER: ${user.id}');
+
+    return _upload(
+      bucket: 'community-offers',
+      path: path,
+      image: image,
+      errorMessage: 'تعذر رفع صورة التبرع. حاول مرة أخرى.',
+    );
+  }
+
+  Future<List<String>> uploadCharityDonationImages(
+    List<XFile> images,
+  ) async {
+    final paths = <String>[];
+    for (final image in images) {
+      paths.add(await uploadCharityDonationImage(image));
+    }
+    return paths;
   }
 
   Future<String> _upload({
@@ -41,29 +100,46 @@ class LoqmaImageStorageService {
   }) async {
     try {
       final bytes = await image.readAsBytes();
-      if (bytes.isEmpty) throw StateError(errorMessage);
+      if (bytes.isEmpty) {
+        throw StateError('empty image');
+      }
+
       final extension = _extension(image.name);
-      final finalPath = path.replaceFirst(
-        RegExp(r'\.[a-zA-Z0-9]+$'),
-        '.$extension',
-      );
+      final finalPath = _replaceExtension(path, extension);
+
       await _client.storage.from(bucket).uploadBinary(
             finalPath,
             Uint8List.fromList(bytes),
             fileOptions: FileOptions(
               contentType: _contentType(extension),
-              upsert: true,
+              upsert: false,
             ),
           );
-      return _client.storage.from(bucket).getPublicUrl(finalPath);
-    } catch (_) {
+
+      debugPrint('IMAGE UPLOAD SUCCESS: bucket=$bucket path=$finalPath');
+
+      // تحفظ هذه القيمة نفسها في عمود images داخل قاعدة البيانات.
+      return finalPath;
+    } on StorageException catch (error, stackTrace) {
+      // التفاصيل تبقى للمطور فقط ولا تظهر للمستخدم.
+      debugPrint('STORAGE ERROR: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      throw StateError(errorMessage);
+    } catch (error, stackTrace) {
+      debugPrint('IMAGE UPLOAD ERROR: $error');
+      debugPrintStack(stackTrace: stackTrace);
       throw StateError(errorMessage);
     }
   }
 
   String _fileName(XFile image) {
-    final extension = _extension(image.name);
-    return '${DateTime.now().microsecondsSinceEpoch}.$extension';
+    return '${DateTime.now().microsecondsSinceEpoch}.${_extension(image.name)}';
+  }
+
+  String _replaceExtension(String path, String extension) {
+    final pattern = RegExp(r'\.[a-zA-Z0-9]+$');
+    if (!pattern.hasMatch(path)) return '$path.$extension';
+    return path.replaceFirst(pattern, '.$extension');
   }
 
   String _extension(String name) {
@@ -83,4 +159,13 @@ class LoqmaImageStorageService {
         return 'image/jpeg';
     }
   }
+}
+
+class LoqmaStorageAuthException implements Exception {
+  final String message;
+
+  const LoqmaStorageAuthException(this.message);
+
+  @override
+  String toString() => message;
 }

@@ -1,3 +1,5 @@
+// lib/features/institutions/data/repositories/institution_offers_repository.dart
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
@@ -29,7 +31,6 @@ class InstitutionOffersRepository {
     return rows
         .whereType<Map>()
         .map((row) => InstitutionOffer.fromJson(_normalizeCoreRow(row)))
-        // لا تعرض عرضًا استُنفدت كميته حتى لو تأخر تحديث status في أي مسار.
         .where((offer) => offer.isActive && offer.remainingQuantity > 0)
         .toList(growable: false);
   }
@@ -92,6 +93,17 @@ class InstitutionOffersRepository {
     normalized['pickup_location'] =
         pickup['location_text'] ?? pickup['address'] ?? pickup['city'];
     normalized['pickup_before'] = pickup['pickup_before'];
+
+    // ✅ حقول إضافية
+    normalized['food_type'] = row['food_type'] ?? 'وجبات';
+    normalized['is_halal'] = row['is_halal'] ?? true;
+    normalized['is_vegetarian'] = row['is_vegetarian'] ?? false;
+    normalized['food_condition'] = row['food_condition'] ?? 'good';
+    normalized['requires_refrigeration'] =
+        row['requires_refrigeration'] ?? false;
+    normalized['pickup_notes'] = row['pickup_notes'] ?? '';
+    normalized['contact_phone'] = row['contact_phone'] ?? '';
+
     return normalized;
   }
 
@@ -247,5 +259,159 @@ class InstitutionOffersRepository {
       );
     }
     return parsed;
+  }
+
+  // ============================================================
+  // ✅ دالة جلب عروض المؤسسة مع الحقول الإضافية (تم إصلاحها)
+  // ============================================================
+  Future<List<Map<String, dynamic>>> getInstitutionOffers({
+    required String institutionId,
+    String? status,
+    int limit = 50,
+  }) async {
+    try {
+      // ✅ بناء الاستعلام بالترتيب الصحيح
+      var query = _client.from('institution_offers').select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
+          ''').eq('institution_id', institutionId);
+
+      // ✅ إضافة فلتر الحالة إذا وجد
+      if (status != null && status.isNotEmpty) {
+        query = query.eq('status', status);
+      }
+
+      // ✅ ترتيب وتحديد العدد
+      final response =
+          await query.order('created_at', ascending: false).limit(limit);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('❌ Error getting institution offers: $e');
+      throw Exception('فشل جلب عروض المؤسسة: $e');
+    }
+  }
+
+  // ============================================================
+  // ✅ دالة جلب عرض معين مع الحقول الإضافية
+  // ============================================================
+  Future<Map<String, dynamic>?> getOfferDetails(String offerId) async {
+    try {
+      final response = await _client.from('institution_offers').select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
+          ''').eq('id', offerId).maybeSingle();
+
+      return response;
+    } catch (e) {
+      debugPrint('❌ Error getting offer details: $e');
+      throw Exception('فشل جلب تفاصيل العرض: $e');
+    }
+  }
+
+  // ============================================================
+  // ✅ دالة تحديث حالة العرض
+  // ============================================================
+  Future<void> updateOfferStatus({
+    required String offerId,
+    required String status,
+  }) async {
+    try {
+      await _client.from('institution_offers').update({
+        'status': status,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', offerId);
+    } catch (e) {
+      debugPrint('❌ Error updating offer status: $e');
+      throw Exception('فشل تحديث حالة العرض: $e');
+    }
+  }
+
+  // ============================================================
+  // ✅ دالة حذف العرض (ناعم)
+  // ============================================================
+  Future<void> deleteOffer(String offerId) async {
+    try {
+      await _client.from('institution_offers').update({
+        'status': 'cancelled',
+        'deleted_at': DateTime.now().toUtc().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('id', offerId);
+    } catch (e) {
+      debugPrint('❌ Error deleting offer: $e');
+      throw Exception('فشل حذف العرض: $e');
+    }
+  }
+
+  // ============================================================
+  // ✅ دالة البحث في العروض
+  // ============================================================
+  Future<List<Map<String, dynamic>>> searchOffers({
+    String? query,
+    String? category,
+    String? city,
+    double? minPrice,
+    double? maxPrice,
+    int limit = 20,
+  }) async {
+    try {
+      var searchQuery = _client
+          .from('institution_offers')
+          .select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
+          ''')
+          .eq('status', 'active')
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String());
+
+      if (query != null && query.isNotEmpty) {
+        searchQuery = searchQuery.ilike('title', '%$query%');
+      }
+
+      if (category != null && category.isNotEmpty) {
+        searchQuery = searchQuery.eq('category', category);
+      }
+
+      if (city != null && city.isNotEmpty) {
+        searchQuery = searchQuery.ilike('pickup_location', '%$city%');
+      }
+
+      if (minPrice != null) {
+        searchQuery = searchQuery.gte('symbolic_price', minPrice);
+      }
+
+      if (maxPrice != null) {
+        searchQuery = searchQuery.lte('symbolic_price', maxPrice);
+      }
+
+      final response =
+          await searchQuery.order('created_at', ascending: false).limit(limit);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('❌ Error searching offers: $e');
+      throw Exception('فشل البحث عن العروض: $e');
+    }
   }
 }

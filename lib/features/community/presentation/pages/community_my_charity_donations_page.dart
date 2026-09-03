@@ -1,6 +1,7 @@
 ﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/community/presentation/pages/community_charity_donation_details_page.dart';
@@ -25,6 +26,7 @@ class _CommunityMyCharityDonationsPageState
   static const _green = Color(0xFF0B7650);
   static const _darkGreen = Color(0xFF123F31);
   static const _background = Color(0xFFF6FAF8);
+  static const _red = Color(0xFFB54747);
 
   @override
   void initState() {
@@ -89,7 +91,7 @@ class _CommunityMyCharityDonationsPageState
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('كود تسليم التبرع'),
+          title: const Text('🔑 كود تسليم التبرع'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -98,15 +100,28 @@ class _CommunityMyCharityDonationsPageState
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 18),
-              SelectableText(
-                code,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _green,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _green.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _green.withAlpha(50)),
                 ),
+                child: SelectableText(
+                  code,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _green,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '⏰ الكود صالح لمدة 24 ساعة',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
@@ -125,9 +140,26 @@ class _CommunityMyCharityDonationsPageState
     }
   }
 
+  // ✅ دالة تأكيد جاهزية المتبرع
+  Future<void> _markDonorReady(String requestId) async {
+    try {
+      await SupabaseService().client.from('charity_donation_requests').update({
+        'status': 'donor_ready',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', requestId);
+      if (mounted) {
+        _message('✅ تم تأكيد جاهزيتك للتسليم');
+        await _refresh();
+      }
+    } catch (e) {
+      if (mounted) _message('❌ فشل تأكيد الجاهزية: $e', error: true);
+    }
+  }
+
   bool _matches(Map<String, dynamic> row) {
     final status = row['status']?.toString() ?? 'pending';
-    return _filter == 'all' || status == _filter;
+    if (_filter == 'all') return true;
+    return status == _filter;
   }
 
   @override
@@ -233,7 +265,7 @@ class _CommunityMyCharityDonationsPageState
                   _filters(),
                   const SizedBox(height: 14),
                   if (rows.isEmpty)
-                    _emptyState('لا توجد تبرعات خاصة بهذا اللتر.',
+                    _emptyState('لا توجد تبرعات خاصة بهذا الفلتر.',
                         Icons.volunteer_activism_outlined)
                   else
                     ...rows.map(_card),
@@ -299,7 +331,7 @@ class _CommunityMyCharityDonationsPageState
         const SizedBox(height: 10),
         Text(
             pending > 0
-                ? 'لديك $pending تبرع يحتاج إلى متابعة. شكراً لمساهمتك ي إيصال الخير لمستحقيه.'
+                ? 'لديك $pending تبرع يحتاج إلى متابعة. شكراً لمساهمتك في إيصال الخير لمستحقيه.'
                 : 'تابع أثر تبرعاتك مع الجمعيات الموثقة من مكان واحد.',
             style: const TextStyle(
                 color: Colors.white70, height: 1.6, fontSize: 13)),
@@ -323,14 +355,14 @@ class _CommunityMyCharityDonationsPageState
         const Color(0xFFB54747)
       ),
       (
-        'قيد التنيذ',
+        'قيد التنفيذ',
         active,
         Icons.hourglass_top_rounded,
         const Color(0xFFDDF3E8),
         _green
       ),
       (
-        'ي انتظار مندوب',
+        'في انتظار مندوب',
         assigned,
         Icons.local_shipping_rounded,
         const Color(0xFFE8F0ED),
@@ -398,6 +430,9 @@ class _CommunityMyCharityDonationsPageState
 
   Widget _actionCard(Map<String, dynamic> row) {
     final status = row['status']?.toString() ?? 'pending';
+    final isCurrentUserVolunteer = row['volunteer_id']?.toString() ==
+        Supabase.instance.client.auth.currentUser?.id;
+
     return Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(15),
@@ -406,9 +441,12 @@ class _CommunityMyCharityDonationsPageState
             borderRadius: BorderRadius.circular(18),
             border: Border(
                 right: BorderSide(
-                    color: status == 'volunteer_assigned'
-                        ? const Color(0xFFB54747)
-                        : _green,
+                    color:
+                        status == 'volunteer_assigned' && isCurrentUserVolunteer
+                            ? _green
+                            : status == 'accepted'
+                                ? const Color(0xFF3679C8)
+                                : _green,
                     width: 4)),
             boxShadow: const [
               BoxShadow(
@@ -440,7 +478,7 @@ class _CommunityMyCharityDonationsPageState
                   MaterialPageRoute(
                       builder: (_) =>
                           CommunityCharityDonationDetailsPage(donation: row))),
-              child: const Text('التاصيل'))
+              child: const Text('التفاصيل'))
         ]));
   }
 
@@ -465,8 +503,8 @@ class _CommunityMyCharityDonationsPageState
                   width: 10,
                   height: 10,
                   margin: const EdgeInsets.only(top: 5),
-                  decoration: const BoxDecoration(
-                    color: _green,
+                  decoration: BoxDecoration(
+                    color: _statusColor(status),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -477,8 +515,8 @@ class _CommunityMyCharityDonationsPageState
                     children: [
                       Text(
                         _statusLabel(status),
-                        style: const TextStyle(
-                          color: _darkGreen,
+                        style: TextStyle(
+                          color: _statusColor(status),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -525,13 +563,13 @@ class _CommunityMyCharityDonationsPageState
               Icons.favorite_border_rounded,
               'الجمعيات',
               false,
-              () => _message('يمكنك استعراض الجمعيات من الصحة الرئيسية'),
+              () => _message('يمكنك استعراض الجمعيات من الصفحة الرئيسية'),
             ),
             _navItem(
               Icons.person_outline_rounded,
               'حسابي',
               false,
-              () => _message('مل الحساب متاح من الصحة الشخصية'),
+              () => _message('ملف الحساب متاح من الصفحة الشخصية'),
             ),
           ],
         ),
@@ -573,55 +611,16 @@ class _CommunityMyCharityDonationsPageState
     );
   }
 
-  Widget _hero(int count) => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0B7650), Color(0xFF2BAA76)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          borderRadius: BorderRadius.circular(26),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('تبرعاتك ي مكان خاص',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 21,
-                          fontWeight: FontWeight.w900)),
-                  const SizedBox(height: 8),
-                  Text('$count تبرع مباشر مع جمعيات موثقة',
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 12)),
-                  const SizedBox(height: 8),
-                  const Text('هذه التبرعات لا تظهر ي العروض العامة.',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-            const Icon(Icons.lock_rounded, color: Colors.white, size: 42),
-          ],
-        ),
-      );
-
   Widget _filters() {
     const filters = <String, String>{
       'all': 'الكل',
-      'pending': 'ي الانتظار',
-      'accepted': 'مقبول',
-      'volunteer_assigned': 'تم تعيين المندوب',
-      'donor_ready': 'أعلنت جاهزيتك — ي انتظار مندوب الجمعية',
-      'picked_up_from_donor': 'تم الاستلام',
-      'in_transit': 'ي الطريق',
-      'completed': 'وصل للجمعية',
+      'pending': '⏳ في الانتظار',
+      'accepted': '✅ مقبول',
+      'volunteer_assigned': '👤 تم تعيين المندوب',
+      'donor_ready': '📦 أعلنت جاهزيتك',
+      'picked_up_from_donor': '📋 تم الاستلام',
+      'in_transit': '🚗 في الطريق',
+      'completed': '🎉 وصل للجمعية',
     };
     return SizedBox(
       height: 40,
@@ -648,6 +647,40 @@ class _CommunityMyCharityDonationsPageState
     );
   }
 
+  String _statusLabel(String status) =>
+      <String, String>{
+        'pending': '⏳ في انتظار مراجعة الجمعية',
+        'accepted': '✅ وافقت الجمعية — أعلن جاهزيتك',
+        'donor_ready': '📦 أعلنت جاهزيتك — في انتظار مندوب الجمعية',
+        'volunteer_assigned':
+            '👤 تم إرسال مندوب الجمعية — اعرض الكود عند وصوله',
+        'picked_up_from_donor': '📋 تم استلامه من المتبرع',
+        'in_transit': '🚗 التبرع في الطريق',
+        'completed': '🎉 وصل التبرع للجمعية بنجاح',
+        'rejected': '❌ لم تقبل الجمعية التبرع',
+        'cancelled': '🚫 تم إلغاء التبرع',
+        'expired': '⏰ انتهت مهلة التبرع',
+      }[status] ??
+      '🔄 جار تحديث حالة التبرع';
+
+  Color _statusColor(String status) {
+    if (status == 'rejected' || status == 'cancelled' || status == 'expired') {
+      return _red;
+    }
+    if (status == 'completed') {
+      return _green;
+    }
+    if (status == 'volunteer_assigned' || status == 'accepted') {
+      return const Color(0xFF3679C8);
+    }
+    if (status == 'donor_ready' ||
+        status == 'picked_up_from_donor' ||
+        status == 'in_transit') {
+      return const Color(0xFFB77700);
+    }
+    return _green;
+  }
+
   Widget _card(Map<String, dynamic> row) {
     final charity = row['charities'] is Map
         ? Map<String, dynamic>.from(row['charities'] as Map)
@@ -660,6 +693,10 @@ class _CommunityMyCharityDonationsPageState
     final title = row['title']?.toString() ?? 'تبرع مباشر';
     final charityName = charity['name']?.toString() ?? 'جمعية موثقة';
     final volunteer = row['volunteer_name']?.toString();
+    final isCurrentUserVolunteer = row['volunteer_id']?.toString() ==
+        Supabase.instance.client.auth.currentUser?.id;
+    final showCode = status == 'volunteer_assigned' && isCurrentUserVolunteer;
+    final showDonorReady = status == 'accepted';
 
     return InkWell(
       onTap: () => Navigator.push(
@@ -746,7 +783,27 @@ class _CommunityMyCharityDonationsPageState
             ],
             const SizedBox(height: 17),
             _timeline(status),
-            if (status == 'volunteer_assigned') ...[
+            // ✅ زر "أنا جاهز للتسليم" للمتبرع
+            if (showDonorReady) ...[
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _markDonorReady(row['id'].toString()),
+                  icon: const Icon(Icons.check_circle_outline_rounded),
+                  label: const Text('📦 أنا جاهز للتسليم'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            // ✅ زر "اعرض كود الاستلام" للمتبرع
+            if (showCode) ...[
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
@@ -757,7 +814,7 @@ class _CommunityMyCharityDonationsPageState
                   icon: const Icon(Icons.qr_code_2_rounded),
                   label: Text(_loadingCode
                       ? 'جار تجهيز الكود...'
-                      : 'اعرض كود الاستلام للمندوب'),
+                      : '🔑 اعرض كود الاستلام للمندوب'),
                   style: FilledButton.styleFrom(
                       backgroundColor: _green, foregroundColor: Colors.white),
                 ),
@@ -770,7 +827,6 @@ class _CommunityMyCharityDonationsPageState
   }
 
   Widget _timeline(String status) {
-    // خط سير المتبرع مبسط، ولا يعرض أزرار أو إجراءات الجمعية.
     const steps = <(String, String, IconData)>[
       ('pending', 'أرسلت التبرع', Icons.send_rounded),
       ('accepted', 'راجعت الجمعية', Icons.fact_check_outlined),
@@ -778,6 +834,7 @@ class _CommunityMyCharityDonationsPageState
       ('picked_up_from_donor', 'استلمه المندوب', Icons.verified_user_outlined),
       ('completed', 'وصل للجمعية', Icons.done_all_rounded),
     ];
+
     final activeIndex = switch (status) {
       'pending' => 0,
       'accepted' => 1,
@@ -786,6 +843,7 @@ class _CommunityMyCharityDonationsPageState
       'completed' => 4,
       _ => 0,
     };
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -799,7 +857,9 @@ class _CommunityMyCharityDonationsPageState
                     width: 29,
                     height: 29,
                     decoration: BoxDecoration(
-                        color: active ? _green : const Color(0xFFE5EEE9),
+                        color: active
+                            ? _statusColor(status)
+                            : const Color(0xFFE5EEE9),
                         shape: BoxShape.circle),
                     child: Icon(steps[index].$3,
                         color: active ? Colors.white : const Color(0xFF9AACA3),
@@ -820,25 +880,6 @@ class _CommunityMyCharityDonationsPageState
       ),
     );
   }
-
-  String _statusLabel(String status) =>
-      <String, String>{
-        'pending': 'ي انتظار مراجعة الجمعية',
-        'accepted': 'واقت الجمعية — أعلن جاهزيتك من تاصيل التبرع',
-        'donor_ready': 'أعلنت جاهزيتك — ي انتظار مندوب الجمعية',
-        'volunteer_assigned': 'تم إرسال مندوب الجمعية — اعرض الكود عند وصوله',
-        'picked_up_from_donor': 'تم استلامه من المتبرع',
-        'in_transit': 'التبرع ي الطريق',
-        'completed': 'وصل التبرع للجمعية بنجاح',
-        'rejected': 'لم تقبل الجمعية التبرع',
-        'cancelled': 'تم إلغاء التبرع',
-      }[status] ??
-      'جار تحديث حالة التبرع';
-
-  Color _statusColor(String status) =>
-      status == 'rejected' || status == 'cancelled'
-          ? const Color(0xFFB54747)
-          : _green;
 
   Widget _emptyState(String text, IconData icon) => Center(
       child: Padding(
@@ -869,5 +910,5 @@ class _CommunityMyCharityDonationsPageState
   void _message(String text, {bool error = false}) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(text, textDirection: TextDirection.rtl),
-          backgroundColor: error ? const Color(0xFFB54747) : _green));
+          backgroundColor: error ? _red : _green));
 }

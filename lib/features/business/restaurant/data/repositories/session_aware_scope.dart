@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/auth_identity_resolver.dart';
@@ -8,15 +10,19 @@ import 'package:loqma/features/booking/presentation/bloc/booking_bloc.dart';
 import 'package:loqma/features/business/data/repositories/business_repository.dart';
 import 'package:loqma/features/business/presentation/bloc/business_dashboard_bloc.dart';
 import 'package:loqma/features/charity/presentation/bloc/charity_bloc.dart';
-import 'package:loqma/features/home/presentation/bloc/home_bloc.dart';
 import 'package:loqma/features/map/presentation/bloc/map_bloc.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:loqma/features/notification/notification_injection.dart';
-import 'package:loqma/features/profile/presentation/bloc/profile_bloc.dart';
 import 'package:loqma/features/volunteer/presentation/bloc/volunteer_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SessionAwareBlocScope extends StatelessWidget {
+/// Keeps the provider tree mounted while the auth session changes.
+///
+/// Do not conditionally replace the widget that contains [child]. Flutter
+/// inherited elements must be disposed only after all descendants have been
+/// detached; replacing nested BlocProviders from a StreamBuilder/FutureBuilder
+/// was the source of the `_dependents.isEmpty` assertion.
+class SessionAwareBlocScope extends StatefulWidget {
   final Widget child;
   final SupabaseService service;
 
@@ -27,81 +33,60 @@ class SessionAwareBlocScope extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final client = Supabase.instance.client;
+  State<SessionAwareBlocScope> createState() => _SessionAwareBlocScopeState();
+}
 
-    return StreamBuilder<AuthState>(
-      stream: client.auth.onAuthStateChange,
-      initialData: AuthState(
-        AuthChangeEvent.initialSession,
-        client.auth.currentSession,
-      ),
-      builder: (context, authSnapshot) {
-        final session = authSnapshot.data?.session;
-        if (session == null) return child;
+class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
+  late final SupabaseClient _client;
+  StreamSubscription<AuthState>? _authSubscription;
+  Future<String?>? _identityFuture;
+  String? _identityUserId;
+  String? _identityType;
+  bool _identityLoading = false;
 
-        return FutureBuilder<String?>(
-          future: _resolveIdentityType(client, session.user.id),
-          builder: (context, identitySnapshot) {
-            if (identitySnapshot.connectionState != ConnectionState.done) {
-              return const Directionality(
-                textDirection: TextDirection.rtl,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              );
-            }
+  @override
+  void initState() {
+    super.initState();
+    _client = Supabase.instance.client;
+    FirebaseMessagingService.instance.initialize();
 
-            final type = identitySnapshot.data;
+    _authSubscription = _client.auth.onAuthStateChange.listen((authState) {
+      final userId = authState.session?.user.id;
+      if (userId == _identityUserId &&
+          authState.event != AuthChangeEvent.signedOut) {
+        return;
+      }
 
-            // Institutions use their isolated module and must not be wrapped
-            // with the legacy restaurant/business dashboard scope.
-            if (type == 'institution') {
-              return child;
-            }
+      if (!mounted) return;
+      setState(() {
+        _startIdentityLookup(userId);
+      });
+    });
 
-            if (_isInstitution(type)) {
-              return BlocProvider<BusinessDashboardBloc>(
-                create: (_) => BusinessDashboardBloc(
-                  BusinessRepository(service),
-                  service,
-                ),
-                child: child,
-              );
-            }
-
-            if (type == 'charity') {
-              return BlocProvider<CharityBloc>(
-                create: (_) => CharityBloc(),
-                child: child,
-              );
-            }
-
-            if (type == 'user') {
-              return _UserOnlyScope(service: service, child: child);
-            }
-
-            // لا نرجع صفحة جديدة ولا نعرض شاشة خطأ كاملة.
-            // نُبقي التطبيق في مكانه ونظهر تنبيهًا فوقه فقط.
-            return _UnknownAccountDialogScope(
-              key: const ValueKey<String>('unknown-account-dialog-scope'),
-              child: child,
-            );
-          },
-        );
-      },
-    );
+    final userId = _client.auth.currentUser?.id;
+    _identityUserId = userId;
+    _identityLoading = userId != null;
+    _identityFuture = userId == null ? null : _resolveIdentityType(userId);
+    _identityFuture?.then(_onIdentityResolved);
   }
 
-  Future<String?> _resolveIdentityType(
-    SupabaseClient client,
-    String authUserId,
-  ) async {
+  void _startIdentityLookup(String? userId) {
+    _identityUserId = userId;
+    _identityType = null;
+    _identityLoading = userId != null;
+    _identityFuture = userId == null ? null : _resolveIdentityType(userId);
+    _identityFuture?.then(_onIdentityResolved);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_authSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<String?> _resolveIdentityType(String authUserId) async {
     try {
-      // Read the explicit role first. This keeps the new institution role
-      // independent from the legacy organization resolver.
-      final row = await client
+      final row = await _client
           .from('users')
           .select('user_type')
           .eq('id', authUserId)
@@ -109,38 +94,82 @@ class SessionAwareBlocScope extends StatelessWidget {
       final rawRole = row?['user_type']?.toString().trim().toLowerCase();
       if (rawRole == 'institution') return 'institution';
 
-      final value = await AuthIdentityResolver.resolve(client, authUserId);
+      final value = await AuthIdentityResolver.resolve(_client, authUserId);
       return value.trim().toLowerCase();
     } catch (_) {
       return null;
     }
   }
 
-  bool _isInstitution(String? type) => const {
-        'restaurant',
-        'business',
-        'hotel',
-        'supermarket',
-        'bakery',
-        'cafe',
-      }.contains(type);
-}
-
-class _UnknownAccountDialogScope extends StatefulWidget {
-  final Widget child;
-
-  const _UnknownAccountDialogScope({
-    super.key,
-    required this.child,
-  });
+  void _onIdentityResolved(String? type) {
+    if (!mounted || _identityType == type) return;
+    setState(() {
+      _identityType = type;
+      _identityLoading = false;
+    });
+  }
 
   @override
-  State<_UnknownAccountDialogScope> createState() =>
-      _UnknownAccountDialogScopeState();
+  Widget build(BuildContext context) {
+    // Every provider remains at the same position for the entire app life.
+    // HomeBloc and ProfileBloc are intentionally not repeated here because
+    // main.dart already owns those two providers.
+    final providers = MultiBlocProvider(
+      providers: [
+        BlocProvider<BusinessDashboardBloc>(
+          create: (_) => BusinessDashboardBloc(
+            BusinessRepository(widget.service),
+            widget.service,
+          ),
+        ),
+        BlocProvider<CharityBloc>(
+          create: (_) => CharityBloc(),
+        ),
+        BlocProvider<MapBloc>(
+          create: (_) => MapBloc(widget.service),
+        ),
+        BlocProvider<VolunteerBloc>(
+          create: (_) => VolunteerBloc(widget.service),
+        ),
+        BlocProvider<NotificationBloc>(
+          create: (_) => sl<NotificationBloc>(),
+        ),
+        BlocProvider<BookingBloc>(
+          create: (_) => BookingBloc(
+            BookingRepository(widget.service),
+          ),
+        ),
+      ],
+      child: widget.child,
+    );
+
+    final isUnknownAccount =
+        _identityUserId != null && !_identityLoading && _identityType == null;
+
+    // Keep the provider subtree in the same position even when showing the
+    // account warning. Only the overlay changes; providers are never moved or
+    // disposed because of an auth-state callback.
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          providers,
+          if (isUnknownAccount) const _UnknownAccountOverlay(),
+        ],
+      ),
+    );
+  }
 }
 
-class _UnknownAccountDialogScopeState
-    extends State<_UnknownAccountDialogScope> {
+class _UnknownAccountOverlay extends StatefulWidget {
+  const _UnknownAccountOverlay();
+
+  @override
+  State<_UnknownAccountOverlay> createState() => _UnknownAccountOverlayState();
+}
+
+class _UnknownAccountOverlayState extends State<_UnknownAccountOverlay> {
   bool _signingOut = false;
 
   Future<void> _signOut() async {
@@ -161,7 +190,6 @@ class _UnknownAccountDialogScopeState
       child: Stack(
         fit: StackFit.expand,
         children: [
-          widget.child,
           const ModalBarrier(
             dismissible: false,
             color: Color(0x66000000),
@@ -218,43 +246,6 @@ class _UnknownAccountDialogScopeState
           ),
         ],
       ),
-    );
-  }
-}
-
-class _UserOnlyScope extends StatefulWidget {
-  final SupabaseService service;
-  final Widget child;
-
-  const _UserOnlyScope({required this.service, required this.child});
-
-  @override
-  State<_UserOnlyScope> createState() => _UserOnlyScopeState();
-}
-
-class _UserOnlyScopeState extends State<_UserOnlyScope> {
-  @override
-  void initState() {
-    super.initState();
-    FirebaseMessagingService.instance.initialize();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<HomeBloc>(create: (_) => HomeBloc()),
-        BlocProvider<ProfileBloc>(create: (_) => ProfileBloc()),
-        BlocProvider<MapBloc>(create: (_) => MapBloc(widget.service)),
-        BlocProvider<VolunteerBloc>(
-          create: (_) => VolunteerBloc(widget.service),
-        ),
-        BlocProvider<NotificationBloc>(create: (_) => sl<NotificationBloc>()),
-        BlocProvider<BookingBloc>(
-          create: (_) => BookingBloc(BookingRepository(widget.service)),
-        ),
-      ],
-      child: widget.child,
     );
   }
 }

@@ -1,8 +1,11 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/features/community/presentation/pages/community_tracking_page.dart
+
+import 'package:flutter/material.dart';
 
 import 'community_my_requests_page.dart';
 import 'community_my_charity_donations_page.dart';
-import 'community_owner_requests_page.dart';
+import 'community_my_offers_page.dart'; // ✅ استورد الصفحة الجديدة
+import 'volunteer_donations_tracking_page.dart';
 
 class CommunityTrackingPage extends StatelessWidget {
   const CommunityTrackingPage({super.key});
@@ -66,7 +69,7 @@ class CommunityTrackingPage extends StatelessWidget {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          'تابع الطلبات التي قدمتها، وتبرعاتك للجمعيات، والطلبات الواردة على عروضك.',
+                          'تابع الطلبات التي قدمتها، وتبرعاتك للجمعيات، والطلبات الواردة على عروضك، وتبرعاتك كمتطوع.',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 13,
@@ -95,20 +98,33 @@ class CommunityTrackingPage extends StatelessWidget {
             _TrackingCard(
               icon: Icons.volunteer_activism_rounded,
               color: const Color(0xFF8A5BB7),
-              title: 'تبرعاتي للجمعيات',
+              title: 'تبرعاتي للجمعيات (كمتبرع)',
               subtitle:
                   'تابع الجمعيات التي اخترتها، وموعد التبرع، وحالة استلام التبرع.',
               onTap: () =>
                   _open(context, const CommunityMyCharityDonationsPage()),
             ),
             const SizedBox(height: 14),
+            // ✅ كارد: تبرعاتي كمتطوع
+            _TrackingCard(
+              icon: Icons.delivery_dining_rounded,
+              color: const Color(0xFFE28B00),
+              title: 'تبرعاتي كمتطوع',
+              subtitle:
+                  'تابع التبرعات التي وافقت على توصيلها، خط سير التبرع، وتواصل مع المتبرع.',
+              onTap: () =>
+                  _open(context, const VolunteerDonationsTrackingPage()),
+            ),
+            const SizedBox(height: 14),
+            // ✅ كارد: العروض التي نشرتها - يفتح الصفحة الجديدة
             _TrackingCard(
               icon: Icons.campaign_outlined,
               color: _green,
               title: 'العروض التي نشرتها',
               subtitle:
                   'شاهد طلبات عروضك، افتح تفاصيلها، واقبل أو ارفض ثم جهّز الطلب للتسليم.',
-              onTap: () => _open(context, const CommunityOwnerRequestsPage()),
+              onTap: () =>
+                  _open(context, const CommunityMyOffersPage()), // ✅ تغيير هنا
             ),
           ],
         ),

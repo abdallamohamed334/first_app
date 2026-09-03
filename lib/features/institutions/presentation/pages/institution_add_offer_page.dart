@@ -1,3 +1,5 @@
+// lib/features/institutions/presentation/pages/institution_add_offer_page.dart
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,13 +18,15 @@ class InstitutionAddOfferPage extends StatefulWidget {
 }
 
 class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
-  static const _primary = Color(0xFF00261A);
-  static const _primaryContainer = Color(0xFF0F3D2E);
-  static const _background = Color(0xFFF9FAF7);
-  static const _surfaceLow = Color(0xFFF3F4F1);
-  static const _outline = Color(0xFFC0C8C3);
-  static const _muted = Color(0xFF66736D);
-  static const _accent = Color(0xFFE8A356);
+  // ✅ الألوان
+  static const _primary = Color(0xFF0B7650);
+  static const _primaryDark = Color(0xFF123F31);
+  static const _background = Color(0xFFF6FAF8);
+  static const _surface = Color(0xFFFFFFFF);
+  static const _surfaceVariant = Color(0xFFE8F0EC);
+  static const _muted = Color(0xFF71837C);
+  static const _accent = Color(0xFFE28B00);
+  static const _error = Color(0xFFD64545);
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -32,12 +36,49 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   final _originalPriceController = TextEditingController();
   final _pickupLocationController = TextEditingController();
   final _pickupNotesController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+
   final _repository = InstitutionsRepository();
   final _picker = ImagePicker();
   final List<Uint8List> _images = [];
 
-  DateTime _expiresAt = DateTime.now().add(const Duration(days: 2));
+  // ✅ حقول إضافية
+  String _category = 'food';
+  String _condition = 'good';
+  bool _isHalal = true;
+  bool _isVegetarian = false;
+  bool _requiresRefrigeration = false;
+
+  // ✅ تاريخ الانتهاء هو اللي يحدد كل حاجة
+  DateTime _expiresAt = DateTime.now().add(const Duration(days: 7));
   bool _saving = false;
+
+  // ✅ قائمة التصنيفات
+  final List<Map<String, dynamic>> _categories = [
+    {'id': 'food', 'label': '🍽️ وجبات', 'icon': Icons.restaurant_rounded},
+    {
+      'id': 'bakery',
+      'label': '🥖 مخبوزات',
+      'icon': Icons.bakery_dining_rounded
+    },
+    {'id': 'dessert', 'label': '🍰 حلويات', 'icon': Icons.cake_rounded},
+    {'id': 'fruit', 'label': '🍎 فواكه', 'icon': Icons.apple_rounded},
+    {'id': 'drink', 'label': '🥤 مشروبات', 'icon': Icons.local_drink_rounded},
+    {'id': 'meat', 'label': '🥩 لحوم', 'icon': Icons.restaurant_menu_rounded},
+    {'id': 'other', 'label': '📦 أخرى', 'icon': Icons.category_rounded},
+  ];
+
+  // ✅ قائمة حالات المنتج
+  final List<Map<String, dynamic>> _conditions = [
+    {'id': 'new', 'label': 'جديد', 'color': _primary},
+    {'id': 'very_good', 'label': 'ممتاز', 'color': const Color(0xFF3679C8)},
+    {'id': 'good', 'label': 'جيد', 'color': const Color(0xFFB77700)},
+    {
+      'id': 'needs_repair',
+      'label': 'يحتاج إصلاح',
+      'color': const Color(0xFFD64545)
+    },
+  ];
 
   @override
   void dispose() {
@@ -48,7 +89,52 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     _originalPriceController.dispose();
     _pickupLocationController.dispose();
     _pickupNotesController.dispose();
+    _contactPhoneController.dispose();
     super.dispose();
+  }
+
+  // ✅ حساب طبيعة المنتج بناءً على تاريخ الانتهاء
+  Map<String, dynamic> _getProductNature() {
+    final now = DateTime.now();
+    final daysLeft = _expiresAt.difference(now).inDays;
+
+    if (daysLeft < 0) {
+      return {
+        'id': 'expired',
+        'label': '🔴 منتهي الصلاحية',
+        'color': _error,
+        'icon': Icons.warning_amber_rounded,
+        'description': 'انتهت صلاحية هذا المنتج',
+        'days': daysLeft,
+      };
+    } else if (daysLeft <= 3) {
+      return {
+        'id': 'expiring_soon',
+        'label': '🟠 ينتهي قريباً',
+        'color': _accent,
+        'icon': Icons.timer_outlined,
+        'description': 'ينتهي خلال $daysLeft أيام - مناسب للاستخدام الفوري',
+        'days': daysLeft,
+      };
+    } else if (daysLeft <= 7) {
+      return {
+        'id': 'fresh',
+        'label': '🟢 طازج',
+        'color': _primary,
+        'icon': Icons.fiber_new_rounded,
+        'description': 'منتج طازج، صلاحية متبقية $daysLeft يوم',
+        'days': daysLeft,
+      };
+    } else {
+      return {
+        'id': 'long_shelf',
+        'label': '📦 طويل الصلاحية',
+        'color': const Color(0xFF3679C8),
+        'icon': Icons.inventory_2_rounded,
+        'description': 'صلاحية متبقية $daysLeft يوم - مناسب للتخزين',
+        'days': daysLeft,
+      };
+    }
   }
 
   Future<void> _pickImages() async {
@@ -113,6 +199,25 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     });
   }
 
+  String _normalizeDigits(String value) {
+    const arabic = '٠١٢٣٤٥٦٧٨٩';
+    const persian = '۰۱۲۳۴۵۶۷۸۹';
+    var result = value;
+    for (var i = 0; i < 10; i++) {
+      result = result.replaceAll(arabic[i], '$i');
+      result = result.replaceAll(persian[i], '$i');
+    }
+    return result.trim();
+  }
+
+  String _getCategoryLabel() {
+    final category = _categories.firstWhere(
+      (c) => c['id'] == _category,
+      orElse: () => _categories.last,
+    );
+    return category['label'] as String;
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     FocusScope.of(context).unfocus();
@@ -141,6 +246,12 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
+    // ✅ التأكد من أن التاريخ مش منتهي
+    if (_expiresAt.isBefore(DateTime.now())) {
+      _showMessage('تاريخ الانتهاء لا يمكن أن يكون في الماضي', error: true);
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final imageUrls = <String>[];
@@ -151,22 +262,30 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         ));
       }
 
-      final location = _buildPickupLocation();
-      await _repository.createNormalizedOffer(
+      final location = _pickupLocationController.text.trim();
+
+      await _repository.createOffer(
         institutionId: widget.institutionId,
         title: _titleController.text,
         description: _descriptionController.text,
-        category: 'other',
+        category: _category,
         quantity: quantity,
         symbolicPrice: symbolicPrice,
         originalPrice: originalPrice,
         images: imageUrls,
-        pickupLocation: location,
+        pickupLocation: location.isNotEmpty ? location : null,
         expiresAt: _expiresAt.toUtc(),
+        foodType: _getCategoryLabel(),
+        isHalal: _isHalal,
+        isVegetarian: _isVegetarian,
+        foodCondition: _condition,
+        requiresRefrigeration: _requiresRefrigeration,
+        pickupNotes: _pickupNotesController.text.trim(),
+        contactPhone: _contactPhoneController.text.trim(),
       );
 
       if (!mounted) return;
-      _showMessage('تم نشر العرض بنجاح');
+      _showMessage('✅ تم نشر العرض بنجاح');
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
@@ -176,27 +295,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
   }
 
-  String _buildPickupLocation() {
-    final location = _pickupLocationController.text.trim();
-    final notes = _pickupNotesController.text.trim();
-    if (location.isEmpty) return notes;
-    if (notes.isEmpty) return location;
-    return '$location — ملاحظات: $notes';
-  }
-
-  String _normalizeDigits(String value) {
-    const arabic = '٠١٢٣٤٥٦٧٨٩';
-    const persian = '۰۱۲۳۴۵۶۷۸۹';
-    var result = value;
-    for (var i = 0; i < 10; i++) {
-      result = result.replaceAll(arabic[i], '$i');
-      result = result.replaceAll(persian[i], '$i');
-    }
-    return result.trim();
-  }
-
   String _friendlyError(Object error) {
-    if (error is FormatException) return error.message.toString();
     final text = error.toString().toLowerCase();
     if (text.contains('permission') || text.contains('row-level security')) {
       return 'ليس لديك صلاحية نشر العرض من هذا الحساب';
@@ -204,7 +303,13 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     if (text.contains('network') || text.contains('socket')) {
       return 'تعذر الاتصال بالإنترنت. حاول مرة أخرى';
     }
-    return 'تعذر نشر العرض الآن. راجع البيانات وحاول مرة أخرى';
+    if (text.contains('column') || text.contains('does not exist')) {
+      return 'بعض الحقول غير موجودة في قاعدة البيانات. تواصل مع الدعم الفني.';
+    }
+    if (text.contains('null value in column')) {
+      return 'بعض الحقول المطلوبة فارغة. تأكد من ملء جميع البيانات.';
+    }
+    return 'تعذر نشر العرض الآن: ${error.toString().replaceFirst('Exception: ', '')}';
   }
 
   void _showMessage(String message, {bool error = false}) {
@@ -214,17 +319,20 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       ..showSnackBar(
         SnackBar(
           content: Text(message, textAlign: TextAlign.right),
-          backgroundColor: error ? const Color(0xFF9B2C2C) : _primaryContainer,
+          backgroundColor: error ? const Color(0xFFD64545) : _primary,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       );
   }
 
   @override
   Widget build(BuildContext context) {
+    final nature = _getProductNature();
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -237,183 +345,83 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           leading: IconButton(
             tooltip: 'رجوع',
             onPressed: _saving ? null : () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_forward_rounded, color: _primary),
+            icon: const Icon(Icons.arrow_back_ios_rounded, color: _primary),
           ),
           title: const Text(
-            'إضافة عرض بسعر رمزي',
+            'إضافة عرض جديد',
             style: TextStyle(
-              color: _primary,
+              color: _primaryDark,
               fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
             ),
           ),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(1),
-            child: Container(height: 1, color: _outline.withValues(alpha: .35)),
+            child: Container(
+              height: 1,
+              color: const Color(0xFFE2EEE8),
+            ),
           ),
         ),
         body: SafeArea(
           bottom: false,
           child: Form(
             key: _formKey,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final horizontal = constraints.maxWidth >= 720 ? 32.0 : 16.0;
-                return ListView(
-                  padding: EdgeInsets.fromLTRB(horizontal, 24, horizontal, 34),
-                  children: [
-                    const _PageIntro(),
-                    const SizedBox(height: 22),
-                    _FormCard(
-                      children: [
-                        _SectionTitle(
-                          title: 'صورة المنتج',
-                          subtitle:
-                              'أضف صورة واضحة تساعد العملاء على معرفة العرض',
-                        ),
-                        const SizedBox(height: 12),
-                        _ImagePickerCard(
-                          images: _images,
-                          onPick: _saving ? null : _pickImages,
-                          onRemove: (index) {
-                            if (_saving) return;
-                            setState(() => _images.removeAt(index));
-                          },
-                        ),
-                        const _Divider(),
-                        _SectionTitle(
-                          title: 'بيانات العرض',
-                          subtitle:
-                              'اكتب المعلومات الأساسية التي ستظهر للعملاء',
-                        ),
-                        const SizedBox(height: 16),
-                        _field(
-                          controller: _titleController,
-                          label: 'اسم العرض',
-                          hint: 'مثال: سلة معجنات متنوعة',
-                          icon: Icons.inventory_2_outlined,
-                        ),
-                        const SizedBox(height: 14),
-                        _field(
-                          controller: _descriptionController,
-                          label: 'وصف قصير',
-                          hint: 'اكتب محتويات العرض وحالته...',
-                          icon: Icons.notes_outlined,
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 14),
-                        LayoutBuilder(
-                          builder: (context, inner) {
-                            final twoColumns = inner.maxWidth >= 560;
-                            final fields = [
-                              _field(
-                                controller: _priceController,
-                                label: 'السعر الرمزي',
-                                hint: '0.00',
-                                icon: Icons.payments_outlined,
-                                numeric: true,
-                              ),
-                              _field(
-                                controller: _originalPriceController,
-                                label: 'السعر الأصلي (اختياري)',
-                                hint: '0.00',
-                                icon: Icons.sell_outlined,
-                                numeric: true,
-                                requiredField: false,
-                              ),
-                              _field(
-                                controller: _quantityController,
-                                label: 'الكمية المتاحة',
-                                hint: '1',
-                                icon: Icons.layers_outlined,
-                                numeric: true,
-                              ),
-                              _expiryField(),
-                            ];
-                            return twoColumns
-                                ? Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Expanded(child: fields[0]),
-                                      const SizedBox(width: 14),
-                                      Expanded(child: fields[1]),
-                                      const SizedBox(width: 14),
-                                      Expanded(child: fields[2]),
-                                      const SizedBox(width: 14),
-                                      Expanded(child: fields[3]),
-                                    ],
-                                  )
-                                : Column(
-                                    children: fields
-                                        .map((field) => Padding(
-                                              padding: const EdgeInsets.only(
-                                                  bottom: 14),
-                                              child: field,
-                                            ))
-                                        .toList(),
-                                  );
-                          },
-                        ),
-                        const _Divider(),
-                        _SectionTitle(
-                          title: 'تفاصيل الاستلام',
-                          subtitle: 'ساعد العميل على الوصول إلى الفرع بسهولة',
-                        ),
-                        const SizedBox(height: 16),
-                        _field(
-                          controller: _pickupLocationController,
-                          label: 'موقع الاستلام أو اسم الفرع',
-                          hint: 'مثال: فرع العليا',
-                          icon: Icons.location_on_outlined,
-                          requiredField: false,
-                        ),
-                        const SizedBox(height: 14),
-                        _field(
-                          controller: _pickupNotesController,
-                          label: 'ملاحظات الاستلام (اختياري)',
-                          hint: 'تعليمات إضافية للمستلم...',
-                          icon: Icons.info_outline,
-                          maxLines: 2,
-                          requiredField: false,
-                        ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: 56,
-                          child: FilledButton.icon(
-                            onPressed: _saving ? null : _save,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _accent,
-                              foregroundColor: const Color(0xFF2C1600),
-                              disabledBackgroundColor:
-                                  _accent.withValues(alpha: .55),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                            ),
-                            icon: _saving
-                                ? const SizedBox.square(
-                                    dimension: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.2,
-                                      color: Color(0xFF2C1600),
-                                    ),
-                                  )
-                                : const Icon(Icons.campaign_outlined),
-                            label: Text(
-                              _saving ? 'جارٍ نشر العرض...' : 'نشر العرض',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 34),
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(6),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildImageSection(),
+                      const SizedBox(height: 24),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
+
+                      // ✅ قسم تاريخ الانتهاء وطبيعة المنتج
+                      _buildExpirySection(nature),
+                      const SizedBox(height: 24),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
+
+                      _buildBasicInfoSection(),
+                      const SizedBox(height: 24),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
+
+                      _buildCategorySection(),
+                      const SizedBox(height: 20),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
+
+                      _buildConditionSection(),
+                      const SizedBox(height: 20),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
+
+                      _buildPickupSection(),
+                      const SizedBox(height: 24),
+
+                      _buildSubmitButton(),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -421,7 +429,638 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     );
   }
 
-  Widget _field({
+  // ============================================================
+  // ✅ قسم تاريخ الانتهاء وطبيعة المنتج
+  // ============================================================
+  Widget _buildExpirySection(Map<String, dynamic> nature) {
+    final daysLeft = nature['days'] as int;
+    final color = nature['color'] as Color;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.event_note_rounded, color: _primary, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'تاريخ الانتهاء',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Spacer(),
+            // ✅ عرض طبيعة المنتج حسب التاريخ
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withOpacity(0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(nature['icon'], color: color, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    nature['label'],
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _buildExpiryField(),
+        const SizedBox(height: 8),
+        // ✅ وصف طبيعة المنتج
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(nature['icon'], color: color, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  nature['description'],
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (daysLeft <= 3 && daysLeft >= 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _accent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _accent.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.timer_outlined,
+                    color: _accent,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '⚠️ هذا العرض سينتهي خلال $daysLeft أيام - مناسب للاستخدام الفوري',
+                      style: TextStyle(
+                        color: _accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        if (daysLeft < 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _error.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _error.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: _error,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '⚠️ هذا التاريخ منتهي، يرجى اختيار تاريخ مستقبلي',
+                      style: TextStyle(
+                        color: _error,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ الهيدر
+  // ============================================================
+  Widget _buildHeader() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'شارك فائضك',
+          style: TextStyle(
+            color: _primaryDark,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'أنشئ عرضاً جديداً ليصل إلى من يحتاجه',
+          style: TextStyle(
+            color: _muted,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ قسم الصور
+  // ============================================================
+  Widget _buildImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.image_outlined, color: _primary, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'صور المنتج',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${_images.length}/6',
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        InkWell(
+          onTap: _saving ? null : _pickImages,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            height: 140,
+            decoration: BoxDecoration(
+              color: _surfaceVariant,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFCBE4D5),
+                width: 1.5,
+                style: BorderStyle.solid,
+              ),
+            ),
+            child: _images.isEmpty
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 42,
+                        color: _primary.withAlpha(100),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'اضغط لإضافة صور',
+                        style: TextStyle(
+                          color: _primary.withAlpha(80),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'jpg, png, webp',
+                        style: TextStyle(
+                          color: _primary.withAlpha(50),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _images.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, index) => Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            _images[index],
+                            width: 120,
+                            height: 140,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Material(
+                            color: Colors.black54,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              onTap: () {
+                                if (_saving) return;
+                                setState(() => _images.removeAt(index));
+                              },
+                              customBorder: const CircleBorder(),
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ معلومات العرض
+  // ============================================================
+  Widget _buildBasicInfoSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.info_outline_rounded, color: _primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'معلومات العرض',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildTextField(
+          controller: _titleController,
+          label: 'اسم العرض',
+          hint: 'مثال: سلة معجنات متنوعة',
+          icon: Icons.inventory_2_outlined,
+        ),
+        const SizedBox(height: 12),
+        _buildTextField(
+          controller: _descriptionController,
+          label: 'وصف العرض',
+          hint: 'اكتب محتويات العرض وحالته...',
+          icon: Icons.description_outlined,
+          maxLines: 3,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _priceController,
+                label: 'السعر الرمزي',
+                hint: '0.00',
+                icon: Icons.payments_outlined,
+                numeric: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTextField(
+                controller: _originalPriceController,
+                label: 'السعر الأصلي',
+                hint: 'اختياري',
+                icon: Icons.sell_outlined,
+                numeric: true,
+                requiredField: false,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _quantityController,
+                label: 'الكمية',
+                hint: '1',
+                icon: Icons.layers_outlined,
+                numeric: true,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTextField(
+                controller: _contactPhoneController,
+                label: 'رقم التواصل (اختياري)',
+                hint: 'رقم للتواصل مع المؤسسة',
+                icon: Icons.phone_outlined,
+                requiredField: false,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ التصنيفات
+  // ============================================================
+  Widget _buildCategorySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.category_outlined, color: _primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'تصنيف العرض',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _categories.map((category) {
+            final isSelected = _category == category['id'];
+            return FilterChip(
+              selected: isSelected,
+              onSelected: (_) {
+                if (_saving) return;
+                setState(() => _category = category['id']);
+              },
+              label: Text(
+                category['label'],
+                style: TextStyle(
+                  color: isSelected ? Colors.white : _primaryDark,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              backgroundColor: _surfaceVariant,
+              selectedColor: _primary,
+              checkmarkColor: Colors.white,
+              side: BorderSide(
+                color: isSelected ? _primary : const Color(0xFFDCEBE3),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _buildToggleChip(
+              label: 'حلال',
+              value: _isHalal,
+              onChanged: (v) => setState(() => _isHalal = v),
+            ),
+            _buildToggleChip(
+              label: 'نباتي',
+              value: _isVegetarian,
+              onChanged: (v) => setState(() => _isVegetarian = v),
+            ),
+            _buildToggleChip(
+              label: 'يحتاج تبريد',
+              value: _requiresRefrigeration,
+              onChanged: (v) => setState(() => _requiresRefrigeration = v),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToggleChip({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return FilterChip(
+      selected: value,
+      onSelected: onChanged,
+      label: Text(
+        label,
+        style: TextStyle(
+          color: value ? Colors.white : _primaryDark,
+          fontWeight: value ? FontWeight.w800 : FontWeight.w600,
+          fontSize: 12,
+        ),
+      ),
+      backgroundColor: _surfaceVariant,
+      selectedColor: _primary,
+      checkmarkColor: Colors.white,
+      side: BorderSide(
+        color: value ? _primary : const Color(0xFFDCEBE3),
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    );
+  }
+
+  // ============================================================
+  // ✅ حالة المنتج
+  // ============================================================
+  Widget _buildConditionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.verified_outlined, color: _primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'حالة المنتج',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _conditions.map((condition) {
+            final isSelected = _condition == condition['id'];
+            return FilterChip(
+              selected: isSelected,
+              onSelected: (_) {
+                if (_saving) return;
+                setState(() => _condition = condition['id']);
+              },
+              label: Text(
+                condition['label'],
+                style: TextStyle(
+                  color: isSelected ? Colors.white : _primaryDark,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              backgroundColor: _surfaceVariant,
+              selectedColor: condition['color'],
+              checkmarkColor: Colors.white,
+              side: BorderSide(
+                color:
+                    isSelected ? condition['color'] : const Color(0xFFDCEBE3),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ معلومات الاستلام
+  // ============================================================
+  Widget _buildPickupSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.local_shipping_outlined, color: _primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'معلومات الاستلام',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _buildTextField(
+          controller: _pickupLocationController,
+          label: 'موقع الاستلام',
+          hint: 'عنوان الفرع أو الموقع',
+          icon: Icons.location_on_outlined,
+          requiredField: false,
+        ),
+        const SizedBox(height: 12),
+        _buildTextField(
+          controller: _pickupNotesController,
+          label: 'ملاحظات الاستلام',
+          hint: 'تعليمات إضافية للمستلم...',
+          icon: Icons.info_outline,
+          maxLines: 2,
+          requiredField: false,
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ✅ زر النشر
+  // ============================================================
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: FilledButton.icon(
+        onPressed: _saving ? null : _save,
+        style: FilledButton.styleFrom(
+          backgroundColor: _primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: _primary.withAlpha(80),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 2,
+        ),
+        icon: _saving
+            ? const SizedBox.square(
+                dimension: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.send_rounded),
+        label: Text(
+          _saving ? 'جاري النشر...' : 'نشر العرض',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ✅ حقل النص
+  // ============================================================
+  Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -438,7 +1077,37 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           : (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
       textInputAction:
           maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
-      decoration: _inputDecoration(label: label, hint: hint, icon: icon),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon, color: _muted),
+        filled: true,
+        fillColor: _surfaceVariant,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle: const TextStyle(color: _muted),
+        hintStyle: TextStyle(color: _muted.withAlpha(150)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFCBE4D5)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFCBE4D5)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _primary, width: 1.6),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFD64545)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFD64545), width: 1.6),
+        ),
+      ),
       validator: (value) {
         final text = value?.trim() ?? '';
         if (requiredField && text.isEmpty) return 'هذا الحقل مطلوب';
@@ -452,251 +1121,43 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     );
   }
 
-  Widget _expiryField() {
+  // ============================================================
+  // ✅ تاريخ الانتهاء
+  // ============================================================
+  Widget _buildExpiryField() {
     return InkWell(
       onTap: _saving ? null : _chooseExpiryDate,
       borderRadius: BorderRadius.circular(14),
       child: InputDecorator(
-        decoration: _inputDecoration(
-          label: 'تاريخ انتهاء الصلاحية',
-          hint: '',
-          icon: Icons.event_outlined,
+        decoration: InputDecoration(
+          labelText: 'تاريخ الانتهاء',
+          prefixIcon: Icon(Icons.event_outlined, color: _muted),
+          filled: true,
+          fillColor: _surfaceVariant,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          labelStyle: const TextStyle(color: _muted),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFCBE4D5)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFCBE4D5)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: _primary, width: 1.6),
+          ),
         ),
         child: Text(
           '${_expiresAt.day.toString().padLeft(2, '0')}/${_expiresAt.month.toString().padLeft(2, '0')}/${_expiresAt.year}',
-          style: const TextStyle(color: _primary, fontWeight: FontWeight.w600),
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration({
-    required String label,
-    required String hint,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: Icon(icon, color: _muted),
-      filled: true,
-      fillColor: _surfaceLow,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      labelStyle: const TextStyle(color: _muted),
-      hintStyle: TextStyle(color: _muted.withValues(alpha: .75)),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _outline),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _outline),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _primary, width: 1.6),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFBA1A1A)),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFBA1A1A), width: 1.6),
-      ),
-    );
-  }
-}
-
-class _PageIntro extends StatelessWidget {
-  const _PageIntro();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'شارك فائضك بطريقة أفضل',
-          style: TextStyle(
-            color: Color(0xFF00261A),
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            height: 1.15,
-          ),
-        ),
-        SizedBox(height: 7),
-        Text(
-          'أنشئ عرضًا بسعر رمزي ليصل إلى من يحتاجه بسهولة.',
-          style: TextStyle(color: Color(0xFF66736D), fontSize: 14, height: 1.5),
-        ),
-      ],
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  final List<Widget> children;
-  const _FormCard({required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE2E3E0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D0F3D2E),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _SectionTitle({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
           style: const TextStyle(
-            color: Color(0xFF00261A),
-            fontSize: 19,
-            fontWeight: FontWeight.w800,
+            color: _primaryDark,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(color: Color(0xFF66736D), fontSize: 13),
-        ),
-      ],
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Divider(color: const Color(0xFFC0C8C3).withValues(alpha: .45)),
-      );
-}
-
-class _ImagePickerCard extends StatelessWidget {
-  final List<Uint8List> images;
-  final VoidCallback? onPick;
-  final ValueChanged<int> onRemove;
-
-  const _ImagePickerCard({
-    required this.images,
-    required this.onPick,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: onPick,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            width: double.infinity,
-            height: 150,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF717974),
-                width: 1.2,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.add_photo_alternate_outlined,
-                  size: 38,
-                  color: Color(0xFF66736D),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  images.isEmpty ? 'انقر لإضافة صور' : 'إضافة صور أخرى',
-                  style: const TextStyle(
-                    color: Color(0xFF414944),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${images.length}/6 صور',
-                  style:
-                      const TextStyle(color: Color(0xFF66736D), fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (images.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 88,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: images.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, index) => Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(
-                      images[index],
-                      width: 88,
-                      height: 88,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: Material(
-                      color: Colors.black54,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        onTap: () => onRemove(index),
-                        customBorder: const CircleBorder(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child:
-                              Icon(Icons.close, size: 14, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

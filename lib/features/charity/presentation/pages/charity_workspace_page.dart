@@ -11,6 +11,7 @@ import 'package:loqma/features/charity/presentation/pages/charity_profile_page.d
 import 'package:loqma/features/charity/presentation/pages/charity_notifications_page.dart';
 
 import 'package:loqma/features/charity/presentation/pages/charity_volunteers_management_page.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_restaurant_donations_page.dart';
 import 'package:loqma/features/charity/presentation/pages/direct_charity_volunteer_tasks_page.dart';
 
 class CharityWorkspacePage extends StatefulWidget {
@@ -260,9 +261,15 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage> {
                   color: primary, fontSize: 20, fontWeight: FontWeight.w900)),
           const SizedBox(height: 10),
           _actionCard(
+              Icons.restaurant_rounded,
+              'تبرعات المطاعم',
+              'اعرضي التبرعات الواردة من المطاعم وتابعي القبول والمتطوع والاستلام والتسليم',
+              () => _open(const CharityRestaurantDonationsPage())),
+          const SizedBox(height: 10),
+          _actionCard(
               Icons.storefront_rounded,
               'متابعة المؤسسات',
-              'تابعي تبرعات المطاعم والمؤسسات، القبول، المتطوع، وكود الاستلام',
+              'تابعي تبرعات المؤسسات والقبول والمتطوع وكود الاستلام',
               () => _open(const CharityInstitutionDonationsPage())),
           const SizedBox(height: 10),
           _actionCard(

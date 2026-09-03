@@ -1,3 +1,5 @@
+// lib/features/institutions/data/repositories/institutions_repository.dart
+
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +12,139 @@ class InstitutionsRepository {
 
   InstitutionsRepository({SupabaseClient? client})
       : _client = client ?? SupabaseService().client;
+
+  // ============================================================
+  // ✅ حساب أيام الصلاحية المتبقية
+  // ============================================================
+  int _calculateDaysUntilExpiry(DateTime? expiryDate) {
+    if (expiryDate == null) return 999; // لا يوجد صلاحية
+    final now = DateTime.now();
+    final diff = expiryDate.difference(now).inDays;
+    return diff.clamp(-1, 999);
+  }
+
+  // ============================================================
+  // ✅ جلب العروض مع حالة الصلاحية
+  // ============================================================
+  Future<List<Map<String, dynamic>>> getOffersWithStatus(
+      String institutionId) async {
+    try {
+      final response = await _client
+          .from('institution_offers_core')
+          .select('''
+            *,
+            institutions(id, name, institution_type, logo_url),
+            institution_offer_pricing(*),
+            institution_offer_inventory(*),
+            institution_offer_pickup(*),
+            institution_offer_media(*)
+          ''')
+          .eq('institution_id', institutionId)
+          .order('created_at', ascending: false);
+
+      final offers =
+          _maps(response).map(_flattenNormalizedOffer).toList(growable: false);
+
+      for (var offer in offers) {
+        final expiryDate = offer['expires_at'] != null
+            ? DateTime.tryParse(offer['expires_at'].toString())
+            : null;
+
+        final daysLeft = _calculateDaysUntilExpiry(expiryDate);
+        offer['days_until_expiry'] = daysLeft;
+
+        // ✅ تحديد حالة الصلاحية
+        if (daysLeft < 0) {
+          offer['expiry_status'] = 'expired';
+          offer['status'] = 'expired';
+        } else if (daysLeft <= 3) {
+          offer['expiry_status'] = 'expiring_soon';
+        } else {
+          offer['expiry_status'] = 'fresh';
+        }
+      }
+
+      return offers;
+    } catch (e) {
+      print('❌ Error getting offers with status: $e');
+      return [];
+    }
+  }
+
+  // ============================================================
+  // ✅ إنشاء عرض مع تاريخ انتهاء
+  // ============================================================
+  Future<Map<String, dynamic>> createOfferWithExpiry(
+      Map<String, dynamic> data) async {
+    try {
+      // ✅ حساب expiry_date تلقائياً لو مش موجود
+      if (data['expires_at'] == null) {
+        final days = data['expiry_days'] ?? 30; // افتراضي 30 يوم
+        data['expires_at'] =
+            DateTime.now().add(Duration(days: days)).toUtc().toIso8601String();
+      }
+
+      final response = await _client
+          .from('institution_offers_core')
+          .insert(data)
+          .select()
+          .single();
+
+      return Map<String, dynamic>.from(response);
+    } catch (e) {
+      print('❌ Error creating offer with expiry: $e');
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ تحديث حالة العروض المنتهية (تشغيل يومياً)
+  // ============================================================
+  Future<void> updateExpiredOffers() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      await _client
+          .from('institution_offers_core')
+          .update({'status': 'expired'})
+          .lt('expires_at', now)
+          .neq('status', 'expired');
+    } catch (e) {
+      print('❌ Error updating expired offers: $e');
+    }
+  }
+
+  // ============================================================
+  // ✅ جلب حالة الصلاحية للعرض
+  // ============================================================
+  Map<String, dynamic> getExpiryStatus(Map<String, dynamic> offer) {
+    final daysLeft = offer['days_until_expiry'] as int? ?? 999;
+
+    if (daysLeft < 0) {
+      return {
+        'status': 'expired',
+        'label': 'منتهي الصلاحية',
+        'color': '#D64545',
+        'icon': 'warning_amber_rounded',
+        'days': daysLeft,
+      };
+    } else if (daysLeft <= 3) {
+      return {
+        'status': 'expiring_soon',
+        'label': 'ينتهي خلال $daysLeft أيام',
+        'color': '#E28B00',
+        'icon': 'timer_outlined',
+        'days': daysLeft,
+      };
+    } else {
+      return {
+        'status': 'fresh',
+        'label': 'جديد',
+        'color': '#0B7650',
+        'icon': 'fiber_new_rounded',
+        'days': daysLeft,
+      };
+    }
+  }
 
   Future<Institution> getMine() async {
     final authUser = _client.auth.currentUser;
@@ -196,8 +331,6 @@ class InstitutionsRepository {
         if (id != null && id.isNotEmpty) merged[id] = normalized;
       }
     } on PostgrestException catch (error) {
-      // The normalized tables may not be applied yet; legacy fallback below
-      // keeps existing institution accounts usable during migration.
       print(
           '[InstitutionDebug] normalized listMyOffers skipped: ${error.code} ${error.message}');
     }
@@ -316,42 +449,65 @@ class InstitutionsRepository {
   Future<List<Map<String, dynamic>>> listOfferRequestsForInstitution(
     String institutionId,
   ) async {
-    if (institutionId.trim().isEmpty) {
+    final cleanInstitutionId = institutionId.trim();
+    if (cleanInstitutionId.isEmpty) {
       throw const FormatException('معرف المؤسسة غير موجود');
     }
+
     final offerRows = await _client
         .from('institution_offers_core')
         .select('id, title, description, category, expires_at, status')
-        .eq('institution_id', institutionId.trim());
-
+        .eq('institution_id', cleanInstitutionId);
     final offers = _maps(offerRows);
-    print(
-        '[InstitutionDebug] request-list institutionId=${institutionId.trim()} ownedOffers=${offers.length}');
-    final offerIds = offers
-        .map((row) => row['id']?.toString())
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toList(growable: false);
-
-    if (offerIds.isEmpty) return const <Map<String, dynamic>>[];
-
-    final requestRows = await _client
-        .from('institution_offer_requests')
-        .select('*')
-        .inFilter('offer_id', offerIds)
-        .order('created_at', ascending: false);
-    print('[InstitutionDebug] request-list rows=${requestRows.length}');
-
     final offersById = <String, Map<String, dynamic>>{
       for (final offer in offers)
         if (offer['id'] != null) offer['id'].toString(): offer,
     };
+    final offerIds = offersById.keys.toList(growable: false);
 
-    return _maps(requestRows).map((request) {
+    print(
+        '[InstitutionDebug] request-list institutionId=$cleanInstitutionId ownedOffers=${offerIds.length}');
+    if (offerIds.isEmpty) return const <Map<String, dynamic>>[];
+
+    List<Map<String, dynamic>> requestRows;
+    try {
+      final response = await _client
+          .from('institution_offer_requests')
+          .select('''
+            *,
+            users!requester_id (
+              id,
+              name,
+              phone,
+              avatar_url,
+              city,
+              points,
+              level,
+              email
+            )
+          ''')
+          .inFilter('offer_id', offerIds)
+          .order('created_at', ascending: false);
+      requestRows = _maps(response);
+    } on PostgrestException catch (error) {
+      print(
+          '[InstitutionDebug] users relation skipped: ${error.code} ${error.message}');
+      final response = await _client
+          .from('institution_offer_requests')
+          .select('*')
+          .inFilter('offer_id', offerIds)
+          .order('created_at', ascending: false);
+      requestRows = _maps(response);
+    }
+
+    print('[InstitutionDebug] request-list rows=${requestRows.length}');
+    return requestRows.map((request) {
       final result = Map<String, dynamic>.from(request);
       final offerId = result['offer_id']?.toString();
       final offer = offerId == null ? null : offersById[offerId];
-      if (offer != null) result['institution_offers_core'] = offer;
+      if (offer != null) {
+        result['institution_offers_core'] = offer;
+      }
       return result;
     }).toList(growable: false);
   }
@@ -402,6 +558,9 @@ class InstitutionsRepository {
     });
   }
 
+  // ============================================================
+  // ✅ دالة إنشاء العرض - الإصدار الكامل مع الحقول الإضافية
+  // ============================================================
   Future<String> createNormalizedOffer({
     required String institutionId,
     required String title,
@@ -417,30 +576,53 @@ class InstitutionsRepository {
     required DateTime expiresAt,
     DateTime? pickupBefore,
     String currency = 'EGP',
+    String foodType = 'وجبات',
+    bool isHalal = true,
+    bool isVegetarian = false,
+    int servesCount = 1,
+    String foodCondition = 'good',
+    bool requiresRefrigeration = false,
+    String pickupNotes = '',
+    String contactPhone = '',
+    String pickupTime = '',
   }) async {
-    final result = await _client.rpc(
-      'institution_create_normalized_offer',
-      params: {
-        'p_institution_id': institutionId.trim(),
-        'p_title': title.trim(),
-        'p_description': description.trim(),
-        'p_category': category.trim().isEmpty ? 'other' : category.trim(),
-        'p_quantity': quantity,
-        'p_symbolic_price': symbolicPrice,
-        'p_original_price': originalPrice,
-        'p_currency': currency,
-        'p_images': images,
-        'p_city': city?.trim(),
-        'p_address': address?.trim(),
-        'p_location_text': pickupLocation?.trim(),
-        'p_expires_at': expiresAt.toUtc().toIso8601String(),
-        'p_pickup_before': pickupBefore?.toUtc().toIso8601String(),
-      },
-    );
-    if (result is String && result.isNotEmpty) return result;
-    throw const FormatException('تعذر إنشاء العرض في قاعدة البيانات');
+    try {
+      final result = await _client.rpc(
+        'institution_create_normalized_offer',
+        params: {
+          'p_institution_id': institutionId.trim(),
+          'p_title': title.trim(),
+          'p_description': description.trim(),
+          'p_category': category.trim().isEmpty ? 'other' : category.trim(),
+          'p_quantity': quantity,
+          'p_symbolic_price': symbolicPrice,
+          'p_original_price': originalPrice,
+          'p_currency': currency,
+          'p_images': images,
+          'p_city': city?.trim(),
+          'p_address': address?.trim(),
+          'p_location_text': pickupLocation?.trim(),
+          'p_expires_at': expiresAt.toUtc().toIso8601String(),
+          'p_pickup_before': pickupBefore?.toUtc().toIso8601String(),
+          'p_food_type': foodType,
+          'p_is_halal': isHalal,
+          'p_is_vegetarian': isVegetarian,
+          'p_serves_count': servesCount,
+          'p_food_condition': foodCondition,
+          'p_requires_refrigeration': requiresRefrigeration,
+          'p_pickup_notes': pickupNotes.trim(),
+          'p_contact_phone': contactPhone.trim(),
+          'p_pickup_time': pickupTime.trim(),
+        },
+      );
+      if (result is String && result.isNotEmpty) return result;
+      throw const FormatException('تعذر إنشاء العرض في قاعدة البيانات');
+    } catch (e) {
+      throw Exception('فشل إنشاء العرض: $e');
+    }
   }
 
+  // ✅ دالة إنشاء عرض بسيط (للتطابق مع الجدول institution_offers)
   Future<Map<String, dynamic>> createOffer({
     required String institutionId,
     required String title,
@@ -453,6 +635,13 @@ class InstitutionsRepository {
     String? pickupLocation,
     required DateTime expiresAt,
     DateTime? pickupBefore,
+    String foodType = 'وجبات',
+    bool isHalal = true,
+    bool isVegetarian = false,
+    String foodCondition = 'good',
+    bool requiresRefrigeration = false,
+    String pickupNotes = '',
+    String contactPhone = '',
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null || userId.isEmpty) {
@@ -482,26 +671,97 @@ class InstitutionsRepository {
       throw const FormatException('حساب المؤسسة غير نشط حاليًا');
     }
 
-    final row = await _client
-        .from('institution_offers')
-        .insert({
-          'institution_id': institutionId.trim(),
-          'title': cleanTitle,
-          'description': description.trim(),
-          'category': category.trim().isEmpty ? 'other' : category.trim(),
-          'quantity': quantity,
-          'remaining_quantity': quantity,
-          'symbolic_price': symbolicPrice,
-          'original_price': originalPrice,
-          'images': images,
-          'pickup_location': pickupLocation?.trim(),
-          'expires_at': expiresAt.toUtc().toIso8601String(),
-          'pickup_before': pickupBefore?.toUtc().toIso8601String(),
-          'status': 'active',
-        })
-        .select()
-        .single();
+    final Map<String, dynamic> data = {
+      'institution_id': institutionId.trim(),
+      'title': cleanTitle,
+      'description': description.trim(),
+      'category': category.trim().isEmpty ? 'other' : category.trim(),
+      'quantity': quantity,
+      'remaining_quantity': quantity,
+      'symbolic_price': symbolicPrice,
+      'original_price': originalPrice,
+      'images': images,
+      'pickup_location': pickupLocation?.trim() ?? '',
+      'expires_at': expiresAt.toUtc().toIso8601String(),
+      'pickup_before': pickupBefore?.toUtc().toIso8601String(),
+      'status': 'active',
+      'food_type': foodType,
+      'is_halal': isHalal,
+      'is_vegetarian': isVegetarian,
+      'food_condition': foodCondition,
+      'requires_refrigeration': requiresRefrigeration,
+      'pickup_notes': pickupNotes.trim(),
+      'contact_phone': contactPhone.trim(),
+    };
+
+    data.removeWhere(
+        (key, value) => value == null || (value is String && value.isEmpty));
+
+    final row =
+        await _client.from('institution_offers').insert(data).select().single();
     return Map<String, dynamic>.from(row);
+  }
+
+  // ✅ دالة تحديث العرض مع الحقول الإضافية
+  Future<void> updateOffer({
+    required String offerId,
+    String? title,
+    String? description,
+    String? category,
+    int? quantity,
+    int? remainingQuantity,
+    double? symbolicPrice,
+    double? originalPrice,
+    List<String>? images,
+    String? pickupLocation,
+    DateTime? expiresAt,
+    DateTime? pickupBefore,
+    String? status,
+    String? foodType,
+    bool? isHalal,
+    bool? isVegetarian,
+    String? foodCondition,
+    bool? requiresRefrigeration,
+    String? pickupNotes,
+    String? contactPhone,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'updated_at': DateTime.now().toUtc().toIso8601String()
+      };
+
+      if (title != null) data['title'] = title.trim();
+      if (description != null) data['description'] = description.trim();
+      if (category != null) data['category'] = category;
+      if (quantity != null) data['quantity'] = quantity;
+      if (remainingQuantity != null)
+        data['remaining_quantity'] = remainingQuantity;
+      if (symbolicPrice != null) data['symbolic_price'] = symbolicPrice;
+      if (originalPrice != null) data['original_price'] = originalPrice;
+      if (images != null) data['images'] = images;
+      if (pickupLocation != null)
+        data['pickup_location'] = pickupLocation.trim();
+      if (expiresAt != null)
+        data['expires_at'] = expiresAt.toUtc().toIso8601String();
+      if (pickupBefore != null)
+        data['pickup_before'] = pickupBefore.toUtc().toIso8601String();
+      if (status != null) data['status'] = status;
+      if (foodType != null) data['food_type'] = foodType;
+      if (isHalal != null) data['is_halal'] = isHalal;
+      if (isVegetarian != null) data['is_vegetarian'] = isVegetarian;
+      if (foodCondition != null) data['food_condition'] = foodCondition;
+      if (requiresRefrigeration != null)
+        data['requires_refrigeration'] = requiresRefrigeration;
+      if (pickupNotes != null) data['pickup_notes'] = pickupNotes.trim();
+      if (contactPhone != null) data['contact_phone'] = contactPhone.trim();
+
+      data.removeWhere(
+          (key, value) => value == null || (value is String && value.isEmpty));
+
+      await _client.from('institution_offers').update(data).eq('id', offerId);
+    } catch (e) {
+      throw Exception('فشل تحديث العرض: $e');
+    }
   }
 
   Future<List<Map<String, dynamic>>> listActiveCharities() async {

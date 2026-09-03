@@ -1,4 +1,11 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/features/community/presentation/pages/community_my_offers_page.dart
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/presentation/pages/OfferDetailsMyOffersPage.dart';
+import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 import '../../data/repositories/community_my_offers_repository.dart';
 
 class CommunityMyOffersPage extends StatefulWidget {
@@ -11,15 +18,29 @@ class CommunityMyOffersPage extends StatefulWidget {
 class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
   final _repository = CommunityMyOffersRepository();
   final _searchController = TextEditingController();
+  final SupabaseService _supabase = SupabaseService();
   bool _loading = true;
-  String? _error;
-  List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
+  String? _errorMessage;
+  List<Map<String, dynamic>> _offers = [];
   String _filter = 'all';
   String? _busyRequestId;
+  StreamSubscription? _realtimeSubscription;
 
-  static const _green = Color(0xFF0B7650);
-  static const _dark = Color(0xFF123F31);
-  static const _muted = Color(0xFF71837C);
+  static const Color _primary = Color(0xFF005B3C);
+  static const Color _primaryContainer = Color(0xFF0B7650);
+  static const Color _secondaryContainer = Color(0xFFBEEDD8);
+  static const Color _onSecondaryContainer = Color(0xFF426D5D);
+  static const Color _surface = Color(0xFFF7FAF9);
+  static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
+  static const Color _surfaceContainerHigh = Color(0xFFE6E9E8);
+  static const Color _surfaceVariant = Color(0xFFE0E3E2);
+  static const Color _onSurface = Color(0xFF181C1C);
+  static const Color _onSurfaceVariant = Color(0xFF3F4942);
+  static const Color _errorColor = Color(0xFFBA1A1A);
+  static const Color _errorContainer = Color(0xFFFFDAD6);
+  static const Color _onErrorContainer = Color(0xFF93000A);
+  static const Color _outlineVariant = Color(0xFFBEC9C0);
+  static const Color _onPrimary = Color(0xFFFFFFFF);
 
   @override
   void initState() {
@@ -28,22 +49,50 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
       if (mounted) setState(() {});
     });
     _load();
+    _subscribeToRealtime();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _realtimeSubscription?.cancel();
     super.dispose();
+  }
+
+  void _subscribeToRealtime() {
+    _realtimeSubscription = _supabase.client
+        .from('community_offers')
+        .stream(primaryKey: ['id']).listen((_) {
+      if (mounted) {
+        _load();
+      }
+    }, onError: (error) {
+      debugPrint('❌ Realtime error: $error');
+    });
   }
 
   Future<void> _load() async {
     if (!mounted) return;
     setState(() {
       _loading = true;
-      _error = null;
+      _errorMessage = null;
     });
     try {
       final offers = await _repository.getMyOffersWithRequests();
+
+      for (var i = 0; i < offers.length; i++) {
+        final offerId = offers[i]['id'].toString();
+        try {
+          final images = await _supabase.getOfferImages(offerId);
+          offers[i]['images'] = images;
+          offers[i]['image'] = images.isNotEmpty ? images.first : null;
+        } catch (e) {
+          print('❌ Error loading images for offer $offerId: $e');
+          offers[i]['images'] = [];
+          offers[i]['image'] = null;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _offers = offers;
@@ -53,7 +102,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'تعذر تحميل عروضك حاليًا. حاول مرة أخرى.';
+        _errorMessage = 'تعذر تحميل عروضك حاليًا. حاول مرة أخرى.';
       });
     }
   }
@@ -69,7 +118,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
       final title = (offer['title'] ?? '').toString().toLowerCase();
       final description = (offer['description'] ?? '').toString().toLowerCase();
       final requestText = requests
-          .map((request) => request['requester']?.toString() ?? '')
+          .map((request) => request['requester']?['name']?.toString() ?? '')
           .join(' ')
           .toLowerCase();
       return title.contains(query) ||
@@ -80,7 +129,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
 
   List<Map<String, dynamic>> _requests(Map<String, dynamic> offer) {
     final raw = offer['requests'];
-    if (raw is! List) return <Map<String, dynamic>>[];
+    if (raw is! List) return [];
     return raw.map((row) => Map<String, dynamic>.from(row as Map)).toList();
   }
 
@@ -93,12 +142,12 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
       );
       if (!mounted) return;
       _showMessage(
-        status == 'accepted' ? 'تم قبول الطلب بنجاح' : 'تم رفض الطلب',
+        status == 'accepted' ? '✅ تم قبول الطلب بنجاح' : '❌ تم رفض الطلب',
         success: status == 'accepted',
       );
       await _load();
     } catch (error) {
-      if (mounted) _showMessage('تعذر تحديث الطلب، حاول مرة أخرى');
+      if (mounted) _showMessage('⚠️ تعذر تحديث الطلب، حاول مرة أخرى');
     } finally {
       if (mounted) setState(() => _busyRequestId = null);
     }
@@ -108,16 +157,30 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('رفض الطلب'),
-        content: const Text('هل تريد رفض طلب هذا المستخدم؟'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: _errorColor),
+            SizedBox(width: 8),
+            Text('رفض الطلب'),
+          ],
+        ),
+        content: const Text('هل أنت متأكد من رفض طلب هذا المستخدم؟'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(
+              foregroundColor: _onSurfaceVariant,
+            ),
             child: const Text('إلغاء'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB54747)),
+              backgroundColor: _errorColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('رفض الطلب'),
           ),
@@ -131,8 +194,10 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, textDirection: TextDirection.rtl),
-        backgroundColor: success ? _green : const Color(0xFFB54747),
+        backgroundColor: success ? _primary : _errorColor,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -142,206 +207,430 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFA),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: _dark,
-          elevation: 0,
-          titleSpacing: 18,
-          title: Row(children: [
-            Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                    color: _dark, borderRadius: BorderRadius.circular(12)),
-                child: const Text('ل',
+        backgroundColor: _surface,
+        appBar: _buildAppBar(),
+        body: _body(),
+        bottomNavigationBar: _buildBottomNav(),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.white.withOpacity(0.85),
+      elevation: 0,
+      titleSpacing: 0,
+      toolbarHeight: 72,
+      title: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: _primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'ل',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900))),
-            const SizedBox(width: 10),
-            const Text('لقمة',
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
-          ]),
-          actions: [
-            IconButton(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'تحديث'),
-            IconButton(
-                onPressed: () =>
-                    _showMessage('ستظهر الإشعارات عند وصول طلب جديد'),
-                icon: const Icon(Icons.notifications_none_rounded),
-                tooltip: 'الإشعارات'),
+                      color: _onPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'لقمة',
+                  style: TextStyle(
+                    color: _primary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _secondaryContainer,
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  child: const Text(
+                    'عروضي',
+                    style: TextStyle(
+                      color: _onSecondaryContainer,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _secondaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {},
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: _primary,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        body: _body(),
       ),
     );
   }
 
   Widget _body() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: _green));
+      return const Center(
+        child: CircularProgressIndicator(
+          color: _primaryContainer,
+          strokeWidth: 3,
+        ),
+      );
     }
-    if (_error != null) {
-      return _MessageState(
-          icon: Icons.cloud_off_rounded,
-          title: 'تعذر تحميل عروضك',
-          actionLabel: 'إعادة المحاولة',
-          onAction: _load);
+    if (_errorMessage != null) {
+      return _buildEmptyState(
+        icon: Icons.cloud_off_rounded,
+        title: 'تعذر تحميل عروضك',
+        subtitle: _errorMessage,
+        actionLabel: 'إعادة المحاولة',
+        onAction: _load,
+      );
     }
     if (_offers.isEmpty) {
-      return const _MessageState(
-          icon: Icons.inventory_2_outlined,
-          title: 'لم تضف أي عرض بعد',
-          subtitle: 'عندما تضيف ملابس أو أثاثًا ستظهر طلباته هنا.');
+      return _buildEmptyState(
+        icon: Icons.inventory_2_outlined,
+        title: 'لم تضف أي عرض بعد',
+        subtitle: 'عندما تضيف ملابس أو أثاثًا ستظهر طلباته هنا.',
+      );
     }
 
     return RefreshIndicator(
-      color: _green,
+      color: _primaryContainer,
       onRefresh: _load,
-      child: ListView(
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
-        children: [
-          _summaryCard(),
-          const SizedBox(height: 18),
-          _searchAndFilters(),
-          const SizedBox(height: 16),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  _buildSearchBar(),
+                  const SizedBox(height: 16),
+                  _buildStatsCard(),
+                  const SizedBox(height: 16),
+                  _buildFilters(),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+          ),
           if (_visibleOffers.isEmpty)
-            const _MessageState(
-                icon: Icons.filter_alt_off_rounded,
-                title: 'لا توجد نتائج بهذا الفلتر',
-                subtitle: 'جرّب تعديل البحث أو اختيار كل العروض.')
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(
+                  child: Text('لا توجد نتائج مطابقة للبحث'),
+                ),
+              ),
+            )
           else
-            ..._visibleOffers.map(_offerCard),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildOfferCard(_visibleOffers[index]),
+                  childCount: _visibleOffers.length,
+                ),
+              ),
+            ),
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 100),
+          ),
         ],
       ),
     );
   }
 
-  Widget _searchAndFilters() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(
-          controller: _searchController,
-          textDirection: TextDirection.rtl,
-          decoration: InputDecoration(
-            hintText: 'ابحث باسم العرض أو المتبرع...',
-            prefixIcon: const Icon(Icons.search_rounded),
-            suffixIcon: _searchController.text.isEmpty
-                ? null
-                : IconButton(
-                    onPressed: _searchController.clear,
-                    icon: const Icon(Icons.close_rounded)),
-            filled: true,
-            fillColor: Colors.white,
-            prefixIconColor: _green,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFFC0C8C3))),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: Color(0xFFC0C8C3))),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: _green, width: 1.5)),
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: _surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(9999),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
-        ),
-        const SizedBox(height: 12),
-        _filterBar(),
-      ]);
+        ],
+        border: Border.all(color: _surfaceVariant),
+      ),
+      child: Row(
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Icon(
+              Icons.search_rounded,
+              color: _primary,
+              size: 24,
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              textDirection: TextDirection.rtl,
+              decoration: const InputDecoration(
+                hintText: 'البحث في عروضي...',
+                hintStyle: TextStyle(
+                  color: _onSurfaceVariant,
+                  fontSize: 16,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              onPressed: _searchController.clear,
+              icon: const Icon(
+                Icons.close_rounded,
+                color: _onSurfaceVariant,
+                size: 20,
+              ),
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
+    );
+  }
 
-  Widget _summaryCard() {
+  Widget _buildStatsCard() {
+    final totalOffers = _offers.length;
+    final totalRequests = _offers.expand((offer) => _requests(offer)).length;
     final pending = _offers
         .expand((offer) => _requests(offer))
         .where((request) => request['status'] == 'pending')
         .length;
+
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0B7650), Color(0xFF14523D)],
+          colors: [Color(0xFF0B7650), Color(0xFF005B3C)],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryContainer.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.volunteer_activism_rounded,
-              color: Colors.white, size: 34),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('متابعة عروضي',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(height: 5),
-                Text(
-                  pending == 0
-                      ? 'لا توجد طلبات جديدة الآن'
-                      : 'لديك $pending طلبات جديدة تحتاج قرارك',
-                  style: const TextStyle(
-                      color: Color(0xFFDDF3E8),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700),
-                ),
-              ],
+          const Text(
+            'إحصائياتي',
+            style: TextStyle(
+              color: _onPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          _stat('${_offers.length}', 'عرض'),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildStatItem(
+                icon: Icons.inventory_2_rounded,
+                value: '$totalOffers',
+                label: 'العروض',
+              ),
+              _buildStatItem(
+                icon: Icons.pending_actions_rounded,
+                value: '$totalRequests',
+                label: 'الطلبات',
+              ),
+              _buildStatItem(
+                icon: Icons.auto_awesome_rounded,
+                value: '$pending',
+                label: 'جديد',
+                showBadge: pending > 0,
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _stat(String value, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .15),
-          borderRadius: BorderRadius.circular(14)),
-      child: Column(children: [
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 18)),
-        Text(label,
-            style: const TextStyle(color: Color(0xFFDDF3E8), fontSize: 10)),
-      ]),
+  Widget _buildStatItem({
+    required IconData icon,
+    required String value,
+    required String label,
+    bool showBadge = false,
+  }) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Stack(
+          children: [
+            if (showBadge)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: const BoxDecoration(
+                    color: _errorColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            Column(
+              children: [
+                Icon(icon, color: _onPrimary, size: 28),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: _onPrimary,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: _onPrimary.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _filterBar() {
-    final filters = <String, String>{
-      'all': 'كل العروض',
-      'pending': 'طلبات جديدة',
-      'accepted': 'مقبولة',
-      'completed': 'مكتملة'
-    };
+  Widget _buildFilters() {
+    final filters = [
+      {'key': 'all', 'label': 'الكل', 'count': _offers.length},
+      {
+        'key': 'pending',
+        'label': 'جديد',
+        'count': _offers
+            .expand((offer) => _requests(offer))
+            .where((r) => r['status'] == 'pending')
+            .length
+      },
+      {
+        'key': 'accepted',
+        'label': 'مقبول',
+        'count': _offers
+            .expand((offer) => _requests(offer))
+            .where((r) => r['status'] == 'accepted')
+            .length
+      },
+      {'key': 'completed', 'label': 'مكتمل', 'count': 0},
+      {'key': 'rejected', 'label': 'مرفوض', 'count': 0},
+    ];
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: filters.entries.map((entry) {
-          final selected = _filter == entry.key;
+        children: filters.map((filter) {
+          final isSelected = _filter == filter['key'];
+          final count = filter['count'] as int;
           return Padding(
             padding: const EdgeInsets.only(left: 8),
-            child: ChoiceChip(
-              label: Text(entry.value),
-              selected: selected,
-              onSelected: (_) => setState(() => _filter = entry.key),
-              selectedColor: const Color(0xFFDDF3E8),
-              labelStyle: TextStyle(
-                  color: selected ? _green : _muted,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12),
+            child: GestureDetector(
+              onTap: () => setState(() => _filter = filter['key'] as String),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? _primary : _surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(9999),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: _primary.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      filter['label'] as String,
+                      style: TextStyle(
+                        color: isSelected ? _onPrimary : _onSurfaceVariant,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withOpacity(0.2)
+                              : _primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(9999),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            color: isSelected ? _onPrimary : _primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
           );
         }).toList(),
@@ -349,220 +638,597 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     );
   }
 
-  Widget _offerCard(Map<String, dynamic> offer) {
+  Widget _buildOfferCard(Map<String, dynamic> offer) {
     final requests = _requests(offer);
-    final pending =
-        requests.where((request) => request['status'] == 'pending').length;
-    final image = (offer['image'] ?? '').toString();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFE1ECE6),
-            width: 1,
+    final totalRequests = requests.length;
+    final pending = requests.where((r) => r['status'] == 'pending').length;
+    final accepted = requests.where((r) => r['status'] == 'accepted').length;
+    final completed = requests.where((r) => r['status'] == 'completed').length;
+    final rejected = requests.where((r) => r['status'] == 'rejected').length;
+
+    final images = offer['images'] as List? ?? [];
+    final image = images.isNotEmpty
+        ? images.first.toString()
+        : (offer['image']?.toString() ?? '');
+
+    final title = (offer['title'] ?? 'عرض مجتمعي').toString();
+    final status = (offer['status'] ?? 'available').toString();
+    final createdAt = offer['created_at']?.toString() ?? '';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OfferDetailsMyOffersPage(
+              offer: offer,
+              onOfferUpdated: () {
+                _load();
+              },
+            ),
           ),
-          boxShadow: const [
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
             BoxShadow(
-                color: Color(0x0A003527), blurRadius: 12, offset: Offset(0, 4))
-          ]),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: SizedBox(
-                  width: 74,
-                  height: 74,
-                  child: image.isEmpty
-                      ? const ColoredBox(
-                          color: Color(0xFFE8F5EE),
-                          child: Icon(Icons.checkroom_rounded,
-                              color: _green, size: 32))
-                      : Image.network(image,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const ColoredBox(
-                              color: Color(0xFFE8F5EE),
-                              child: Icon(Icons.checkroom_rounded,
-                                  color: _green, size: 32))),
+              color: _primaryContainer.withOpacity(0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: _surfaceVariant),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        color: _secondaryContainer,
+                        child: image.isNotEmpty
+                            ? Image.network(
+                                image,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.checkroom_rounded,
+                                  color: _primaryContainer,
+                                  size: 32,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.checkroom_rounded,
+                                color: _primaryContainer,
+                                size: 32,
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: -4,
+                      left: -4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _getStatusLabel(status),
+                          style: const TextStyle(
+                            color: _onPrimary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text((offer['title'] ?? 'عرض مجتمعي').toString(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: _dark,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 6),
                       Text(
-                          '${requests.length} طلب • ${pending > 0 ? '$pending جديد' : 'لا توجد طلبات جديدة'}',
-                          style: TextStyle(
-                              color: pending > 0 ? _green : _muted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800)),
-                    ]),
-              ),
-              _statusPill((offer['status'] ?? 'available').toString()),
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _onSurface,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.schedule_rounded,
+                            size: 14,
+                            color: _onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatDate(createdAt),
+                            style: const TextStyle(
+                              color: _onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 3,
+                            height: 3,
+                            decoration: const BoxDecoration(
+                              color: _outlineVariant,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$totalRequests طلب',
+                            style: const TextStyle(
+                              color: _onSurfaceVariant,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // ✅ إحصائيات الطلبات
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (pending > 0)
+                            _buildStatBadge(
+                                '⏳ جديد', pending, const Color(0xFFB36B12)),
+                          if (accepted > 0)
+                            _buildStatBadge(
+                                '✅ مقبول', accepted, const Color(0xFF3679C8)),
+                          if (completed > 0)
+                            _buildStatBadge('🎉 مكتمل', completed, _primary),
+                          if (rejected > 0)
+                            _buildStatBadge('❌ مرفوض', rejected, _errorColor),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (requests.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(color: _surfaceVariant, height: 1),
+              const SizedBox(height: 8),
+              // ✅ عرض الطلبات بشكل أنيق
+              ...requests.take(2).map((request) => _buildRequestTile(request)),
+              if (requests.length > 2)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: TextButton(
+                    onPressed: () {
+                      // TODO: فتح صفحة كل الطلبات
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('📋 عرض كل الطلبات'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'عرض جميع الطلبات (${requests.length})',
+                      style: const TextStyle(
+                        color: _primary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
             ],
-          ),
-          if (requests.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            ...requests.map(_requestTile),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatBadge(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _requestTile(Map<String, dynamic> request) {
+  Widget _buildRequestTile(Map<String, dynamic> request) {
     final status = (request['status'] ?? 'pending').toString();
-    final requester = request['requester'];
-    final name = requester is Map ? (requester['name'] ?? 'مستخدم') : 'مستخدم';
+    final requester = request['requester'] as Map? ?? {};
+    final name = requester['name']?.toString() ?? 'مستخدم';
+    final avatar = requester['avatar_url']?.toString() ?? '';
     final requestId = request['id'].toString();
     final busy = _busyRequestId == requestId;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const CircleAvatar(
-                radius: 17,
-                backgroundColor: Color(0xFFE8F5EE),
-                child: Icon(Icons.person_outline_rounded,
-                    color: _green, size: 19)),
-            const SizedBox(width: 9),
+    final isPending = status == 'pending';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UserProfilePage(
+              userId: request['user_id']?.toString() ?? '',
+              userName: name,
+              userAvatar: avatar,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color:
+                isPending ? const Color(0xFFFFF0DA) : const Color(0xFFE8EEE9),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserProfilePage(
+                      userId: request['user_id']?.toString() ?? '',
+                      userName: name,
+                      userAvatar: avatar,
+                    ),
+                  ),
+                );
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: _secondaryContainer,
+                backgroundImage:
+                    avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                child: avatar.isEmpty
+                    ? const Icon(
+                        Icons.person_outline_rounded,
+                        color: _primaryContainer,
+                        size: 18,
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 8),
             Expanded(
-                child: Text(name.toString(),
-                    style: const TextStyle(
-                        color: _dark, fontWeight: FontWeight.w900))),
-            _statusPill(status),
-          ]),
-          if ((request['message'] ?? '').toString().trim().isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text('"${request['message']}"',
-                style:
-                    const TextStyle(color: _muted, fontSize: 12, height: 1.4)),
-          ],
-          if (status == 'pending') ...[
-            const SizedBox(height: 9),
-            Row(children: [
-              Expanded(
-                  child: OutlinedButton(
-                      onPressed: busy ? null : () => _confirmReject(requestId),
-                      style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFB54747),
-                          side: const BorderSide(color: Color(0xFFE7B9B9)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12))),
-                      child: const Text('رفض'))),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: FilledButton(
-                      onPressed: busy
-                          ? null
-                          : () => _changeStatus(requestId, 'accepted'),
-                      style: FilledButton.styleFrom(
-                          backgroundColor: _green,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12))),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: _onSurface,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (isPending) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF0DA),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'جديد',
+                            style: TextStyle(
+                              color: Color(0xFFB36B12),
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        isPending
+                            ? Icons.auto_awesome_rounded
+                            : Icons.schedule_rounded,
+                        size: 12,
+                        color:
+                            isPending ? _primaryContainer : _onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        isPending ? 'طلب جديد' : _getStatusLabel(status),
+                        style: TextStyle(
+                          color: isPending ? _primary : _onSurfaceVariant,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (isPending) ...[
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: busy
+                        ? null
+                        : () => _changeStatus(requestId, 'accepted'),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        color: _primary,
+                        shape: BoxShape.circle,
+                      ),
                       child: busy
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: 14,
+                              height: 14,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Text('قبول'))),
-            ]),
+                                strokeWidth: 2,
+                                color: _onPrimary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.check_rounded,
+                              color: _onPrimary,
+                              size: 16,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: busy ? null : () => _confirmReject(requestId),
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: const BoxDecoration(
+                        color: _errorContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: _onErrorContainer,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _surface,
+        boxShadow: [
+          BoxShadow(
+            color: _primaryContainer.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildNavItem(Icons.home_rounded, 'الرئيسية', false),
+          _buildNavItem(Icons.local_offer_rounded, 'عروضي', true),
+          _buildNavItem(Icons.chat_bubble_outline_rounded, 'المحادثات', false),
+          _buildNavItem(Icons.person_outline_rounded, 'حسابي', false),
         ],
       ),
     );
   }
 
-  Color _statusBorder(String status) {
+  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
+    return GestureDetector(
+      onTap: () {},
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? _secondaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(9999),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? _onSecondaryContainer : _onSurfaceVariant,
+              size: 24,
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? _onSecondaryContainer : _onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _secondaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: _primaryContainer, size: 48),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              title,
+              style: const TextStyle(
+                color: _onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _onSurfaceVariant,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: onAction,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _primaryContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: Text(actionLabel),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String date) {
+    if (date.isEmpty) return '--';
+    try {
+      final parsed = DateTime.parse(date);
+      final now = DateTime.now();
+      final diff = now.difference(parsed);
+      if (diff.inDays > 0) return 'منذ ${diff.inDays} يوم';
+      if (diff.inHours > 0) return 'منذ ${diff.inHours} ساعة';
+      if (diff.inMinutes > 0) return 'منذ ${diff.inMinutes} دقيقة';
+      return 'الآن';
+    } catch (_) {
+      return date.substring(0, 10);
+    }
+  }
+
+  String _getStatusLabel(String status) {
     switch (status) {
+      case 'available':
+        return 'متاح';
+      case 'pending':
+        return 'جديد';
+      case 'accepted':
+        return 'مقبول';
+      case 'completed':
+        return 'مكتمل';
+      case 'rejected':
+        return 'مرفوض';
+      case 'ready_for_pickup':
+        return 'جاهز';
+      case 'picked_up':
+        return 'تم الاستلام';
+      default:
+        return 'متاح';
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'available':
+        return _primaryContainer;
       case 'pending':
         return const Color(0xFFB36B12);
       case 'accepted':
         return const Color(0xFF3679C8);
       case 'completed':
-        return _green;
+        return _primary;
       case 'rejected':
-        return const Color(0xFFB54747);
+        return _errorColor;
+      case 'ready_for_pickup':
+        return const Color(0xFF0B7650);
+      case 'picked_up':
+        return const Color(0xFF6651B5);
       default:
-        return _green;
+        return _primaryContainer;
     }
-  }
-
-  Widget _statusPill(String status) {
-    final data = <String, (String, Color, Color)>{
-      'available': ('متاح', _green, const Color(0xFFE8F5EE)),
-      'pending': ('جديد', const Color(0xFFB36B12), const Color(0xFFFFF0DA)),
-      'accepted': ('مقبول', const Color(0xFF3679C8), const Color(0xFFEAF2FF)),
-      'completed': ('مكتمل', _green, const Color(0xFFE8F5EE)),
-      'rejected': ('مرفوض', const Color(0xFFB54747), const Color(0xFFFFEEEE)),
-    };
-    final item = data[status] ?? ('متاح', _green, const Color(0xFFE8F5EE));
-    return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-            color: item.$3, borderRadius: BorderRadius.circular(9)),
-        child: Text(item.$1,
-            style: TextStyle(
-                color: item.$2, fontSize: 10, fontWeight: FontWeight.w900)));
-  }
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState(
-      {required this.icon,
-      required this.title,
-      this.subtitle,
-      this.actionLabel,
-      this.onAction});
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-        child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(icon, color: const Color(0xFF0B7650), size: 54),
-              const SizedBox(height: 14),
-              Text(title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: Color(0xFF123F31),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900)),
-              if (subtitle != null) ...[
-                const SizedBox(height: 6),
-                Text(subtitle!,
-                    textAlign: TextAlign.center,
-                    style:
-                        const TextStyle(color: Color(0xFF71837C), fontSize: 13))
-              ],
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 14),
-                OutlinedButton(onPressed: onAction, child: Text(actionLabel!))
-              ]
-            ])));
   }
 }

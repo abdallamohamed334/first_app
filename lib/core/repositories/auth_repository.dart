@@ -3,13 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
+import '../services/analytics_service.dart';
+import '../services/fcm_notification_service.dart';
 import '../services/supabase_service.dart';
 import '../utils/validators.dart';
 
 class AuthRepository {
   final SupabaseService _supabase;
+  final FcmNotificationService _fcmNotifications;
+  final LoqmaAnalytics _analytics;
+  final String? _webVapidKey;
 
-  AuthRepository(this._supabase);
+  AuthRepository(
+    this._supabase, {
+    FcmNotificationService? fcmNotifications,
+    LoqmaAnalytics? analytics,
+    String? webVapidKey,
+  })  : _fcmNotifications = fcmNotifications ?? FcmNotificationService(),
+        _analytics = analytics ?? LoqmaAnalytics(),
+        _webVapidKey = webVapidKey;
 
   static const Set<String> _businessTypes = {
     'restaurant',
@@ -61,6 +73,38 @@ class AuthRepository {
     return 'تعذر إتمام العملية حاليًا. حاول مرة أخرى.';
   }
 
+  Future<void> _initializeFcmForUser(String userId) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) return;
+
+    try {
+      // Rebind the callback when a different account logs in on the same
+      // process. This prevents a refreshed token from being saved for the
+      // previous account.
+      await _fcmNotifications.dispose();
+      await _fcmNotifications.initialize(
+        webVapidKey: _webVapidKey,
+        onTokenChanged: (token) => _supabase.upsertFcmDevice(
+          userId: cleanUserId,
+          fcmToken: token,
+        ),
+        onNotificationTap: (data) async {
+          // Navigation remains in the presentation layer. The data is logged
+          // only as keys/type; no email, phone, token, or private payload is
+          // written to logs.
+          debugPrint(
+            '[FCM] notification tap type=${data['type']?.toString() ?? 'unknown'}',
+          );
+        },
+      );
+      debugPrint('[FCM] initialized for authenticated user');
+    } catch (error, stack) {
+      // A notification problem must never make a valid login fail.
+      debugPrint('[FCM] initialization skipped: $error');
+      debugPrintStack(stackTrace: stack);
+    }
+  }
+
   Future<Either<String, UserModel>> login({
     required String email,
     required String password,
@@ -88,6 +132,8 @@ class AuthRepository {
         return const Left('يرجى تأكيد البريد الإلكتروني أولًا');
       }
 
+      await _initializeFcmForUser(user.id);
+      await _analytics.userLogin(userRole: user.type.value);
       debugPrint('AUTH LOGIN: role=${user.type.value}');
       return Right(user);
     } on AuthApiException catch (error) {
@@ -120,7 +166,7 @@ class AuthRepository {
       final cleanName = name.trim();
       final cleanPhone = phone.trim();
       final cleanEmail = email.trim().toLowerCase();
-      const cleanType = 'user';
+      final cleanType = (userType ?? 'user').trim().toLowerCase();
 
       if (!Validators.isValidName(cleanName)) {
         return const Left('الاسم غير صالح (3 أحرف على الأقل)');
@@ -168,7 +214,16 @@ class AuthRepository {
       );
       String? otpError;
       otpResult.fold((error) => otpError = error, (_) {});
-      if (otpError != null) return Left(otpError!);
+      if (otpError != null) {
+        // الحساب اتعمل في auth بالفعل، لكن الكود فشل يوصل (مثلاً مشكلة
+        // مؤقتة في خدمة الإرسال). نوضح ده للمستخدم بدل رسالة فشل عامة
+        // موهمة إن التسجيل كله فشل.
+        stage = 'signup_otp_issue_failed';
+        debugPrint('[RegisterDebug] stage=$stage authUserId=${authUser.id}');
+        return Left(
+          '$otpError\nيمكنك طلب إعادة إرسال الكود من صفحة التحقق.',
+        );
+      }
 
       stage = 'register_waiting_for_otp';
       debugPrint('[RegisterDebug] stage=$stage userId=${authUser.id}');
@@ -240,6 +295,12 @@ class AuthRepository {
     }
   }
 
+  /// يبعت كود التحقق عبر Edge Function اللي بتكلم Resend.
+  ///
+  /// ملحوظة: ده بينادي Supabase Edge Function اسمها
+  /// `issue-signup-email-code` (مش RPC). لازم تكون منشورة فعلاً:
+  ///   supabase functions deploy issue-signup-email-code
+  ///   supabase secrets set RESEND_API_KEY=...
   Future<Either<String, void>> issueSignupEmailCode({
     required String userId,
     required String email,
@@ -247,30 +308,34 @@ class AuthRepository {
     String? phone,
   }) async {
     try {
-      final params = <String, dynamic>{
+      final body = <String, dynamic>{
         'p_user_id': userId,
         'p_email': email.trim().toLowerCase(),
       };
       if (name != null && phone != null) {
-        params['p_name'] = name.trim();
-        params['p_phone'] = phone.trim();
+        body['p_name'] = name.trim();
+        body['p_phone'] = phone.trim();
       }
-      final response = await _supabase.client.rpc(
-        'issue_signup_email_code',
-        params: params,
+
+      final response = await _supabase.client.functions.invoke(
+        'issue-signup-email-code',
+        body: body,
       );
-      final data = _asMap(response);
+
+      final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
+        final err = data?['error']?.toString() ?? '';
+        debugPrint('SIGNUP CODE ISSUE FAILURE: server_error=$err');
+        if (err == 'rate_limited') {
+          return const Left('انتظر دقيقة قبل طلب كود جديد');
+        }
         return const Left('تعذر إرسال كود التحقق');
       }
       return const Right(null);
-    } on PostgrestException catch (error) {
-      final message = error.message.toLowerCase();
-      if (message.contains('انتظر'))
-        return const Left('انتظر دقيقة قبل طلب كود جديد');
-      return const Left('تعذر إرسال كود التحقق حاليًا');
     } catch (error) {
-      debugPrint('SIGNUP CODE ISSUE FAILURE: type=${error.runtimeType}');
+      debugPrint(
+        'SIGNUP CODE ISSUE FAILURE: type=${error.runtimeType} error=$error',
+      );
       return const Left('تعذر إرسال كود التحقق حاليًا');
     }
   }
@@ -338,6 +403,8 @@ class AuthRepository {
       if (user == null) {
         return const Left('تم تأكيد البريد لكن ملف المستخدم غير موجود');
       }
+      await _initializeFcmForUser(user.id);
+      await _analytics.userSignup(userRole: user.type.value);
       debugPrint('EMAIL OTP: verified and user activated');
       return Right(user);
     } on AuthApiException catch (error) {
@@ -667,6 +734,7 @@ class AuthRepository {
 
   Future<Either<String, void>> logout() async {
     try {
+      await _fcmNotifications.dispose();
       await _supabase.signOut();
       return const Right(null);
     } catch (error) {

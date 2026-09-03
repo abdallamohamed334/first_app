@@ -1,5 +1,8 @@
+// lib/features/charity/data/repositories/charity_donation_repository_separate.dart
+
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -46,7 +49,8 @@ class SeparateCharityDonationRepository {
     final paths = raw
         .whereType<String>()
         .map(_storagePathFromValue)
-        .where((path) => path.startsWith('direct/'))
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty && path != 'null')
         .toList();
     if (paths.isEmpty) return const [];
     final signed = <String>[];
@@ -59,7 +63,6 @@ class SeparateCharityDonationRepository {
         // الصورة قديمة أو محذوفة من Storage؛ نتجاهلها ونستخدم صورة بديلة في الواجهة.
       }
     }
-
     return signed;
   }
 
@@ -70,8 +73,8 @@ class SeparateCharityDonationRepository {
     final userId = await _currentUserId();
     final cleanCharityId = charityId?.trim();
     final folder = cleanCharityId == null || cleanCharityId.isEmpty
-        ? 'direct/$userId/legacy'
-        : 'direct/$userId/$cleanCharityId';
+        ? '$userId/legacy'
+        : '$userId/$cleanCharityId';
     final paths = <String>[];
 
     try {
@@ -92,8 +95,7 @@ class SeparateCharityDonationRepository {
               ),
             );
 
-        // نخزن المسار فقط. مرر charityId من صفحة إنشاء التبرع
-        // حتى تستطيع سياسة Storage تقييد القراءة بالجمعية المختارة.
+        debugPrint('✅ DIRECT DONATION IMAGE UPLOADED: $path');
         paths.add(path);
       }
       return paths;
@@ -150,7 +152,6 @@ class SeparateCharityDonationRepository {
 
   Future<List<Map<String, dynamic>>> getMyDonations() async {
     final userId = await _currentUserId();
-    print('DIRECT CHARITY DEBUG: getMyDonations user_id=$userId');
     final rows = await _client.from('charity_donation_requests').select('''
       id, title, description, category, quantity, condition, images,
       pickup_address, donor_phone, donor_notes, charity_notes, status,
@@ -164,11 +165,6 @@ class SeparateCharityDonationRepository {
       final row = Map<String, dynamic>.from(rawRow as Map);
       row['images'] = await _signedDonationImages(row['images']);
       result.add(row);
-    }
-    print('DIRECT CHARITY DEBUG: getMyDonations count=${result.length}');
-    for (final row in result) {
-      print(
-          'DIRECT CHARITY DEBUG: donation id=${row['id']} status=${row['status']} pickup_token=${row['pickup_token']} volunteer=${row['volunteer_name']}');
     }
     return result;
   }
@@ -204,10 +200,13 @@ class SeparateCharityDonationRepository {
     required String volunteerId,
   }) async {
     try {
-      await _client.rpc('assign_direct_donation_charity_volunteer', params: {
-        'p_request_id': requestId,
-        'p_volunteer_id': volunteerId,
-      });
+      await _client.rpc(
+        'assign_direct_donation_charity_volunteer',
+        params: {
+          'p_request_id': requestId.trim(),
+          'p_volunteer_id': volunteerId.trim(),
+        },
+      );
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -259,10 +258,6 @@ class SeparateCharityDonationRepository {
         .rpc('delete_my_charity_volunteer', params: {'p_volunteer_id': id});
   }
 
-  /// Loads only ordinary user-to-charity requests.
-  ///
-  /// Institution donations are intentionally not merged into this result.
-  /// They use [getRestaurantDonations] and their own page/actions.
   Future<List<Map<String, dynamic>>> getCharityDonations() async {
     final charityId = await _charityIdForCurrentUser();
     final rows = await _client.from('charity_donation_requests').select('''
@@ -271,6 +266,7 @@ class SeparateCharityDonationRepository {
       volunteer_type, volunteer_id, volunteer_name, volunteer_phone,
       pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
       assigned_at, completed_at, created_at, updated_at,
+      open_to_independent_volunteers, charity_accepted_at, volunteer_accepted_at,
       users:donor_id (id, name, phone, email, avatar_url)
     ''').eq('charity_id', charityId).order('created_at', ascending: false);
 
@@ -284,8 +280,6 @@ class SeparateCharityDonationRepository {
     return result;
   }
 
-  /// Loads only restaurant/institution-to-charity donations through the
-  /// charity-scoped SECURITY DEFINER RPC. No direct table read is used here.
   Future<List<Map<String, dynamic>>> getRestaurantDonations() async {
     await _charityIdForCurrentUser();
     final response = await _client.rpc('charity_list_restaurant_donations');
@@ -349,32 +343,20 @@ class SeparateCharityDonationRepository {
   }
 
   Future<String> markDonorReady(String requestId) async {
-    print('DIRECT CHARITY DEBUG: markDonorReady START request_id=$requestId');
     try {
-      final before = await _client
-          .from('charity_donation_requests')
-          .select(
-              'id, donor_id, status, accepted_at, pickup_token, volunteer_name')
-          .eq('id', requestId)
-          .maybeSingle();
-      print('DIRECT CHARITY DEBUG: markDonorReady BEFORE row=$before');
       final result = await _client.rpc('mark_direct_donation_donor_ready_v2',
           params: {'p_request_id': requestId});
-      print('DIRECT CHARITY DEBUG: markDonorReady RPC RESULT=$result');
       final data = Map<String, dynamic>.from(result as Map);
       return data['pickup_code']?.toString() ?? '';
     } catch (e) {
-      print('DIRECT CHARITY DEBUG: markDonorReady ERROR=$e');
       throw Exception(_friendly(e));
     }
   }
 
-  // Compatibility for older pages. It never generates a new code; it reads the fixed code.
   Future<String> generatePickupToken(String requestId) =>
       getPickupCode(requestId);
 
   Future<String> getPickupCode(String requestId) async {
-    print('DIRECT CHARITY DEBUG: getPickupCode START request_id=$requestId');
     try {
       final userId = await _currentUserId();
       final row = await _client
@@ -383,7 +365,6 @@ class SeparateCharityDonationRepository {
           .eq('id', requestId)
           .eq('donor_id', userId)
           .maybeSingle();
-      print('DIRECT CHARITY DEBUG: getPickupCode ROW=$row');
       if (row == null) throw Exception('التبرع غير موجود');
       final currentStatus = row['status']?.toString().trim().toLowerCase();
       final representativeAssigned =
@@ -391,33 +372,24 @@ class SeparateCharityDonationRepository {
       final canShow = currentStatus == 'volunteer_assigned' ||
           (currentStatus == 'ready_for_pickup' && representativeAssigned);
       if (!canShow) {
-        print(
-            'DIRECT CHARITY DEBUG: getPickupCode BLOCKED status=$currentStatus representativeAssigned=$representativeAssigned');
         throw Exception('سيظهر الكود بعد أن تعيّن الجمعية المندوب');
       }
       final code = row['pickup_token']?.toString();
       if (code == null || code.isEmpty) {
         throw Exception('لم يتم إنشاء كود ثابت لهذا التبرع');
       }
-      print(
-          'DIRECT CHARITY DEBUG: getPickupCode SUCCESS code_present=${code.isNotEmpty}');
       return code;
     } catch (e) {
-      print('DIRECT CHARITY DEBUG: getPickupCode ERROR=$e');
       throw Exception(_friendly(e));
     }
   }
 
   Future<void> confirmPickup(
       {required String requestId, required String token}) async {
-    print(
-        'DIRECT CHARITY DEBUG: confirmPickup START request_id=$requestId token_length=${token.trim().length}');
     try {
-      final result = await _client.rpc('confirm_direct_donation_pickup',
+      await _client.rpc('confirm_direct_donation_pickup',
           params: {'p_request_id': requestId, 'p_token': token.trim()});
-      print('DIRECT CHARITY DEBUG: confirmPickup RPC RESULT=$result');
     } catch (e) {
-      print('DIRECT CHARITY DEBUG: confirmPickup ERROR=$e');
       throw Exception(_friendly(e));
     }
   }
@@ -426,18 +398,13 @@ class SeparateCharityDonationRepository {
       {required String requestId,
       required String name,
       required String phone}) async {
-    print(
-        'DIRECT CHARITY DEBUG: assignRepresentative START request_id=$requestId name=$name phone_length=${phone.trim().length}');
     try {
-      final result = await _client
-          .rpc('assign_direct_external_representative_v2', params: {
+      await _client.rpc('assign_direct_external_representative_v2', params: {
         'p_request_id': requestId,
         'p_name': name.trim(),
         'p_phone': phone.trim(),
       });
-      print('DIRECT CHARITY DEBUG: assignRepresentative RPC RESULT=$result');
     } catch (e) {
-      print('DIRECT CHARITY DEBUG: assignRepresentative ERROR=$e');
       throw Exception(_friendly(e));
     }
   }
@@ -492,7 +459,6 @@ class SeparateCharityDonationRepository {
     }
   }
 
-  /// The charity can announce departure only after the restaurant is ready.
   Future<void> markRestaurantDonationDeparted(String donationId) async {
     try {
       await _client.rpc(
@@ -504,7 +470,6 @@ class SeparateCharityDonationRepository {
     }
   }
 
-  /// The charity verifies the six-digit code supplied by the restaurant.
   Future<void> confirmRestaurantDonationPickup({
     required String donationId,
     required String token,
@@ -526,7 +491,6 @@ class SeparateCharityDonationRepository {
     }
   }
 
-  /// The charity confirms physical delivery after the pickup was verified.
   Future<void> confirmRestaurantDonationArrival(String donationId) async {
     try {
       await _client.rpc(
@@ -544,8 +508,6 @@ class SeparateCharityDonationRepository {
     String? notes,
     bool isRestaurantDonation = false,
   }) async {
-    print(
-        'DIRECT CHARITY DEBUG: updateStatus START request_id=$requestId next_status=$status');
     const allowed = {'accepted', 'rejected', 'in_transit', 'completed'};
     if (!allowed.contains(status)) {
       throw Exception('هذه الحالة لا يتم تحديثها من صفحة الجمعية');
@@ -566,14 +528,172 @@ class SeparateCharityDonationRepository {
                 'p_next_status': status,
               },
             );
-      print('DIRECT CHARITY DEBUG: updateStatus RPC RESULT=$result');
       if (!isRestaurantDonation && notes != null && notes.trim().isNotEmpty) {
         await _client
             .from('charity_donation_requests')
             .update({'charity_notes': notes.trim()}).eq('id', requestId);
       }
     } catch (e) {
-      print('DIRECT CHARITY DEBUG: updateStatus ERROR=$e');
+      throw Exception(_friendly(e));
+    }
+  }
+
+  // ==================== مسار المتطوع المستقل (مسار ب) ====================
+
+  Future<void> acceptAndOpenForVolunteers(String requestId) async {
+    try {
+      await _client.rpc(
+        'accept_and_open_for_volunteers',
+        params: {'p_request_id': requestId},
+      );
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getOpenDonationsForVolunteers({
+    String? city,
+  }) async {
+    try {
+      final rows = await _client.rpc(
+        'list_open_donations_for_volunteers',
+        params: {'p_city': city},
+      );
+      final result = <Map<String, dynamic>>[];
+      for (final rawRow in (rows as List)) {
+        final row = Map<String, dynamic>.from(rawRow as Map);
+        row['images'] = await _signedDonationImages(row['images']);
+        result.add(row);
+      }
+      return result;
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  Future<void> claimOpenDonation(String requestId) async {
+    try {
+      await _client.rpc(
+        'volunteer_claim_charity_donation',
+        params: {'p_request_id': requestId},
+      );
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  Future<void> confirmVolunteerDonorPickup(String requestId) async {
+    try {
+      await _client.rpc(
+        'volunteer_confirm_donor_pickup',
+        params: {'p_request_id': requestId},
+      );
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  Future<void> confirmVolunteerCharityDelivery(String requestId) async {
+    try {
+      await _client.rpc(
+        'volunteer_confirm_charity_delivery',
+        params: {'p_request_id': requestId},
+      );
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  // ==================== دوال كود الاستلام للمتطوع ====================
+
+  /// جلب كود الاستلام للمتطوع (بدون التحقق من المتبرع)
+  Future<String> getPickupCodeForVolunteer(String requestId) async {
+    try {
+      final row = await _client
+          .from('charity_donation_requests')
+          .select('pickup_token')
+          .eq('id', requestId)
+          .maybeSingle();
+      if (row == null) throw Exception('التبرع غير موجود');
+      return row['pickup_token']?.toString() ?? '';
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// تأكيد استلام المتطوع للتبرع باستخدام كود الاستلام
+  Future<void> confirmVolunteerPickupWithCode(
+      String requestId, String code) async {
+    try {
+      await _client.rpc(
+        'volunteer_confirm_pickup_with_code',
+        params: {
+          'p_request_id': requestId,
+          'p_code': code.trim(),
+        },
+      );
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// إنشاء كود استلام لتبرع معين (للمتبرع)
+  Future<String> generatePickupCodeForDonation(String requestId) async {
+    try {
+      final result = await _client.rpc(
+        'generate_pickup_code_for_donation',
+        params: {'p_request_id': requestId},
+      );
+      final data = Map<String, dynamic>.from(result as Map);
+      return data['pickup_code']?.toString() ?? '';
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  // ==================== دوال كود الجمعية (جديدة) ====================
+
+  /// المتطوع ينشئ كود الجمعية عند الوصول
+  Future<String> generateCharityPickupCode(String requestId) async {
+    try {
+      final result = await _client.rpc(
+        'volunteer_generate_charity_code',
+        params: {'p_request_id': requestId},
+      );
+      final data = Map<String, dynamic>.from(result as Map);
+      return data['charity_code']?.toString() ?? '';
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// جلب كود الجمعية (للمتطوع)
+  Future<String> getCharityPickupCode(String requestId) async {
+    try {
+      final row = await _client
+          .from('charity_donation_requests')
+          .select('charity_pickup_code')
+          .eq('id', requestId)
+          .maybeSingle();
+      if (row == null) throw Exception('التبرع غير موجود');
+      return row['charity_pickup_code']?.toString() ?? '';
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// الجمعية تؤكد الاستلام باستخدام كود الجمعية
+  Future<void> confirmCharityDeliveryWithCode(
+      String requestId, String code) async {
+    try {
+      await _client.rpc(
+        'charity_confirm_delivery_with_code',
+        params: {
+          'p_request_id': requestId,
+          'p_charity_code': code.trim(),
+        },
+      );
+    } catch (e) {
       throw Exception(_friendly(e));
     }
   }
