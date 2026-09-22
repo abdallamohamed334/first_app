@@ -1,6 +1,10 @@
 import 'dart:async';
-import 'dart:ui' show PlatformDispatcher;
 
+import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
+import 'features/map/data/repositories/map_repository_impl.dart';
+import 'package:loqma/features/notification/notification_injection.dart';
+import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:loqma/routes/app_router.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -14,11 +18,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'firebase_options.dart';
-import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
-import 'package:loqma/features/notification/notification_injection.dart';
-import 'package:loqma/routes/app_router.dart';
 
-import 'features/home/presentation/bloc/home_bloc.dart';
+import 'features/userhome/presentation/bloc/userhome_bloc.dart';
+
 import 'features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/splash/presentation/bloc/splash_bloc.dart';
@@ -28,32 +30,23 @@ import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 
+// ✅ إضافة استيراد الـ ThemeNotifier
+import 'core/theme/theme_notifier.dart';
+
 bool _firebaseCrashlyticsReady = false;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Install global error handlers before initializing services.
   _installGlobalErrorHandlers();
 
-  // Initialize Firebase.
-  // We keep the result so we don't try to use Firebase-dependent
-  // services if Firebase initialization fails.
+  final envLoaded = await _loadEnvSafely();
+
   final firebaseReady = await _initializeFirebaseSafely();
 
-  // Load environment variables.
-  try {
-    await dotenv.load();
-    debugPrint('Environment variables loaded successfully');
-  } catch (error, stack) {
-    debugPrint('Failed to load .env file: $error');
-    debugPrintStack(stackTrace: stack);
-  }
-
-  // App Check requires a successfully initialized Firebase app.
   if (firebaseReady) {
     try {
-      await LoqmaAppCheck().activate(
+      await loqmaAppCheck().activate(
         webRecaptchaSiteKey: dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY'],
       );
 
@@ -68,13 +61,20 @@ Future<void> main() async {
     );
   }
 
-  // Initialize Supabase.
+  final supabaseUrl = dotenv.env['SUPABASE_URL'];
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+
+  if (!envLoaded || supabaseUrl == null || supabaseAnonKey == null) {
+    debugPrint(
+      '⚠️ SUPABASE_URL / SUPABASE_ANON_KEY missing from environment. '
+      'Check that .env was bundled correctly for this build.',
+    );
+  }
+
   try {
     await Supabase.initialize(
-      url: dotenv.env['SUPABASE_URL'] ??
-          'https://gsrhoqdtcyfdmvgahqvl.supabase.co',
-      anonKey: dotenv.env['SUPABASE_ANON_KEY'] ??
-          'sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH',
+      url: supabaseUrl ?? '',
+      anonKey: supabaseAnonKey ?? '',
     );
 
     debugPrint('Supabase initialized successfully');
@@ -83,8 +83,11 @@ Future<void> main() async {
     debugPrintStack(stackTrace: stack);
   }
 
-  // Reconnect notifications after a hot restart or an existing saved session.
-  // The method is a no-op when there is no authenticated user.
+  final isDarkMode = await _loadThemePreferenceSafely();
+
+  // ✅ تهيئة الـ ThemeNotifier قبل بدء التطبيق
+  ThemeNotifier.isDarkMode.value = isDarkMode;
+
   try {
     final supabaseService = SupabaseService();
 
@@ -94,7 +97,7 @@ Future<void> main() async {
 
         if (notificationType != null && notificationType.trim().isNotEmpty) {
           try {
-            await LoqmaAnalytics().notificationOpened(
+            await loqmaAnalytics().notificationOpened(
               notificationType: notificationType,
             );
           } catch (error, stack) {
@@ -109,7 +112,7 @@ Future<void> main() async {
 
     if (firebaseReady) {
       try {
-        await LoqmaAnalytics().appOpen();
+        await loqmaAnalytics().appOpen();
       } catch (error, stack) {
         debugPrint('Analytics appOpen failed: $error');
         debugPrintStack(stackTrace: stack);
@@ -120,7 +123,6 @@ Future<void> main() async {
     debugPrintStack(stackTrace: stack);
   }
 
-  // Initialize notification dependency injection.
   try {
     initNotificationInjection();
   } catch (error, stack) {
@@ -128,10 +130,30 @@ Future<void> main() async {
     debugPrintStack(stackTrace: stack);
   }
 
-  // IMPORTANT:
-  // Always start the Flutter application even if an optional
-  // Firebase/notification service failed.
-  runApp(const MyApp());
+  runApp(MyApp(initialIsDarkMode: isDarkMode));
+}
+
+Future<bool> _loadEnvSafely() async {
+  try {
+    await dotenv.load();
+    debugPrint('Environment variables loaded successfully');
+    return true;
+  } catch (error, stack) {
+    debugPrint('Failed to load .env file: $error');
+    debugPrintStack(stackTrace: stack);
+    return false;
+  }
+}
+
+Future<bool> _loadThemePreferenceSafely() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isDarkMode') ?? false;
+  } catch (error, stack) {
+    debugPrint('Failed to load theme preference: $error');
+    debugPrintStack(stackTrace: stack);
+    return false;
+  }
 }
 
 void _installGlobalErrorHandlers() {
@@ -169,7 +191,6 @@ void _installGlobalErrorHandlers() {
       debugPrintStack(stackTrace: stack);
     }
 
-    // Returning true marks the error as handled after it has been recorded.
     return true;
   };
 }
@@ -182,9 +203,6 @@ Future<bool> _initializeFirebaseSafely() async {
 
     debugPrint('Firebase initialized successfully');
 
-    // Configure Firebase services independently.
-    // If one service fails, it should not prevent the others
-    // or prevent the application from starting.
     await _configureAnalytics();
     await _configureCrashlytics();
     await _configurePerformance();
@@ -283,8 +301,6 @@ Future<void> _configureRemoteConfig() async {
       'Firebase Remote Config configured and activated',
     );
   } catch (error, stack) {
-    // Safe defaults remain available when Firebase Console
-    // or the network is unavailable.
     debugPrint(
       'Firebase Remote Config configuration failed; '
       'defaults retained: $error',
@@ -294,62 +310,23 @@ Future<void> _configureRemoteConfig() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.initialIsDarkMode});
+
+  /// Loaded once in main() before runApp(), so the very first frame
+  /// already renders with the correct theme — no flash.
+  final bool initialIsDarkMode;
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  bool _isDarkMode = false;
-
   @override
   void initState() {
     super.initState();
-    _loadThemePreference();
-  }
 
-  Future<void> _loadThemePreference() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isDarkMode = prefs.getBool('isDarkMode') ?? false;
-      });
-    } catch (error, stack) {
-      debugPrint(
-        'Failed to load theme preference: $error',
-      );
-      debugPrintStack(stackTrace: stack);
-    }
-  }
-
-  Future<void> _toggleTheme(bool isDark) async {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isDarkMode = isDark;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      await prefs.setBool(
-        'isDarkMode',
-        isDark,
-      );
-    } catch (error, stack) {
-      debugPrint(
-        'Failed to save theme preference: $error',
-      );
-      debugPrintStack(stackTrace: stack);
-    }
+    // ✅ تهيئة الـ ThemeNotifier بناءً على القيمة المحفوظة
+    ThemeNotifier.isDarkMode.value = widget.initialIsDarkMode;
   }
 
   @override
@@ -365,7 +342,12 @@ class _MyAppState extends State<MyApp> {
           create: (_) => OnboardingBloc(),
         ),
         BlocProvider(
-          create: (_) => HomeBloc(),
+          create: (_) => UserHomeBloc(
+            repository: UserHomeRepository(
+              supabaseService: supabaseService,
+            ),
+            mapRepository: MapRepositoryImpl(),
+          ),
         ),
         BlocProvider(
           create: (_) => ProfileBloc(),
@@ -373,13 +355,18 @@ class _MyAppState extends State<MyApp> {
       ],
       child: SessionAwareBlocScope(
         service: supabaseService,
-        child: MaterialApp.router(
-          title: 'Loqma | لقمة',
-          debugShowCheckedModeBanner: false,
-          routerConfig: AppRouter.router,
-          theme: AppTheme.light(),
-          darkTheme: AppTheme.dark(),
-          themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+        child: ValueListenableBuilder<bool>(
+          valueListenable: ThemeNotifier.isDarkMode,
+          builder: (context, isDarkMode, _) {
+            return MaterialApp.router(
+              title: 'loqma | جُود',
+              debugShowCheckedModeBanner: false,
+              routerConfig: AppRouter.router,
+              theme: AppTheme.light(),
+              darkTheme: AppTheme.dark(),
+              themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            );
+          },
         ),
       ),
     );

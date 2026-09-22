@@ -170,7 +170,7 @@ class _InstitutionDonationDetailsPageState
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -199,7 +199,7 @@ class _InstitutionDonationDetailsPageState
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
@@ -252,7 +252,7 @@ class _InstitutionDonationDetailsPageState
                             gradient: LinearGradient(
                               colors: [
                                 Colors.transparent,
-                                _primaryDark.withOpacity(0.4),
+                                _primaryDark.withValues(alpha: 0.4),
                               ],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
@@ -278,7 +278,7 @@ class _InstitutionDonationDetailsPageState
                           shape: BoxShape.circle,
                           color: _currentImageIndex == entry.key
                               ? _primary
-                              : Colors.white.withOpacity(0.4),
+                              : Colors.white.withValues(alpha: 0.4),
                           border: Border.all(
                             color: _currentImageIndex == entry.key
                                 ? _primary
@@ -295,7 +295,7 @@ class _InstitutionDonationDetailsPageState
         else
           Container(
             height: 200,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [_primaryDark, _primary],
                 begin: Alignment.topRight,
@@ -344,7 +344,7 @@ class _InstitutionDonationDetailsPageState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -371,7 +371,7 @@ class _InstitutionDonationDetailsPageState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -435,7 +435,7 @@ class _InstitutionDonationDetailsPageState
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -553,7 +553,7 @@ class _InstitutionDonationDetailsPageState
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -612,7 +612,7 @@ class _InstitutionDonationDetailsPageState
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -727,15 +727,14 @@ class _InstitutionDonationDetailsPageState
                 color: const Color(0xFFFFEEEE),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      color: _error, size: 22),
-                  const SizedBox(width: 10),
+                  Icon(Icons.warning_amber_rounded, color: _error, size: 22),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'تم إلغاء هذا التبرع',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _error,
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
@@ -760,10 +759,10 @@ class _InstitutionDonationDetailsPageState
           end: Alignment.bottomLeft,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _gold.withOpacity(0.2)),
+        border: Border.all(color: _gold.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: _gold.withOpacity(0.1),
+            color: _gold.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -777,7 +776,7 @@ class _InstitutionDonationDetailsPageState
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: _gold.withOpacity(0.1),
+                  color: _gold.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child:
@@ -800,7 +799,7 @@ class _InstitutionDonationDetailsPageState
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _gold.withOpacity(0.15)),
+              border: Border.all(color: _gold.withValues(alpha: 0.15)),
             ),
             child: Text(
               code,
@@ -832,7 +831,7 @@ class _InstitutionDonationDetailsPageState
 
     if (_status == 'volunteer_assigned') {
       return [
-        Container(
+        SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             onPressed:
@@ -866,7 +865,7 @@ class _InstitutionDonationDetailsPageState
 
     if (_status == 'institution_ready' || _status == 'volunteer_departed') {
       return [
-        Container(
+        SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: _busy
@@ -901,7 +900,7 @@ class _InstitutionDonationDetailsPageState
 
     if (_status == 'picked_up') {
       return [
-        _DonationNoticeCard(
+        const _DonationNoticeCard(
           icon: Icons.handshake_rounded,
           title: 'تم الاستلام بنجاح! 🎉',
           text: 'تم استلام التبرع من المتطوع. في انتظار تأكيد وصوله للجمعية.',
@@ -912,7 +911,7 @@ class _InstitutionDonationDetailsPageState
 
     if (_status == 'completed') {
       return [
-        _DonationNoticeCard(
+        const _DonationNoticeCard(
           icon: Icons.emoji_events_rounded,
           title: 'تم التسليم بنجاح! 🏆',
           text: 'تم تسليم التبرع للجمعية بنجاح. شكراً لك على مشاركتك!',
@@ -925,7 +924,7 @@ class _InstitutionDonationDetailsPageState
         _status == 'cancelled' ||
         _status == 'expired') {
       return [
-        _DonationNoticeCard(
+        const _DonationNoticeCard(
           icon: Icons.cancel_rounded,
           title: 'تم إلغاء التبرع',
           text: 'هذا التبرع تم إلغاؤه ولا يمكن متابعته.',
@@ -959,7 +958,7 @@ class _InstitutionDonationDetailsPageState
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: pair.$1.withOpacity(0.2),
+            color: pair.$1.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1058,16 +1057,16 @@ class _DonationNoticeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 32),

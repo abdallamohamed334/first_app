@@ -182,8 +182,9 @@ class _DonationCard extends StatelessWidget {
 
   // ✅ دالة للحصول على رابط الصورة
   String? _getImageUrl(String? imagePath) {
-    if (imagePath == null || imagePath.isEmpty || imagePath == 'null')
+    if (imagePath == null || imagePath.isEmpty || imagePath == 'null') {
       return null;
+    }
 
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
@@ -396,7 +397,7 @@ class _DonationCard extends StatelessWidget {
                                 size: 13, color: Color(0xFF71837C)),
                             const SizedBox(width: 3),
                             Expanded(
-                              child: Text('$donorName',
+                              child: Text(donorName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(

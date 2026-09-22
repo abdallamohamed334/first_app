@@ -2,20 +2,20 @@ import 'dart:async';
 
 import 'notification_catalog.dart';
 
-typedef LoqmaNotificationNavigation = FutureOr<void> Function(
-  LoqmaNotificationMessage notification,
+typedef loqmaNotificationNavigation = FutureOr<void> Function(
+  loqmaNotificationMessage notification,
 );
 
 /// Converts an FCM payload into the app's notification model and delegates
 /// navigation to the app router without knowing route names itself.
-class LoqmaNotificationTapHandler {
-  LoqmaNotificationTapHandler({
+class loqmaNotificationTapHandler {
+  loqmaNotificationTapHandler({
     required this.onNavigate,
     this.onOpened,
   });
 
-  final LoqmaNotificationNavigation onNavigate;
-  final FutureOr<void> Function(LoqmaNotificationMessage notification)?
+  final loqmaNotificationNavigation onNavigate;
+  final FutureOr<void> Function(loqmaNotificationMessage notification)?
       onOpened;
 
   Future<void> handle({
@@ -29,7 +29,7 @@ class LoqmaNotificationTapHandler {
       if (body != null && body.trim().isNotEmpty) 'body': body,
     };
 
-    final notification = LoqmaNotificationMessage.fromData(normalized);
+    final notification = loqmaNotificationMessage.fromData(normalized);
     await onOpened?.call(notification);
     await onNavigate(notification);
   }
@@ -39,8 +39,8 @@ class LoqmaNotificationTapHandler {
 ///
 /// Keep the actual route strings in the app's router layer, not in the FCM
 /// service. This avoids coupling push delivery to navigation implementation.
-class LoqmaNotificationRouteIntent {
-  const LoqmaNotificationRouteIntent({
+class loqmaNotificationRouteIntent {
+  const loqmaNotificationRouteIntent({
     required this.screen,
     this.referenceId,
     this.referenceType,
@@ -50,10 +50,10 @@ class LoqmaNotificationRouteIntent {
   final String? referenceId;
   final String? referenceType;
 
-  factory LoqmaNotificationRouteIntent.fromNotification(
-    LoqmaNotificationMessage notification,
+  factory loqmaNotificationRouteIntent.fromNotification(
+    loqmaNotificationMessage notification,
   ) {
-    return LoqmaNotificationRouteIntent(
+    return loqmaNotificationRouteIntent(
       screen: notification.screen ?? 'request_details',
       referenceId: notification.referenceId,
       referenceType: notification.referenceType,

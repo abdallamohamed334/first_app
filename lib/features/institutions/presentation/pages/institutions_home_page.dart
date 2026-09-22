@@ -5,6 +5,7 @@ import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
 import '../../data/repositories/institutions_repository.dart';
+import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution.dart';
 import 'institution_add_donation_page.dart';
 import 'institution_add_offer_page.dart';
@@ -14,6 +15,8 @@ import 'institution_offer_details_page.dart';
 import 'institution_offer_requests_management_page.dart';
 import '../../domain/entities/institution_offer.dart';
 import 'institution_profile_page.dart';
+import 'institution_edit_offer_dialog.dart';
+import 'institution_booking_search_page.dart';
 
 // ✅ تعريف الألوان خارج الكلاس
 const Color _primary = Color(0xFF0B7650);
@@ -23,7 +26,7 @@ const Color _surface = Color(0xFFFFFFFF);
 const Color _surfaceVariant = Color(0xFFE8F0EC);
 const Color _muted = Color(0xFF71837C);
 const Color _accent = Color(0xFFE28B00);
-const Color _error = Color(0xFFD64545);
+const Color _errorColor = Color(0xFFD64545); // ✅ غيرنا اسم اللون
 
 class InstitutionsHomePage extends StatefulWidget {
   const InstitutionsHomePage({super.key});
@@ -34,11 +37,12 @@ class InstitutionsHomePage extends StatefulWidget {
 
 class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
   final _repository = InstitutionsRepository();
+  final _offersRepository = InstitutionOffersRepository();
   Institution? _institution;
   List<Map<String, dynamic>> _offers = const [];
   List<Map<String, dynamic>> _donations = const [];
   bool _loading = true;
-  String? _error;
+  String? _error; // ✅ ده للرسالة
   int _tab = 0;
   String _offerFilter = 'all';
 
@@ -139,6 +143,64 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
     if (mounted) await _load();
   }
 
+  // ✅ فتح ديالوج تعديل العرض - مع منع العروض المنتهية
+  Future<void> _openEditOfferDialog(Map<String, dynamic> offer) async {
+    // ✅ التحقق من أن العرض مش منتهي
+    final status = offer['status']?.toString() ?? '';
+    final expiresAt = offer['expires_at'] != null
+        ? DateTime.tryParse(offer['expires_at'].toString())
+        : null;
+
+    // ✅ العرض منتهي الصلاحية
+    if (status == 'expired' ||
+        (expiresAt != null && expiresAt.isBefore(DateTime.now()))) {
+      _showMessage('⛔ هذا العرض منتهي الصلاحية ولا يمكن تعديله', error: true);
+      return;
+    }
+
+    // ✅ العرض ملغي
+    if (status == 'cancelled') {
+      _showMessage('🚫 هذا العرض ملغي ولا يمكن تعديله', error: true);
+      return;
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => InstitutionEditOfferDialog(
+        offer: offer,
+        repository: _offersRepository,
+      ),
+    );
+
+    if (result != null && mounted) {
+      if (result['updated'] == true) {
+        _showMessage('✅ تم تحديث العرض بنجاح');
+        await _load();
+      } else if (result['toggled'] == true) {
+        final isActive = result['is_active'] == true;
+        _showMessage(
+            isActive ? '✅ تم تشغيل العرض' : '⏸️ تم إيقاف العرض مؤقتاً');
+        await _load();
+      } else if (result['cancelled'] == true) {
+        _showMessage('🚫 تم إلغاء العرض');
+        await _load();
+      }
+    }
+  }
+
+  void _showMessage(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: error ? _errorColor : _primary, // ✅ _errorColor
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
   List<Map<String, dynamic>> get _filteredOffers {
     if (_offerFilter == 'all') return _offers;
     if (_offerFilter == 'active') {
@@ -173,7 +235,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
     if (daysLeft < 0) {
       return {
         'label': 'منتهي الصلاحية',
-        'color': _error,
+        'color': _errorColor, // ✅ _errorColor
         'icon': Icons.warning_amber_rounded,
         'days': daysLeft,
       };
@@ -234,7 +296,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'لقمة للمؤسسات',
+                  'جُود للمؤسسات',
                   style: TextStyle(
                       color: _primaryDark,
                       fontSize: 18,
@@ -252,6 +314,18 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
         ],
       ),
       actions: [
+        // ✅ زر البحث عن حجز
+        IconButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const InstitutionBookingSearchPage(),
+              ),
+            );
+          },
+          icon: const Icon(Icons.qr_code_scanner_rounded),
+          tooltip: 'البحث عن حجز',
+        ),
         IconButton(
           onPressed: _openNotifications,
           tooltip: 'الإشعارات',
@@ -331,6 +405,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
               final map = Map<String, dynamic>.from(row);
               final isOffer = map['_kind'] == 'offer';
               map.remove('_kind');
+              // ✅ الضغط على الكارد يفتح صفحة التفاصيل
               await Navigator.of(context).push(MaterialPageRoute(
                 builder: (_) => isOffer
                     ? InstitutionOfferDetailsPage(
@@ -339,6 +414,15 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                     : InstitutionDonationDetailsPage(donation: map),
               ));
               if (mounted) await _load();
+            },
+            onEdit: (row) async {
+              // ✅ الضغط على تعديل يفتح الديالوج (مع منع العروض المنتهية)
+              final map = Map<String, dynamic>.from(row);
+              final isOffer = map['_kind'] == 'offer';
+              map.remove('_kind');
+              if (isOffer) {
+                await _openEditOfferDialog(map);
+              }
             },
           ),
         ],
@@ -404,6 +488,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _OfferCard(
                           offer: offer,
+                          // ✅ الضغط على الكارد يفتح صفحة التفاصيل
                           onTap: () async {
                             await Navigator.of(context).push(
                               MaterialPageRoute(
@@ -414,6 +499,8 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                             );
                             if (mounted) await _load();
                           },
+                          // ✅ الضغط على تعديل يفتح الديالوج (مع منع العروض المنتهية)
+                          onEdit: () => _openEditOfferDialog(offer),
                         ),
                       );
                     },
@@ -440,9 +527,9 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
+          const Text(
             'تابع تبرعاتك من لحظة الإرسال حتى الوصول.',
-            style: const TextStyle(color: _muted, fontSize: 14),
+            style: TextStyle(color: _muted, fontSize: 14),
           ),
           const SizedBox(height: 18),
           if (_donations.isEmpty)
@@ -569,13 +656,18 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
 }
 
 // ============================================================
-// ✅ كارد العرض المطور - كبير وواضح
+// ✅ كارد العرض - الضغط على الكارد = تفاصيل، الضغط على التلات نقاط = تعديل
 // ============================================================
 class _OfferCard extends StatelessWidget {
   final Map<String, dynamic> offer;
   final VoidCallback onTap;
+  final VoidCallback onEdit;
 
-  const _OfferCard({required this.offer, required this.onTap});
+  const _OfferCard({
+    required this.offer,
+    required this.onTap,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -587,6 +679,11 @@ class _OfferCard extends StatelessWidget {
     final images = offer['images'] as List? ?? [];
     final imageUrl = images.isNotEmpty ? images.first.toString() : null;
     final isActive = status == 'active' || status == 'available';
+    final isExpired = status == 'expired';
+    final isCancelled = status == 'cancelled';
+
+    // ✅ العرض قابل للتعديل فقط إذا كان active أو paused
+    final isEditable = !isExpired && !isCancelled;
 
     // ✅ حساب حالة الصلاحية
     final expiryDate = offer['expires_at'] != null
@@ -617,7 +714,7 @@ class _OfferCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ✅ الصف العلوي: الصورة + العنوان
+              // ✅ الصف العلوي: الصورة + العنوان + زر التعديل
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -670,10 +767,10 @@ class _OfferCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: expiryColor.withOpacity(0.1),
+                                color: expiryColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: expiryColor.withOpacity(0.2),
+                                  color: expiryColor.withValues(alpha: 0.2),
                                 ),
                               ),
                               child: Row(
@@ -701,6 +798,32 @@ class _OfferCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // ✅ زر التعديل (ثلاث نقاط) - يظهر فقط للعروض القابلة للتعديل
+                  if (isEditable)
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          onEdit();
+                        }
+                      },
+                      icon: const Icon(
+                        Icons.more_vert_rounded,
+                        color: _muted,
+                        size: 20,
+                      ),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text('تعديل العرض'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -737,10 +860,10 @@ class _OfferCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: expiryColor.withOpacity(0.05),
+                    color: expiryColor.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: expiryColor.withOpacity(0.1),
+                      color: expiryColor.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Row(
@@ -760,6 +883,44 @@ class _OfferCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              // ✅ تنبيه إذا كان العرض منتهي أو ملغي
+              if (isExpired || isCancelled)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color:
+                          _errorColor.withValues(alpha: 0.1), // ✅ _errorColor
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: _errorColor.withValues(alpha: 0.2)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isExpired
+                              ? Icons.timer_off_rounded
+                              : Icons.block_rounded,
+                          size: 14,
+                          color: _errorColor, // ✅ _errorColor
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isExpired
+                              ? '⛔ هذا العرض منتهي الصلاحية'
+                              : '🚫 هذا العرض ملغي',
+                          style: const TextStyle(
+                            color: _errorColor, // ✅ _errorColor
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
@@ -785,7 +946,7 @@ class _OfferCard extends StatelessWidget {
     if (daysLeft < 0) {
       return {
         'label': 'منتهي الصلاحية',
-        'color': _error,
+        'color': _errorColor, // ✅ _errorColor
         'icon': Icons.warning_amber_rounded,
       };
     } else if (daysLeft <= 3) {
@@ -827,7 +988,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -1022,7 +1183,7 @@ class _StatusChip extends StatelessWidget {
 
     if (active.contains(status)) return const Color(0xFF0B7650);
     if (warning.contains(status)) return const Color(0xFFE28B00);
-    if (inactive.contains(status)) return const Color(0xFFD64545);
+    if (inactive.contains(status)) return _errorColor; // ✅ _errorColor
     return const Color(0xFF71837C);
   }
 
@@ -1031,9 +1192,9 @@ class _StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: _color.withOpacity(0.1),
+        color: _color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _color.withOpacity(0.2)),
+        border: Border.all(color: _color.withValues(alpha: 0.2)),
       ),
       child: Text(
         _label,
@@ -1048,7 +1209,7 @@ class _StatusChip extends StatelessWidget {
 }
 
 // ============================================================
-// ✅ باقي الـ Widgets
+// ✅ باقي الـ Widgets (نفس الكود السابق)
 // ============================================================
 
 class _WelcomeHeader extends StatelessWidget {
@@ -1265,7 +1426,7 @@ class _ActionCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.14),
+                  color: Colors.white.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: Colors.white, size: 22),
@@ -1414,10 +1575,12 @@ class _StatCard extends StatelessWidget {
 class _RecentSection extends StatelessWidget {
   final List<Map<String, dynamic>> rows;
   final Future<void> Function(Map<String, dynamic>) onOpen;
+  final Future<void> Function(Map<String, dynamic>)? onEdit;
 
   const _RecentSection({
     required this.rows,
     required this.onOpen,
+    this.onEdit,
   });
 
   @override
@@ -1444,6 +1607,7 @@ class _RecentSection extends StatelessWidget {
                         ? Icons.sell_outlined
                         : Icons.volunteer_activism_outlined,
                     onTap: () => onOpen(row),
+                    onEdit: onEdit != null ? () => onEdit!(row) : null,
                   ),
                 ),
               ),
@@ -1490,12 +1654,14 @@ class _ActivityCard extends StatelessWidget {
   final IconData icon;
   final bool isOffer;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
 
   const _ActivityCard({
     required this.row,
     required this.icon,
     required this.isOffer,
     required this.onTap,
+    this.onEdit,
   });
 
   @override
@@ -1507,6 +1673,11 @@ class _ActivityCard extends StatelessWidget {
     final subtitle = isOffer
         ? '${row['symbolic_price'] ?? '—'} ج.م · ${row['remaining_quantity'] ?? row['quantity'] ?? '—'} قطعة'
         : '${row['charity_name'] ?? 'جمعية'} · ${row['quantity'] ?? '—'} قطعة';
+
+    // ✅ العرض قابل للتعديل فقط إذا كان active أو paused
+    final isExpired = status == 'expired';
+    final isCancelled = status == 'cancelled';
+    final isEditable = isOffer && !isExpired && !isCancelled;
 
     return Material(
       color: Colors.white,
@@ -1556,11 +1727,33 @@ class _ActivityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_left_rounded,
-                color: Color(0xFF9AA69F),
-                size: 18,
-              ),
+              // ✅ زر التعديل (ثلاث نقاط) - يظهر فقط للعروض القابلة للتعديل
+              if (isEditable && onEdit != null)
+                PopupMenuButton<String>(
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      onEdit!();
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    color: _muted,
+                    size: 18,
+                  ),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, size: 16),
+                          SizedBox(width: 6),
+                          Text('تعديل العرض', style: TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              if (!isEditable || onEdit == null) const SizedBox(width: 36),
             ],
           ),
         ),

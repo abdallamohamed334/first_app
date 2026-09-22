@@ -5,6 +5,7 @@ import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/offers/domain/entities/offer_request_status.dart';
+import 'package:loqma/features/institutions/domain/entities/institution_offer.dart'; // ✅ أضف الـ import
 
 import 'home_event.dart';
 import 'home_state.dart';
@@ -50,6 +51,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         _getUserStats(user.id),
         _supabaseService.getCommunityStats(),
         _loadOffers(),
+        _loadInstitutionOffers(), // ✅ أضف ده
         _getOfferRequestStatuses(user.id),
       ]);
 
@@ -58,7 +60,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         stats: results[0] as UserStats,
         communityStats: results[1] as CommunityStats,
         offers: results[2] as List<FoodOffer>,
-        offerRequestStatuses: results[3] as Map<String, OfferRequestStatus>,
+        institutionOffers: results[3] as List<InstitutionOffer>, // ✅ أضف ده
+        offerRequestStatuses: results[4] as Map<String, OfferRequestStatus>,
       ));
     } catch (_) {
       emit(const HomeError('تعذر تحميل بيانات الصفحة الرئيسية حاليًا'));
@@ -78,6 +81,33 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     }
 
     return offers;
+  }
+
+  // ✅ أضف الدالة دي
+  Future<List<InstitutionOffer>> _loadInstitutionOffers() async {
+    try {
+      final response = await _supabaseService.client
+          .from('institution_offers_core')
+          .select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              logo,
+              address,
+              phone
+            )
+          ''')
+          .eq('status', 'active')
+          .order('created_at', ascending: false);
+
+      return response
+          .map((json) =>
+              InstitutionOffer.fromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   void _onNavigateToTab(

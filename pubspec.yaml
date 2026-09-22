@@ -12,6 +12,10 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   flutter_map: 6.2.1
+  sqflite: ^2.3.3
+  flutter_cache_manager: ^3.3.0
+  path_provider: ^2.1.0
+  path: ^1.9.0
   latlong2: ^0.9.1
   flutter_map_cancellable_tile_provider: ^2.0.0
 
@@ -58,6 +62,7 @@ dependencies:
   lottie: ^3.3.0
   equatable: ^2.0.5
   injectable: ^3.0.0
+  cached_network_image: ^3.3.1
   
 
 dev_dependencies:
@@ -82,6 +87,7 @@ flutter:
     - .env
     - assets/animations/
     - assets/images/
+    - assets/icons/
 
   fonts:
     - family: IBM Plex Sans Arabic

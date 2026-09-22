@@ -1,19 +1,20 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/features/map/presentation/pages/map_page.dart
+
+import 'dart:math';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:loqma/features/map/presentation/bloc/map_bloc.dart';
+import 'package:loqma/features/map/presentation/bloc/map_event.dart';
+import 'package:loqma/features/map/presentation/bloc/map_state.dart';
+import 'package:loqma/routes/app_router.dart';
 import 'package:universal_html/html.dart' as html;
-import 'dart:math' show cos, sqrt, asin;
-import '../../../../core/services/direction_service.dart';
-import '../bloc/map_bloc.dart';
-import '../bloc/map_event.dart';
-import '../bloc/map_state.dart';
-import '../widgets/map_search_bar.dart';
-import '../widgets/map_bottom_sheet.dart';
-import '../widgets/map_filter_chips.dart';
-import '../widgets/map_radius_slider.dart';
-import '../../../offers/domain/entities/food_offer.dart';
-import '../../../donation/presentation/pages/offer_details_page.dart';
+
+import '../../../../core/services/location_service.dart';
 import '../../../../core/services/supabase_service.dart';
 
 class MapPage extends StatefulWidget {
@@ -25,18 +26,21 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   final MapController _mapController = MapController();
-  final DirectionService _directionService = DirectionService();
   bool _isWeb = false;
   bool _mapReady = false;
-  final Set<String> _reservedOfferIds = <String>{};
-
-  List<Polyline> _polylines = [];
-  MapRoute? _currentRoute;
-  double? _distanceKm;
+  bool _initialMoveDone = false;
+  bool _isLoading = false;
+  bool _isSaving = false;
+  String? _errorMessage;
+  LatLng? _currentLocation;
+  LatLng? _selectedLocation;
+  bool _isLocationSaved = false;
+  bool _isLoggedIn = false;
 
   @override
   void initState() {
     super.initState();
+    print('📍 [MapPage] initState');
     try {
       _isWeb = html.window.navigator.userAgent.contains('Chrome') ||
           html.window.navigator.userAgent.contains('Firefox') ||
@@ -44,44 +48,9 @@ class _MapPageState extends State<MapPage> {
     } catch (e) {
       _isWeb = false;
     }
-    context.read<MapBloc>().add(const MapStarted());
-    _loadReservedOfferIds();
-  }
-
-  Future<void> _loadReservedOfferIds() async {
-    try {
-      final response = await SupabaseService()
-          .client
-          .from('offer_requests')
-          .select('offer_id, status')
-          .inFilter('status', const [
-        'pending',
-        'accepted',
-        'ready_for_pickup',
-      ]);
-
-      if (!mounted) return;
-      setState(() {
-        _reservedOfferIds
-          ..clear()
-          ..addAll(
-            (response as List)
-                .map((row) => row['offer_id']?.toString())
-                .whereType<String>(),
-          );
-      });
-    } catch (e) {
-      debugPrint('Map: unable to load reserved offers: $e');
-    }
-  }
-
-  List<FoodOffer> _visibleOffers(List<FoodOffer> offers) {
-    return offers.where((offer) {
-      final status = offer.status.value.toLowerCase();
-      final isActiveStatus = status == 'available' || status == 'active';
-      final isReserved = _reservedOfferIds.contains(offer.id);
-      return isActiveStatus && !offer.isExpired && !isReserved;
-    }).toList();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAuthAndGetLocation();
+    });
   }
 
   @override
@@ -90,462 +59,652 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
-  double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
-    const p = 0.017453292519943295;
-    const c = cos;
-    final a = 0.5 -
-        c((lat2 - lat1) * p) / 2 +
-        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a));
+  // ✅ التحقق من حالة تسجيل الدخول أولاً
+  Future<void> _checkAuthAndGetLocation() async {
+    final supabase = SupabaseService();
+    final user = supabase.client.auth.currentUser;
+
+    if (user == null) {
+      // ❌ مش مسجل - يروح للتسجيل
+      print('❌ [MapPage] User not logged in, redirecting to login');
+      if (mounted) {
+        context.go(AppRouter.login);
+      }
+      return;
+    }
+
+    // ✅ مسجل - يكمل للخريطة
+    print('✅ [MapPage] User logged in: ${user.email}');
+    setState(() {
+      _isLoggedIn = true;
+    });
+    await _getCurrentLocation();
   }
 
-  Future<void> _loadDirections(FoodOffer offer) async {
-    final currentState = context.read<MapBloc>().state;
-    if (currentState is! MapLoaded) return;
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371;
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R * c;
+  }
 
-    final userLat = currentState.userLatitude ?? 30.0444;
-    final userLng = currentState.userLongitude ?? 31.2357;
-    final destLat = offer.mapLatitude;
-    final destLng = offer.mapLongitude;
+  double _toRadians(double degrees) {
+    return degrees * pi / 180;
+  }
 
-    final distance = _calculateDistance(userLat, userLng, destLat, destLng);
+  Future<void> _getCurrentLocation() async {
+    if (!_isLoggedIn) {
+      context.go(AppRouter.login);
+      return;
+    }
 
-    final result = await _directionService.getDirections(
-      start: LatLng(userLat, userLng),
-      end: LatLng(destLat, destLng),
-    );
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    if (result != null && result.routes.isNotEmpty && mounted) {
+    try {
+      final locationService = LocationService();
+
+      final isServiceEnabled = await locationService.isLocationServiceEnabled();
+      if (!isServiceEnabled) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'خدمة الموقع مغلقة. فعّل الموقع من الإعدادات.';
+        });
+        _showPermissionDialog(
+          title: 'خدمة الموقع مغلقة',
+          message: 'فعّل الموقع من الإعدادات لتحديد موقعك.',
+          buttonText: 'فتح الإعدادات',
+          onPressed: () => locationService.openLocationSettings(),
+        );
+        return;
+      }
+
+      var permission = await locationService.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await locationService.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'يرجى السماح للتطبيق بالوصول إلى موقعك.';
+          });
+          _showPermissionDialog(
+            title: 'صلاحية الموقع مطلوبة',
+            message: 'يرجى السماح للتطبيق بالوصول إلى موقعك لتحديد موقعك.',
+            buttonText: 'طلب الصلاحية',
+            onPressed: _getCurrentLocation,
+          );
+          return;
+        }
+        if (permission == LocationPermission.deniedForever) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'فعّل صلاحية الموقع من إعدادات الهاتف.';
+          });
+          _showPermissionDialog(
+            title: 'صلاحية الموقع مرفوضة نهائياً',
+            message: 'فعّل صلاحية الموقع من إعدادات الهاتف لتحديد موقعك.',
+            buttonText: 'فتح الإعدادات',
+            onPressed: () => locationService.openAppSettings(),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'فعّل صلاحية الموقع من إعدادات الهاتف.';
+        });
+        _showPermissionDialog(
+          title: 'صلاحية الموقع مرفوضة نهائياً',
+          message: 'فعّل صلاحية الموقع من إعدادات الهاتف لتحديد موقعك.',
+          buttonText: 'فتح الإعدادات',
+          onPressed: () => locationService.openAppSettings(),
+        );
+        return;
+      }
+
+      final position = await locationService.getCurrentPosition();
+      final location = LatLng(position.latitude, position.longitude);
+
+      print(
+          '📍 [MapPage] Current location: ${location.latitude}, ${location.longitude}');
+
       setState(() {
-        _currentRoute = result.routes.first;
-        _distanceKm = distance;
-        _polylines = [
-          Polyline(
-            points: result.routes.first.polylinePoints,
-            color: Colors.blue.shade700,
-            strokeWidth: 5,
-            borderStrokeWidth: 2,
-            borderColor: Colors.white,
-          ),
-        ];
+        _currentLocation = location;
+        _selectedLocation = location;
+        _isLoading = false;
+        _isLocationSaved = false;
       });
 
       if (_mapReady) {
-        _mapController.move(LatLng(destLat, destLng), 14);
+        _mapController.move(location, 15);
+        _initialMoveDone = true;
       }
+
+      await _checkLocationInDatabase(location);
+    } catch (e) {
+      print('📍 [MapPage] Error getting location: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'تعذر تحديد موقعك. حاول مرة أخرى.';
+      });
+      _showPermissionDialog(
+        title: 'حدث خطأ',
+        message: 'تعذر تحديد موقعك. حاول مرة أخرى.',
+        buttonText: 'إعادة المحاولة',
+        onPressed: _getCurrentLocation,
+      );
     }
   }
 
-  void _onOfferSelected(FoodOffer offer) {
-    context.read<MapBloc>().add(SelectOffer(offer));
+  Future<void> _checkLocationInDatabase(LatLng location) async {
+    if (!_isLoggedIn) return;
 
-    // Move directly to the restaurant that created the offer.
-    if (!_hasValidLocation(offer)) {
+    try {
+      final supabase = SupabaseService();
+      final userId = supabase.client.auth.currentUser?.id;
+
+      if (userId == null) {
+        print('⚠️ [MapPage] User not logged in');
+        context.go(AppRouter.login);
+        return;
+      }
+
+      final userData = await supabase.client
+          .from('users')
+          .select('latitude, longitude, address, city')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userData == null) {
+        print('⚠️ [MapPage] User data not found');
+        setState(() {
+          _errorMessage = '⚠️ لم يتم العثور على بيانات المستخدم';
+        });
+        return;
+      }
+
+      final dbLat = userData['latitude'] as double?;
+      final dbLng = userData['longitude'] as double?;
+
+      if (dbLat != null && dbLng != null) {
+        print('📍 [MapPage] Location already in database: $dbLat, $dbLng');
+        _isLocationSaved = true;
+
+        final distance = _calculateDistance(
+            dbLat, dbLng, location.latitude, location.longitude);
+
+        print('📍 [MapPage] Distance between DB and current: $distance km');
+
+        if (distance > 0.5) {
+          setState(() {
+            _errorMessage = '⚠️ موقعك مختلف عن المسجل. قم بتحديث موقعك.';
+            _isLocationSaved = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = '✅ موقعك مسجل بالفعل في النظام.';
+            _isLocationSaved = true;
+          });
+        }
+        return;
+      }
+
+      print('📍 [MapPage] Location NOT in database, needs to be saved');
+      setState(() {
+        _errorMessage = '⚠️ لم يتم تسجيل موقعك بعد. اضغط "حفظ الموقع" لتسجيله.';
+        _isLocationSaved = false;
+      });
+    } catch (e) {
+      print('❌ [MapPage] Error checking location in DB: $e');
+      setState(() {
+        _errorMessage = '❌ تعذر التحقق من الموقع في النظام';
+      });
+    }
+  }
+
+  Future<void> _saveLocation() async {
+    if (!_isLoggedIn) {
+      context.go(AppRouter.login);
+      return;
+    }
+
+    if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('موقع المطعم غير متاح لهذا العرض حاليًا')),
+        const SnackBar(
+          content: Text('يرجى تحديد موقعك أولاً'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
-    if (_mapReady) {
-      _mapController.move(
-        LatLng(offer.mapLatitude, offer.mapLongitude),
-        16,
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final supabase = SupabaseService();
+      final userId = supabase.client.auth.currentUser?.id;
+
+      if (userId == null) {
+        throw Exception('يجب تسجيل الدخول أولاً');
+      }
+
+      final location = _selectedLocation!;
+
+      print(
+          '📍 [MapPage] Saving location: ${location.latitude}, ${location.longitude}');
+
+      await supabase.client.from('users').update({
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', userId);
+
+      print('📍 [MapPage] Update executed successfully');
+
+      await Future.delayed(const Duration(seconds: 1));
+
+      final updatedUser = await supabase.client
+          .from('users')
+          .select('latitude, longitude')
+          .eq('id', userId)
+          .maybeSingle();
+
+      print('📍 [MapPage] Retrieved user after update: $updatedUser');
+
+      if (updatedUser == null) {
+        throw Exception('لم يتم العثور على بيانات المستخدم بعد التحديث');
+      }
+
+      final savedLat = updatedUser['latitude'] as double?;
+      final savedLng = updatedUser['longitude'] as double?;
+
+      if (savedLat == null || savedLng == null) {
+        throw Exception('البيانات المحفوظة غير مكتملة');
+      }
+
+      final distance = _calculateDistance(
+          savedLat, savedLng, location.latitude, location.longitude);
+
+      print('📍 [MapPage] Distance between saved and selected: $distance km');
+
+      if (distance < 0.05) {
+        setState(() {
+          _isSaving = false;
+          _isLocationSaved = true;
+          _currentLocation = location;
+          _errorMessage = '✅ تم حفظ موقعك بنجاح!';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم حفظ موقعك بنجاح!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return;
+      }
+
+      throw Exception(
+          'الموقع المحفوظ لا يطابق الموقع المختار (المسافة: ${distance.toStringAsFixed(3)} كم)');
+    } catch (e) {
+      print('❌ [MapPage] Error saving location: $e');
+      setState(() {
+        _isSaving = false;
+        _errorMessage =
+            '❌ تعذر حفظ الموقع: ${e.toString().replaceFirst('Exception: ', '')}';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              '❌ تعذر حفظ الموقع: ${e.toString().replaceFirst('Exception: ', '')}'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
-
-    _loadDirections(offer);
   }
 
-  void _onShowDetails(FoodOffer offer) {
-    if (!_isOfferVisible(offer)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('هذا العرض لم يعد متاحًا')),
-      );
-      return;
-    }
+  void _goToApp() {
+    context.go(AppRouter.home);
+  }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OfferDetailsPage(offer: _offerDetailsMap(offer)),
+  void _showPermissionDialog({
+    required String title,
+    required String message,
+    required String buttonText,
+    required VoidCallback onPressed,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Row(
+          children: [
+            Icon(
+              title.contains('مغلقة')
+                  ? Icons.gps_off_rounded
+                  : title.contains('نهائياً')
+                      ? Icons.block_rounded
+                      : Icons.location_off_rounded,
+              color: Colors.orange,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('تخطي'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              onPressed();
+            },
+            child: Text(buttonText),
+          ),
+        ],
       ),
-    ).then((_) => _loadReservedOfferIds());
-  }
-
-  bool _hasValidLocation(FoodOffer offer) {
-    return offer.mapLatitude.isFinite &&
-        offer.mapLongitude.isFinite &&
-        offer.mapLatitude.abs() <= 90 &&
-        offer.mapLongitude.abs() <= 180;
-  }
-
-  bool _isOfferVisible(FoodOffer offer) {
-    final status = offer.status.value.toLowerCase();
-    return (status == 'available' || status == 'active') &&
-        !offer.isExpired &&
-        !_reservedOfferIds.contains(offer.id);
-  }
-
-  Map<String, dynamic> _offerDetailsMap(FoodOffer offer) {
-    // Keep this adapter limited to fields already used by MapPage/FoodOffer.
-    // OfferDetailsPage can still render the core offer information safely.
-    return {
-      'id': offer.id,
-      'title': offer.title,
-      'description': '',
-      'quantity': 0,
-      'food_type': '',
-      'expiry_time':
-          DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
-      'pickup_before':
-          DateTime.now().add(const Duration(hours: 1)).toIso8601String(),
-      'pickup_location': 'موقع المطعم على الخريطة',
-      'latitude': offer.mapLatitude,
-      'longitude': offer.mapLongitude,
-      'status': offer.status.value,
-      'image': null,
-      'images': const <dynamic>[],
-      'created_at': DateTime.now().toIso8601String(),
-      'updated_at': DateTime.now().toIso8601String(),
-      'restaurants': const {'name': 'مطعم قريب'},
-    };
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlocConsumer<MapBloc, MapState>(
-        listener: (context, state) {
-          if (state is MapLoaded) {
-            // 🔥 لما يجيب الموقع الحقيقي، حرك الخريطة له
-            if (_mapReady &&
-                state.userLatitude != null &&
-                state.userLongitude != null) {
-              _mapController.move(
-                LatLng(state.userLatitude!, state.userLongitude!),
-                16, // zoom عالي عشان يبين الموقع بالظبط
-              );
-
-              // ✅ تأكيد للمستخدم
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    '✅ تم تحديد موقعك: ${state.userLatitude!.toStringAsFixed(4)}, ${state.userLongitude!.toStringAsFixed(4)}',
-                    textAlign: TextAlign.right,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0B7650),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: const Text(
+            'تحديد الموقع',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: Stack(
+          children: [
+            if (_currentLocation != null)
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: _currentLocation!,
+                  initialZoom: 15,
+                  onMapReady: () {
+                    print('📍 [MapPage] Map ready');
+                    setState(() => _mapReady = true);
+                    if (_currentLocation != null && !_initialMoveDone) {
+                      _mapController.move(_currentLocation!, 15);
+                      _initialMoveDone = true;
+                    }
+                  },
+                  onTap: (_, point) {
+                    setState(() {
+                      _selectedLocation = point;
+                      _errorMessage =
+                          '📍 تم تحديد موقع جديد. اضغط "حفظ الموقع" لتأكيد.';
+                      _isLocationSaved = false;
+                    });
+                    print(
+                        '📍 [MapPage] User selected location: ${point.latitude}, ${point.longitude}');
+                  },
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.loqma.app',
                   ),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 3),
-                ),
-              );
-            }
-          }
-          if (state is MapError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  state.message,
-                  textAlign: TextAlign.right,
-                ),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is MapLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (state is MapLoaded) {
-            final visibleOffers = _visibleOffers(state.filteredOffers);
-            if (_isWeb) return _buildWebPlaceholder(state, visibleOffers);
-
-            final userLat = state.userLatitude;
-            final userLng = state.userLongitude;
-
-            final offerMarkers = visibleOffers.map((offer) {
-              final isSelected = state.selectedOffer?.id == offer.id;
-              return Marker(
-                point: LatLng(offer.mapLatitude, offer.mapLongitude),
-                width: isSelected ? 55 : 45,
-                height: isSelected ? 55 : 45,
-                child: GestureDetector(
-                  onTap: () => _onOfferSelected(offer),
-                  child: _buildMarkerIcon(offer, isSelected),
-                ),
-              );
-            }).toList();
-
-            // ✅ Marker موقعك الحقيقي (دائرة زرقاء متحركة)
-            final List<Marker> userMarkers = [];
-            if (userLat != null && userLng != null) {
-              userMarkers.add(
-                Marker(
-                  point: LatLng(userLat, userLng),
-                  width: 40,
-                  height: 40,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.3),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.blue, width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withValues(alpha: 0.5),
-                          blurRadius: 10,
-                          spreadRadius: 2,
+                  if (_selectedLocation != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _selectedLocation!,
+                          width: 50,
+                          height: 50,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _isLocationSaved
+                                  ? Colors.green
+                                  : Colors.orange,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 8,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isLocationSaved
+                                  ? Icons.check
+                                  : Icons.location_on,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.my_location,
-                        color: Colors.blue,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return Scaffold(
-              body: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: LatLng(
-                        state.userLatitude ?? 30.0444,
-                        state.userLongitude ?? 31.2357,
-                      ),
-                      initialZoom: 13,
-                      onMapReady: () => setState(() => _mapReady = true),
-                    ),
+                ],
+              )
+            else
+              Container(
+                color: Colors.white,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiYWJkby0xMjQzNCIsImEiOiJjbXNsbGwzcWcxNXY5MnpwOThuZnY0Zm91In0.BlZ2_ALaPohK3AOu3Re71w',
-                        additionalOptions: const {
-                          'accessToken':
-                              'pk.eyJ1IjoiYWJkby0xMjQzNCIsImEiOiJjbXNsbGwzcWcxNXY5MnpwOThuZnY0Zm91In0.BlZ2_ALaPohK3AOu3Re71w',
-                        },
+                      const CircularProgressIndicator(color: Color(0xFF0B7650)),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage ?? 'جاري تحديد موقعك...',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      MarkerLayer(markers: [...offerMarkers, ...userMarkers]),
-                      PolylineLayer(polylines: _polylines),
                     ],
                   ),
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    right: 16,
-                    child: MapSearchBar(
-                      onSearch: (query) {
-                        context.read<MapBloc>().add(SearchLocation(query));
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    top: 80,
-                    left: 16,
-                    right: 16,
-                    child: MapFilterChips(
-                      selectedFilter: state.selectedFilter,
-                      onFilterSelected: (filter) {
-                        context.read<MapBloc>().add(FilterOffers(filter));
-                      },
-                    ),
-                  ),
-                  if (_currentRoute != null)
-                    Positioned(
-                      top: 140,
-                      left: 16,
-                      right: 16,
-                      child: _buildRouteCard(),
-                    ),
-                  // ✅ زرار "موقعي" — بيجيب GPS حقيقي
-                  Positioned(
-                    bottom: 320,
-                    right: 16,
-                    child: FloatingActionButton(
-                      heroTag: 'location',
-                      onPressed: () {
-                        context.read<MapBloc>().add(const GoToMyLocation());
-                      },
-                      mini: true,
-                      backgroundColor: Colors.blue,
-                      child: const Icon(Icons.my_location, color: Colors.white),
-                    ),
-                  ),
-                  if (_polylines.isNotEmpty)
-                    Positioned(
-                      bottom: 380,
-                      right: 16,
-                      child: FloatingActionButton(
-                        heroTag: 'clear',
-                        onPressed: () => setState(() {
-                          _polylines = [];
-                          _currentRoute = null;
-                          _distanceKm = null;
-                        }),
-                        mini: true,
-                        backgroundColor: Colors.red.shade100,
-                        child: const Icon(Icons.clear, color: Colors.red),
-                      ),
-                    ),
-                  Positioned(
-                    bottom: 300,
-                    left: 16,
-                    right: 100,
-                    child: MapRadiusSlider(
-                      radius: state.radius,
-                      onRadiusChanged: (radius) {
-                        context.read<MapBloc>().add(ChangeRadius(radius));
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: MapBottomSheet(
-                      offers: visibleOffers,
-                      selectedOffer: state.selectedOffer,
-                      onOfferTap: _onOfferSelected,
-                      onShowDetails: _onShowDetails,
-                      onViewAll: () => print('عرض الكل'),
-                      userLatitude: state.userLatitude,
-                      userLongitude: state.userLongitude,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            );
-          }
 
-          return const Center(child: CircularProgressIndicator());
-        },
-      ),
-    );
-  }
-
-  Widget _buildRouteCard() {
-    return Card(
-      elevation: 8,
-      color: Colors.blue.shade700,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            const Icon(Icons.directions, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'المسافة: ${_distanceKm?.toStringAsFixed(1)} كم',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+            // ✅ رسالة الحالة
+            if (_errorMessage != null && _currentLocation != null)
+              Positioned(
+                top: 16,
+                left: 16,
+                right: 16,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _errorMessage!.contains('✅')
+                        ? Colors.green.shade50
+                        : _errorMessage!.contains('⚠️')
+                            ? Colors.orange.shade50
+                            : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _errorMessage!.contains('✅')
+                          ? Colors.green.shade200
+                          : _errorMessage!.contains('⚠️')
+                              ? Colors.orange.shade200
+                              : Colors.red.shade200,
                     ),
                   ),
-                  Text(
-                    'الوقت بالسيارة: ${_currentRoute!.durationText}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _errorMessage!.contains('✅')
+                            ? Icons.check_circle_rounded
+                            : _errorMessage!.contains('⚠️')
+                                ? Icons.warning_amber_rounded
+                                : Icons.error_outline_rounded,
+                        color: _errorMessage!.contains('✅')
+                            ? Colors.green
+                            : _errorMessage!.contains('⚠️')
+                                ? Colors.orange
+                                : Colors.red,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: _errorMessage!.contains('✅')
+                                ? Colors.green.shade700
+                                : _errorMessage!.contains('⚠️')
+                                    ? Colors.orange.shade700
+                                    : Colors.red.shade700,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ),
+
+            // ✅ زر تحديد الموقع (GPS)
+            Positioned(
+              bottom: 160,
+              right: 16,
+              child: FloatingActionButton(
+                heroTag: 'location',
+                onPressed: _isLoading ? null : _getCurrentLocation,
+                mini: true,
+                backgroundColor: Colors.blue,
+                child: _isLoading
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.my_location, color: Colors.white),
               ),
             ),
-            IconButton(
-              onPressed: () => setState(() {
-                _polylines = [];
-                _currentRoute = null;
-                _distanceKm = null;
-              }),
-              icon: const Icon(Icons.close, color: Colors.white),
+
+            // ✅ زر حفظ الموقع + متابعة
+            Positioned(
+              bottom: 40,
+              left: 16,
+              right: 16,
+              child: Column(
+                children: [
+                  // ✅ زر حفظ الموقع
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSaving ||
+                              _selectedLocation == null ||
+                              _isLocationSaved
+                          ? null
+                          : _saveLocation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isLocationSaved
+                            ? Colors.green
+                            : const Color(0xFF0B7650),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: _isLocationSaved
+                            ? Colors.green.shade300
+                            : Colors.grey.shade300,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 4,
+                      ),
+                      icon: _isSaving
+                          ? const SizedBox.square(
+                              dimension: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(
+                              _isLocationSaved
+                                  ? Icons.check_circle_rounded
+                                  : Icons.save_rounded,
+                              size: 24,
+                            ),
+                      label: Text(
+                        _isSaving
+                            ? 'جاري الحفظ...'
+                            : _isLocationSaved
+                                ? '✅ تم الحفظ'
+                                : 'حفظ الموقع',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ✅ زر "متابعة إلى التطبيق" - يظهر فقط بعد حفظ الموقع
+                  if (_isLocationSaved) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _goToApp,
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        label: const Text(
+                          'متابعة إلى التطبيق',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF0B7650),
+                          side: const BorderSide(color: Color(0xFF0B7650)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildMarkerIcon(FoodOffer offer, bool isSelected) {
-    Color markerColor;
-    if (offer.isExpired) {
-      markerColor = Colors.red;
-    } else if (offer.isUrgent) {
-      markerColor = Colors.orange;
-    } else {
-      markerColor = Colors.green;
-    }
-
-    return AnimatedScale(
-      scale: isSelected ? 1.2 : 1.0,
-      duration: const Duration(milliseconds: 200),
-      child: Icon(
-        Icons.location_on,
-        color: markerColor,
-        size: isSelected ? 50 : 40,
-        shadows: const [
-          Shadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 3)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWebPlaceholder(MapLoaded state, List<FoodOffer> visibleOffers) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            color: colorScheme.surfaceContainerHigh,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map,
-                      size: 80,
-                      color: colorScheme.outline.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
-                  const Text('الخريطة غير متاحة على الويب',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  const Text('يتم عرض الوجبات القريبة منك في القائمة أدناه'),
-                  const SizedBox(height: 24),
-                  Text('${visibleOffers.length} وجبة قريبة منك',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.primary)),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: MapBottomSheet(
-              offers: visibleOffers,
-              selectedOffer: state.selectedOffer,
-              onOfferTap: _onOfferSelected,
-              onShowDetails: _onShowDetails,
-              onViewAll: () => print('عرض الكل'),
-              userLatitude: state.userLatitude,
-              userLongitude: state.userLongitude,
-            ),
-          ),
-        ],
       ),
     );
   }

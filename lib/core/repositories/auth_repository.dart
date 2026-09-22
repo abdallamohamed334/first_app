@@ -11,16 +11,16 @@ import '../utils/validators.dart';
 class AuthRepository {
   final SupabaseService _supabase;
   final FcmNotificationService _fcmNotifications;
-  final LoqmaAnalytics _analytics;
+  final loqmaAnalytics _analytics;
   final String? _webVapidKey;
 
   AuthRepository(
     this._supabase, {
     FcmNotificationService? fcmNotifications,
-    LoqmaAnalytics? analytics,
+    loqmaAnalytics? analytics,
     String? webVapidKey,
   })  : _fcmNotifications = fcmNotifications ?? FcmNotificationService(),
-        _analytics = analytics ?? LoqmaAnalytics(),
+        _analytics = analytics ?? loqmaAnalytics(),
         _webVapidKey = webVapidKey;
 
   static const Set<String> _businessTypes = {

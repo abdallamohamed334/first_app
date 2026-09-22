@@ -6,14 +6,14 @@ import 'package:loqma/features/business/domain/entities/business_capability.dart
 
 class BusinessRestaurantRepository {
   final SupabaseClient _client;
-  final LoqmaImageStorageService _imageStorage;
+  final loqmaImageStorageService _imageStorage;
 
   BusinessRestaurantRepository({
     SupabaseClient? client,
-    LoqmaImageStorageService? imageStorage,
+    loqmaImageStorageService? imageStorage,
   })  : _client = client ?? SupabaseService().client,
         _imageStorage =
-            imageStorage ?? LoqmaImageStorageService(client: client);
+            imageStorage ?? loqmaImageStorageService(client: client);
 
   Future<Map<String, dynamic>> getCurrentRestaurantProfile() async {
     final userId = _client.auth.currentUser?.id;

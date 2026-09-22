@@ -28,7 +28,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
   final _pickupLocationController = TextEditingController();
 
   final _imagePicker = ImagePicker();
-  final _imageStorage = LoqmaImageStorageService();
+  final _imageStorage = loqmaImageStorageService();
   List<XFile> _selectedImages = [];
   bool _isLoading = false;
   bool _isHalal = false;

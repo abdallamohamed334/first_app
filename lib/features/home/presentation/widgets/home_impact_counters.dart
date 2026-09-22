@@ -75,13 +75,13 @@ class HomeImpactCounters extends StatelessWidget {
                   color: colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(100),
                 ),
-                child: Text(
-                  'آخر تحديث: ${_formatDate(stats.lastUpdated)}',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
+                // child: Text(
+                //   // 'آخر تحديث: ${_formatDate(stats.lastUpdated)}',
+                //   // style: TextStyle(
+                //   //   fontSize: 11,
+                //   //   color: colorScheme.onSurfaceVariant,
+                //   // ),
+                // ),
               ),
             ],
           ),

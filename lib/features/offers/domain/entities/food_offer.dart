@@ -55,6 +55,14 @@ class FoodOffer extends Equatable {
   final double? salePrice;
   final double? originalPrice;
 
+  // ✅ المصدر الموحّد: 'food' أو 'institution' أو 'restaurant'
+  final String source;
+  // ✅ تفاصيل عرض المؤسسة الجاهزة لفتح صفحة التفاصيل
+  final Map<String, dynamic>? details;
+
+  // ✅ المسافة من المستخدم (متر) - من RPC
+  final double? distanceMeters;
+
   const FoodOffer({
     required this.id,
     required this.title,
@@ -95,10 +103,30 @@ class FoodOffer extends Equatable {
     this.userRequestStatus,
     this.salePrice,
     this.originalPrice,
+    this.source = 'food',
+    this.details,
+    this.distanceMeters,
   });
 
   factory FoodOffer.fromJson(Map<String, dynamic> json) {
     final business = json['businesses'] as Map<String, dynamic>?;
+
+    // ✅ استخراج business_type من business
+    String businessType = '';
+    if (business != null) {
+      businessType = business['business_type']?.toString() ?? '';
+    }
+
+    // ✅ تحديد المصدر بناءً على business_type
+    String source = json['source'] as String? ?? 'food';
+
+    // ✅ إذا كان business_type = 'restaurant'، نعدل المصدر
+    if (businessType.toLowerCase() == 'restaurant') {
+      source = 'restaurant';
+    } else if (businessType.isNotEmpty &&
+        businessType.toLowerCase() != 'restaurant') {
+      source = 'institution';
+    }
 
     return FoodOffer(
       id: json['id'] as String? ?? '',
@@ -159,6 +187,9 @@ class FoodOffer extends Equatable {
       userRequestStatus: json['user_request_status'] as String?,
       salePrice: (json['sale_price'] as num?)?.toDouble(),
       originalPrice: (json['original_price'] as num?)?.toDouble(),
+      source: source,
+      details: json['details'] as Map<String, dynamic>?,
+      distanceMeters: (json['distance_meters'] as num?)?.toDouble(),
     );
   }
 
@@ -198,6 +229,9 @@ class FoodOffer extends Equatable {
       'shares': shares,
       'sale_price': salePrice,
       'original_price': originalPrice,
+      'source': source,
+      'details': details,
+      'distance_meters': distanceMeters,
     };
   }
 
@@ -293,10 +327,8 @@ class FoodOffer extends Equatable {
     }
   }
 
-  // ✅ هل السعر موجود؟
   bool get hasPrice => salePrice != null && salePrice! > 0;
 
-  // ✅ نص السعر
   String get priceDisplay {
     if (salePrice != null && salePrice! > 0) {
       return '${salePrice!.toStringAsFixed(0)} ج.م';
@@ -304,12 +336,30 @@ class FoodOffer extends Equatable {
     return 'مجاني';
   }
 
-  // ✅ السعر الأصلي
   String get originalPriceDisplay {
     if (originalPrice != null && originalPrice! > 0) {
       return '${originalPrice!.toStringAsFixed(0)} ج.م';
     }
     return '';
+  }
+
+  // ✅ عرض المسافة بشكل جاهز
+  String get distanceDisplay {
+    if (distanceMeters == null) {
+      return 'المسافة غير محددة';
+    }
+
+    if (distanceMeters! < 1000) {
+      return '${distanceMeters!.round()} م';
+    }
+
+    final kilometers = distanceMeters! / 1000;
+
+    if (kilometers < 10) {
+      return '${kilometers.toStringAsFixed(1)} كم';
+    }
+
+    return '${kilometers.round()} كم';
   }
 
   List<String> get displayImages {
@@ -446,6 +496,9 @@ class FoodOffer extends Equatable {
         userRequestStatus,
         salePrice,
         originalPrice,
+        source,
+        details,
+        distanceMeters,
       ];
 
   FoodOffer copyWith({
@@ -488,6 +541,9 @@ class FoodOffer extends Equatable {
     String? userRequestStatus,
     double? salePrice,
     double? originalPrice,
+    String? source,
+    Map<String, dynamic>? details,
+    double? distanceMeters,
   }) {
     return FoodOffer(
       id: id ?? this.id,
@@ -530,6 +586,9 @@ class FoodOffer extends Equatable {
       userRequestStatus: userRequestStatus ?? this.userRequestStatus,
       salePrice: salePrice ?? this.salePrice,
       originalPrice: originalPrice ?? this.originalPrice,
+      source: source ?? this.source,
+      details: details ?? this.details,
+      distanceMeters: distanceMeters ?? this.distanceMeters,
     );
   }
 }

@@ -8,6 +8,42 @@ class CommunityRequestsRepository {
 
   String? get currentUserId => _client.auth.currentUser?.id;
 
+  // ✅ دالة جلب عروض المؤسسات (من جدول community_offers)
+  Future<List<Map<String, dynamic>>> getInstitutionOffers() async {
+    final rows = await _client
+        .from('community_offers')
+        .select('*')
+        .not('charity_id', 'is', null) // عروض مرتبطة بجمعية
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  // ✅ دالة جلب التبرعات اللي أنا متطوع أوصلها (هتشتغل لما تضيف جدول delivery_tasks)
+  Future<List<Map<String, dynamic>>> getMyVolunteerTasks() async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
+
+    // لو في جدول delivery_tasks عندك، عدّل الجدول ده
+    final rows = await _client
+        .from('delivery_tasks') // ⚠️ عدّل اسم الجدول لو مختلف
+        .select('*')
+        .eq('volunteer_id', user.id)
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  // ✅ دالة جلب الطلبات اللي على عروضي (لتبويب "تبرعاتي المنشورة")
+  Future<List<Map<String, dynamic>>> getMyDonationRequests() async {
+    return getOwnerRequests(); // نفس الدالة الموجودة
+  }
+
+  // ================== الدوال الموجودة عندك (زي ما هي) ==================
   Future<void> _sendPush({
     required String userId,
     required String title,
@@ -29,9 +65,7 @@ class CommunityRequestsRepository {
           },
         },
       );
-    } catch (_) {
-      // Push failure must not cancel or reject a valid request update.
-    }
+    } catch (_) {}
   }
 
   Future<Map<String, dynamic>> createRequest({
@@ -319,10 +353,7 @@ class CommunityRequestsRepository {
       };
       try {
         await _client.from('notifications').insert(notification);
-      } catch (_) {
-        // لا نفشل تحديث الطلب إذا كان إدخال الإشعار غير متاح.
-      }
-
+      } catch (_) {}
       await _sendPush(
         userId: requesterId,
         title: notification['title'].toString(),

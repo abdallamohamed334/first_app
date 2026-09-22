@@ -1,8 +1,44 @@
 // lib/features/community/presentation/pages/volunteer_donations_tracking_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
+
+// ثوابت الألوان - نفس ألوان صفحة التفاصيل بالظبط عشان يبقوا متطابقين بصريًا
+const _green = Color(0xFF0B7650);
+const _darkGreen = Color(0xFF123F31);
+const _mint = Color(0xFFDDF3E8);
+const _orange = Color(0xFFE28B00);
+const _blue = Color(0xFF2F6DA5);
+const _purple = Color(0xFF6651B5);
+const _muted = Color(0xFF71837C);
+
+const _stages = [
+  'volunteer_assigned',
+  'picked_up_from_donor',
+  'in_transit',
+  'completed',
+];
+
+// نفس تعريف الألوان والتسميات الموجود في صفحة التفاصيل بالظبط
+(String, Color) _statusData(String status) {
+  switch (status) {
+    case 'volunteer_assigned':
+      return ('معك أنت', _purple);
+    case 'picked_up_from_donor':
+      return ('استلمت من المتبرع', _blue);
+    case 'in_transit':
+      return ('في الطريق للجمعية', _orange);
+    case 'completed':
+      return ('تم التوصيل', _green);
+    case 'cancelled':
+      return ('تم الإلغاء', const Color(0xFFD64545));
+    default:
+      return ('قيد المتابعة', Colors.grey);
+  }
+}
 
 class VolunteerDonationsTrackingPage extends StatefulWidget {
   const VolunteerDonationsTrackingPage({super.key});
@@ -14,9 +50,7 @@ class VolunteerDonationsTrackingPage extends StatefulWidget {
 
 class _VolunteerDonationsTrackingPageState
     extends State<VolunteerDonationsTrackingPage> {
-  static const _green = Color(0xFF0B7650);
-  static const _darkGreen = Color(0xFF123F31);
-  static const _background = Color(0xFFF6FAF8);
+  final _repository = SeparateCharityDonationRepository();
 
   List<Map<String, dynamic>> _donations = [];
   bool _isLoading = true;
@@ -60,13 +94,21 @@ class _VolunteerDonationsTrackingPageState
         final charity = item['charities'] as Map<String, dynamic>?;
         final donor = item['users'] as Map<String, dynamic>?;
 
+        // ✅ نفس فلترة الروابط الصالحة الموجودة في صفحة التفاصيل بالظبط
+        final rawImages = item['images'];
+        final images = rawImages is List
+            ? rawImages
+                .map((v) => v.toString())
+                .where((url) => url.startsWith('http'))
+                .toList()
+            : <String>[];
+
         donations.add({
           'id': item['id'],
           'title': item['title'] ?? 'تبرع',
           'description': item['description'] ?? '',
           'quantity': item['quantity'] ?? 1,
-          'images':
-              item['images'] is List ? List<String>.from(item['images']) : [],
+          'images': images,
           'pickup_address': item['pickup_address'] ?? '',
           'pickup_city': item['pickup_city'] ?? '',
           'charity_name': charity?['name'] ?? 'جمعية خيرية',
@@ -80,6 +122,9 @@ class _VolunteerDonationsTrackingPageState
           'donor_pickup_confirmed_at': item['donor_pickup_confirmed_at'],
           'charity_received_at': item['charity_received_at'],
           'completed_at': item['completed_at'],
+          // نمرر الـ map الأصلي كامل زي ما هو عشان صفحة التفاصيل تحتاجه
+          'charities': item['charities'],
+          'users': item['users'],
         });
       }
 
@@ -95,70 +140,24 @@ class _VolunteerDonationsTrackingPageState
     }
   }
 
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'volunteer_assigned':
-        return '⏳ في انتظار تأكيد المتبرع';
-      case 'donor_ready':
-        return '✅ المتبرع جاهز - تواصل معه';
-      case 'picked_up_from_donor':
-        return '📦 تم الاستلام من المتبرع';
-      case 'in_transit':
-        return '🚗 في الطريق للجمعية';
-      case 'completed':
-        return '🎉 تم التوصيل بنجاح';
-      case 'cancelled':
-        return '❌ تم الإلغاء';
-      default:
-        return '🔄 جاري التحديث';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'volunteer_assigned':
-        return const Color(0xFFF59E0B);
-      case 'donor_ready':
-        return const Color(0xFF3B82F6);
-      case 'picked_up_from_donor':
-        return const Color(0xFF8B5CF6);
-      case 'in_transit':
-        return const Color(0xFFEC4899);
-      case 'completed':
-        return _green;
-      case 'cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  int _getStepIndex(String status) {
-    const steps = [
-      'volunteer_assigned',
-      'donor_ready',
-      'picked_up_from_donor',
-      'in_transit',
-      'completed'
-    ];
-    return steps.indexOf(status);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: colors.surface,
         appBar: AppBar(
           title: const Text('تبرعاتي كمتطوع'),
-          backgroundColor: Colors.white,
-          foregroundColor: _darkGreen,
+          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          foregroundColor: colors.onSurface,
           elevation: 0,
           actions: [
             IconButton(
               onPressed: _loadDonations,
-              icon: const Icon(Icons.refresh_rounded),
+              icon: Icon(Icons.refresh_rounded, color: colors.primary),
               tooltip: 'تحديث',
             ),
           ],
@@ -169,17 +168,19 @@ class _VolunteerDonationsTrackingPageState
   }
 
   Widget _buildBody() {
+    final colors = Theme.of(context).colorScheme;
+
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: _green),
-            SizedBox(height: 16),
+            CircularProgressIndicator(color: colors.primary),
+            const SizedBox(height: 16),
             Text(
               'جاري تحميل تبرعاتك...',
               style: TextStyle(
-                color: _darkGreen,
+                color: colors.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -195,15 +196,12 @@ class _VolunteerDonationsTrackingPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, color: Colors.red, size: 48),
+              Icon(Icons.error_outline, color: colors.error, size: 48),
               const SizedBox(height: 16),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _darkGreen,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: colors.onSurface, fontSize: 14),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -211,8 +209,8 @@ class _VolunteerDonationsTrackingPageState
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('إعادة المحاولة'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.onPrimary,
                 ),
               ),
             ],
@@ -231,13 +229,13 @@ class _VolunteerDonationsTrackingPageState
               Icon(
                 Icons.volunteer_activism_rounded,
                 size: 64,
-                color: Colors.grey.shade300,
+                color: colors.outline.withAlpha(128),
               ),
               const SizedBox(height: 16),
               Text(
                 'مفيش تبرعات متطوع فيها حالياً',
                 style: TextStyle(
-                  color: _darkGreen,
+                  color: colors.onSurface,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
@@ -245,24 +243,8 @@ class _VolunteerDonationsTrackingPageState
               const SizedBox(height: 8),
               Text(
                 'روح قسم "تبرعات محتاجاك توصلها" واختار تبرع توصلّه',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
                 textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_forward_ios_rounded),
-                label: const Text('روح للرئيسية'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
               ),
             ],
           ),
@@ -271,176 +253,621 @@ class _VolunteerDonationsTrackingPageState
     }
 
     return RefreshIndicator(
-      color: _green,
+      color: colors.primary,
       onRefresh: _loadDonations,
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         itemCount: _donations.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
-          return _buildDonationCard(_donations[index]);
+          final donation = _donations[index];
+          return _VolunteerDonationCard(
+            key: ValueKey(donation['id']),
+            donation: donation,
+            repository: _repository,
+            onChanged: _loadDonations,
+          );
         },
       ),
     );
   }
+}
 
-  Widget _buildDonationCard(Map<String, dynamic> donation) {
-    final status = donation['status']?.toString() ?? 'volunteer_assigned';
-    final title = donation['title']?.toString() ?? 'تبرع';
-    final charityName = donation['charity_name']?.toString() ?? 'جمعية خيرية';
-    final donorName = donation['donor_name']?.toString() ?? 'متبرع';
-    final quantity = donation['quantity']?.toString() ?? '1';
-    final images = donation['images'] as List? ?? [];
-    final imageUrl = images.isNotEmpty ? images.first.toString() : null;
+// ============================================================
+// كارت التبرع - فيه نفس المعلومات والأزرار الموجودة في التفاصيل
+// ============================================================
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => VolunteerDonationDetailPage(donation: donation),
+class _VolunteerDonationCard extends StatefulWidget {
+  final Map<String, dynamic> donation;
+  final SeparateCharityDonationRepository repository;
+  final VoidCallback onChanged;
+
+  const _VolunteerDonationCard({
+    super.key,
+    required this.donation,
+    required this.repository,
+    required this.onChanged,
+  });
+
+  @override
+  State<_VolunteerDonationCard> createState() => _VolunteerDonationCardState();
+}
+
+class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
+  bool _isLoading = false;
+  String? _charityCode;
+  final TextEditingController _codeController = TextEditingController();
+
+  String get _donationId => widget.donation['id']?.toString() ?? '';
+  String get _status =>
+      widget.donation['status']?.toString() ?? 'volunteer_assigned';
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  void _toast(String text, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text),
+        backgroundColor: error ? const Color(0xFFD64545) : _darkGreen,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+    );
+  }
+
+  String _friendlyError(Object error) {
+    final text = error.toString().toLowerCase();
+    if (text.contains('كود') || text.contains('رمز')) {
+      return 'الكود غير صحيح، تأكد من الرقم الذي أعطاك إياه المتبرع';
+    }
+    if (text.contains('انتهت صلاحية')) {
+      return 'انتهت صلاحية الكود، اطلب كود جديد من المتبرع';
+    }
+    if (text.contains('لا يمكن تنفيذ') || text.contains('الحالة الحالية')) {
+      return 'لا يمكن تنفيذ هذه الخطوة الآن';
+    }
+    return 'حدث خطأ، حاول مرة أخرى';
+  }
+
+  void _openDetails() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VolunteerDonationDetailPage(donation: widget.donation),
+      ),
+    ).then((_) => widget.onChanged());
+  }
+
+  void _showDonorCodeDialog() {
+    _codeController.clear();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.qr_code_scanner_rounded, color: _green),
+              SizedBox(width: 10),
+              Text(
+                'تأكيد استلام التبرع',
+                style:
+                    TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
+              ),
+            ],
           ),
-        ).then((_) => _loadDonations());
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: _statusColor(status).withAlpha(30),
-            width: 1.5,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'اطلب من المتبرع إعطاءك كود الاستلام المكون من 6 أرقام، ثم أدخله هنا.',
+                style: TextStyle(fontSize: 13, color: _muted),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                maxLength: 6,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 4,
+                  color: _darkGreen,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'أدخل كود الاستلام (6 أرقام)',
+                  labelStyle: const TextStyle(color: _muted),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _green, width: 2),
+                  ),
+                  prefixIcon:
+                      const Icon(Icons.lock_outline_rounded, color: _green),
+                  counterText: '',
+                ),
+                onSubmitted: (_) =>
+                    _confirmDonorPickup(dialogContext, setDialogState),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(6),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء', style: TextStyle(color: _muted)),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // ✅ صورة
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    color: const Color(0xFFE8F5EE),
-                    child: imageUrl != null
-                        ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.volunteer_activism_rounded,
-                              color: _green,
-                              size: 28,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.volunteer_activism_rounded,
-                            color: _green,
-                            size: 28,
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _darkGreen,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$charityName • $donorName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF71837C),
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: _statusColor(status).withAlpha(15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: _statusColor(status).withAlpha(40),
-                              ),
-                            ),
-                            child: Text(
-                              _statusLabel(status),
-                              style: TextStyle(
-                                color: _statusColor(status),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$quantity وحدة',
-                            style: const TextStyle(
-                              color: Color(0xFF71837C),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_back_ios_rounded,
-                  size: 14,
-                  color: Color(0xFF71837C),
-                ),
-              ],
+            FilledButton.icon(
+              onPressed: _isLoading
+                  ? null
+                  : () => _confirmDonorPickup(dialogContext, setDialogState),
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_rounded),
+              label: const Text('تأكيد الاستلام'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
+              ),
             ),
-            const SizedBox(height: 10),
-            // ✅ Timeline مبسط
-            _buildSimpleTimeline(status),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSimpleTimeline(String status) {
-    const steps = [
-      ('تم الحجز', Icons.handshake_rounded),
-      ('المتبرع جاهز', Icons.check_circle_outline_rounded),
-      ('استلمت التبرع', Icons.inventory_2_rounded),
-      ('في الطريق', Icons.local_shipping_rounded),
-      ('وصل للجمعية', Icons.verified_rounded),
-    ];
+  Future<void> _confirmDonorPickup(
+    BuildContext dialogContext,
+    StateSetter setDialogState,
+  ) async {
+    final code = _codeController.text.trim();
 
-    final currentStep = _getStepIndex(status);
+    if (code.length != 6 || !RegExp(r'^[0-9]{6}$').hasMatch(code)) {
+      _toast('الكود يجب أن يتكون من 6 أرقام', error: true);
+      return;
+    }
+
+    setDialogState(() => _isLoading = true);
+    setState(() => _isLoading = true);
+
+    try {
+      await widget.repository.confirmVolunteerPickupWithCode(_donationId, code);
+      if (!mounted) return;
+      Navigator.pop(dialogContext);
+      _toast('✅ تم تأكيد استلام التبرع من المتبرع بنجاح');
+      widget.onChanged();
+    } catch (e) {
+      setDialogState(() => _isLoading = false);
+      setState(() => _isLoading = false);
+      _toast(_friendlyError(e), error: true);
+    }
+  }
+
+  Future<void> _generateCharityCode() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final code =
+          await widget.repository.generateCharityPickupCode(_donationId);
+      if (!mounted) return;
+      setState(() {
+        _charityCode = code;
+        _isLoading = false;
+      });
+      _toast('✅ تم إنشاء كود الجمعية');
+      widget.onChanged();
+      _showCharityCodeDialog(code);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _toast(_friendlyError(e), error: true);
+      }
+    }
+  }
+
+  Future<void> _showCharityCodeFlow() async {
+    if (_charityCode != null && _charityCode!.isNotEmpty) {
+      _showCharityCodeDialog(_charityCode!);
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      final code = await widget.repository.getCharityPickupCode(_donationId);
+      if (!mounted) return;
+      setState(() {
+        _charityCode = code;
+        _isLoading = false;
+      });
+      _showCharityCodeDialog(code);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _toast(_friendlyError(e), error: true);
+      }
+    }
+  }
+
+  void _showCharityCodeDialog(String code) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.business_center_rounded, color: _orange),
+            SizedBox(width: 10),
+            Text(
+              'كود تسليم الجمعية',
+              style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'أعط هذا الكود للجمعية لتأكيد وصول التبرع.',
+              style: TextStyle(fontSize: 13, color: _muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _orange.withAlpha(50)),
+              ),
+              child: SelectableText(
+                code,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _orange,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 3,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: code));
+              _toast('تم نسخ الكود 📋');
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16, color: _green),
+            label: const Text('نسخ', style: TextStyle(color: _green)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: FilledButton.styleFrom(backgroundColor: _orange),
+            child: const Text('تم'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final donation = widget.donation;
+    final title = donation['title']?.toString() ?? 'تبرع';
+    final charityName = donation['charity_name']?.toString() ?? 'جمعية خيرية';
+    final donorName = donation['donor_name']?.toString() ?? 'متبرع';
+    final quantity = donation['quantity']?.toString() ?? '1';
+    final images = (donation['images'] as List?)?.cast<String>() ?? [];
+    final imageUrl = images.isNotEmpty ? images.first : null;
+    final statusData = _statusData(_status);
+
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: statusData.$2.withAlpha(60), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : Colors.black.withAlpha(6),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openDetails,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: imageUrl != null
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, progress) {
+                                  if (progress == null) return child;
+                                  return Container(
+                                    color: _green.withAlpha(20),
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: _green,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: _green.withAlpha(20),
+                                  child: const Icon(
+                                    Icons.volunteer_activism_rounded,
+                                    color: _green,
+                                    size: 26,
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: _green.withAlpha(20),
+                                child: const Icon(
+                                  Icons.volunteer_activism_rounded,
+                                  color: _green,
+                                  size: 26,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$charityName • $donorName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: statusData.$2.withAlpha(20),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: statusData.$2.withAlpha(50)),
+                                ),
+                                child: Text(
+                                  statusData.$1,
+                                  style: TextStyle(
+                                    color: statusData.$2,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '$quantity وحدة',
+                                style: TextStyle(
+                                  color: colors.onSurfaceVariant,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_back_ios_rounded,
+                        size: 14, color: colors.onSurfaceVariant),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _SimpleTimeline(status: _status),
+                const SizedBox(height: 12),
+                // منطقة الأزرار - GestureDetector فاضي يمنع فتح صفحة التفاصيل
+                GestureDetector(
+                  onTap: () {},
+                  child: _buildActionArea(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionArea() {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 4),
+        child: LinearProgressIndicator(color: _green),
+      );
+    }
+
+    switch (_status) {
+      case 'volunteer_assigned':
+        return _actionButton(
+          '🔑 إدخال كود المتبرع',
+          Icons.qr_code_scanner_rounded,
+          _showDonorCodeDialog,
+          color: _orange,
+        );
+
+      case 'picked_up_from_donor':
+        return _actionButton(
+          '🏢 إنشاء كود الجمعية',
+          Icons.business_center_rounded,
+          _generateCharityCode,
+          color: _blue,
+        );
+
+      case 'in_transit':
+        return _actionButton(
+          '📋 عرض كود الجمعية',
+          Icons.qr_code_rounded,
+          _showCharityCodeFlow,
+          color: _orange,
+        );
+
+      case 'completed':
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE3F7EC),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.celebration_rounded, color: _green, size: 18),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'تم التوصيل بنجاح - شكرًا لمجهودك 🎉',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: _green,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      case 'cancelled':
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFCE9E9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.cancel_outlined, color: Color(0xFFD64545), size: 18),
+              SizedBox(width: 8),
+              Text(
+                'تم إلغاء هذا التبرع',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: Color(0xFF8A2E2E),
+                ),
+              ),
+            ],
+          ),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _actionButton(String label, IconData icon, VoidCallback onTap,
+      {required Color color}) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// الخط الزمني المبسط - نفس مراحل صفحة التفاصيل
+// ============================================================
+
+class _SimpleTimeline extends StatelessWidget {
+  final String status;
+  const _SimpleTimeline({required this.status});
+
+  static const _steps = [
+    ('تم الحجز', Icons.handshake_rounded),
+    ('استلمت التبرع', Icons.inventory_2_rounded),
+    ('في الطريق', Icons.local_shipping_rounded),
+    ('وصل للجمعية', Icons.verified_rounded),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final currentStep = _stages.indexOf(status);
     final activeIndex = currentStep >= 0 ? currentStep : 0;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(steps.length, (index) {
+      children: List.generate(_steps.length, (index) {
         final isActive = index <= activeIndex;
-        final isLast = index == steps.length - 1;
+        final isLast = index == _steps.length - 1;
 
         return Expanded(
           child: Row(
@@ -451,21 +878,22 @@ class _VolunteerDonationsTrackingPageState
                     width: 24,
                     height: 24,
                     decoration: BoxDecoration(
-                      color: isActive ? _green : Colors.grey.shade200,
+                      color: isActive ? _green : colors.surfaceContainerHighest,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      isActive ? Icons.check_rounded : steps[index].$2,
+                      isActive ? Icons.check_rounded : _steps[index].$2,
                       size: 12,
-                      color: isActive ? Colors.white : Colors.grey.shade400,
+                      color: isActive ? Colors.white : colors.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    steps[index].$1,
+                    _steps[index].$1,
                     style: TextStyle(
                       fontSize: 7,
-                      color: isActive ? _darkGreen : Colors.grey.shade400,
+                      color:
+                          isActive ? colors.onSurface : colors.onSurfaceVariant,
                       fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
                     ),
                     maxLines: 1,
@@ -478,7 +906,7 @@ class _VolunteerDonationsTrackingPageState
                   child: Container(
                     height: 2,
                     margin: const EdgeInsets.only(bottom: 16),
-                    color: index < activeIndex ? _green : Colors.grey.shade200,
+                    color: index < activeIndex ? _green : colors.outlineVariant,
                   ),
                 ),
             ],

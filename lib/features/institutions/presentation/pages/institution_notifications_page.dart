@@ -63,14 +63,17 @@ class _InstitutionNotificationsPageState
           body: FutureBuilder<List<Map<String, dynamic>>>(
             future: _future,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting)
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
-              if (snapshot.hasError)
+              }
+              if (snapshot.hasError) {
                 return _EmptyState(
                     text: 'تعذر تحميل الإشعارات حاليًا', onRetry: _reload);
+              }
               final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-              if (rows.isEmpty)
+              if (rows.isEmpty) {
                 return const _EmptyState(text: 'لا توجد إشعارات حتى الآن');
+              }
               return RefreshIndicator(
                 onRefresh: () async => _reload(),
                 child: ListView.separated(

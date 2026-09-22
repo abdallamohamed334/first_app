@@ -179,8 +179,9 @@ class _CharityDirectRequestsPageState extends State<CharityDirectRequestsPage> {
     if (code == null) return;
     final normalizedCode = _normalizePickupCode(code);
     if (normalizedCode == null) {
-      if (mounted)
+      if (mounted) {
         _message('اكتب كودًا صحيحًا مكوّنًا من 6 أرقام', error: true);
+      }
       return;
     }
     setState(() => _busyId = donationId);

@@ -1,11 +1,21 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/routes/app_router.dart
+
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loqma/features/map/presentation/pages/location_picker_page.dart';
+
 import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
-import '../features/home/presentation/pages/home_page.dart';
+// ✅ استخدم UserHomePage
+import '../features/userhome/presentation/pages/user_home_page.dart'
+    as user_home;
+// ✅ استخدم UserAllOffersPage
+import '../features/userhome/presentation/pages/user_all_offers_page.dart';
+
 import '../features/map/presentation/pages/map_page.dart';
+// ✅ صفحة تحديد الموقع قبل تسجيل الدخول
 import '../features/tasks/presentation/pages/tasks_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/volunteer/presentation/pages/volunteer_leaderboard_page.dart';
@@ -18,6 +28,7 @@ import '../features/institutions/presentation/pages/institutions_home_page.dart'
 class AppRouter {
   static const String splash = '/';
   static const String onboarding = '/onboarding';
+  static const String selectLocation = '/select-location';
   static const String login = '/login';
   static const String register = '/register';
   static const String home = '/home';
@@ -28,12 +39,14 @@ class AppRouter {
   static const String restaurantHome = '/restaurant-home';
   static const String charityHome = '/charity-home';
   static const String institutionsHome = '/institutions-home';
+  static const String allOffers = '/all-offers';
 
   static const String offerDetails = '/offer/:id';
   static const String charities = '/charities';
   static const String placeholder = '/placeholder';
 
   static final GoRouter router = GoRouter(
+    // ✅ الصفحة الافتتاحية هي Splash
     initialLocation: splash,
     routes: [
       GoRoute(
@@ -45,6 +58,11 @@ class AppRouter {
         path: onboarding,
         name: 'onboarding',
         builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: selectLocation,
+        name: 'select-location',
+        builder: (context, state) => const LocationPickerPage(),
       ),
       GoRoute(
         path: login,
@@ -59,7 +77,15 @@ class AppRouter {
       GoRoute(
         path: home,
         name: 'home',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) => const user_home.UserHomePage(),
+      ),
+      GoRoute(
+        path: allOffers,
+        name: 'all-offers',
+        builder: (context, state) {
+          final offers = state.extra as List? ?? [];
+          return UserAllOffersPage(offers: offers.cast());
+        },
       ),
       GoRoute(
         path: map,
@@ -86,20 +112,16 @@ class AppRouter {
         name: 'charities',
         builder: (context, state) => const CharitiesPage(),
       ),
-      // This route is only for restaurant accounts.
       GoRoute(
         path: restaurantHome,
         name: 'restaurant-home',
         builder: (context, state) => const BusinessRestaurantPage(),
       ),
-      // This route is only for charity accounts.
       GoRoute(
         path: charityHome,
         name: 'charity-home',
         builder: (context, state) => const CharityWorkspacePage(),
       ),
-      // This route is only for institution accounts.
-      // It is intentionally independent from the restaurant route.
       GoRoute(
         path: institutionsHome,
         name: 'institutions-home',
@@ -123,6 +145,13 @@ class AppRouter {
         },
       ),
     ],
+    // ❌ إزالة الـ Redirect بالكامل
+    // redirect: (context, state) {
+    //   if (state.matchedLocation == splash || state.matchedLocation == '/') {
+    //     return map;
+    //   }
+    //   return null;
+    // },
     errorBuilder: (context, state) => Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -196,7 +225,7 @@ class _PlaceholderPage extends StatelessWidget {
                 Icon(
                   Icons.construction,
                   size: 80,
-                  color: colorScheme.outline.withValues(alpha: 0.5),
+                  color: colorScheme.outline.withAlpha(128),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -224,7 +253,7 @@ class _PlaceholderPage extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    color: colorScheme.primary.withAlpha(25),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(

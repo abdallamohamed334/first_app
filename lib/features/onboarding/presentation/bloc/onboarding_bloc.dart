@@ -96,7 +96,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     return const [
       // ✅ الصفحة 1: الترحيب
       OnboardingPageData(
-        title: 'مرحباً بك في لقمة',
+        title: 'مرحباً بك في جُود',
         subtitle:
             'تطبيق يهدف إلى تقليل هدر الطعام وربط المتبرعين بالجمعيات الخيرية',
         imageUrl: 'assets/images/onboarding_1.png',

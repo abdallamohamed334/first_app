@@ -21,7 +21,7 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
 
   late Future<Map<String, dynamic>> _future;
   final _imagePicker = ImagePicker();
-  final _imageStorage = LoqmaImageStorageService();
+  final _imageStorage = loqmaImageStorageService();
   XFile? _selectedImage;
   bool _loggingOut = false;
   bool _uploadingImage = false;
@@ -81,8 +81,9 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
       });
       final url = await _imageStorage.uploadCharityLogo(image);
       final authId = Supabase.instance.client.auth.currentUser?.id;
-      if (authId == null || authId.isEmpty)
+      if (authId == null || authId.isEmpty) {
         throw StateError('انتهت الجلسة الحالية');
+      }
       await Supabase.instance.client
           .from('charities')
           .update({'logo': url, 'logo_url': url, 'image_url': url}).eq(

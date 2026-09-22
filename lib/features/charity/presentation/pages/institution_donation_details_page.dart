@@ -142,16 +142,18 @@ class _InstitutionDonationDetailsPageState
           context, 'تم إبلاغ المطعم أن المندوب في الطريق');
       Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         CharityActionFeedback.showError(context, _friendlyError(error));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _verifyPickupCode() async {
-    if (_loading || id.isEmpty || !restaurantReady || !volunteerDeparted)
+    if (_loading || id.isEmpty || !restaurantReady || !volunteerDeparted) {
       return;
+    }
     final code = await showDialog<String>(
       context: context,
       builder: (_) => const _PickupCodeDialog(),
@@ -175,8 +177,9 @@ class _InstitutionDonationDetailsPageState
           context, 'تم التحقق واستلم المندوب التبرع');
       Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         CharityActionFeedback.showError(context, _friendlyError(error));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -192,8 +195,9 @@ class _InstitutionDonationDetailsPageState
           context, 'تم تأكيد وصول التبرع للجمعية');
       Navigator.of(context).pop(true);
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         CharityActionFeedback.showError(context, _friendlyError(error));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

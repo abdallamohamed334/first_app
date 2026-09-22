@@ -18,7 +18,7 @@ class HomeHeroBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final availableOffers = offers.where((offer) => offer.isAvailable).length;
     final urgentOffers = offers.where((offer) => offer.isUrgent).length;
-    final displayName = user.name.trim().isEmpty ? 'مستخدم لقمة' : user.name;
+    final displayName = user.name.trim().isEmpty ? 'مستخدم جُود' : user.name;
     final avatarLetter = displayName.characters.first.toUpperCase();
 
     return Container(

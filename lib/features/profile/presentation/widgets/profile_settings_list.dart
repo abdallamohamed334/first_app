@@ -4,24 +4,38 @@ class ProfileSettingsList extends StatelessWidget {
   final VoidCallback onEditProfile;
   final VoidCallback onLogout;
 
+  // Dark mode
+  final bool isDarkMode;
+  final ValueChanged<bool> onDarkModeChanged;
+
   const ProfileSettingsList({
     super.key,
     required this.onEditProfile,
     required this.onLogout,
+    required this.isDarkMode,
+    required this.onDarkModeChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.outlineVariant.withAlpha(100)),
-        boxShadow: const [
+        border: Border.all(
+          color: colors.outlineVariant.withAlpha(100),
+        ),
+        boxShadow: [
           BoxShadow(
-              color: Color(0x0C000000), blurRadius: 14, offset: Offset(0, 5)),
+            color: Colors.black.withAlpha(
+              Theme.of(context).brightness == Brightness.dark ? 35 : 12,
+            ),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
       child: Column(
@@ -31,20 +45,42 @@ class ProfileSettingsList extends StatelessWidget {
             title: 'تعديل الملف الشخصي',
             onTap: onEditProfile,
           ),
+
           _divider(colors),
+
           _SettingTile(
             icon: Icons.notifications_none_rounded,
             title: 'الإشعارات',
             onTap: () => _comingSoon(context, 'الإشعارات'),
           ),
+
           _divider(colors),
+
+          // 🌙 Dark Mode
+          _SettingTile(
+            icon:
+                isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+            title: 'الوضع الداكن',
+            trailingWidget: Switch.adaptive(
+              value: isDarkMode,
+              onChanged: onDarkModeChanged,
+            ),
+            onTap: () {
+              onDarkModeChanged(!isDarkMode);
+            },
+          ),
+
+          _divider(colors),
+
           _SettingTile(
             icon: Icons.language_rounded,
             title: 'اللغة',
             trailing: 'العربية',
             onTap: () => _comingSoon(context, 'تغيير اللغة'),
           ),
+
           _divider(colors),
+
           _SettingTile(
             icon: Icons.logout_rounded,
             title: 'تسجيل الخروج',
@@ -56,12 +92,14 @@ class ProfileSettingsList extends StatelessWidget {
     );
   }
 
-  Widget _divider(ColorScheme colors) => Divider(
-        height: 1,
-        indent: 62,
-        endIndent: 16,
-        color: colors.outlineVariant.withAlpha(70),
-      );
+  Widget _divider(ColorScheme colors) {
+    return Divider(
+      height: 1,
+      indent: 62,
+      endIndent: 16,
+      color: colors.outlineVariant.withAlpha(70),
+    );
+  }
 
   void _comingSoon(BuildContext context, String title) {
     ScaffoldMessenger.of(context)
@@ -79,6 +117,7 @@ class _SettingTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? trailing;
+  final Widget? trailingWidget;
   final bool destructive;
   final VoidCallback onTap;
 
@@ -87,6 +126,7 @@ class _SettingTile extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.trailing,
+    this.trailingWidget,
     this.destructive = false,
   });
 
@@ -94,14 +134,18 @@ class _SettingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final color = destructive ? colors.error : colors.primary;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
         child: ListTile(
           tileColor: Colors.transparent,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 2,
+          ),
           leading: Container(
             width: 38,
             height: 38,
@@ -109,7 +153,11 @@ class _SettingTile extends StatelessWidget {
               color: color.withAlpha(18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(
+              icon,
+              color: color,
+              size: 20,
+            ),
           ),
           title: Text(
             title,
@@ -119,27 +167,28 @@ class _SettingTile extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          trailing: destructive
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (trailing != null)
-                      Text(
-                        trailing!,
-                        style: TextStyle(
+          trailing: trailingWidget ??
+              (destructive
+                  ? null
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (trailing != null)
+                          Text(
+                            trailing!,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 14,
                           color: colors.onSurfaceVariant,
-                          fontSize: 12,
                         ),
-                      ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios_rounded,
-                      size: 14,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ],
-                ),
+                      ],
+                    )),
         ),
       ),
     );

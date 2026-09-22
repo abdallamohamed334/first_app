@@ -58,8 +58,10 @@ class SupabaseService {
   final FcmNotificationService _fcmNotifications = FcmNotificationService();
 
   SupabaseClient get client => Supabase.instance.client;
-
   SupabaseClient get adminClient => client;
+
+  // ✅ أضيفت عشان التوافق مع الكود القديم
+  SupabaseClient get supabase => client;
 
   // ============ AUTH ============
 
@@ -743,9 +745,9 @@ class SupabaseService {
 
       // ✅ تحديث المستوى بناءً على النقاط
       int newLevel = 1;
-      if (newPoints >= 1000)
+      if (newPoints >= 1000) {
         newLevel = 5;
-      else if (newPoints >= 500)
+      } else if (newPoints >= 500)
         newLevel = 4;
       else if (newPoints >= 200)
         newLevel = 3;
@@ -1309,16 +1311,16 @@ class SupabaseService {
         beneficiaryCharities = 0;
       }
 
+      // ✅ تم تعديلها: من غير lastUpdated
       return CommunityStats(
         mealsSaved: mealsSaved,
         activeVolunteers: activeVolunteers,
         participatingRestaurants: participatingRestaurants,
         beneficiaryCharities: beneficiaryCharities,
-        lastUpdated: DateTime.now(),
       );
     } catch (e) {
       print('❌ Error getting community stats: $e');
-      return CommunityStats(lastUpdated: DateTime.now());
+      return const CommunityStats(); // ✅ استخدام empty constructor
     }
   }
 
@@ -2051,7 +2053,7 @@ class SupabaseService {
       return '';
     }
 
-    final baseUrl =
+    const baseUrl =
         'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/community-offers/';
     return '$baseUrl$imagePath';
   }

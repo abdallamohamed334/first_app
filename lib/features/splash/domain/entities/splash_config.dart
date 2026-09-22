@@ -12,7 +12,7 @@ class SplashConfig extends Equatable {
     this.animationDuration = const Duration(milliseconds: 1000),
     this.splashDuration = const Duration(milliseconds: 3500),
     this.tagline = 'كل وجبة تصنع فرقًا',
-    this.brandingText = 'استدامة . عطاء . لقمة',
+    this.brandingText = 'استدامة . عطاء . جُود',
   });
 
   @override

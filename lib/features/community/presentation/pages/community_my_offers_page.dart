@@ -1,11 +1,10 @@
 ﻿// lib/features/community/presentation/pages/community_my_offers_page.dart
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/community/presentation/pages/OfferDetailsMyOffersPage.dart';
-import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 import '../../data/repositories/community_my_offers_repository.dart';
 
 class CommunityMyOffersPage extends StatefulWidget {
@@ -15,91 +14,84 @@ class CommunityMyOffersPage extends StatefulWidget {
   State<CommunityMyOffersPage> createState() => _CommunityMyOffersPageState();
 }
 
-class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
+class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
+    with SingleTickerProviderStateMixin {
   final _repository = CommunityMyOffersRepository();
   final _searchController = TextEditingController();
   final SupabaseService _supabase = SupabaseService();
+
+  late TabController _tabController;
+
   bool _loading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _offers = [];
-  String _filter = 'all';
-  String? _busyRequestId;
-  StreamSubscription? _realtimeSubscription;
-
-  static const Color _primary = Color(0xFF005B3C);
-  static const Color _primaryContainer = Color(0xFF0B7650);
-  static const Color _secondaryContainer = Color(0xFFBEEDD8);
-  static const Color _onSecondaryContainer = Color(0xFF426D5D);
-  static const Color _surface = Color(0xFFF7FAF9);
-  static const Color _surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color _surfaceContainerHigh = Color(0xFFE6E9E8);
-  static const Color _surfaceVariant = Color(0xFFE0E3E2);
-  static const Color _onSurface = Color(0xFF181C1C);
-  static const Color _onSurfaceVariant = Color(0xFF3F4942);
-  static const Color _errorColor = Color(0xFFBA1A1A);
-  static const Color _errorContainer = Color(0xFFFFDAD6);
-  static const Color _onErrorContainer = Color(0xFF93000A);
-  static const Color _outlineVariant = Color(0xFFBEC9C0);
-  static const Color _onPrimary = Color(0xFFFFFFFF);
+  String? _busyOfferId;
 
   @override
   void initState() {
     super.initState();
+
+    _tabController = TabController(length: 2, vsync: this);
+
     _searchController.addListener(() {
       if (mounted) setState(() {});
     });
+
     _load();
-    _subscribeToRealtime();
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
-    _realtimeSubscription?.cancel();
     super.dispose();
   }
 
-  void _subscribeToRealtime() {
-    _realtimeSubscription = _supabase.client
-        .from('community_offers')
-        .stream(primaryKey: ['id']).listen((_) {
-      if (mounted) {
-        _load();
-      }
-    }, onError: (error) {
-      debugPrint('❌ Realtime error: $error');
-    });
-  }
+  // ============================================================
+  // ✅ LOAD
+  // ============================================================
 
   Future<void> _load() async {
     if (!mounted) return;
+
     setState(() {
       _loading = true;
       _errorMessage = null;
     });
-    try {
-      final offers = await _repository.getMyOffersWithRequests();
 
+    try {
+      final allOffers = await _repository.getMyOffers();
+
+      // ✅ فلترة client-side — استبعد cancelled
+      final offers = allOffers.where((offer) {
+        final status = (offer['status'] ?? '').toString().toLowerCase();
+        return status != 'cancelled';
+      }).toList();
+
+      // جلب الصور لكل عرض
       for (var i = 0; i < offers.length; i++) {
         final offerId = offers[i]['id'].toString();
         try {
-          final images = await _supabase.getOfferImages(offerId);
-          offers[i]['images'] = images;
-          offers[i]['image'] = images.isNotEmpty ? images.first : null;
+          final image = await _repository.getOfferImage(offerId);
+          offers[i]['image'] = image;
+          offers[i]['images'] = image != null ? [image] : [];
         } catch (e) {
-          print('❌ Error loading images for offer $offerId: $e');
           offers[i]['images'] = [];
           offers[i]['image'] = null;
         }
       }
 
       if (!mounted) return;
+
       setState(() {
         _offers = offers;
         _loading = false;
       });
     } catch (error) {
+      debugPrint('❌ getMyOffers error: $error');
+
       if (!mounted) return;
+
       setState(() {
         _loading = false;
         _errorMessage = 'تعذر تحميل عروضك حاليًا. حاول مرة أخرى.';
@@ -107,208 +99,435 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     }
   }
 
-  List<Map<String, dynamic>> get _visibleOffers {
-    final query = _searchController.text.trim().toLowerCase();
-    return _offers.where((offer) {
-      final requests = _requests(offer);
-      final matchesFilter = _filter == 'all' ||
-          requests.any((request) => request['status'] == _filter);
-      if (!matchesFilter) return false;
-      if (query.isEmpty) return true;
-      final title = (offer['title'] ?? '').toString().toLowerCase();
-      final description = (offer['description'] ?? '').toString().toLowerCase();
-      final requestText = requests
-          .map((request) => request['requester']?['name']?.toString() ?? '')
-          .join(' ')
-          .toLowerCase();
-      return title.contains(query) ||
-          description.contains(query) ||
-          requestText.contains(query);
-    }).toList();
-  }
+  // ============================================================
+  // ✅ DELETE OFFER (Optimistic UI + Rollback)
+  // ============================================================
 
-  List<Map<String, dynamic>> _requests(Map<String, dynamic> offer) {
-    final raw = offer['requests'];
-    if (raw is! List) return [];
-    return raw.map((row) => Map<String, dynamic>.from(row as Map)).toList();
-  }
+  Future<void> _deleteOffer(String offerId) async {
+    final colors = Theme.of(context).colorScheme;
 
-  Future<void> _changeStatus(String requestId, String status) async {
-    setState(() => _busyRequestId = requestId);
-    try {
-      await _repository.updateRequestStatus(
-        requestId: requestId,
-        status: status,
-      );
-      if (!mounted) return;
-      _showMessage(
-        status == 'accepted' ? '✅ تم قبول الطلب بنجاح' : '❌ تم رفض الطلب',
-        success: status == 'accepted',
-      );
-      await _load();
-    } catch (error) {
-      if (mounted) _showMessage('⚠️ تعذر تحديث الطلب، حاول مرة أخرى');
-    } finally {
-      if (mounted) setState(() => _busyRequestId = null);
-    }
-  }
-
-  Future<void> _confirmReject(String requestId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: const [
-            Icon(Icons.warning_amber_rounded, color: _errorColor),
-            SizedBox(width: 8),
-            Text('رفض الطلب'),
-          ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
         ),
-        content: const Text('هل أنت متأكد من رفض طلب هذا المستخدم؟'),
+        title: const Text('إلغاء العرض'),
+        content: const Text(
+          'هل أنت متأكد من إلغاء هذا العرض؟ لا يمكن التراجع عن هذا الإجراء.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            style: TextButton.styleFrom(
-              foregroundColor: _onSurfaceVariant,
-            ),
-            child: const Text('إلغاء'),
+            child: const Text('رجوع'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: _errorColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              backgroundColor: colors.error,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('رفض الطلب'),
+            child: const Text('تأكيد الإلغاء'),
           ),
         ],
       ),
     );
-    if (confirmed == true) await _changeStatus(requestId, 'rejected');
+
+    if (confirmed != true) return;
+
+    final previousOffers = List<Map<String, dynamic>>.from(_offers);
+
+    setState(() {
+      _busyOfferId = offerId;
+      _offers = _offers
+          .where((o) => o['id'].toString() != offerId)
+          .toList(growable: false);
+    });
+
+    try {
+      await _repository.deleteOffer(offerId);
+
+      if (!mounted) return;
+
+      _showMessage('✅ تم إلغاء العرض بنجاح', success: true);
+
+      await _load();
+    } catch (error) {
+      debugPrint('❌ deleteOffer error: $error');
+
+      if (mounted) {
+        setState(() {
+          _offers = previousOffers;
+        });
+
+        _showMessage('⚠️ تعذر إلغاء العرض. حاول مرة أخرى.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyOfferId = null);
+      }
+    }
   }
 
+  // ============================================================
+  // ✅ EDIT OFFER
+  // ============================================================
+
+  Future<void> _editOffer(Map<String, dynamic> offer) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddCommunityOfferPage(
+          offerId: offer['id']?.toString(),
+          initialData: offer,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      await _load();
+      if (mounted) {
+        _showMessage('✅ تم تحديث العرض بنجاح', success: true);
+      }
+    }
+  }
+
+  // ============================================================
+  // ✅ MARK AS COMPLETED (تم البيع)
+  // ============================================================
+
+  Future<void> _markAsCompleted(Map<String, dynamic> offer) async {
+    final colors = Theme.of(context).colorScheme;
+    final offerId = offer['id'].toString();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        icon: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.check_circle_rounded,
+            color: colors.primary,
+            size: 32,
+          ),
+        ),
+        title: const Text(
+          'تم البيع؟',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'هل أنت متأكد أن هذا العرض تم بيعه؟ هيتم إخفاء العرض من المستخدمين ومش هيظهر تاني، ومش هتقدر تعدله بعد كده.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(
+              foregroundColor: colors.onSurfaceVariant,
+            ),
+            child: const Text(
+              'رجوع',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'تم البيع',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _busyOfferId = offerId;
+    });
+
+    try {
+      await _repository.markOfferAsCompleted(offerId);
+
+      if (!mounted) return;
+
+      _showMessage('🎉 مبروك! تم تحديد العرض كـ "تم البيع"', success: true);
+
+      await _load();
+    } catch (error) {
+      debugPrint('❌ markAsCompleted error: $error');
+
+      if (mounted) {
+        _showMessage('⚠️ تعذر تحديد العرض كـ "تم البيع". حاول مرة أخرى.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyOfferId = null);
+      }
+    }
+  }
+
+  // ============================================================
+  // ✅ RENEW OFFER (تجديد)
+  // ============================================================
+
+  Future<void> _renewOffer(Map<String, dynamic> offer) async {
+    final colors = Theme.of(context).colorScheme;
+    final offerId = offer['id'].toString();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        icon: Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.refresh_rounded,
+            color: colors.primary,
+            size: 32,
+          ),
+        ),
+        title: const Text(
+          'تجديد العرض',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: const Text(
+          'هيتم تجديد العرض لمدة 7 أيام إضافية، وهيرجع يظهر للمستخدمين تاني.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(
+              foregroundColor: colors.onSurfaceVariant,
+            ),
+            child: const Text(
+              'رجوع',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: colors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'تجديد',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _busyOfferId = offerId;
+    });
+
+    try {
+      final newExpiry = await _repository.renewOffer(offerId, days: 7);
+
+      if (!mounted) return;
+
+      if (newExpiry != null) {
+        _showMessage('✅ تم تجديد العرض بنجاح', success: true);
+      } else {
+        _showMessage('⚠️ تعذر تجديد العرض. حاول مرة أخرى.');
+      }
+
+      await _load();
+    } catch (error) {
+      debugPrint('❌ renewOffer error: $error');
+
+      if (mounted) {
+        _showMessage('⚠️ تعذر تجديد العرض. حاول مرة أخرى.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyOfferId = null);
+      }
+    }
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
   void _showMessage(String message, {bool success = false}) {
+    final colors = Theme.of(context).colorScheme;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message, textDirection: TextDirection.rtl),
-        backgroundColor: success ? _primary : _errorColor,
+        backgroundColor: success ? colors.primary : colors.error,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: _surface,
-        appBar: _buildAppBar(),
-        body: _body(),
-        bottomNavigationBar: _buildBottomNav(),
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.white.withOpacity(0.85),
-      elevation: 0,
-      titleSpacing: 0,
-      toolbarHeight: 72,
-      title: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: _primaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'ل',
-                    style: TextStyle(
-                      color: _onPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'لقمة',
-                  style: TextStyle(
-                    color: _primary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _secondaryContainer,
-                    borderRadius: BorderRadius.circular(9999),
-                  ),
-                  child: const Text(
-                    'عروضي',
-                    style: TextStyle(
-                      color: _onSecondaryContainer,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: _secondaryContainer,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: _primary,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
   }
 
+  // ============================================================
+  // تصنيف العروض (نشط / منتهي)
+  // ============================================================
+
+  List<Map<String, dynamic>> get _activeOffers {
+    return _offers.where((offer) {
+      final status = (offer['status'] ?? '').toString().toLowerCase();
+
+      // ✅ النشط: available أو active بس
+      if (status != 'available' && status != 'active') return false;
+
+      final expiresAt = _parseDate(offer['expires_at']);
+      return expiresAt == null || expiresAt.isAfter(DateTime.now());
+    }).toList();
+  }
+
+  /// ✅ العروض المنتهية (expired) — بس مش completed
+  List<Map<String, dynamic>> get _expiredOnlyOffers {
+    return _offers.where((offer) {
+      final status = (offer['status'] ?? '').toString().toLowerCase();
+
+      // ✅ expired
+      if (status == 'expired') return true;
+
+      // ✅ available بس expires_at فات → منتهي
+      if (status == 'available' || status == 'active') {
+        final expiresAt = _parseDate(offer['expires_at']);
+        return expiresAt != null && !expiresAt.isAfter(DateTime.now());
+      }
+
+      return false;
+    }).toList();
+  }
+
+  /// ✅ العروض المبيعة (completed)
+  List<Map<String, dynamic>> get _completedOffers {
+    return _offers.where((offer) {
+      final status = (offer['status'] ?? '').toString().toLowerCase();
+      return status == 'completed';
+    }).toList();
+  }
+
+  /// ✅ كل العروض المنتهية (expired + completed)
+  List<Map<String, dynamic>> get _allInactiveOffers {
+    return [
+      ..._expiredOnlyOffers,
+      ..._completedOffers,
+    ];
+  }
+
+  // ============================================================
+  // فلترة حسب البحث
+  // ============================================================
+
+  List<Map<String, dynamic>> _applySearch(List<Map<String, dynamic>> list) {
+    final query = _searchController.text.trim().toLowerCase();
+
+    if (query.isEmpty) return list;
+
+    return list.where((offer) {
+      final title = (offer['title'] ?? '').toString().toLowerCase();
+      final description = (offer['description'] ?? '').toString().toLowerCase();
+
+      return title.contains(query) || description.contains(query);
+    }).toList();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor:
+            isDark ? const Color(0xFF141414) : const Color(0xFFF6F7F8),
+        appBar: AppBar(
+          backgroundColor:
+              isDark ? const Color(0xFF1F1F1F) : Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          title: Text(
+            'عروضي',
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          automaticallyImplyLeading: false,
+        ),
+        body: _body(),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BODY
+  // ============================================================
+
   Widget _body() {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(
-          color: _primaryContainer,
+          color: colors.primary,
           strokeWidth: 3,
         ),
       );
     }
+
     if (_errorMessage != null) {
       return _buildEmptyState(
         icon: Icons.cloud_off_rounded,
@@ -318,800 +537,762 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
         onAction: _load,
       );
     }
+
     if (_offers.isEmpty) {
       return _buildEmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'لم تضف أي عرض بعد',
-        subtitle: 'عندما تضيف ملابس أو أثاثًا ستظهر طلباته هنا.',
+        subtitle: 'عندما تضيف ملابس أو أثاثًا ستظهر عروضك هنا.',
+      );
+    }
+
+    final activeCount = _activeOffers.length;
+    final expiredCount = _allInactiveOffers.length;
+
+    return Column(
+      children: [
+        // ✅ شريط البحث
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+          child: _buildSearchBar(colors, isDark),
+        ),
+
+        // ✅ التابين
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1F1F1F)
+                : colors.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: colors.onSurfaceVariant,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+            tabs: [
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_circle_rounded, size: 16),
+                    const SizedBox(width: 6),
+                    Text('نشط ($activeCount)'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.timer_off_rounded, size: 16),
+                    const SizedBox(width: 6),
+                    Text('منتهي ($expiredCount)'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ✅ المحتوى
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildOffersList(
+                _applySearch(_activeOffers),
+                colors,
+                isDark,
+                emptyMessage: 'مفيش عروض نشطة',
+              ),
+              _buildOffersList(
+                _applySearch(_allInactiveOffers),
+                colors,
+                isDark,
+                emptyMessage: 'مفيش عروض منتهية',
+                isExpired: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // OFFERS LIST
+  // ============================================================
+
+  Widget _buildOffersList(
+    List<Map<String, dynamic>> offers,
+    ColorScheme colors,
+    bool isDark, {
+    required String emptyMessage,
+    bool isExpired = false,
+  }) {
+    if (offers.isEmpty) {
+      return RefreshIndicator(
+        color: colors.primary,
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 60),
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    isExpired
+                        ? Icons.timer_off_rounded
+                        : Icons.inventory_2_outlined,
+                    color: colors.onSurfaceVariant,
+                    size: 56,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    emptyMessage,
+                    style: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     return RefreshIndicator(
-      color: _primaryContainer,
+      color: colors.primary,
       onRefresh: _load,
-      child: CustomScrollView(
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 60),
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  _buildSearchBar(),
-                  const SizedBox(height: 16),
-                  _buildStatsCard(),
-                  const SizedBox(height: 16),
-                  _buildFilters(),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-          if (_visibleOffers.isEmpty)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(
-                  child: Text('لا توجد نتائج مطابقة للبحث'),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => _buildOfferCard(_visibleOffers[index]),
-                  childCount: _visibleOffers.length,
-                ),
-              ),
-            ),
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 100),
-          ),
-        ],
+        itemCount: offers.length,
+        itemBuilder: (context, index) => _buildOfferCard(
+          offers[index],
+          colors,
+          isDark,
+          isExpired: isExpired,
+        ),
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  // ============================================================
+  // SEARCH BAR
+  // ============================================================
+
+  Widget _buildSearchBar(ColorScheme colors, bool isDark) {
     return Container(
+      height: 46,
       decoration: BoxDecoration(
-        color: _surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(9999),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: _surfaceVariant),
+        color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? Colors.transparent
+              : colors.outlineVariant.withValues(alpha: 0.6),
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
       ),
       child: Row(
         children: [
-          const Padding(
-            padding: EdgeInsets.only(right: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
             child: Icon(
               Icons.search_rounded,
-              color: _primary,
-              size: 24,
+              color: colors.primary,
+              size: 20,
             ),
           ),
           Expanded(
             child: TextField(
               controller: _searchController,
               textDirection: TextDirection.rtl,
-              decoration: const InputDecoration(
-                hintText: 'البحث في عروضي...',
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'ابحث في عروضي...',
                 hintStyle: TextStyle(
-                  color: _onSurfaceVariant,
-                  fontSize: 16,
+                  color: colors.onSurfaceVariant,
+                  fontSize: 13,
                 ),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
           if (_searchController.text.isNotEmpty)
             IconButton(
               onPressed: _searchController.clear,
-              icon: const Icon(
+              icon: Icon(
                 Icons.close_rounded,
-                color: _onSurfaceVariant,
-                size: 20,
+                color: colors.onSurfaceVariant,
+                size: 18,
               ),
             ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
     );
   }
 
-  Widget _buildStatsCard() {
-    final totalOffers = _offers.length;
-    final totalRequests = _offers.expand((offer) => _requests(offer)).length;
-    final pending = _offers
-        .expand((offer) => _requests(offer))
-        .where((request) => request['status'] == 'pending')
-        .length;
+  // ============================================================
+  // OFFER CARD
+  // ============================================================
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0B7650), Color(0xFF005B3C)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryContainer.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'إحصائياتي',
-            style: TextStyle(
-              color: _onPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildStatItem(
-                icon: Icons.inventory_2_rounded,
-                value: '$totalOffers',
-                label: 'العروض',
-              ),
-              _buildStatItem(
-                icon: Icons.pending_actions_rounded,
-                value: '$totalRequests',
-                label: 'الطلبات',
-              ),
-              _buildStatItem(
-                icon: Icons.auto_awesome_rounded,
-                value: '$pending',
-                label: 'جديد',
-                showBadge: pending > 0,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    bool showBadge = false,
+  Widget _buildOfferCard(
+    Map<String, dynamic> offer,
+    ColorScheme colors,
+    bool isDark, {
+    bool isExpired = false,
   }) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Stack(
-          children: [
-            if (showBadge)
-              Positioned(
-                top: -4,
-                right: -4,
-                child: Container(
-                  width: 16,
-                  height: 16,
-                  decoration: const BoxDecoration(
-                    color: _errorColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            Column(
-              children: [
-                Icon(icon, color: _onPrimary, size: 28),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: _onPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: _onPrimary.withOpacity(0.8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilters() {
-    final filters = [
-      {'key': 'all', 'label': 'الكل', 'count': _offers.length},
-      {
-        'key': 'pending',
-        'label': 'جديد',
-        'count': _offers
-            .expand((offer) => _requests(offer))
-            .where((r) => r['status'] == 'pending')
-            .length
-      },
-      {
-        'key': 'accepted',
-        'label': 'مقبول',
-        'count': _offers
-            .expand((offer) => _requests(offer))
-            .where((r) => r['status'] == 'accepted')
-            .length
-      },
-      {'key': 'completed', 'label': 'مكتمل', 'count': 0},
-      {'key': 'rejected', 'label': 'مرفوض', 'count': 0},
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: filters.map((filter) {
-          final isSelected = _filter == filter['key'];
-          final count = filter['count'] as int;
-          return Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: GestureDetector(
-              onTap: () => setState(() => _filter = filter['key'] as String),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? _primary : _surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(9999),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: _primary.withOpacity(0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      filter['label'] as String,
-                      style: TextStyle(
-                        color: isSelected ? _onPrimary : _onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (count > 0) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Colors.white.withOpacity(0.2)
-                              : _primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(9999),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: TextStyle(
-                            color: isSelected ? _onPrimary : _primary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildOfferCard(Map<String, dynamic> offer) {
-    final requests = _requests(offer);
-    final totalRequests = requests.length;
-    final pending = requests.where((r) => r['status'] == 'pending').length;
-    final accepted = requests.where((r) => r['status'] == 'accepted').length;
-    final completed = requests.where((r) => r['status'] == 'completed').length;
-    final rejected = requests.where((r) => r['status'] == 'rejected').length;
-
     final images = offer['images'] as List? ?? [];
     final image = images.isNotEmpty
         ? images.first.toString()
         : (offer['image']?.toString() ?? '');
-
     final title = (offer['title'] ?? 'عرض مجتمعي').toString();
+    final description = (offer['description'] ?? '').toString();
+    final price = (offer['price'] as num?)?.toDouble() ?? 0;
+    final category = (offer['category'] ?? 'أخرى').toString();
+    final itemCondition = (offer['item_condition'] ?? 'good').toString();
+    final quantity = (offer['quantity'] as num?)?.toInt() ?? 1;
     final status = (offer['status'] ?? 'available').toString();
     final createdAt = offer['created_at']?.toString() ?? '';
+    final pickupLocation = (offer['pickup_location'] ?? '').toString();
+    final offerId = offer['id'].toString();
+    final busy = _busyOfferId == offerId;
+
+    final expiresAt = _parseDate(offer['expires_at']);
+
+    // ✅ هل العرض "تم البيع" (completed)؟
+    final isCompleted = status.toLowerCase() == 'completed';
+
+    const editColor = Color(0xFF3679C8);
+    const completeColor = Color(0xFF0B9B63);
+    const renewColor = Color(0xFFE28B00);
+    final deleteColor = colors.error;
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => OfferDetailsMyOffersPage(
-              offer: offer,
-              onOfferUpdated: () {
-                _load();
-              },
-            ),
+            builder: (_) => CommunityOfferDetailsPage(offer: offer),
           ),
         );
       },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: _surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: _primaryContainer.withOpacity(0.04),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
+      child: Opacity(
+        opacity: isExpired && !busy ? 0.92 : 1,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1D1D1D) : Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : colors.outlineVariant.withValues(alpha: 0.5),
             ),
-          ],
-          border: Border.all(color: _surfaceVariant),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        color: _secondaryContainer,
-                        child: image.isNotEmpty
-                            ? Image.network(
-                                image,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                  Icons.checkroom_rounded,
-                                  color: _primaryContainer,
-                                  size: 32,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ✅ الصورة + شارات فوقها
+              Stack(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 150,
+                    child: image.isNotEmpty
+                        ? Image.network(
+                            image,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                color: colors.primary.withValues(alpha: 0.08),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: colors.primary,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
                                 ),
-                              )
-                            : const Icon(
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: colors.primary.withValues(alpha: 0.08),
+                              child: Icon(
                                 Icons.checkroom_rounded,
-                                color: _primaryContainer,
-                                size: 32,
+                                color: colors.primary,
+                                size: 34,
                               ),
+                            ),
+                          )
+                        : Container(
+                            color: colors.primary.withValues(alpha: 0.08),
+                            child: Icon(
+                              Icons.checkroom_rounded,
+                              color: colors.primary,
+                              size: 34,
+                            ),
+                          ),
+                  ),
+
+                  // تظليل خفيف أسفل الصورة لوضوح الشارات
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.35),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
                     ),
+                  ),
+
+                  // شارة الحالة (أعلى يمين)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                _getStatusColor(status).withValues(alpha: 0.4),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _getStatusLabel(status),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // السعر (أعلى شمال)
+                  if (price > 0)
                     Positioned(
-                      bottom: -4,
-                      left: -4,
+                      top: 10,
+                      left: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(status),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.15),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
-                          _getStatusLabel(status),
-                          style: const TextStyle(
-                            color: _onPrimary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                          '$price ج.م',
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _onSurface,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+
+                  // المدة المتبقية (أسفل يمين على الصورة)
+                  Positioned(
+                    bottom: 8,
+                    right: 10,
+                    child: OfferExpiryHelper.buildBadge(
+                      expiresAt: expiresAt,
+                      compact: true,
+                    ),
+                  ),
+                ],
+              ),
+
+              // ✅ محتوى الكارت
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // العنوان + الوقت
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.3,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.schedule_rounded,
-                            size: 14,
-                            color: _onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDate(createdAt),
-                            style: const TextStyle(
-                              color: _onSurfaceVariant,
-                              fontSize: 11,
+                        const SizedBox(width: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.schedule_rounded,
+                              size: 12,
+                              color: colors.onSurfaceVariant,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            width: 3,
-                            height: 3,
-                            decoration: const BoxDecoration(
-                              color: _outlineVariant,
-                              shape: BoxShape.circle,
+                            const SizedBox(width: 3),
+                            Text(
+                              _formatDate(createdAt),
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 10,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$totalRequests طلب',
-                            style: const TextStyle(
-                              color: _onSurfaceVariant,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // ✅ إحصائيات الطلبات
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (pending > 0)
-                            _buildStatBadge(
-                                '⏳ جديد', pending, const Color(0xFFB36B12)),
-                          if (accepted > 0)
-                            _buildStatBadge(
-                                '✅ مقبول', accepted, const Color(0xFF3679C8)),
-                          if (completed > 0)
-                            _buildStatBadge('🎉 مكتمل', completed, _primary),
-                          if (rejected > 0)
-                            _buildStatBadge('❌ مرفوض', rejected, _errorColor),
-                        ],
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11.5,
+                          height: 1.3,
+                        ),
                       ),
                     ],
-                  ),
-                ),
-              ],
-            ),
-            if (requests.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Divider(color: _surfaceVariant, height: 1),
-              const SizedBox(height: 8),
-              // ✅ عرض الطلبات بشكل أنيق
-              ...requests.take(2).map((request) => _buildRequestTile(request)),
-              if (requests.length > 2)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: TextButton(
-                    onPressed: () {
-                      // TODO: فتح صفحة كل الطلبات
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('📋 عرض كل الطلبات'),
-                          behavior: SnackBarBehavior.floating,
+
+                    const SizedBox(height: 10),
+
+                    // ✅ التصنيف + الحالة + الكمية
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildTag(
+                          category,
+                          colors.primary,
+                          colors.primary.withValues(alpha: 0.08),
                         ),
-                      );
-                    },
-                    child: Text(
-                      'عرض جميع الطلبات (${requests.length})',
-                      style: const TextStyle(
-                        color: _primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatBadge(String label, int count, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Text(
-            '$count',
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRequestTile(Map<String, dynamic> request) {
-    final status = (request['status'] ?? 'pending').toString();
-    final requester = request['requester'] as Map? ?? {};
-    final name = requester['name']?.toString() ?? 'مستخدم';
-    final avatar = requester['avatar_url']?.toString() ?? '';
-    final requestId = request['id'].toString();
-    final busy = _busyRequestId == requestId;
-    final isPending = status == 'pending';
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => UserProfilePage(
-              userId: request['user_id']?.toString() ?? '',
-              userName: name,
-              userAvatar: avatar,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: _surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                isPending ? const Color(0xFFFFF0DA) : const Color(0xFFE8EEE9),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => UserProfilePage(
-                      userId: request['user_id']?.toString() ?? '',
-                      userName: name,
-                      userAvatar: avatar,
-                    ),
-                  ),
-                );
-              },
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: _secondaryContainer,
-                backgroundImage:
-                    avatar.isNotEmpty ? NetworkImage(avatar) : null,
-                child: avatar.isEmpty
-                    ? const Icon(
-                        Icons.person_outline_rounded,
-                        color: _primaryContainer,
-                        size: 18,
-                      )
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          color: _onSurface,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                        _buildTag(
+                          _getConditionLabel(itemCondition),
+                          colors.onSurfaceVariant,
+                          colors.onSurfaceVariant.withValues(alpha: 0.08),
                         ),
-                      ),
-                      if (isPending) ...[
+                        _buildTag(
+                          'الكمية: $quantity',
+                          const Color(0xFFB5690A),
+                          const Color(0xFFB5690A).withValues(alpha: 0.08),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ✅ مكان الاستلام
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 13,
+                          color: colors.onSurfaceVariant,
+                        ),
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF0DA),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'جديد',
+                        Expanded(
+                          child: Text(
+                            pickupLocation.isEmpty
+                                ? 'مكان الاستلام غير محدد'
+                                : pickupLocation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Color(0xFFB36B12),
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
+                              color: colors.onSurfaceVariant,
+                              fontSize: 11,
                             ),
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Icon(
-                        isPending
-                            ? Icons.auto_awesome_rounded
-                            : Icons.schedule_rounded,
-                        size: 12,
-                        color:
-                            isPending ? _primaryContainer : _onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        isPending ? 'طلب جديد' : _getStatusLabel(status),
-                        style: TextStyle(
-                          color: isPending ? _primary : _onSurfaceVariant,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            if (isPending) ...[
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: busy
-                        ? null
-                        : () => _changeStatus(requestId, 'accepted'),
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        color: _primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: busy
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: _onPrimary,
+
+              // ✅ خط فاصل خفيف قبل شريط الأزرار
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : colors.outlineVariant.withValues(alpha: 0.5),
+              ),
+
+              // ✅ شريط الأزرار
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: busy
+                    ? const SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    : Row(
+                        children: [
+                          // ══════════════════════════════════════
+                          // ✅ عرض نشط → تم البيع + تعديل + حذف
+                          // ══════════════════════════════════════
+                          if (!isExpired) ...[
+                            Expanded(
+                              child: _buildActionButton(
+                                label: 'تم البيع',
+                                icon: Icons.check_circle_rounded,
+                                color: completeColor,
+                                onTap: () => _markAsCompleted(offer),
                               ),
-                            )
-                          : const Icon(
-                              Icons.check_rounded,
-                              color: _onPrimary,
-                              size: 16,
                             ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: busy ? null : () => _confirmReject(requestId),
-                    child: Container(
-                      width: 30,
-                      height: 30,
-                      decoration: const BoxDecoration(
-                        color: _errorContainer,
-                        shape: BoxShape.circle,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildActionButton(
+                                label: 'تعديل',
+                                icon: Icons.edit_rounded,
+                                color: editColor,
+                                onTap: () => _editOffer(offer),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildIconOnlyButton(
+                              icon: Icons.delete_rounded,
+                              color: deleteColor,
+                              onTap: () => _deleteOffer(offerId),
+                              tooltip: 'إلغاء العرض',
+                            ),
+                          ]
+
+                          // ══════════════════════════════════════
+                          // ✅ عرض منتهي (expired) → تجديد + حذف
+                          // ══════════════════════════════════════
+                          else if (!isCompleted) ...[
+                            Expanded(
+                              child: _buildActionButton(
+                                label: 'تجديد',
+                                icon: Icons.refresh_rounded,
+                                color: renewColor,
+                                onTap: () => _renewOffer(offer),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildIconOnlyButton(
+                              icon: Icons.delete_rounded,
+                              color: deleteColor,
+                              onTap: () => _deleteOffer(offerId),
+                              tooltip: 'إلغاء العرض',
+                            ),
+                          ]
+
+                          // ══════════════════════════════════════
+                          // ✅ عرض مبيع (completed) → حذف بس (بعرض كامل)
+                          // ══════════════════════════════════════
+                          else ...[
+                            Expanded(
+                              child: _buildActionButton(
+                                label: 'حذف العرض',
+                                icon: Icons.delete_rounded,
+                                color: deleteColor,
+                                onTap: () => _deleteOffer(offerId),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        color: _onErrorContainer,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: _surface,
-        boxShadow: [
-          BoxShadow(
-            color: _primaryContainer.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(Icons.home_rounded, 'الرئيسية', false),
-          _buildNavItem(Icons.local_offer_rounded, 'عروضي', true),
-          _buildNavItem(Icons.chat_bubble_outline_rounded, 'المحادثات', false),
-          _buildNavItem(Icons.person_outline_rounded, 'حسابي', false),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isSelected) {
-    return GestureDetector(
-      onTap: () {},
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? _secondaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(9999),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? _onSecondaryContainer : _onSurfaceVariant,
-              size: 24,
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? _onSecondaryContainer : _onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+  // ============================================================
+  // TAG (شارة صغيرة للتصنيف/الحالة/الكمية)
+  // ============================================================
+
+  Widget _buildTag(String text, Color foreground, Color background) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
   }
+
+  // ============================================================
+  // زر إجراء رئيسي (بخلفية لونية + أيقونة + نص)
+  // ============================================================
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 17),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // زر إجراء بأيقونة فقط (مربّع)
+  // ============================================================
+
+  Widget _buildIconOnlyButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    String? tooltip,
+  }) {
+    final button = Material(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+      ),
+    );
+
+    if (tooltip == null) return button;
+    return Tooltip(message: tooltip, child: button);
+  }
+
+  // ============================================================
+  // EMPTY STATE
+  // ============================================================
 
   Widget _buildEmptyState({
     required IconData icon,
@@ -1120,6 +1301,8 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
+    final colors = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1129,18 +1312,18 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _secondaryContainer,
+                color: colors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: _primaryContainer, size: 48),
+              child: Icon(icon, color: colors.primary, size: 48),
             ),
             const SizedBox(height: 20),
             Text(
               title,
-              style: const TextStyle(
-                color: _onSurface,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
             ),
             if (subtitle != null) ...[
@@ -1148,9 +1331,9 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _onSurfaceVariant,
-                  fontSize: 14,
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -1159,12 +1342,10 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
               FilledButton(
                 onPressed: onAction,
                 style: FilledButton.styleFrom(
-                  backgroundColor: _primaryContainer,
+                  backgroundColor: colors.primary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(9999),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
                 child: Text(actionLabel),
               ),
@@ -1175,18 +1356,49 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     );
   }
 
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    if (text.isEmpty || text == 'null') return null;
+    return DateTime.tryParse(text);
+  }
+
   String _formatDate(String date) {
     if (date.isEmpty) return '--';
+
     try {
       final parsed = DateTime.parse(date);
       final now = DateTime.now();
       final diff = now.difference(parsed);
+
       if (diff.inDays > 0) return 'منذ ${diff.inDays} يوم';
       if (diff.inHours > 0) return 'منذ ${diff.inHours} ساعة';
       if (diff.inMinutes > 0) return 'منذ ${diff.inMinutes} دقيقة';
+
       return 'الآن';
     } catch (_) {
       return date.substring(0, 10);
+    }
+  }
+
+  String _getConditionLabel(String condition) {
+    switch (condition) {
+      case 'new':
+        return 'جديد';
+      case 'very_good':
+        return 'ممتاز';
+      case 'good':
+        return 'جيد';
+      case 'needs_repair':
+        return 'يحتاج إصلاح';
+      case 'used':
+        return 'مستعمل';
+      default:
+        return 'غير محدد';
     }
   }
 
@@ -1194,41 +1406,57 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage> {
     switch (status) {
       case 'available':
         return 'متاح';
+      case 'active':
+        return 'نشط';
+      case 'sold':
+        return 'تم البيع';
       case 'pending':
-        return 'جديد';
+        return 'في الانتظار';
       case 'accepted':
         return 'مقبول';
       case 'completed':
-        return 'مكتمل';
+        return 'تم البيع';
       case 'rejected':
         return 'مرفوض';
       case 'ready_for_pickup':
         return 'جاهز';
       case 'picked_up':
         return 'تم الاستلام';
+      case 'cancelled':
+        return 'ملغي';
+      case 'expired':
+        return 'منتهي';
       default:
         return 'متاح';
     }
   }
 
   Color _getStatusColor(String status) {
+    final colors = Theme.of(context).colorScheme;
+
     switch (status) {
       case 'available':
-        return _primaryContainer;
+      case 'active':
+        return colors.primary;
+      case 'sold':
+      case 'completed':
+        return const Color(0xFF0B7650);
       case 'pending':
-        return const Color(0xFFB36B12);
+        return const Color(0xFFE28B00);
       case 'accepted':
         return const Color(0xFF3679C8);
-      case 'completed':
-        return _primary;
       case 'rejected':
-        return _errorColor;
+        return colors.error;
       case 'ready_for_pickup':
-        return const Color(0xFF0B7650);
+        return colors.primary;
       case 'picked_up':
         return const Color(0xFF6651B5);
+      case 'cancelled':
+        return colors.error;
+      case 'expired':
+        return const Color(0xFF71837C);
       default:
-        return _primaryContainer;
+        return colors.primary;
     }
   }
 }

@@ -1,7 +1,7 @@
 // lib/features/charity/presentation/pages/volunteer_donation_detail_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // ✅ أضفنا الاستيراد عشان Clipboard
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +30,7 @@ class _VolunteerDonationDetailPageState
   bool _changed = false;
   late String _status;
   String _charityCode = '';
+  bool _isCodeGenerated = false; // ✅ متغير جديد
 
   final TextEditingController _codeController = TextEditingController();
 
@@ -45,7 +46,10 @@ class _VolunteerDonationDetailPageState
   Future<void> _loadCharityCode() async {
     try {
       final code = await _repository.getCharityPickupCode(_donationId);
-      setState(() => _charityCode = code);
+      setState(() {
+        _charityCode = code;
+        _isCodeGenerated = code.isNotEmpty;
+      });
     } catch (e) {
       debugPrint('❌ Error loading charity code: $e');
     }
@@ -265,15 +269,23 @@ class _VolunteerDonationDetailPageState
     }
   }
 
-  // ✅ زرار 3: إنشاء كود الجمعية
+  // ✅ زرار 3: إنشاء كود الجمعية (مرة واحدة فقط)
   Future<void> _generateCharityCode() async {
     if (_isLoading) return;
+
+    // ✅ لو الكود موجود بالفعل، نعرضه بدل ما نعمل كود جديد
+    if (_isCodeGenerated && _charityCode.isNotEmpty) {
+      _showCharityCode();
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final code = await _repository.generateCharityPickupCode(_donationId);
       if (!mounted) return;
       setState(() {
         _charityCode = code;
+        _isCodeGenerated = true;
         _status = 'in_transit';
         _changed = true;
         _isLoading = false;
@@ -290,6 +302,11 @@ class _VolunteerDonationDetailPageState
 
   // ✅ زرار 4: عرض كود الجمعية
   void _showCharityCode() {
+    if (_charityCode.isEmpty) {
+      _toast('لا يوجد كود لعرضه حتى الآن', error: true);
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -697,9 +714,15 @@ class _VolunteerDonationDetailPageState
             _green,
           ),
           const SizedBox(height: 12),
-          _actionButton('🏢 إنشاء كود الجمعية', Icons.business_center_rounded,
-              _generateCharityCode,
-              color: const Color(0xFF3679C8)),
+          // ✅ لو الكود موجود بالفعل، اعرضه بدل ما تعمل كود جديد
+          if (_isCodeGenerated && _charityCode.isNotEmpty)
+            _actionButton(
+                '📋 عرض كود الجمعية', Icons.qr_code_rounded, _showCharityCode,
+                color: _orange)
+          else
+            _actionButton('🏢 إنشاء كود الجمعية', Icons.business_center_rounded,
+                _generateCharityCode,
+                color: const Color(0xFF3679C8)),
         ],
       );
     }
@@ -735,10 +758,10 @@ class _VolunteerDonationDetailPageState
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFBFE7CE)),
         ),
-        child: Row(children: [
-          const Icon(Icons.celebration_rounded, color: _green, size: 30),
-          const SizedBox(width: 12),
-          const Expanded(
+        child: const Row(children: [
+          Icon(Icons.celebration_rounded, color: _green, size: 30),
+          SizedBox(width: 12),
+          Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('🎉 تم التوصيل بنجاح!',

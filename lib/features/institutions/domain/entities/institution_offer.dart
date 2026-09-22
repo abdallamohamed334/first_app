@@ -1,5 +1,6 @@
 // lib/features/institutions/domain/entities/institution_offer.dart
 
+import 'dart:convert';
 import 'dart:ui';
 
 class InstitutionOffer {
@@ -23,7 +24,7 @@ class InstitutionOffer {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  // ✅ حقول إضافية من institution_offers
+  // حقول إضافية
   final String? foodType;
   final bool? isHalal;
   final bool? isVegetarian;
@@ -33,6 +34,9 @@ class InstitutionOffer {
   final String? contactPhone;
   final String? pickupTime;
   final DateTime? deletedAt;
+
+  // ✅ جديد — تصنيف السوق (المطاعم / البقالة ... إلخ)
+  final String? marketplaceCategoryId;
 
   const InstitutionOffer({
     required this.id,
@@ -54,7 +58,6 @@ class InstitutionOffer {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
-    // ✅ حقول إضافية
     this.foodType,
     this.isHalal,
     this.isVegetarian,
@@ -64,14 +67,58 @@ class InstitutionOffer {
     this.contactPhone,
     this.pickupTime,
     this.deletedAt,
+    this.marketplaceCategoryId, // ✅ جديد
   });
 
+  // ✅ Getters للصلاحية
   bool get isExpired => DateTime.now().toUtc().isAfter(expiresAt.toUtc());
   bool get isSoldOut => remainingQuantity <= 0 || status == 'sold_out';
   bool get isActive => status == 'active' && !isExpired && !isSoldOut;
   String? get firstImage => images.isEmpty ? null : images.first;
 
-  // ✅ دالة للحصول على حالة المنتج بالعربي
+  // ✅ isUrgent - العرض عاجل إذا كان باقي أقل من ساعتين
+  bool get isUrgent {
+    final now = DateTime.now().toUtc();
+    final diff = expiresAt.toUtc().difference(now);
+    return isActive && diff.inHours <= 2 && diff.inHours >= 0;
+  }
+
+  // ✅ الوقت المتبقي
+  String get timeRemaining {
+    final now = DateTime.now().toUtc();
+    final diff = expiresAt.toUtc().difference(now);
+
+    if (diff.inDays > 0) {
+      return '${diff.inDays} يوم';
+    } else if (diff.inHours > 0) {
+      return '${diff.inHours} ساعة';
+    } else if (diff.inMinutes > 0) {
+      return '${diff.inMinutes} دقيقة';
+    } else {
+      return 'انتهى';
+    }
+  }
+
+  // ✅ حالة العرض بالعربي
+  String get statusDisplay {
+    if (isExpired) return 'انتهى العرض';
+    switch (status) {
+      case 'active':
+        return 'متاح';
+      case 'reserved':
+        return 'محجوز';
+      case 'sold_out':
+        return 'نفد';
+      case 'completed':
+        return 'مكتمل';
+      case 'cancelled':
+        return 'ملغي';
+      default:
+        return status;
+    }
+  }
+
+  // ✅ حالة المنتج بالعربي
   String get conditionLabel {
     switch (foodCondition) {
       case 'new':
@@ -87,7 +134,6 @@ class InstitutionOffer {
     }
   }
 
-  // ✅ دالة للحصول على لون حالة المنتج
   Color get conditionColor {
     switch (foodCondition) {
       case 'new':
@@ -114,6 +160,22 @@ class InstitutionOffer {
     final expiresAt = _date(json['expires_at']) ?? DateTime.now().toUtc();
     final createdAt = _date(json['created_at']) ?? DateTime.now().toUtc();
 
+    // ✅ استخراج الصور من الحقل images
+    List<String> images = [];
+    final imagesData = json['images'];
+    if (imagesData is List) {
+      images = List<String>.from(imagesData);
+    } else if (imagesData is String && imagesData.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(imagesData);
+        if (decoded is List) {
+          images = List<String>.from(decoded);
+        }
+      } catch (_) {
+        images = [imagesData];
+      }
+    }
+
     return InstitutionOffer(
       id: _text(json['id']),
       institutionId: _text(json['institution_id']),
@@ -132,14 +194,13 @@ class InstitutionOffer {
           _int(json['remaining_quantity'], fallback: _int(json['quantity'])),
       symbolicPrice: _double(json['symbolic_price']),
       originalPrice: _nullableDouble(json['original_price']),
-      images: _stringList(json['images']),
+      images: images,
       pickupLocation: _nullableText(json['pickup_location']),
       expiresAt: expiresAt,
       pickupBefore: _date(json['pickup_before']),
       status: _text(json['status'], fallback: 'active'),
       createdAt: createdAt,
       updatedAt: _date(json['updated_at']) ?? createdAt,
-      // ✅ حقول إضافية
       foodType: _nullableText(json['food_type']),
       isHalal: json['is_halal'] as bool?,
       isVegetarian: json['is_vegetarian'] as bool?,
@@ -151,6 +212,8 @@ class InstitutionOffer {
       deletedAt: json['deleted_at'] != null
           ? DateTime.tryParse(json['deleted_at'].toString())
           : null,
+      // ✅ جديد
+      marketplaceCategoryId: _nullableText(json['marketplace_category_id']),
     );
   }
 
@@ -172,7 +235,6 @@ class InstitutionOffer {
       'status': status,
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
-      // ✅ حقول إضافية
       'food_type': foodType,
       'is_halal': isHalal,
       'is_vegetarian': isVegetarian,
@@ -182,10 +244,10 @@ class InstitutionOffer {
       'contact_phone': contactPhone,
       'pickup_time': pickupTime,
       'deleted_at': deletedAt?.toUtc().toIso8601String(),
+      'marketplace_category_id': marketplaceCategoryId, // ✅ جديد
     };
   }
 
-  // ✅ دالة لنسخ الكائن مع تحديث بعض الحقول
   InstitutionOffer copyWith({
     String? id,
     String? institutionId,
@@ -215,6 +277,7 @@ class InstitutionOffer {
     String? contactPhone,
     String? pickupTime,
     DateTime? deletedAt,
+    String? marketplaceCategoryId, // ✅ جديد
   }) {
     return InstitutionOffer(
       id: id ?? this.id,
@@ -246,6 +309,8 @@ class InstitutionOffer {
       contactPhone: contactPhone ?? this.contactPhone,
       pickupTime: pickupTime ?? this.pickupTime,
       deletedAt: deletedAt ?? this.deletedAt,
+      marketplaceCategoryId:
+          marketplaceCategoryId ?? this.marketplaceCategoryId, // ✅ جديد
     );
   }
 
@@ -293,13 +358,5 @@ class InstitutionOffer {
     if (value is DateTime) return value;
     final text = value?.toString().trim() ?? '';
     return text.isEmpty ? null : DateTime.tryParse(text);
-  }
-
-  static List<String> _stringList(dynamic value) {
-    if (value is! List) return const <String>[];
-    return value
-        .map((item) => item?.toString().trim() ?? '')
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
   }
 }

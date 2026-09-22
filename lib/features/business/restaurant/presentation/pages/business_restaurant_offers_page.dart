@@ -133,7 +133,7 @@ class _BusinessRestaurantOffersPageState
             children: [
               Icon(Icons.restaurant_rounded, color: green, size: 22),
               SizedBox(width: 8),
-              Text('لقمة',
+              Text('جُود',
                   style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
             ],
           ),

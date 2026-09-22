@@ -40,8 +40,9 @@ class _OpenVolunteerDonationsHomeSectionState
     if (text.contains('طرف آخر') || text.contains('تم قبول')) {
       return 'للأسف حد سبقك لهذا التبرع';
     }
-    if (text.contains('يجب تسجيل الدخول'))
+    if (text.contains('يجب تسجيل الدخول')) {
       return 'سجّل الدخول أولًا عشان توصّل تبرع';
+    }
     return 'تعذر تنفيذ الإجراء الآن، حاول مرة أخرى';
   }
 
@@ -104,11 +105,11 @@ class _OpenVolunteerDonationsHomeSectionState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(children: [
-                          const Icon(Icons.volunteer_activism_rounded,
+                        const Row(children: [
+                          Icon(Icons.volunteer_activism_rounded,
                               color: Color(0xFFE28B00), size: 22),
-                          const SizedBox(width: 5),
-                          const Text('تبرعات محتاجة توصيل',
+                          SizedBox(width: 5),
+                          Text('تبرعات محتاجة توصيل',
                               style: TextStyle(
                                   color: _darkGreen,
                                   fontSize: 18,

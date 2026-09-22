@@ -253,7 +253,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Text(
-                'Loqma',
+                'loqma',
                 style: TextStyle(
                   color: _ink,
                   fontSize: 16,
@@ -428,5 +428,3 @@ class _LogoMark extends StatelessWidget {
     );
   }
 }
-
-

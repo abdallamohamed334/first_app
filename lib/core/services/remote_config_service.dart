@@ -1,13 +1,13 @@
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized, typed access to Loqma Remote Config values.
+/// Centralized, typed access to loqma Remote Config values.
 ///
 /// Remote Config changes presentation and rollout behavior only. It must not
 /// be used as a security boundary; Supabase RLS and server-side RPCs remain the
 /// source of truth for permissions, inventory, and status transitions.
-class LoqmaRemoteConfig {
-  LoqmaRemoteConfig({FirebaseRemoteConfig? remoteConfig})
+class loqmaRemoteConfig {
+  loqmaRemoteConfig({FirebaseRemoteConfig? remoteConfig})
       : _remoteConfig = remoteConfig ?? FirebaseRemoteConfig.instance;
 
   final FirebaseRemoteConfig _remoteConfig;

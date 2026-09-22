@@ -13,17 +13,17 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   final SupabaseService _supabaseService;
   final StorageService _storageService;
   final AuthService _authService;
-  final LoqmaCrashlytics _crashlytics;
+  final loqmaCrashlytics _crashlytics;
 
   ProfileBloc({
     SupabaseService? supabaseService,
     StorageService? storageService,
     AuthService? authService,
-    LoqmaCrashlytics? crashlytics,
+    loqmaCrashlytics? crashlytics,
   })  : _supabaseService = supabaseService ?? SupabaseService(),
         _storageService = storageService ?? StorageService.instance,
         _authService = authService ?? AuthService(),
-        _crashlytics = crashlytics ?? LoqmaCrashlytics(),
+        _crashlytics = crashlytics ?? loqmaCrashlytics(),
         super(const ProfileInitial()) {
     on<ProfileStarted>(_onStarted);
     on<ProfileUpdateUser>(_onUpdateUser);

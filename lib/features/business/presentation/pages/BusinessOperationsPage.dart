@@ -510,7 +510,7 @@ class _BusinessOperationsPageState extends State<BusinessOperationsPage> {
                     style: const TextStyle(
                         color: darkGreen, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                Text(request['requester_name']?.toString() ?? 'مستخدم Loqma',
+                Text(request['requester_name']?.toString() ?? 'مستخدم loqma',
                     style: const TextStyle(
                         color: Color(0xFF71837C), fontSize: 12)),
                 const SizedBox(height: 4),

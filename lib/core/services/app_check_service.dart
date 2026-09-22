@@ -4,9 +4,9 @@ import 'package:flutter/foundation.dart';
 /// Configures Firebase App Check without breaking local development.
 ///
 /// App Check protects Firebase-backed services. Supabase RLS, RPC ownership,
-/// and server-side authorization remain responsible for Loqma business data.
-class LoqmaAppCheck {
-  LoqmaAppCheck({FirebaseAppCheck? appCheck})
+/// and server-side authorization remain responsible for loqma business data.
+class loqmaAppCheck {
+  loqmaAppCheck({FirebaseAppCheck? appCheck})
       : _appCheck = appCheck ?? FirebaseAppCheck.instance;
 
   final FirebaseAppCheck _appCheck;

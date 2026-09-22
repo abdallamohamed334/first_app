@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/core/services/auth_identity_resolver.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loqma/routes/app_router.dart';
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_donation_requests_page.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_workspace_page.dart';
-import 'package:loqma/features/home/presentation/bloc/home_bloc.dart';
-import 'package:loqma/features/home/presentation/pages/home_page.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_page.dart';
 
 class CharityDetailsPage extends StatefulWidget {
   final Map<String, dynamic> charity;
@@ -296,7 +290,7 @@ class _CharityDetailsPageState extends State<CharityDetailsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'جمعية موثوقة على لقمة',
+                          'جمعية موثوقة على جُود',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 12,

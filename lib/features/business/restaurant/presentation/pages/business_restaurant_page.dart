@@ -101,7 +101,7 @@ class _BusinessRestaurantPageState extends State<BusinessRestaurantPage> {
                 const SizedBox(height: 14),
                 Text('العرض: ${request['offer_title'] ?? 'غير محدد'}'),
                 Text(
-                    'المستخدم: ${request['requester_name'] ?? 'مستخدم Loqma'}'),
+                    'المستخدم: ${request['requester_name'] ?? 'مستخدم loqma'}'),
                 Text('الحالة: ${_status(status)}'),
                 if (request['quantity'] != null)
                   Text('الكمية: ${request['quantity']}'),
@@ -215,7 +215,7 @@ class _BusinessRestaurantPageState extends State<BusinessRestaurantPage> {
           surfaceTintColor: Colors.white,
           title: const Row(
             children: [
-              Text('لقمة',
+              Text('جُود',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
               SizedBox(width: 6),
               Icon(Icons.verified_rounded, color: green, size: 19),
@@ -963,7 +963,7 @@ class _BusinessRestaurantPageState extends State<BusinessRestaurantPage> {
                     style: const TextStyle(
                         color: darkGreen, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 4),
-                Text(request['requester_name']?.toString() ?? 'مستخدم Loqma',
+                Text(request['requester_name']?.toString() ?? 'مستخدم loqma',
                     style: const TextStyle(
                         color: Color(0xFF71837C), fontSize: 12)),
                 const SizedBox(height: 4),

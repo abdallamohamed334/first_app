@@ -3,6 +3,7 @@ import 'package:loqma/core/models/community_stats.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/offers/domain/entities/offer_request_status.dart';
+import 'package:loqma/features/institutions/domain/entities/institution_offer.dart'; // ✅ أضف الـ import
 
 abstract class HomeState extends Equatable {
   const HomeState();
@@ -23,6 +24,7 @@ class HomeLoaded extends HomeState {
   final UserModel user;
   final UserStats stats;
   final List<FoodOffer> offers;
+  final List<InstitutionOffer> institutionOffers; // ✅ أضف ده
   final CommunityStats communityStats;
   final Map<String, OfferRequestStatus> offerRequestStatuses;
   final int currentIndex;
@@ -31,6 +33,7 @@ class HomeLoaded extends HomeState {
     required this.user,
     required this.stats,
     required this.offers,
+    required this.institutionOffers, // ✅ أضف ده
     required this.communityStats,
     this.offerRequestStatuses = const <String, OfferRequestStatus>{},
     this.currentIndex = 0,
@@ -40,6 +43,7 @@ class HomeLoaded extends HomeState {
     UserModel? user,
     UserStats? stats,
     List<FoodOffer>? offers,
+    List<InstitutionOffer>? institutionOffers, // ✅ أضف ده
     CommunityStats? communityStats,
     Map<String, OfferRequestStatus>? offerRequestStatuses,
     int? currentIndex,
@@ -48,6 +52,8 @@ class HomeLoaded extends HomeState {
       user: user ?? this.user,
       stats: stats ?? this.stats,
       offers: offers ?? this.offers,
+      institutionOffers:
+          institutionOffers ?? this.institutionOffers, // ✅ أضف ده
       communityStats: communityStats ?? this.communityStats,
       offerRequestStatuses: offerRequestStatuses ?? this.offerRequestStatuses,
       currentIndex: currentIndex ?? this.currentIndex,
@@ -59,6 +65,7 @@ class HomeLoaded extends HomeState {
         user,
         stats,
         offers,
+        institutionOffers, // ✅ أضف ده
         communityStats,
         offerRequestStatuses,
         currentIndex,

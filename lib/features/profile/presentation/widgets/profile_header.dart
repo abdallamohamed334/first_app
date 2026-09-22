@@ -20,7 +20,7 @@ class ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final name = user.name.trim().isEmpty ? 'مستخدم Loqma' : user.name.trim();
+    final name = user.name.trim().isEmpty ? 'مستخدم loqma' : user.name.trim();
     final initial = name.substring(0, 1).toUpperCase();
 
     return Column(

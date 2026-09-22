@@ -1,3 +1,5 @@
+// lib/features/volunteer/presentation/widgets/volunteer_podium.dart
+
 import 'package:flutter/material.dart';
 import '../models/volunteer_model.dart';
 
@@ -16,6 +18,7 @@ class VolunteerPodium extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
@@ -70,7 +73,8 @@ class VolunteerPodium extends StatelessWidget {
                     volunteer: top2!,
                     rank: 2,
                     height: 120,
-                    color: Colors.grey.shade400,
+                    color:
+                        isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade400,
                     colorScheme: colorScheme,
                   ),
                 // ✅ المركز الأول
@@ -90,7 +94,9 @@ class VolunteerPodium extends StatelessWidget {
                     volunteer: top3!,
                     rank: 3,
                     height: 100,
-                    color: Colors.brown.shade300,
+                    color: isDark
+                        ? const Color(0xFFB08968)
+                        : Colors.brown.shade300,
                     colorScheme: colorScheme,
                   ),
               ],

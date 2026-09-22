@@ -4,224 +4,274 @@ import 'package:flutter/material.dart';
 
 import 'community_my_requests_page.dart';
 import 'community_my_charity_donations_page.dart';
-import 'community_my_offers_page.dart'; // ✅ استورد الصفحة الجديدة
+import 'community_my_offers_page.dart';
 import 'volunteer_donations_tracking_page.dart';
+import 'community_my_grocery_orders_page.dart';
 
-class CommunityTrackingPage extends StatelessWidget {
+class CommunityTrackingPage extends StatefulWidget {
   const CommunityTrackingPage({super.key});
 
-  static const _green = Color(0xFF0B7650);
-  static const _darkGreen = Color(0xFF123F31);
-  static const _background = Color(0xFFF6FAF8);
+  @override
+  State<CommunityTrackingPage> createState() => _CommunityTrackingPageState();
+}
 
-  void _open(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => page),
-    );
+class _CommunityTrackingPageState extends State<CommunityTrackingPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  // ───────── نفس هوية التطبيق ─────────
+  static const Color _bg = Color(0xFF0F0F0F);
+  static const Color _card = Color(0xFF1C1C1E);
+  static const Color _cardSoft = Color(0xFF2C2C2E);
+  static const Color _primaryRed = Color(0xFFE31C25);
+  static const Color _primaryRedDark = Color(0xFF8E0F14);
+  static const Color _textPrimary = Colors.white;
+  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static const Color _border = Color(0x14FFFFFF);
+
+  static const List<_TrackingTab> _tabs = [
+    _TrackingTab(
+      label: 'طلباتي',
+      icon: Icons.shopping_bag_rounded,
+      outlinedIcon: Icons.shopping_bag_outlined,
+    ),
+    _TrackingTab(
+      label: 'تبرعاتي',
+      icon: Icons.volunteer_activism_rounded,
+      outlinedIcon: Icons.volunteer_activism_outlined,
+    ),
+    _TrackingTab(
+      label: 'توصيلي',
+      icon: Icons.delivery_dining_rounded,
+      outlinedIcon: Icons.delivery_dining_outlined,
+    ),
+    _TrackingTab(
+      label: 'طلبات البقالة',
+      icon: Icons.storefront_rounded,
+      outlinedIcon: Icons.storefront_outlined,
+    ),
+    _TrackingTab(
+      label: 'عروضي',
+      icon: Icons.campaign_rounded,
+      outlinedIcon: Icons.campaign_outlined,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: _background,
-        appBar: AppBar(
-          title: const Text('متابعة الطلبات'),
-          centerTitle: true,
-          backgroundColor: _background,
-          foregroundColor: _darkGreen,
-          elevation: 0,
+      child: Theme(
+        data: ThemeData.dark().copyWith(
+          scaffoldBackgroundColor: _bg,
+          colorScheme: const ColorScheme.dark(
+            primary: _primaryRed,
+            surface: _bg,
+            onSurface: _textPrimary,
+          ),
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B7650), Color(0xFF2BAA76)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-                borderRadius: BorderRadius.circular(26),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x220B7650),
-                    blurRadius: 18,
-                    offset: Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: const Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'كل طلباتك في مكان واحد',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'تابع الطلبات التي قدمتها، وتبرعاتك للجمعيات، والطلبات الواردة على عروضك، وتبرعاتك كمتطوع.',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: 14),
-                  Icon(Icons.track_changes_rounded,
-                      color: Colors.white, size: 44),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            _TrackingCard(
-              icon: Icons.shopping_bag_outlined,
-              color: const Color(0xFF2F6DA5),
-              title: 'الطلبات التي قدمتها',
-              subtitle:
-                  'اعرف حالة طلبات الملابس والأثاث، واعرض كود الاستلام عند الجاهزية.',
-              onTap: () => _open(context, const CommunityMyRequestsPage()),
-            ),
-            const SizedBox(height: 14),
-            _TrackingCard(
-              icon: Icons.volunteer_activism_rounded,
-              color: const Color(0xFF8A5BB7),
-              title: 'تبرعاتي للجمعيات (كمتبرع)',
-              subtitle:
-                  'تابع الجمعيات التي اخترتها، وموعد التبرع، وحالة استلام التبرع.',
-              onTap: () =>
-                  _open(context, const CommunityMyCharityDonationsPage()),
-            ),
-            const SizedBox(height: 14),
-            // ✅ كارد: تبرعاتي كمتطوع
-            _TrackingCard(
-              icon: Icons.delivery_dining_rounded,
-              color: const Color(0xFFE28B00),
-              title: 'تبرعاتي كمتطوع',
-              subtitle:
-                  'تابع التبرعات التي وافقت على توصيلها، خط سير التبرع، وتواصل مع المتبرع.',
-              onTap: () =>
-                  _open(context, const VolunteerDonationsTrackingPage()),
-            ),
-            const SizedBox(height: 14),
-            // ✅ كارد: العروض التي نشرتها - يفتح الصفحة الجديدة
-            _TrackingCard(
-              icon: Icons.campaign_outlined,
-              color: _green,
-              title: 'العروض التي نشرتها',
-              subtitle:
-                  'شاهد طلبات عروضك، افتح تفاصيلها، واقبل أو ارفض ثم جهّز الطلب للتسليم.',
-              onTap: () =>
-                  _open(context, const CommunityMyOffersPage()), // ✅ تغيير هنا
-            ),
-          ],
+        child: Scaffold(
+          backgroundColor: _bg,
+          appBar: _buildAppBar(),
+          body: TabBarView(
+            controller: _tabController,
+            physics: const BouncingScrollPhysics(),
+            children: const [
+              CommunityMyRequestsPage(),
+              CommunityMyCharityDonationsPage(),
+              VolunteerDonationsTrackingPage(),
+              CommunityMyGroceryOrdersPage(),
+              CommunityMyOffersPage(),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ AppBar حديث
+  // ═══════════════════════════════════════════════════════════
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: _bg,
+      surfaceTintColor: _bg,
+      elevation: 0,
+      centerTitle: false,
+      automaticallyImplyLeading: false,
+      titleSpacing: 20,
+      title: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_primaryRed, _primaryRedDark],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: _primaryRed.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.receipt_long_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'متابعة الطلبات',
+                style: TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w900,
+                  color: _textPrimary,
+                  height: 1.1,
+                ),
+              ),
+              SizedBox(height: 3),
+              Text(
+                'كل حاجة بتعملها في مكان واحد',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(66),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          child: SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: _tabs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                return _buildTabChip(index);
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Tab Chip — Pill style حديث
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildTabChip(int index) {
+    return AnimatedBuilder(
+      animation: _tabController,
+      builder: (context, _) {
+        // نسبة الاختيار (0 = مش مختار، 1 = مختار)
+        double t = _tabController.index == index ? 1.0 : 0.0;
+        if (_tabController.indexIsChanging) {
+          final animationValue = _tabController.animation?.value ?? 0;
+          final distance = (animationValue - index).abs();
+          t = (1 - distance).clamp(0.0, 1.0);
+        }
+
+        final selected = _tabController.index == index;
+        final tab = _tabs[index];
+
+        return GestureDetector(
+          onTap: () => _tabController.animateTo(index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: selected
+                  ? const LinearGradient(
+                      colors: [_primaryRed, _primaryRedDark],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    )
+                  : null,
+              color: selected ? null : _card,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(
+                color: selected ? Colors.transparent : _border,
+                width: 1,
+              ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: _primaryRed.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? tab.icon : tab.outlinedIcon,
+                  size: 16,
+                  color: selected ? Colors.white : _textSecondary,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  tab.label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : _textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
-class _TrackingCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+// ✅ Tracking Tab Model
+// ═══════════════════════════════════════════════════════════
+class _TrackingTab {
+  final String label;
   final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+  final IconData outlinedIcon;
 
-  const _TrackingCard({
+  const _TrackingTab({
+    required this.label,
     required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
+    required this.outlinedIcon,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFDCEBE3)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A123F31),
-                blurRadius: 12,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: Icon(icon, color: color, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF123F31),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Color(0xFF71837C),
-                        fontSize: 12,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Padding(
-                padding: EdgeInsets.only(top: 18),
-                child: Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 17,
-                  color: Color(0xFF71837C),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

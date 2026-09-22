@@ -103,7 +103,7 @@ class _PersonOfferDetailsPageState extends State<PersonOfferDetailsPage> {
       final result = rawResult is List ? rawResult.first : rawResult;
       final requestId = result is Map ? result['id']?.toString() : null;
       if (requestId == null || requestId.isEmpty) {
-        throw PostgrestException(message: 'تعذر إنشاء طلب العرض');
+        throw const PostgrestException(message: 'تعذر إنشاء طلب العرض');
       }
       final response = {'id': requestId};
 

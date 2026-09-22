@@ -376,7 +376,8 @@ class _BusinessRestaurantCreateOfferPageState
                       ? 'اضغط هنا لاختيار صورة الوجبة من الجهاز.\nيمكنك أيضًا استخدام رابط صورة في الحقل بالأسفل.'
                       : 'تم اختيار صورة الوجبة. اضغط لتغييرها.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: muted, fontSize: 13, height: 1.4)),
+                  style:
+                      const TextStyle(color: muted, fontSize: 13, height: 1.4)),
             ],
           ),
         ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Reusable Loqma branding widget for splash, login, home, and profile screens.
-class LoqmaLogo extends StatelessWidget {
+/// Reusable loqma branding widget for splash, login, home, and profile screens.
+class loqmaLogo extends StatelessWidget {
   final double size;
   final bool showWordmark;
   final BoxFit fit;
 
-  const LoqmaLogo({
+  const loqmaLogo({
     super.key,
     this.size = 96,
     this.showWordmark = true,
@@ -16,7 +16,7 @@ class LoqmaLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Loqma',
+      label: 'loqma',
       image: true,
       child: Image.asset(
         'assets/images/loqma_logo.png',
@@ -34,14 +34,14 @@ class LoqmaLogo extends StatelessWidget {
 }
 
 /// Icon-only variant for app bars and compact cards.
-class LoqmaLogoMark extends StatelessWidget {
+class loqmaLogoMark extends StatelessWidget {
   final double size;
 
-  const LoqmaLogoMark({super.key, this.size = 40});
+  const loqmaLogoMark({super.key, this.size = 40});
 
   @override
   Widget build(BuildContext context) {
-    return LoqmaLogo(
+    return loqmaLogo(
       size: size,
       showWordmark: false,
     );

@@ -2,7 +2,7 @@
 ///
 /// Reference IDs are used only for in-app routing. Do not put names, phone
 /// numbers, emails, passwords, addresses, or auth tokens in notification data.
-enum LoqmaNotificationType {
+enum loqmaNotificationType {
   donationCreated('donation_created'),
   donationViewed('donation_viewed'),
   donationAccepted('donation_accepted'),
@@ -20,11 +20,11 @@ enum LoqmaNotificationType {
   institutionRequestReady('institution_request_ready'),
   institutionRequestCompleted('institution_request_completed');
 
-  const LoqmaNotificationType(this.value);
+  const loqmaNotificationType(this.value);
 
   final String value;
 
-  static LoqmaNotificationType? fromValue(String? value) {
+  static loqmaNotificationType? fromValue(String? value) {
     final normalized = value?.trim().toLowerCase();
     for (final type in values) {
       if (type.value == normalized) return type;
@@ -33,8 +33,8 @@ enum LoqmaNotificationType {
   }
 }
 
-class LoqmaNotificationMessage {
-  const LoqmaNotificationMessage({
+class loqmaNotificationMessage {
+  const loqmaNotificationMessage({
     required this.type,
     required this.title,
     required this.body,
@@ -43,7 +43,7 @@ class LoqmaNotificationMessage {
     this.referenceType,
   });
 
-  final LoqmaNotificationType type;
+  final loqmaNotificationType type;
   final String title;
   final String body;
   final String? screen;
@@ -58,11 +58,11 @@ class LoqmaNotificationMessage {
     return result;
   }
 
-  factory LoqmaNotificationMessage.fromData(Map<String, dynamic> data) {
-    final type = LoqmaNotificationType.fromValue(data['type']?.toString()) ??
-        LoqmaNotificationType.donationViewed;
+  factory loqmaNotificationMessage.fromData(Map<String, dynamic> data) {
+    final type = loqmaNotificationType.fromValue(data['type']?.toString()) ??
+        loqmaNotificationType.donationViewed;
 
-    return LoqmaNotificationMessage(
+    return loqmaNotificationMessage(
       type: type,
       title: _safeText(data['title']) ?? _defaultTitle(type),
       body: _safeText(data['body']) ?? _defaultBody(type),
@@ -72,12 +72,12 @@ class LoqmaNotificationMessage {
     );
   }
 
-  static LoqmaNotificationMessage create({
-    required LoqmaNotificationType type,
+  static loqmaNotificationMessage create({
+    required loqmaNotificationType type,
     String? referenceId,
     String? referenceType,
   }) {
-    return LoqmaNotificationMessage(
+    return loqmaNotificationMessage(
       type: type,
       title: _defaultTitle(type),
       body: _defaultBody(type),
@@ -87,89 +87,89 @@ class LoqmaNotificationMessage {
     );
   }
 
-  static String _defaultTitle(LoqmaNotificationType type) {
+  static String _defaultTitle(loqmaNotificationType type) {
     switch (type) {
-      case LoqmaNotificationType.donationCreated:
-        return 'عرض جديد على لقمة';
-      case LoqmaNotificationType.donationViewed:
+      case loqmaNotificationType.donationCreated:
+        return 'عرض جديد على جُود';
+      case loqmaNotificationType.donationViewed:
         return 'تفاصيل العرض';
-      case LoqmaNotificationType.donationAccepted:
+      case loqmaNotificationType.donationAccepted:
         return 'تم قبول طلبك';
-      case LoqmaNotificationType.donationCancelled:
+      case loqmaNotificationType.donationCancelled:
         return 'تم إلغاء الطلب';
-      case LoqmaNotificationType.donationExpired:
+      case loqmaNotificationType.donationExpired:
         return 'انتهى العرض';
-      case LoqmaNotificationType.requestReceived:
+      case loqmaNotificationType.requestReceived:
         return 'طلب جديد على عرضك';
-      case LoqmaNotificationType.requestAccepted:
+      case loqmaNotificationType.requestAccepted:
         return 'تم قبول الطلب';
-      case LoqmaNotificationType.requestRejected:
+      case loqmaNotificationType.requestRejected:
         return 'تم رفض الطلب';
-      case LoqmaNotificationType.requestExpired:
+      case loqmaNotificationType.requestExpired:
         return 'انتهت مهلة الطلب';
-      case LoqmaNotificationType.pickupReady:
+      case loqmaNotificationType.pickupReady:
         return 'الطلب جاهز للاستلام';
-      case LoqmaNotificationType.pickupCompleted:
+      case loqmaNotificationType.pickupCompleted:
         return 'تم استلام الطلب';
-      case LoqmaNotificationType.charityDonationReceived:
+      case loqmaNotificationType.charityDonationReceived:
         return 'تبرع جديد للجمعية';
-      case LoqmaNotificationType.institutionOfferRequested:
+      case loqmaNotificationType.institutionOfferRequested:
         return 'طلب جديد على عرض المؤسسة';
-      case LoqmaNotificationType.institutionRequestAccepted:
+      case loqmaNotificationType.institutionRequestAccepted:
         return 'تم قبول طلب المؤسسة';
-      case LoqmaNotificationType.institutionRequestReady:
+      case loqmaNotificationType.institutionRequestReady:
         return 'العرض جاهز للاستلام';
-      case LoqmaNotificationType.institutionRequestCompleted:
+      case loqmaNotificationType.institutionRequestCompleted:
         return 'اكتمل طلب المؤسسة';
     }
   }
 
-  static String _defaultBody(LoqmaNotificationType type) {
+  static String _defaultBody(loqmaNotificationType type) {
     switch (type) {
-      case LoqmaNotificationType.donationCreated:
+      case loqmaNotificationType.donationCreated:
         return 'يوجد عرض جديد متاح بالقرب منك.';
-      case LoqmaNotificationType.donationViewed:
+      case loqmaNotificationType.donationViewed:
         return 'يمكنك فتح تفاصيل العرض من التطبيق.';
-      case LoqmaNotificationType.donationAccepted:
+      case loqmaNotificationType.donationAccepted:
         return 'تم قبول طلبك. افتح التطبيق لمعرفة الخطوة التالية.';
-      case LoqmaNotificationType.donationCancelled:
+      case loqmaNotificationType.donationCancelled:
         return 'تم إلغاء الطلب وتحديث حالة العرض.';
-      case LoqmaNotificationType.donationExpired:
+      case loqmaNotificationType.donationExpired:
         return 'انتهت مهلة العرض أو لم يعد متاحًا.';
-      case LoqmaNotificationType.requestReceived:
+      case loqmaNotificationType.requestReceived:
         return 'يوجد مستخدم مهتم بأحد عروضك.';
-      case LoqmaNotificationType.requestAccepted:
+      case loqmaNotificationType.requestAccepted:
         return 'تم قبول طلبك. راجع تفاصيل الاستلام من التطبيق.';
-      case LoqmaNotificationType.requestRejected:
+      case loqmaNotificationType.requestRejected:
         return 'تعذر قبول الطلب هذه المرة.';
-      case LoqmaNotificationType.requestExpired:
+      case loqmaNotificationType.requestExpired:
         return 'انتهت مهلة الطلب وعادت الكمية المتاحة.';
-      case LoqmaNotificationType.pickupReady:
+      case loqmaNotificationType.pickupReady:
         return 'أصبح الطلب جاهزًا للاستلام.';
-      case LoqmaNotificationType.pickupCompleted:
+      case loqmaNotificationType.pickupCompleted:
         return 'تم تسجيل اكتمال الاستلام بنجاح.';
-      case LoqmaNotificationType.charityDonationReceived:
+      case loqmaNotificationType.charityDonationReceived:
         return 'وصل تبرع جديد ويحتاج إلى المتابعة.';
-      case LoqmaNotificationType.institutionOfferRequested:
+      case loqmaNotificationType.institutionOfferRequested:
         return 'يوجد طلب جديد على أحد عروضك.';
-      case LoqmaNotificationType.institutionRequestAccepted:
+      case loqmaNotificationType.institutionRequestAccepted:
         return 'تم قبول طلبك من المؤسسة.';
-      case LoqmaNotificationType.institutionRequestReady:
+      case loqmaNotificationType.institutionRequestReady:
         return 'العرض جاهز، راجع كود الاستلام داخل التطبيق.';
-      case LoqmaNotificationType.institutionRequestCompleted:
+      case loqmaNotificationType.institutionRequestCompleted:
         return 'تم إكمال طلب العرض بنجاح.';
     }
   }
 
-  static String _defaultScreen(LoqmaNotificationType type) {
+  static String _defaultScreen(loqmaNotificationType type) {
     switch (type) {
-      case LoqmaNotificationType.donationCreated:
-      case LoqmaNotificationType.donationViewed:
+      case loqmaNotificationType.donationCreated:
+      case loqmaNotificationType.donationViewed:
         return 'offers';
-      case LoqmaNotificationType.requestReceived:
-      case LoqmaNotificationType.institutionOfferRequested:
+      case loqmaNotificationType.requestReceived:
+      case loqmaNotificationType.institutionOfferRequested:
         return 'requests';
-      case LoqmaNotificationType.charityDonationReceived:
+      case loqmaNotificationType.charityDonationReceived:
         return 'charity_donations';
       default:
         return 'request_details';

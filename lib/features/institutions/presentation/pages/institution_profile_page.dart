@@ -93,13 +93,13 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
   // ✅ دالة فتح واتساب للدعم الفني
   Future<void> _openWhatsAppSupport() async {
     const phoneNumber = '201040652783'; // بدون + وبدون أصفار زائدة
-    final url = 'https://wa.me/$phoneNumber';
+    const url = 'https://wa.me/$phoneNumber';
     try {
       if (await canLaunchUrl(Uri.parse(url))) {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } else {
         // ✅ إذا لم يعمل الرابط، جرب طريقة بديلة
-        final fallbackUrl = 'https://api.whatsapp.com/send?phone=$phoneNumber';
+        const fallbackUrl = 'https://api.whatsapp.com/send?phone=$phoneNumber';
         if (await canLaunchUrl(Uri.parse(fallbackUrl))) {
           await launchUrl(Uri.parse(fallbackUrl),
               mode: LaunchMode.externalApplication);
@@ -322,12 +322,12 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
               ),
               _buildStatItem(
                 'المتابعون',
-                _followersCount > 0 ? '${_followersCount}' : '0',
+                _followersCount > 0 ? '$_followersCount' : '0',
                 Icons.people_rounded,
               ),
               _buildStatItem(
                 'العروض',
-                _offersCount > 0 ? '${_offersCount}' : '0',
+                _offersCount > 0 ? '$_offersCount' : '0',
                 Icons.local_offer_rounded,
               ),
             ],
@@ -518,13 +518,13 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFFFE0A3)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(Icons.info_outline_rounded,
+                Icon(Icons.info_outline_rounded,
                     color: Color(0xFFE28B00), size: 18),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
-                  child: const Text(
+                  child: Text(
                     'جميع البيانات معروضة للقراءة فقط. للطلب تغيير أي بيانات يرجى التواصل مع الدعم الفني.',
                     style: TextStyle(
                       color: Color(0xFF704C00),

@@ -11,7 +11,7 @@ class CommunityStats extends Equatable {
   final int activeVolunteers;
   final int participatingRestaurants;
   final int beneficiaryCharities;
-  final DateTime lastUpdated;
+  final DateTime? lastUpdated; // ✅ خليه optional
 
   const CommunityStats({
     this.mealsSaved = 0,
@@ -24,7 +24,7 @@ class CommunityStats extends Equatable {
     this.activeVolunteers = 0,
     this.participatingRestaurants = 0,
     this.beneficiaryCharities = 0,
-    required this.lastUpdated,
+    this.lastUpdated, // ✅ دلوقتي مش required
   });
 
   factory CommunityStats.fromJson(Map<String, dynamic> json) {
@@ -39,7 +39,7 @@ class CommunityStats extends Equatable {
       activeVolunteers: _toInt(json['active_volunteers']),
       participatingRestaurants: _toInt(json['participating_restaurants']),
       beneficiaryCharities: _toInt(json['beneficiary_charities']),
-      lastUpdated: _toDateTime(json['last_updated']) ?? DateTime.now().toUtc(),
+      lastUpdated: _toDateTime(json['last_updated']),
     );
   }
 
@@ -55,7 +55,7 @@ class CommunityStats extends Equatable {
       'active_volunteers': activeVolunteers,
       'participating_restaurants': participatingRestaurants,
       'beneficiary_charities': beneficiaryCharities,
-      'last_updated': lastUpdated.toIso8601String(),
+      if (lastUpdated != null) 'last_updated': lastUpdated!.toIso8601String(),
     };
   }
 
@@ -87,6 +87,9 @@ class CommunityStats extends Equatable {
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }
+
+  // ✅ أضف const constructor فارغ عشان تستخدميه بسهولة
+  static const CommunityStats empty = CommunityStats();
 
   String get formattedMealsSaved => _formatCount(mealsSaved);
 

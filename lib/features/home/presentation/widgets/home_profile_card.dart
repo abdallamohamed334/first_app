@@ -155,5 +155,3 @@ class HomeProfileCard extends StatelessWidget {
     );
   }
 }
-
-

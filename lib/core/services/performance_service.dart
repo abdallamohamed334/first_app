@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 /// Small wrapper around Firebase Performance Monitoring.
 ///
 /// A failed trace must never fail the business operation being measured.
-class LoqmaPerformance {
-  LoqmaPerformance({FirebasePerformance? performance})
+class loqmaPerformance {
+  loqmaPerformance({FirebasePerformance? performance})
       : _performance = performance ?? FirebasePerformance.instance;
 
   final FirebasePerformance _performance;
@@ -20,7 +20,7 @@ class LoqmaPerformance {
     Trace? trace;
 
     try {
-      trace = await _performance.newTrace(_normalizeTraceName(traceName));
+      trace = _performance.newTrace(_normalizeTraceName(traceName));
       final safeAttributes = _safeAttributes(attributes);
       for (final entry in safeAttributes.entries) {
         trace.putAttribute(entry.key, entry.value);
@@ -55,7 +55,7 @@ class LoqmaPerformance {
     Map<String, String>? attributes,
   }) async {
     try {
-      final trace = await _performance.newTrace(_normalizeTraceName(traceName));
+      final trace = _performance.newTrace(_normalizeTraceName(traceName));
       final safeAttributes = _safeAttributes(attributes);
       for (final entry in safeAttributes.entries) {
         trace.putAttribute(entry.key, entry.value);

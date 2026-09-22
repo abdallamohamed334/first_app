@@ -5,14 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
-import 'package:loqma/features/home/presentation/bloc/home_bloc.dart';
-import 'package:loqma/features/home/presentation/bloc/home_state.dart';
+import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart'; // ✅ استبدال الاستيراد
 import 'package:loqma/features/map/presentation/pages/map_page.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_state.dart';
 import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
+import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 
 class AllOffersPage extends StatefulWidget {
   final List<FoodOffer>? offers;
@@ -31,7 +31,7 @@ class _AllOffersPageState extends State<AllOffersPage> {
   late final TextEditingController _searchController;
   String _query = '';
   String _category = 'الكل';
-  int _selectedTab = 2;
+  final int _selectedTab = 2;
   List<FoodOffer> _allOffers = [];
 
   static const _categories = <String>[
@@ -50,6 +50,10 @@ class _AllOffersPageState extends State<AllOffersPage> {
   void initState() {
     super.initState();
     _searchController = TextEditingController()..addListener(_onSearchChanged);
+
+    // ✅ استدعاء UserHomeStarted لجلب العروض
+    context.read<UserHomeBloc>().add(const UserHomeStarted());
+
     _loadOffers();
   }
 
@@ -69,9 +73,9 @@ class _AllOffersPageState extends State<AllOffersPage> {
       return;
     }
 
-    // ✅ إذا لم تكن العروض موجودة، جلبها من الـ Bloc
-    final state = context.read<HomeBloc>().state;
-    if (state is HomeLoaded) {
+    // ✅ استخدام UserHomeLoaded بدلاً من HomeLoaded
+    final state = context.read<UserHomeBloc>().state;
+    if (state is UserHomeLoaded) {
       setState(() {
         _allOffers = state.offers;
       });

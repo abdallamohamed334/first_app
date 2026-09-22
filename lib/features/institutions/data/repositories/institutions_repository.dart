@@ -1,9 +1,11 @@
 // lib/features/institutions/data/repositories/institutions_repository.dart
 
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+
 import '../../domain/entities/institution.dart';
 import '../../domain/entities/institution_offer.dart';
 
@@ -16,44 +18,53 @@ class InstitutionsRepository {
   // ============================================================
   // ✅ حساب أيام الصلاحية المتبقية
   // ============================================================
+
   int _calculateDaysUntilExpiry(DateTime? expiryDate) {
-    if (expiryDate == null) return 999; // لا يوجد صلاحية
+    if (expiryDate == null) return 999;
+
     final now = DateTime.now();
     final diff = expiryDate.difference(now).inDays;
+
     return diff.clamp(-1, 999);
   }
 
   // ============================================================
-  // ✅ جلب العروض مع حالة الصلاحية
+  // ✅ جلب العروض من institution_offers
   // ============================================================
+
   Future<List<Map<String, dynamic>>> getOffersWithStatus(
-      String institutionId) async {
+    String institutionId,
+  ) async {
     try {
       final response = await _client
-          .from('institution_offers_core')
+          .from('institution_offers')
           .select('''
             *,
-            institutions(id, name, institution_type, logo_url),
-            institution_offer_pricing(*),
-            institution_offer_inventory(*),
-            institution_offer_pickup(*),
-            institution_offer_media(*)
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
           ''')
           .eq('institution_id', institutionId)
           .order('created_at', ascending: false);
 
-      final offers =
-          _maps(response).map(_flattenNormalizedOffer).toList(growable: false);
+      final offers = _maps(response);
 
       for (var offer in offers) {
         final expiryDate = offer['expires_at'] != null
-            ? DateTime.tryParse(offer['expires_at'].toString())
+            ? DateTime.tryParse(
+                offer['expires_at'].toString(),
+              )
             : null;
 
         final daysLeft = _calculateDaysUntilExpiry(expiryDate);
+
         offer['days_until_expiry'] = daysLeft;
 
-        // ✅ تحديد حالة الصلاحية
         if (daysLeft < 0) {
           offer['expiry_status'] = 'expired';
           offer['status'] = 'expired';
@@ -72,404 +83,296 @@ class InstitutionsRepository {
   }
 
   // ============================================================
-  // ✅ إنشاء عرض مع تاريخ انتهاء
+  // ✅ جلب العروض العامة
   // ============================================================
-  Future<Map<String, dynamic>> createOfferWithExpiry(
-      Map<String, dynamic> data) async {
-    try {
-      // ✅ حساب expiry_date تلقائياً لو مش موجود
-      if (data['expires_at'] == null) {
-        final days = data['expiry_days'] ?? 30; // افتراضي 30 يوم
-        data['expires_at'] =
-            DateTime.now().add(Duration(days: days)).toUtc().toIso8601String();
-      }
-
-      final response = await _client
-          .from('institution_offers_core')
-          .insert(data)
-          .select()
-          .single();
-
-      return Map<String, dynamic>.from(response);
-    } catch (e) {
-      print('❌ Error creating offer with expiry: $e');
-      rethrow;
-    }
-  }
-
-  // ============================================================
-  // ✅ تحديث حالة العروض المنتهية (تشغيل يومياً)
-  // ============================================================
-  Future<void> updateExpiredOffers() async {
-    try {
-      final now = DateTime.now().toUtc().toIso8601String();
-      await _client
-          .from('institution_offers_core')
-          .update({'status': 'expired'})
-          .lt('expires_at', now)
-          .neq('status', 'expired');
-    } catch (e) {
-      print('❌ Error updating expired offers: $e');
-    }
-  }
-
-  // ============================================================
-  // ✅ جلب حالة الصلاحية للعرض
-  // ============================================================
-  Map<String, dynamic> getExpiryStatus(Map<String, dynamic> offer) {
-    final daysLeft = offer['days_until_expiry'] as int? ?? 999;
-
-    if (daysLeft < 0) {
-      return {
-        'status': 'expired',
-        'label': 'منتهي الصلاحية',
-        'color': '#D64545',
-        'icon': 'warning_amber_rounded',
-        'days': daysLeft,
-      };
-    } else if (daysLeft <= 3) {
-      return {
-        'status': 'expiring_soon',
-        'label': 'ينتهي خلال $daysLeft أيام',
-        'color': '#E28B00',
-        'icon': 'timer_outlined',
-        'days': daysLeft,
-      };
-    } else {
-      return {
-        'status': 'fresh',
-        'label': 'جديد',
-        'color': '#0B7650',
-        'icon': 'fiber_new_rounded',
-        'days': daysLeft,
-      };
-    }
-  }
-
-  Future<Institution> getMine() async {
-    final authUser = _client.auth.currentUser;
-    final userId = authUser?.id;
-    print('[InstitutionDebug] auth.uid=${userId ?? 'null'}');
-    print('[InstitutionDebug] auth.email=${authUser?.email ?? 'null'}');
-
-    if (userId == null || userId.isEmpty) {
-      print('[InstitutionDebug] STOP: no active auth session');
-      throw const FormatException('يجب تسجيل الدخول أولًا');
-    }
-
-    try {
-      final userRow = await _client
-          .from('users')
-          .select('id, user_type, is_active')
-          .eq('id', userId)
-          .maybeSingle();
-      print(
-          '[InstitutionDebug] users row=${userRow == null ? 'NULL' : 'FOUND'}');
-      if (userRow != null) {
-        print('[InstitutionDebug] users.user_type=${userRow['user_type']}');
-        print('[InstitutionDebug] users.is_active=${userRow['is_active']}');
-      }
-
-      final rows = await _client
-          .from('institutions')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: true)
-          .limit(2);
-      print('[InstitutionDebug] institutions rows=${rows.length}');
-      if (rows.isNotEmpty) {
-        final first = Map<String, dynamic>.from(rows.first as Map);
-        print('[InstitutionDebug] institution.id=${first['id']}');
-        print('[InstitutionDebug] institution.name=${first['name']}');
-        print(
-            '[InstitutionDebug] institution_type=${first['institution_type']}');
-        print('[InstitutionDebug] institution.status=${first['status']}');
-      }
-      if (rows.isEmpty) {
-        throw const FormatException('لا توجد مؤسسة مرتبطة بهذا الحساب');
-      }
-      return Institution.fromJson(Map<String, dynamic>.from(rows.first as Map));
-    } on FormatException {
-      print(
-          '[InstitutionDebug] FORMAT: no institution match or invalid session');
-      rethrow;
-    } on PostgrestException catch (error) {
-      print('[InstitutionDebug] POSTGREST code=${error.code}');
-      print('[InstitutionDebug] POSTGREST message=${error.message}');
-      print('[InstitutionDebug] POSTGREST details=${error.details}');
-      throw FormatException(_friendlyInstitutionError(error));
-    } catch (error) {
-      print('[InstitutionDebug] UNKNOWN error=$error');
-      throw const FormatException('تعذر الاتصال ببيانات المؤسسة حاليًا');
-    }
-  }
-
-  String _friendlyInstitutionError(PostgrestException error) {
-    final text = '${error.code} ${error.message}'.toLowerCase();
-    if (text.contains('permission') ||
-        text.contains('row-level security') ||
-        text.contains('rls')) {
-      return 'لا توجد صلاحية لقراءة بيانات المؤسسة. راجع سياسة القراءة الخاصة بالمؤسسات.';
-    }
-    if (text.contains('column') || text.contains('does not exist')) {
-      return 'بيانات المؤسسة غير متوافقة مع نسخة قاعدة البيانات الحالية.';
-    }
-    return 'تعذر تحميل بيانات المؤسسة حاليًا';
-  }
-
-  Future<Institution> updateMine({
-    String? name,
-    String? institutionType,
-    String? phone,
-    String? city,
-    String? address,
-    String? description,
-    String? logoUrl,
-    String? coverImageUrl,
-  }) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
-    }
-
-    final data = <String, dynamic>{
-      'updated_at': DateTime.now().toUtc().toIso8601String()
-    };
-    void put(String key, String? value) {
-      if (value != null) data[key] = value.trim();
-    }
-
-    put('name', name);
-    put('institution_type', institutionType);
-    put('phone', phone);
-    put('city', city);
-    put('address', address);
-    put('description', description);
-    put('logo_url', logoUrl);
-    put('cover_image_url', coverImageUrl);
-
-    final row = await _client
-        .from('institutions')
-        .update(data)
-        .eq('user_id', userId)
-        .select()
-        .single();
-    return Institution.fromJson(Map<String, dynamic>.from(row));
-  }
-
-  Future<String> uploadInstitutionImage({
-    required Uint8List bytes,
-    required String fileExtension,
-    bool cover = false,
-  }) async {
-    final userId = _client.auth.currentUser?.id;
-    if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
-    }
-    final safeExtension = fileExtension.replaceAll('.', '').toLowerCase();
-    final path =
-        '$userId/${cover ? 'cover' : 'logo'}_${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
-    await _client.storage.from('institution-images').uploadBinary(
-          path,
-          bytes,
-          fileOptions:
-              FileOptions(upsert: true, contentType: 'image/$safeExtension'),
-        );
-    return _client.storage.from('institution-images').getPublicUrl(path);
-  }
 
   Future<List<Map<String, dynamic>>> listPublicOffers() async {
-    final rows = await _client
-        .from('institution_offers_core')
-        .select('''
-          *,
-          institutions(id, name, institution_type, logo_url),
-          institution_offer_pricing(*),
-          institution_offer_inventory(*),
-          institution_offer_pickup(*),
-          institution_offer_media(*)
-        ''')
-        .eq('status', 'active')
-        .gt('expires_at', DateTime.now().toUtc().toIso8601String())
-        .order('created_at', ascending: false);
+    try {
+      final userId = _client.auth.currentUser?.id;
 
-    return _maps(rows)
-        .map(_flattenNormalizedOffer)
-        .where((offer) =>
-            offer['status'] == 'active' &&
-            _asInt(offer['remaining_quantity']) > 0)
-        .toList(growable: false);
+      if (userId == null || userId.isEmpty) {
+        print('⚠️ listPublicOffers: no authenticated user');
+        return [];
+      }
+
+      // ------------------------------------------------------------
+      // 📍 موقع المستخدم من users
+      // لا نستخدم موقع الجهاز مباشرة هنا؛ مصدر الحقيقة هو users.
+      // ------------------------------------------------------------
+      final userRow = await _client
+          .from('users')
+          .select('latitude, longitude')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userRow == null) {
+        print('⚠️ listPublicOffers: users row not found');
+        return [];
+      }
+
+      final userLatitude = _asDouble(userRow['latitude']);
+      final userLongitude = _asDouble(userRow['longitude']);
+
+      if (userLatitude == null || userLongitude == null) {
+        print(
+          '⚠️ listPublicOffers: user location is missing '
+          '(latitude/longitude)',
+        );
+        return [];
+      }
+
+      final now = DateTime.now().toUtc().toIso8601String();
+
+      // ------------------------------------------------------------
+      // 🏪 موقع العرض الحقيقي موجود في institutions
+      // وليس institution_offers.latitude/longitude
+      // ------------------------------------------------------------
+      final rows = await _client.from('institution_offers').select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone,
+              latitude,
+              longitude
+            )
+          ''').eq('status', 'active').gt('expires_at', now);
+
+      final offers = _maps(rows);
+
+      // ------------------------------------------------------------
+      // 📏 عرض المؤسسات الموجودة داخل 10 كم فقط
+      // ------------------------------------------------------------
+      final nearbyOffers = <Map<String, dynamic>>[];
+
+      for (final offer in offers) {
+        if (offer['status']?.toString() != 'active') {
+          continue;
+        }
+
+        if (_asInt(offer['remaining_quantity']) <= 0) {
+          continue;
+        }
+
+        final institution = offer['institutions'];
+
+        if (institution is! Map) {
+          continue;
+        }
+
+        final institutionMap = Map<String, dynamic>.from(institution);
+
+        final institutionLatitude = _asDouble(institutionMap['latitude']);
+        final institutionLongitude = _asDouble(institutionMap['longitude']);
+
+        // المؤسسة بدون موقع لا يمكن حساب بعدها بأمان.
+        if (institutionLatitude == null || institutionLongitude == null) {
+          continue;
+        }
+
+        final distanceMeters = _distanceInMeters(
+          userLatitude,
+          userLongitude,
+          institutionLatitude,
+          institutionLongitude,
+        );
+
+        // الحد الأقصى = 10 كم
+        if (distanceMeters > 10000) {
+          continue;
+        }
+
+        // إضافة المسافة للـ UI لو احتاجت تعرض "على بعد X كم".
+        final result = Map<String, dynamic>.from(offer);
+        result['distance_meters'] = distanceMeters;
+        result['distance_km'] =
+            double.parse((distanceMeters / 1000).toStringAsFixed(2));
+
+        nearbyOffers.add(result);
+      }
+
+      // الأقرب أولًا، ثم الأحدث.
+      nearbyOffers.sort((a, b) {
+        final distanceA = _asDouble(a['distance_meters']) ?? double.infinity;
+        final distanceB = _asDouble(b['distance_meters']) ?? double.infinity;
+
+        final distanceCompare = distanceA.compareTo(distanceB);
+
+        if (distanceCompare != 0) {
+          return distanceCompare;
+        }
+
+        final createdA = DateTime.tryParse(
+          a['created_at']?.toString() ?? '',
+        );
+
+        final createdB = DateTime.tryParse(
+          b['created_at']?.toString() ?? '',
+        );
+
+        if (createdA == null && createdB == null) return 0;
+        if (createdA == null) return 1;
+        if (createdB == null) return -1;
+
+        return createdB.compareTo(createdA);
+      });
+
+      print(
+        '📍 listPublicOffers: '
+        'user=($userLatitude,$userLongitude) '
+        'all=${offers.length} '
+        'nearby=${nearbyOffers.length} '
+        'radius=10km',
+      );
+
+      return nearbyOffers;
+    } on PostgrestException catch (error) {
+      print(
+        '❌ listPublicOffers Postgrest error: '
+        '${error.code} ${error.message}',
+      );
+      return [];
+    } catch (e) {
+      print('❌ listPublicOffers error: $e');
+      return [];
+    }
   }
 
-  Future<List<Map<String, dynamic>>> listMyOffers(String institutionId) async {
+  // ============================================================
+  // ✅ جلب عروض المؤسسة
+  // ============================================================
+
+  Future<List<Map<String, dynamic>>> listMyOffers(
+    String institutionId,
+  ) async {
     final cleanInstitutionId = institutionId.trim();
+
     if (cleanInstitutionId.isEmpty) {
-      throw const FormatException('معرف المؤسسة غير موجود');
+      throw const FormatException(
+        'معرف المؤسسة غير موجود',
+      );
     }
 
-    final merged = <String, Map<String, dynamic>>{};
-
     try {
-      final normalizedRows = await _client
-          .from('institution_offers_core')
+      final rows = await _client
+          .from('institution_offers')
           .select('''
             *,
-            institutions(id, name, institution_type, logo_url),
-            institution_offer_pricing(*),
-            institution_offer_inventory(*),
-            institution_offer_pickup(*),
-            institution_offer_media(*)
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
           ''')
-          .eq('institution_id', cleanInstitutionId)
-          .order('created_at', ascending: false);
-
-      for (final row in normalizedRows) {
-        final normalized = _flattenNormalizedOffer(
-          Map<String, dynamic>.from(row as Map),
-        );
-        final id = normalized['id']?.toString();
-        if (id != null && id.isNotEmpty) merged[id] = normalized;
-      }
-    } on PostgrestException catch (error) {
-      print(
-          '[InstitutionDebug] normalized listMyOffers skipped: ${error.code} ${error.message}');
-    }
-
-    try {
-      final legacyRows = await _client
-          .from('institution_offers')
-          .select('*, institutions(id, name, institution_type, logo_url)')
-          .eq('institution_id', cleanInstitutionId)
-          .order('created_at', ascending: false);
-      for (final row in _maps(legacyRows)) {
-        final id = row['id']?.toString();
-        if (id != null && id.isNotEmpty) {
-          merged.putIfAbsent(id, () => row);
-        }
-      }
-    } on PostgrestException catch (error) {
-      if (merged.isEmpty) rethrow;
-      print(
-          '[InstitutionDebug] legacy listMyOffers skipped: ${error.code} ${error.message}');
-    }
-
-    final result = merged.values.toList(growable: false)
-      ..sort((a, b) => _dateOf(b).compareTo(_dateOf(a)));
-    print('[InstitutionDebug] listMyOffers normalized=${merged.length}');
-    return result;
-  }
-
-  Map<String, dynamic> _flattenNormalizedOffer(Map<String, dynamic> row) {
-    final pricing = _nestedMap(row['institution_offer_pricing']);
-    final inventory = _nestedMap(row['institution_offer_inventory']);
-    final pickup = _nestedMap(row['institution_offer_pickup']);
-    final media = _nestedMaps(row['institution_offer_media']);
-
-    final images = media
-        .map((item) => item['public_url']?.toString().trim() ?? '')
-        .where((url) => url.isNotEmpty)
-        .toList(growable: false);
-
-    return {
-      'id': row['id'],
-      'institution_id': row['institution_id'],
-      'title': row['title'],
-      'description': row['description'],
-      'category': row['category'] ?? 'other',
-      'quantity': inventory['quantity'] ?? 0,
-      'remaining_quantity': inventory['remaining_quantity'] ?? 0,
-      'symbolic_price': pricing['symbolic_price'] ?? 0,
-      'original_price': pricing['original_price'],
-      'images': images,
-      'pickup_location': pickup['location_text'] ?? pickup['address'],
-      'pickup_before': pickup['pickup_before'],
-      'expires_at': row['expires_at'],
-      'status': row['status'] ?? 'active',
-      'created_at': row['created_at'],
-      'updated_at': row['updated_at'] ?? row['created_at'],
-      'institutions': row['institutions'],
-    };
-  }
-
-  Map<String, dynamic> _nestedMap(dynamic value) {
-    if (value is Map) return Map<String, dynamic>.from(value);
-    if (value is List && value.isNotEmpty && value.first is Map) {
-      return Map<String, dynamic>.from(value.first as Map);
-    }
-    return const <String, dynamic>{};
-  }
-
-  List<Map<String, dynamic>> _nestedMaps(dynamic value) {
-    if (value is! List) return const <Map<String, dynamic>>[];
-    return value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: false);
-  }
-
-  static int _asInt(dynamic value) {
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  DateTime _dateOf(Map<String, dynamic> row) {
-    return DateTime.tryParse(
-          (row['created_at'] ?? row['updated_at'])?.toString() ?? '',
-        ) ??
-        DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-  }
-
-  Future<List<InstitutionOffer>> listPublicOfferEntities() async {
-    final rows = await listPublicOffers();
-    return rows.map(InstitutionOffer.fromJson).toList(growable: false);
-  }
-
-  Future<List<InstitutionOffer>> listMyOfferEntities(
-      String institutionId) async {
-    final rows = await listMyOffers(institutionId);
-    return rows.map(InstitutionOffer.fromJson).toList(growable: false);
-  }
-
-  Future<InstitutionOffer?> getOfferById(String offerId) async {
-    final row = await _client.from('institution_offers_core').select('''
-          *,
-          institutions(id, name, institution_type, logo_url),
-          institution_offer_pricing(*),
-          institution_offer_inventory(*),
-          institution_offer_pickup(*),
-          institution_offer_media(*)
-        ''').eq('id', offerId.trim()).maybeSingle();
-    return row == null
-        ? null
-        : InstitutionOffer.fromJson(
-            _flattenNormalizedOffer(Map<String, dynamic>.from(row)),
+          .eq(
+            'institution_id',
+            cleanInstitutionId,
+          )
+          .order(
+            'created_at',
+            ascending: false,
           );
+
+      return _maps(rows);
+    } catch (e) {
+      print('❌ listMyOffers error: $e');
+      rethrow;
+    }
   }
+
+  // ============================================================
+  // ✅ جلب عرض معين
+  // ============================================================
+
+  Future<InstitutionOffer?> getOfferById(
+    String offerId,
+  ) async {
+    try {
+      final cleanOfferId = offerId.trim();
+
+      if (cleanOfferId.isEmpty) {
+        return null;
+      }
+
+      final row = await _client.from('institution_offers').select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
+          ''').eq('id', cleanOfferId).maybeSingle();
+
+      if (row == null) {
+        return null;
+      }
+
+      return InstitutionOffer.fromJson(
+        Map<String, dynamic>.from(row),
+      );
+    } catch (e) {
+      print('❌ getOfferById error: $e');
+      return null;
+    }
+  }
+
+  // ============================================================
+  // ✅ جلب طلبات المؤسسة
+  // ============================================================
 
   Future<List<Map<String, dynamic>>> listOfferRequestsForInstitution(
     String institutionId,
   ) async {
     final cleanInstitutionId = institutionId.trim();
+
     if (cleanInstitutionId.isEmpty) {
-      throw const FormatException('معرف المؤسسة غير موجود');
+      throw const FormatException(
+        'معرف المؤسسة غير موجود',
+      );
     }
 
     final offerRows = await _client
-        .from('institution_offers_core')
-        .select('id, title, description, category, expires_at, status')
-        .eq('institution_id', cleanInstitutionId);
+        .from('institution_offers')
+        .select(
+          'id, title, description, category, expires_at, status',
+        )
+        .eq(
+          'institution_id',
+          cleanInstitutionId,
+        );
+
     final offers = _maps(offerRows);
+
     final offersById = <String, Map<String, dynamic>>{
       for (final offer in offers)
         if (offer['id'] != null) offer['id'].toString(): offer,
     };
-    final offerIds = offersById.keys.toList(growable: false);
+
+    final offerIds = offersById.keys.toList(
+      growable: false,
+    );
 
     print(
-        '[InstitutionDebug] request-list institutionId=$cleanInstitutionId ownedOffers=${offerIds.length}');
-    if (offerIds.isEmpty) return const <Map<String, dynamic>>[];
+      '[InstitutionDebug] request-list '
+      'institutionId=$cleanInstitutionId '
+      'ownedOffers=${offerIds.length}',
+    );
+
+    if (offerIds.isEmpty) {
+      return const <Map<String, dynamic>>[];
+    }
 
     List<Map<String, dynamic>> requestRows;
+
     try {
       final response = await _client
           .from('institution_offer_requests')
@@ -486,143 +389,63 @@ class InstitutionsRepository {
               email
             )
           ''')
-          .inFilter('offer_id', offerIds)
-          .order('created_at', ascending: false);
+          .inFilter(
+            'offer_id',
+            offerIds,
+          )
+          .order(
+            'created_at',
+            ascending: false,
+          );
+
       requestRows = _maps(response);
     } on PostgrestException catch (error) {
       print(
-          '[InstitutionDebug] users relation skipped: ${error.code} ${error.message}');
+        '[InstitutionDebug] users relation skipped: '
+        '${error.code} ${error.message}',
+      );
+
       final response = await _client
           .from('institution_offer_requests')
           .select('*')
-          .inFilter('offer_id', offerIds)
-          .order('created_at', ascending: false);
+          .inFilter(
+            'offer_id',
+            offerIds,
+          )
+          .order(
+            'created_at',
+            ascending: false,
+          );
+
       requestRows = _maps(response);
     }
 
-    print('[InstitutionDebug] request-list rows=${requestRows.length}');
+    print(
+      '[InstitutionDebug] request-list '
+      'rows=${requestRows.length}',
+    );
+
     return requestRows.map((request) {
-      final result = Map<String, dynamic>.from(request);
+      final result = Map<String, dynamic>.from(
+        request,
+      );
+
       final offerId = result['offer_id']?.toString();
+
       final offer = offerId == null ? null : offersById[offerId];
+
       if (offer != null) {
-        result['institution_offers_core'] = offer;
+        result['institution_offers'] = offer;
       }
+
       return result;
     }).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> generateOfferRequestPickupCode(
-      String requestId) async {
-    return _rpcMap('institution_generate_offer_request_pickup_code', {
-      'p_request_id': requestId.trim(),
-    });
-  }
-
-  Future<Map<String, dynamic>> verifyOfferRequestPickupCode({
-    required String requestId,
-    required String code,
-  }) async {
-    return _rpcMap('institution_verify_offer_request_pickup_code', {
-      'p_request_id': requestId.trim(),
-      'p_code': code.trim(),
-    });
-  }
-
-  Future<Map<String, dynamic>> completeOfferRequest(String requestId) async {
-    return _rpcMap('institution_complete_offer_request', {
-      'p_request_id': requestId.trim(),
-    });
-  }
-
-  Future<Map<String, dynamic>> markOfferRequestReady(String requestId) async {
-    final cleanRequestId = requestId.trim();
-    if (cleanRequestId.isEmpty) {
-      throw const FormatException('معرف الطلب غير موجود');
-    }
-    final result = await _client.rpc(
-      'institution_mark_offer_request_ready',
-      params: {'p_request_id': cleanRequestId},
-    );
-    if (result is Map) return Map<String, dynamic>.from(result);
-    throw const FormatException('تعذر تجهيز الطلب للاستلام');
-  }
-
-  Future<Map<String, dynamic>> updateOfferRequest({
-    required String requestId,
-    required bool accept,
-  }) async {
-    return _rpcMap('institution_update_offer_request', {
-      'p_request_id': requestId,
-      'p_accept': accept,
-    });
-  }
-
   // ============================================================
-  // ✅ دالة إنشاء العرض - الإصدار الكامل مع الحقول الإضافية
+  // ✅ إنشاء عرض (معدل مع صلاحية 12 ساعة وتحسينات)
   // ============================================================
-  Future<String> createNormalizedOffer({
-    required String institutionId,
-    required String title,
-    required String description,
-    required String category,
-    required int quantity,
-    required double symbolicPrice,
-    double? originalPrice,
-    required List<String> images,
-    String? city,
-    String? address,
-    String? pickupLocation,
-    required DateTime expiresAt,
-    DateTime? pickupBefore,
-    String currency = 'EGP',
-    String foodType = 'وجبات',
-    bool isHalal = true,
-    bool isVegetarian = false,
-    int servesCount = 1,
-    String foodCondition = 'good',
-    bool requiresRefrigeration = false,
-    String pickupNotes = '',
-    String contactPhone = '',
-    String pickupTime = '',
-  }) async {
-    try {
-      final result = await _client.rpc(
-        'institution_create_normalized_offer',
-        params: {
-          'p_institution_id': institutionId.trim(),
-          'p_title': title.trim(),
-          'p_description': description.trim(),
-          'p_category': category.trim().isEmpty ? 'other' : category.trim(),
-          'p_quantity': quantity,
-          'p_symbolic_price': symbolicPrice,
-          'p_original_price': originalPrice,
-          'p_currency': currency,
-          'p_images': images,
-          'p_city': city?.trim(),
-          'p_address': address?.trim(),
-          'p_location_text': pickupLocation?.trim(),
-          'p_expires_at': expiresAt.toUtc().toIso8601String(),
-          'p_pickup_before': pickupBefore?.toUtc().toIso8601String(),
-          'p_food_type': foodType,
-          'p_is_halal': isHalal,
-          'p_is_vegetarian': isVegetarian,
-          'p_serves_count': servesCount,
-          'p_food_condition': foodCondition,
-          'p_requires_refrigeration': requiresRefrigeration,
-          'p_pickup_notes': pickupNotes.trim(),
-          'p_contact_phone': contactPhone.trim(),
-          'p_pickup_time': pickupTime.trim(),
-        },
-      );
-      if (result is String && result.isNotEmpty) return result;
-      throw const FormatException('تعذر إنشاء العرض في قاعدة البيانات');
-    } catch (e) {
-      throw Exception('فشل إنشاء العرض: $e');
-    }
-  }
 
-  // ✅ دالة إنشاء عرض بسيط (للتطابق مع الجدول institution_offers)
   Future<Map<String, dynamic>> createOffer({
     required String institutionId,
     required String title,
@@ -644,65 +467,215 @@ class InstitutionsRepository {
     String contactPhone = '',
   }) async {
     final userId = _client.auth.currentUser?.id;
+
     if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
     }
+
     if (institutionId.trim().isEmpty) {
       throw const FormatException(
-          'معرف المؤسسة غير موجود. أعد فتح صفحة المؤسسة');
+        'معرف المؤسسة غير موجود. أعد فتح صفحة المؤسسة',
+      );
     }
 
     final cleanTitle = title.trim();
-    if (cleanTitle.isEmpty) throw const FormatException('اكتب اسم العرض');
-    if (quantity <= 0)
-      throw const FormatException('الكمية يجب أن تكون أكبر من صفر');
-    if (symbolicPrice < 0) throw const FormatException('السعر غير صحيح');
+
+    if (cleanTitle.isEmpty) {
+      throw const FormatException(
+        'اكتب اسم العرض',
+      );
+    }
+
+    if (quantity <= 0) {
+      throw const FormatException(
+        'الكمية يجب أن تكون أكبر من صفر',
+      );
+    }
+
+    if (symbolicPrice < 0) {
+      throw const FormatException(
+        'السعر الرمزي يجب أن يكون أكبر من أو يساوي صفر',
+      );
+    }
+
+    // ✅ التحقق من السعر الأصلي
+    if (originalPrice != null && originalPrice < 0) {
+      throw const FormatException(
+        'السعر الأصلي يجب أن يكون أكبر من أو يساوي صفر',
+      );
+    }
+
+    // ✅ التحقق من أن السعر الرمزي لا يتجاوز السعر الأصلي
+    if (originalPrice != null && symbolicPrice > originalPrice) {
+      throw FormatException(
+        'السعر الرمزي ($symbolicPrice ج.م) لا يمكن أن يكون أكبر من السعر الأصلي ($originalPrice ج.م)',
+      );
+    }
 
     final ownedInstitution = await _client
         .from('institutions')
         .select('id, status')
-        .eq('id', institutionId.trim())
-        .eq('user_id', userId)
+        .eq(
+          'id',
+          institutionId.trim(),
+        )
+        .eq(
+          'user_id',
+          userId,
+        )
         .maybeSingle();
+
     if (ownedInstitution == null) {
-      throw const FormatException('هذه المؤسسة غير مرتبطة بحساب الدخول الحالي');
+      throw const FormatException(
+        'هذه المؤسسة غير مرتبطة بحساب الدخول الحالي',
+      );
     }
+
     if (ownedInstitution['status']?.toString() != 'active') {
-      throw const FormatException('حساب المؤسسة غير نشط حاليًا');
+      throw const FormatException(
+        'حساب المؤسسة غير نشط حاليًا',
+      );
     }
 
-    final Map<String, dynamic> data = {
-      'institution_id': institutionId.trim(),
-      'title': cleanTitle,
-      'description': description.trim(),
-      'category': category.trim().isEmpty ? 'other' : category.trim(),
-      'quantity': quantity,
-      'remaining_quantity': quantity,
-      'symbolic_price': symbolicPrice,
-      'original_price': originalPrice,
-      'images': images,
-      'pickup_location': pickupLocation?.trim() ?? '',
-      'expires_at': expiresAt.toUtc().toIso8601String(),
-      'pickup_before': pickupBefore?.toUtc().toIso8601String(),
-      'status': 'active',
-      'food_type': foodType,
-      'is_halal': isHalal,
-      'is_vegetarian': isVegetarian,
-      'food_condition': foodCondition,
-      'requires_refrigeration': requiresRefrigeration,
-      'pickup_notes': pickupNotes.trim(),
-      'contact_phone': contactPhone.trim(),
-    };
+    // ✅ استخدام RPC بدلاً من insert المباشر
+    try {
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'institutionId=${institutionId.trim()} '
+        'userId=$userId '
+        'quantity=$quantity '
+        'symbolicPrice=$symbolicPrice '
+        'originalPrice=$originalPrice',
+      );
 
-    data.removeWhere(
-        (key, value) => value == null || (value is String && value.isEmpty));
+      final result = await _client.rpc(
+        'create_institution_offer',
+        params: {
+          'p_institution_id': institutionId.trim(),
+          'p_title': cleanTitle,
+          'p_description':
+              description.trim().isEmpty ? null : description.trim(),
+          'p_category': category.trim().isEmpty ? 'other' : category.trim(),
+          'p_quantity': quantity,
+          'p_original_price': originalPrice,
+          'p_symbolic_price': symbolicPrice,
+          'p_images': images,
+          'p_pickup_location': pickupLocation?.trim().isEmpty == true
+              ? null
+              : pickupLocation?.trim(),
+          'p_expires_at': expiresAt.toUtc().toIso8601String(),
+          'p_pickup_start': null,
+          'p_pickup_end': pickupBefore?.toUtc().toIso8601String(),
+          'p_food_type': foodType,
+          'p_is_halal': isHalal,
+          'p_is_vegetarian': isVegetarian,
+          'p_food_condition': foodCondition,
+          'p_requires_refrigeration': requiresRefrigeration,
+          'p_pickup_notes':
+              pickupNotes.trim().isEmpty ? null : pickupNotes.trim(),
+          'p_contact_phone':
+              contactPhone.trim().isEmpty ? null : contactPhone.trim(),
+          'p_pickup_time': null,
+        },
+      );
 
-    final row =
-        await _client.from('institution_offers').insert(data).select().single();
-    return Map<String, dynamic>.from(row);
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'response=$result',
+      );
+
+      if (result == null) {
+        throw const FormatException(
+          'لم يتم إنشاء العرض',
+        );
+      }
+
+      final offerId = result.toString().trim();
+
+      if (offerId.isEmpty) {
+        throw const FormatException(
+          'لم يتم استلام معرف العرض من الخادم',
+        );
+      }
+
+      print(
+        '[InstitutionDebug] '
+        '✅ OFFER CREATED '
+        'offerId=$offerId',
+      );
+
+      // ✅ جلب العرض المنشأ بالكامل
+      final createdOffer = await _client.from('institution_offers').select('''
+            *,
+            institutions:institution_id (
+              id,
+              name,
+              institution_type,
+              logo_url,
+              address,
+              phone
+            )
+          ''').eq('id', offerId).single();
+
+      return Map<String, dynamic>.from(createdOffer);
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'details=${error.details}',
+      );
+
+      // ✅ تحويل رسائل الخطأ من PostgreSQL إلى رسائل مفهومة
+      final message = error.message.toLowerCase();
+      if (message.contains('symbolic price cannot exceed original price')) {
+        throw const FormatException(
+          'السعر الرمزي لا يمكن أن يكون أكبر من السعر الأصلي\n'
+          'يرجى تعديل السعر الأصلي أو السعر الرمزي',
+        );
+      }
+      if (message.contains('expires_at')) {
+        throw const FormatException(
+          'صلاحية العرض لا تتجاوز 12 ساعة من الآن',
+        );
+      }
+      if (message.contains('already reserved')) {
+        throw const FormatException(
+          'لا يمكن تعديل العرض لأنه تم حجز جزء منه بالفعل',
+        );
+      }
+      if (message.contains('institution not found') ||
+          message.contains('المؤسسة غير موجودة')) {
+        throw const FormatException(
+          'المؤسسة غير موجودة أو غير نشطة',
+        );
+      }
+
+      rethrow;
+    } catch (error) {
+      print(
+        '[InstitutionDebug] CREATE OFFER '
+        'error=$error',
+      );
+
+      rethrow;
+    }
   }
 
-  // ✅ دالة تحديث العرض مع الحقول الإضافية
+  // ============================================================
+  // ✅ تحديث العرض
+  // ============================================================
+
   Future<void> updateOffer({
     required String offerId,
     String? title,
@@ -727,50 +700,809 @@ class InstitutionsRepository {
   }) async {
     try {
       final Map<String, dynamic> data = {
-        'updated_at': DateTime.now().toUtc().toIso8601String()
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      if (title != null) data['title'] = title.trim();
-      if (description != null) data['description'] = description.trim();
-      if (category != null) data['category'] = category;
-      if (quantity != null) data['quantity'] = quantity;
-      if (remainingQuantity != null)
+      if (title != null) {
+        data['title'] = title.trim();
+      }
+
+      if (description != null) {
+        data['description'] = description.trim();
+      }
+
+      if (category != null) {
+        data['category'] = category;
+      }
+
+      if (quantity != null) {
+        data['quantity'] = quantity;
+      }
+
+      if (remainingQuantity != null) {
         data['remaining_quantity'] = remainingQuantity;
-      if (symbolicPrice != null) data['symbolic_price'] = symbolicPrice;
-      if (originalPrice != null) data['original_price'] = originalPrice;
-      if (images != null) data['images'] = images;
-      if (pickupLocation != null)
+      }
+
+      if (symbolicPrice != null) {
+        data['symbolic_price'] = symbolicPrice;
+      }
+
+      if (originalPrice != null) {
+        data['original_price'] = originalPrice;
+      }
+
+      if (images != null) {
+        data['images'] = images;
+      }
+
+      if (pickupLocation != null) {
         data['pickup_location'] = pickupLocation.trim();
-      if (expiresAt != null)
+      }
+
+      if (expiresAt != null) {
         data['expires_at'] = expiresAt.toUtc().toIso8601String();
-      if (pickupBefore != null)
+      }
+
+      if (pickupBefore != null) {
         data['pickup_before'] = pickupBefore.toUtc().toIso8601String();
-      if (status != null) data['status'] = status;
-      if (foodType != null) data['food_type'] = foodType;
-      if (isHalal != null) data['is_halal'] = isHalal;
-      if (isVegetarian != null) data['is_vegetarian'] = isVegetarian;
-      if (foodCondition != null) data['food_condition'] = foodCondition;
-      if (requiresRefrigeration != null)
+      }
+
+      if (status != null) {
+        data['status'] = status;
+      }
+
+      if (foodType != null) {
+        data['food_type'] = foodType;
+      }
+
+      if (isHalal != null) {
+        data['is_halal'] = isHalal;
+      }
+
+      if (isVegetarian != null) {
+        data['is_vegetarian'] = isVegetarian;
+      }
+
+      if (foodCondition != null) {
+        data['food_condition'] = foodCondition;
+      }
+
+      if (requiresRefrigeration != null) {
         data['requires_refrigeration'] = requiresRefrigeration;
-      if (pickupNotes != null) data['pickup_notes'] = pickupNotes.trim();
-      if (contactPhone != null) data['contact_phone'] = contactPhone.trim();
+      }
+
+      if (pickupNotes != null) {
+        data['pickup_notes'] = pickupNotes.trim();
+      }
+
+      if (contactPhone != null) {
+        data['contact_phone'] = contactPhone.trim();
+      }
 
       data.removeWhere(
-          (key, value) => value == null || (value is String && value.isEmpty));
+        (key, value) => value == null || (value is String && value.isEmpty),
+      );
 
       await _client.from('institution_offers').update(data).eq('id', offerId);
     } catch (e) {
-      throw Exception('فشل تحديث العرض: $e');
+      throw Exception(
+        'فشل تحديث العرض: $e',
+      );
     }
   }
+
+  // ============================================================
+  // ✅ جلب المؤسسة الخاصة
+  // ============================================================
+
+  Future<Institution> getMine() async {
+    final authUser = _client.auth.currentUser;
+    final userId = authUser?.id;
+
+    print(
+      '[InstitutionDebug] auth.uid=${userId ?? 'null'}',
+    );
+
+    print(
+      '[InstitutionDebug] auth.email=${authUser?.email ?? 'null'}',
+    );
+
+    if (userId == null || userId.isEmpty) {
+      print(
+        '[InstitutionDebug] STOP: no active auth session',
+      );
+
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
+    }
+
+    try {
+      final userRow = await _client
+          .from('users')
+          .select(
+            'id, user_type, is_active',
+          )
+          .eq(
+            'id',
+            userId,
+          )
+          .maybeSingle();
+
+      print(
+        '[InstitutionDebug] users row='
+        '${userRow == null ? 'NULL' : 'FOUND'}',
+      );
+
+      if (userRow != null) {
+        print(
+          '[InstitutionDebug] '
+          'users.user_type=${userRow['user_type']}',
+        );
+
+        print(
+          '[InstitutionDebug] '
+          'users.is_active=${userRow['is_active']}',
+        );
+      }
+
+      final rows = await _client
+          .from('institutions')
+          .select()
+          .eq(
+            'user_id',
+            userId,
+          )
+          .order(
+            'created_at',
+            ascending: true,
+          )
+          .limit(2);
+
+      print(
+        '[InstitutionDebug] '
+        'institutions rows=${rows.length}',
+      );
+
+      if (rows.isNotEmpty) {
+        final first = Map<String, dynamic>.from(
+          rows.first as Map,
+        );
+
+        print(
+          '[InstitutionDebug] '
+          'institution.id=${first['id']}',
+        );
+
+        print(
+          '[InstitutionDebug] '
+          'institution.name=${first['name']}',
+        );
+
+        print(
+          '[InstitutionDebug] '
+          'institution_type=${first['institution_type']}',
+        );
+
+        print(
+          '[InstitutionDebug] '
+          'institution.status=${first['status']}',
+        );
+      }
+
+      if (rows.isEmpty) {
+        throw const FormatException(
+          'لا توجد مؤسسة مرتبطة بهذا الحساب',
+        );
+      }
+
+      return Institution.fromJson(
+        Map<String, dynamic>.from(
+          rows.first as Map,
+        ),
+      );
+    } on FormatException {
+      print(
+        '[InstitutionDebug] FORMAT: '
+        'no institution match or invalid session',
+      );
+
+      rethrow;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        'POSTGREST code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'POSTGREST message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'POSTGREST details=${error.details}',
+      );
+
+      throw FormatException(
+        _friendlyInstitutionError(error),
+      );
+    } catch (error) {
+      print(
+        '[InstitutionDebug] UNKNOWN error=$error',
+      );
+
+      throw const FormatException(
+        'تعذر الاتصال ببيانات المؤسسة حاليًا',
+      );
+    }
+  }
+
+  // ============================================================
+  // ✅ تحديث المؤسسة
+  // ============================================================
+
+  Future<Institution> updateMine({
+    String? name,
+    String? institutionType,
+    String? phone,
+    String? city,
+    String? address,
+    String? description,
+    String? logoUrl,
+    String? coverImageUrl,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+
+    if (userId == null || userId.isEmpty) {
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
+    }
+
+    final data = <String, dynamic>{
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    void put(
+      String key,
+      String? value,
+    ) {
+      if (value != null) {
+        data[key] = value.trim();
+      }
+    }
+
+    put('name', name);
+    put('institution_type', institutionType);
+    put('phone', phone);
+    put('city', city);
+    put('address', address);
+    put('description', description);
+    put('logo_url', logoUrl);
+    put('cover_image_url', coverImageUrl);
+
+    final row = await _client
+        .from('institutions')
+        .update(data)
+        .eq(
+          'user_id',
+          userId,
+        )
+        .select()
+        .single();
+
+    return Institution.fromJson(
+      Map<String, dynamic>.from(row),
+    );
+  }
+
+  // ============================================================
+  // ✅ رفع صورة المؤسسة
+  // ============================================================
+
+  Future<String> uploadInstitutionImage({
+    required Uint8List bytes,
+    required String fileExtension,
+    bool cover = false,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+
+    if (userId == null || userId.isEmpty) {
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
+    }
+
+    final safeExtension = fileExtension.replaceAll('.', '').toLowerCase();
+
+    final path = '$userId/'
+        '${cover ? 'cover' : 'logo'}_'
+        '${DateTime.now().millisecondsSinceEpoch}'
+        '.$safeExtension';
+
+    await _client.storage.from('institution-images').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            upsert: true,
+            contentType: 'image/$safeExtension',
+          ),
+        );
+
+    return _client.storage.from('institution-images').getPublicUrl(path);
+  }
+
+  // ============================================================
+  // ✅ جلب عروض المؤسسة كـ Entities
+  // ============================================================
+
+  Future<List<InstitutionOffer>> listPublicOfferEntities() async {
+    final rows = await listPublicOffers();
+
+    return rows.map(InstitutionOffer.fromJson).toList(growable: false);
+  }
+
+  Future<List<InstitutionOffer>> listMyOfferEntities(
+    String institutionId,
+  ) async {
+    final rows = await listMyOffers(
+      institutionId,
+    );
+
+    return rows.map(InstitutionOffer.fromJson).toList(growable: false);
+  }
+
+  // ============================================================
+  // ✅ إنشاء كود استلام طلب المؤسسة
+  // ============================================================
+
+  Future<Map<String, dynamic>> generateOfferRequestPickupCode(
+    String requestId,
+  ) async {
+    final cleanRequestId = requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw const FormatException(
+        'معرف الطلب غير موجود',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'institution_generate_offer_request_pickup_code',
+        params: {
+          'p_request_id': cleanRequestId,
+        },
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'generate pickup response=$result',
+      );
+
+      if (result is! Map) {
+        throw const FormatException(
+          'استجابة غير صالحة من الخادم',
+        );
+      }
+
+      final response = Map<String, dynamic>.from(result);
+
+      if (response['success'] != true) {
+        throw FormatException(
+          response['message']?.toString() ?? 'تعذر إنشاء كود الاستلام',
+        );
+      }
+
+      return response;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        'generate pickup code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'generate pickup message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'generate pickup details=${error.details}',
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ التحقق من كود الاستلام
+  // ============================================================
+
+  Future<Map<String, dynamic>> verifyOfferRequestPickupCode({
+    required String requestId,
+    required String code,
+  }) async {
+    final cleanRequestId = requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw const FormatException(
+        'معرف الطلب غير موجود',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // تنظيف الكود
+    // ----------------------------------------------------------
+
+    var cleanCode = code.trim();
+
+    // تحويل الأرقام العربية إلى إنجليزية
+    cleanCode = cleanCode
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9');
+
+    // إزالة أي شيء غير الأرقام
+    cleanCode = cleanCode.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
+
+    // ----------------------------------------------------------
+    // لازم يكون 6 أرقام بالضبط
+    // ----------------------------------------------------------
+
+    if (cleanCode.length != 6) {
+      throw const FormatException(
+        'كود الاستلام يجب أن يتكون من 6 أرقام',
+      );
+    }
+
+    try {
+      print(
+        '[InstitutionDebug] VERIFY PICKUP '
+        'requestId=$cleanRequestId '
+        'codeLength=${cleanCode.length}',
+      );
+
+      // --------------------------------------------------------
+      // استدعاء RPC
+      // --------------------------------------------------------
+
+      final result = await _client.rpc(
+        'institution_verify_offer_request_pickup_code',
+        params: {
+          'p_request_id': cleanRequestId,
+          'p_code': cleanCode,
+        },
+      );
+
+      print(
+        '[InstitutionDebug] VERIFY PICKUP '
+        'rawResponse=$result',
+      );
+
+      // --------------------------------------------------------
+      // التأكد أن الاستجابة Map
+      // --------------------------------------------------------
+
+      if (result is! Map) {
+        throw const FormatException(
+          'استجابة غير صالحة من الخادم',
+        );
+      }
+
+      final response = Map<String, dynamic>.from(result);
+
+      final success = response['success'] == true;
+
+      final status = response['status']?.toString();
+
+      print(
+        '[InstitutionDebug] VERIFY PICKUP '
+        'success=$success '
+        'status=$status',
+      );
+
+      // --------------------------------------------------------
+      // النجاح الحقيقي
+      // --------------------------------------------------------
+
+      if (!success) {
+        throw FormatException(
+          response['message']?.toString() ?? 'كود الاستلام غير صحيح',
+        );
+      }
+
+      if (status != 'picked_up') {
+        throw const FormatException(
+          'تم التحقق من الكود ولكن لم يتم تحديث حالة الطلب',
+        );
+      }
+
+      print(
+        '[InstitutionDebug] '
+        '✅ PICKUP VERIFIED '
+        'requestId=$cleanRequestId '
+        'status=picked_up',
+      );
+
+      return response;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        '❌ VERIFY PICKUP '
+        'code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        '❌ VERIFY PICKUP '
+        'message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        '❌ VERIFY PICKUP '
+        'details=${error.details}',
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ إكمال طلب المؤسسة
+  // ============================================================
+
+  Future<Map<String, dynamic>> completeOfferRequest(
+    String requestId,
+  ) async {
+    final cleanRequestId = requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw const FormatException(
+        'معرف الطلب غير موجود',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'institution_complete_offer_request',
+        params: {
+          'p_request_id': cleanRequestId,
+        },
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'complete request response=$result',
+      );
+
+      if (result is! Map) {
+        throw const FormatException(
+          'استجابة غير صالحة من الخادم',
+        );
+      }
+
+      final response = Map<String, dynamic>.from(result);
+
+      if (response['success'] != true) {
+        throw FormatException(
+          response['message']?.toString() ?? 'تعذر إكمال الطلب',
+        );
+      }
+
+      return response;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        'complete request code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'complete request message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'complete request details=${error.details}',
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ تجهيز الطلب للاستلام
+  // ============================================================
+
+  Future<Map<String, dynamic>> markOfferRequestReady(
+    String requestId,
+  ) async {
+    final cleanRequestId = requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw const FormatException(
+        'معرف الطلب غير موجود',
+      );
+    }
+
+    try {
+      final result = await _client.rpc(
+        'institution_mark_offer_request_ready',
+        params: {
+          'p_request_id': cleanRequestId,
+        },
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'ready request response=$result',
+      );
+
+      if (result is! Map) {
+        throw const FormatException(
+          'استجابة غير صالحة من الخادم',
+        );
+      }
+
+      final response = Map<String, dynamic>.from(result);
+
+      if (response['success'] != true) {
+        throw FormatException(
+          response['message']?.toString() ?? 'تعذر تجهيز الطلب للاستلام',
+        );
+      }
+
+      if (response['status'] != 'ready_for_pickup') {
+        throw const FormatException(
+          'لم يتم تحديث الطلب إلى جاهز للاستلام',
+        );
+      }
+
+      return response;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        'ready request code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'ready request message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        'ready request details=${error.details}',
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ قبول / رفض طلب
+  // ============================================================
+
+  Future<Map<String, dynamic>> updateOfferRequest({
+    required String requestId,
+    required bool accept,
+  }) async {
+    final cleanRequestId = requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw const FormatException(
+        'معرف الطلب غير موجود',
+      );
+    }
+
+    try {
+      print(
+        '[InstitutionDebug] UPDATE REQUEST '
+        'requestId=$cleanRequestId '
+        'accept=$accept',
+      );
+
+      final result = await _client.rpc(
+        'institution_update_offer_request',
+        params: {
+          'p_request_id': cleanRequestId,
+          'p_accept': accept,
+        },
+      );
+
+      print(
+        '[InstitutionDebug] UPDATE REQUEST '
+        'response=$result',
+      );
+
+      if (result is! Map) {
+        throw const FormatException(
+          'استجابة غير صالحة من الخادم',
+        );
+      }
+
+      final response = Map<String, dynamic>.from(result);
+
+      if (response['success'] != true) {
+        throw FormatException(
+          response['message']?.toString() ?? 'تعذر تحديث حالة الطلب',
+        );
+      }
+
+      final expectedStatus = accept ? 'accepted' : 'rejected';
+
+      if (response['status'] != expectedStatus) {
+        throw FormatException(
+          'لم يتم تحديث الطلب إلى الحالة المطلوبة: '
+          '$expectedStatus',
+        );
+      }
+
+      print(
+        '[InstitutionDebug] '
+        '✅ UPDATE REQUEST SUCCESS '
+        'requestId=$cleanRequestId '
+        'status=${response['status']}',
+      );
+
+      return response;
+    } on PostgrestException catch (error) {
+      print(
+        '[InstitutionDebug] '
+        '❌ UPDATE REQUEST '
+        'code=${error.code}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        '❌ UPDATE REQUEST '
+        'message=${error.message}',
+      );
+
+      print(
+        '[InstitutionDebug] '
+        '❌ UPDATE REQUEST '
+        'details=${error.details}',
+      );
+
+      rethrow;
+    }
+  }
+
+  // ============================================================
+  // ✅ دوال الجمعيات الخيرية
+  // ============================================================
 
   Future<List<Map<String, dynamic>>> listActiveCharities() async {
     final rows = await _client
         .from('charities')
-        .select('id, name, logo, image_url, logo_url, address, description')
-        .eq('status', 'active')
-        .eq('is_verified', true)
+        .select(
+          'id, name, logo, image_url, logo_url, '
+          'address, description',
+        )
+        .eq(
+          'status',
+          'active',
+        )
+        .eq(
+          'is_verified',
+          true,
+        )
         .order('name');
+
     return _maps(rows);
   }
 
@@ -779,9 +1511,18 @@ class InstitutionsRepository {
   ) async {
     final rows = await _client
         .from('institution_charity_donations')
-        .select('*, charities(id, name, logo, image_url, logo_url)')
-        .eq('institution_id', institutionId)
-        .order('created_at', ascending: false);
+        .select(
+          '*, charities(id, name, logo, image_url, logo_url)',
+        )
+        .eq(
+          'institution_id',
+          institutionId,
+        )
+        .order(
+          'created_at',
+          ascending: false,
+        );
+
     return _maps(rows);
   }
 
@@ -795,9 +1536,18 @@ class InstitutionsRepository {
     required List<String> images,
   }) async {
     final cleanTitle = itemTitle.trim();
-    if (cleanTitle.isEmpty) throw const FormatException('اكتب اسم التبرع');
-    if (quantity <= 0)
-      throw const FormatException('الكمية يجب أن تكون أكبر من صفر');
+
+    if (cleanTitle.isEmpty) {
+      throw const FormatException(
+        'اكتب اسم التبرع',
+      );
+    }
+
+    if (quantity <= 0) {
+      throw const FormatException(
+        'الكمية يجب أن تكون أكبر من صفر',
+      );
+    }
 
     final row = await _client
         .from('institution_charity_donations')
@@ -813,6 +1563,7 @@ class InstitutionsRepository {
         })
         .select()
         .single();
+
     return Map<String, dynamic>.from(row);
   }
 
@@ -820,10 +1571,13 @@ class InstitutionsRepository {
     required String donationId,
     required bool accept,
   }) async {
-    return _rpcMap('institution_accept_charity_donation', {
-      'p_donation_id': donationId,
-      'p_accept': accept,
-    });
+    return _rpcMap(
+      'institution_accept_charity_donation',
+      {
+        'p_donation_id': donationId,
+        'p_accept': accept,
+      },
+    );
   }
 
   Future<Map<String, dynamic>> assignVolunteer({
@@ -832,120 +1586,393 @@ class InstitutionsRepository {
     required String volunteerName,
     required String volunteerPhone,
   }) async {
-    return _rpcMap('institution_assign_charity_volunteer', {
-      'p_donation_id': donationId,
-      'p_volunteer_id': volunteerId,
-      'p_volunteer_name': volunteerName.trim(),
-      'p_volunteer_phone': volunteerPhone.trim(),
-    });
+    return _rpcMap(
+      'institution_assign_charity_volunteer',
+      {
+        'p_donation_id': donationId,
+        'p_volunteer_id': volunteerId,
+        'p_volunteer_name': volunteerName.trim(),
+        'p_volunteer_phone': volunteerPhone.trim(),
+      },
+    );
   }
 
-  Future<Map<String, dynamic>> markReady(String donationId) async =>
-      _rpcMap('institution_mark_ready', {'p_donation_id': donationId});
+  Future<Map<String, dynamic>> markReady(
+    String donationId,
+  ) async {
+    return _rpcMap(
+      'institution_mark_ready',
+      {
+        'p_donation_id': donationId,
+      },
+    );
+  }
 
-  Future<Map<String, dynamic>> markVolunteerDeparted(String donationId) async =>
-      _rpcMap(
-          'institution_mark_volunteer_departed', {'p_donation_id': donationId});
+  Future<Map<String, dynamic>> markVolunteerDeparted(
+    String donationId,
+  ) async {
+    return _rpcMap(
+      'institution_mark_volunteer_departed',
+      {
+        'p_donation_id': donationId,
+      },
+    );
+  }
 
-  Future<Map<String, dynamic>> generatePickupCode(String donationId) async =>
-      _rpcMap(
-          'institution_generate_pickup_code', {'p_donation_id': donationId});
+  Future<Map<String, dynamic>> generatePickupCode(
+    String donationId,
+  ) async {
+    return _rpcMap(
+      'institution_generate_pickup_code',
+      {
+        'p_donation_id': donationId,
+      },
+    );
+  }
 
   Future<Map<String, dynamic>> verifyPickupCode({
     required String donationId,
     required String code,
-  }) async =>
-      _rpcMap('institution_verify_pickup_code', {
+  }) async {
+    return _rpcMap(
+      'institution_verify_pickup_code',
+      {
         'p_donation_id': donationId,
         'p_code': code.trim(),
-      });
+      },
+    );
+  }
 
-  Future<Map<String, dynamic>> confirmArrival(String donationId) async =>
-      _rpcMap('institution_confirm_arrival', {'p_donation_id': donationId});
+  Future<Map<String, dynamic>> confirmArrival(
+    String donationId,
+  ) async {
+    return _rpcMap(
+      'institution_confirm_arrival',
+      {
+        'p_donation_id': donationId,
+      },
+    );
+  }
+
+  // ============================================================
+  // ✅ دوال الإشعارات
+  // ============================================================
 
   Future<List<Map<String, dynamic>>> listMyNotifications() async {
     final userId = _client.auth.currentUser?.id;
+
     if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
     }
+
     final institution = await _client
         .from('institutions')
         .select('id')
-        .eq('user_id', userId)
+        .eq(
+          'user_id',
+          userId,
+        )
         .maybeSingle();
+
     final institutionId = institution?['id']?.toString();
+
     if (institutionId == null || institutionId.isEmpty) {
-      throw const FormatException('لا توجد مؤسسة مرتبطة بهذا الحساب');
+      throw const FormatException(
+        'لا توجد مؤسسة مرتبطة بهذا الحساب',
+      );
     }
+
     final rows = await _client
         .from('institution_notifications')
         .select()
-        .eq('institution_id', institutionId)
-        .order('created_at', ascending: false);
+        .eq(
+          'institution_id',
+          institutionId,
+        )
+        .order(
+          'created_at',
+          ascending: false,
+        );
+
     return _maps(rows);
   }
 
   Future<int> countUnreadNotifications() async {
     final rows = await listMyNotifications();
-    return rows.where((row) => row['is_read'] != true).length;
+
+    return rows
+        .where(
+          (row) => row['is_read'] != true,
+        )
+        .length;
   }
 
-  Future<void> markNotificationAsRead(String notificationId) async {
+  Future<void> markNotificationAsRead(
+    String notificationId,
+  ) async {
     final userId = _client.auth.currentUser?.id;
+
     if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
     }
+
     final institution = await _client
         .from('institutions')
         .select('id')
-        .eq('user_id', userId)
+        .eq(
+          'user_id',
+          userId,
+        )
         .maybeSingle();
+
     final institutionId = institution?['id']?.toString();
+
     if (institutionId == null || institutionId.isEmpty) {
-      throw const FormatException('لا توجد مؤسسة مرتبطة بهذا الحساب');
+      throw const FormatException(
+        'لا توجد مؤسسة مرتبطة بهذا الحساب',
+      );
     }
+
     await _client
         .from('institution_notifications')
-        .update({'is_read': true})
-        .eq('id', notificationId)
-        .eq('institution_id', institutionId);
+        .update({
+          'is_read': true,
+        })
+        .eq(
+          'id',
+          notificationId,
+        )
+        .eq(
+          'institution_id',
+          institutionId,
+        );
   }
 
   Future<void> markAllNotificationsAsRead() async {
     final userId = _client.auth.currentUser?.id;
+
     if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
+      throw const FormatException(
+        'يجب تسجيل الدخول أولًا',
+      );
     }
+
     final institution = await _client
         .from('institutions')
         .select('id')
-        .eq('user_id', userId)
+        .eq(
+          'user_id',
+          userId,
+        )
         .maybeSingle();
+
     final institutionId = institution?['id']?.toString();
+
     if (institutionId == null || institutionId.isEmpty) {
-      throw const FormatException('لا توجد مؤسسة مرتبطة بهذا الحساب');
+      throw const FormatException(
+        'لا توجد مؤسسة مرتبطة بهذا الحساب',
+      );
     }
+
     await _client
         .from('institution_notifications')
-        .update({'is_read': true})
-        .eq('institution_id', institutionId)
-        .eq('is_read', false);
+        .update({
+          'is_read': true,
+        })
+        .eq(
+          'institution_id',
+          institutionId,
+        )
+        .eq(
+          'is_read',
+          false,
+        );
   }
+
+  // ============================================================
+  // ✅ دوال الشكاوى (Product Complaints)
+  // ============================================================
+
+  Future<void> addProductComplaint({
+    required String offerId,
+    required String complaintType,
+    String? description,
+    String? photoUrl,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول');
+
+    final offer = await _client
+        .from('institution_offers')
+        .select('institution_id')
+        .eq('id', offerId)
+        .maybeSingle();
+
+    if (offer == null) throw Exception('العرض غير موجود');
+
+    await _client.from('product_complaints').insert({
+      'offer_id': offerId,
+      'user_id': user.id,
+      'institution_id': offer['institution_id'],
+      'complaint_type': complaintType,
+      'description': description,
+      'photo_url': photoUrl,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getMyComplaints() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return [];
+
+    final rows = await _client
+        .from('product_complaints')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getInstitutionComplaints(
+    String institutionId,
+  ) async {
+    final rows = await _client
+        .from('product_complaints')
+        .select('*')
+        .eq('institution_id', institutionId)
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<void> updateComplaintStatus({
+    required String complaintId,
+    required String status,
+  }) async {
+    if (!['resolved', 'rejected'].contains(status)) {
+      throw Exception('حالة غير صحيحة');
+    }
+
+    await _client.from('product_complaints').update({
+      'status': status,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', complaintId);
+  }
+
+  // ============================================================
+  // ✅ دوال مساعدة
+  // ============================================================
 
   Future<Map<String, dynamic>> _rpcMap(
     String function,
     Map<String, dynamic> params,
   ) async {
-    final result = await _client.rpc(function, params: params);
-    if (result is Map) return Map<String, dynamic>.from(result);
-    throw const FormatException('استجابة غير صالحة من الخادم');
+    final result = await _client.rpc(
+      function,
+      params: params,
+    );
+
+    if (result is Map) {
+      return Map<String, dynamic>.from(
+        result,
+      );
+    }
+
+    throw const FormatException(
+      'استجابة غير صالحة من الخادم',
+    );
   }
 
-  static List<Map<String, dynamic>> _maps(dynamic value) {
-    if (value is! List) return const <Map<String, dynamic>>[];
+  static List<Map<String, dynamic>> _maps(
+    dynamic value,
+  ) {
+    if (value is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
     return value
         .whereType<Map>()
-        .map((row) => Map<String, dynamic>.from(row))
+        .map(
+          (row) => Map<String, dynamic>.from(row),
+        )
         .toList();
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    final parsed = double.tryParse(value?.toString() ?? '');
+    return parsed;
+  }
+
+  static double _distanceInMeters(
+    double latitude1,
+    double longitude1,
+    double latitude2,
+    double longitude2,
+  ) {
+    const earthRadiusMeters = 6371000.0;
+
+    final lat1 = latitude1 * math.pi / 180.0;
+    final lat2 = latitude2 * math.pi / 180.0;
+    final deltaLat = (latitude2 - latitude1) * math.pi / 180.0;
+    final deltaLon = (longitude2 - longitude1) * math.pi / 180.0;
+
+    final sinLat = math.sin(deltaLat / 2);
+    final sinLon = math.sin(deltaLon / 2);
+
+    final a =
+        sinLat * sinLat + math.cos(lat1) * math.cos(lat2) * sinLon * sinLon;
+
+    final clampedA = a.clamp(0.0, 1.0);
+
+    final c = 2 *
+        math.atan2(
+          math.sqrt(clampedA),
+          math.sqrt(1.0 - clampedA),
+        );
+
+    return earthRadiusMeters * c;
+  }
+
+  static int _asInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0;
+  }
+
+  String _friendlyInstitutionError(
+    PostgrestException error,
+  ) {
+    final text = '${error.code} ${error.message}'.toLowerCase();
+
+    if (text.contains('permission') ||
+        text.contains('row-level security') ||
+        text.contains('rls')) {
+      return 'لا توجد صلاحية لقراءة بيانات المؤسسة. '
+          'راجع سياسة القراءة الخاصة بالمؤسسات.';
+    }
+
+    if (text.contains('column') || text.contains('does not exist')) {
+      return 'بيانات المؤسسة غير متوافقة '
+          'مع نسخة قاعدة البيانات الحالية.';
+    }
+
+    return 'تعذر تحميل بيانات المؤسسة حاليًا';
   }
 }

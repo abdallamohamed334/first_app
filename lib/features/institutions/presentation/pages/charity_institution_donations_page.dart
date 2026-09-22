@@ -106,8 +106,9 @@ class _CharityInstitutionDonationsPageState
       _toast('تم تعيين المتطوع بنجاح');
       await _reload();
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         _toast('تعذر تعيين المتطوع. راجع بيانات الاختيار', error: true);
+      }
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -631,7 +632,7 @@ class _VolunteerAssignmentDialogState
                   const Text('لا يوجد مندوبون نشطون داخل الجمعية.')
                 else
                   DropdownButtonFormField<String>(
-                    value: _selectedId,
+                    initialValue: _selectedId,
                     decoration: const InputDecoration(
                       labelText: 'اختيار مندوب الجمعية',
                       prefixIcon: Icon(Icons.badge_outlined),

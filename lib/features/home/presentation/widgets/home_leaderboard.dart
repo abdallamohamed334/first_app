@@ -45,6 +45,7 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -93,7 +94,7 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
               final volunteer = entry.value;
               final rank = index + 1;
               return _buildLeaderboardItem(
-                  context, volunteer, rank, colorScheme);
+                  context, volunteer, rank, colorScheme, isDark);
             }),
         ],
       ),
@@ -125,6 +126,7 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
     Map<String, dynamic> volunteer,
     int rank,
     ColorScheme colorScheme,
+    bool isDark,
   ) {
     final name = volunteer['name'] ?? 'مستخدم';
     final points = volunteer['points'] ?? 0;
@@ -137,13 +139,13 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
         rankColor = Colors.amber;
         break;
       case 2:
-        rankColor = Colors.grey.shade400;
+        rankColor = isDark ? const Color(0xFF9E9E9E) : Colors.grey.shade400;
         break;
       case 3:
-        rankColor = Colors.brown.shade300;
+        rankColor = isDark ? const Color(0xFFB08968) : Colors.brown.shade300;
         break;
       default:
-        rankColor = Colors.grey.shade500;
+        rankColor = isDark ? const Color(0xFF757575) : Colors.grey.shade500;
     }
 
     return Container(

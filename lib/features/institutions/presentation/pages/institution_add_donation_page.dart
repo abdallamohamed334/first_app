@@ -219,7 +219,7 @@ class _InstitutionAddDonationPageState
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: outline.withOpacity(.45)),
+                  border: Border.all(color: outline.withValues(alpha: .45)),
                   boxShadow: const [
                     BoxShadow(
                       color: Color(0x0D0F3D2E),
@@ -327,7 +327,8 @@ class _InstitutionAddDonationPageState
                           onPressed: _saving ? null : _save,
                           style: FilledButton.styleFrom(
                             backgroundColor: primary,
-                            disabledBackgroundColor: primary.withOpacity(.35),
+                            disabledBackgroundColor:
+                                primary.withValues(alpha: .35),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),

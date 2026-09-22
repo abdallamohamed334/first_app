@@ -81,8 +81,8 @@ class _InstitutionOfferRequestsPageState
       try {
         final preferences = await SharedPreferences.getInstance();
         code = preferences.getString(_pickupCodeKey(requestId));
-        if (code != null && code!.isNotEmpty) {
-          _pickupCodes[requestId] = code!;
+        if (code != null && code.isNotEmpty) {
+          _pickupCodes[requestId] = code;
         }
       } catch (error) {
         debugPrint(

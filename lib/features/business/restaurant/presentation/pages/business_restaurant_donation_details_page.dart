@@ -40,14 +40,17 @@ class BusinessRestaurantDonationDetailsPage extends StatelessWidget {
 
   Color _color(String status) {
     if (status == 'completed') return green;
-    if (['rejected', 'cancelled', 'expired'].contains(status))
+    if (['rejected', 'cancelled', 'expired'].contains(status)) {
       return const Color(0xFFBA1A1A);
+    }
     if ([
       'volunteer_assigned',
       'picked_up',
       'picked_up_from_donor',
       'in_transit'
-    ].contains(status)) return const Color(0xFF8A5B13);
+    ].contains(status)) {
+      return const Color(0xFF8A5B13);
+    }
     return green;
   }
 
@@ -137,7 +140,7 @@ class BusinessRestaurantDonationDetailsPage extends StatelessWidget {
                     color: color.withValues(alpha: .18),
                     borderRadius: BorderRadius.circular(16)),
                 child: Text(_label(status),
-                    style: TextStyle(
+                    style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w800))),

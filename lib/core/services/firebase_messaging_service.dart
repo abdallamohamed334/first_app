@@ -28,7 +28,7 @@ class FirebaseMessagingService {
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
     'loqma_high_importance',
-    'إشعارات لقمة',
+    'إشعارات جُود',
     description: 'إشعارات التبرعات والحجوزات وتحديثات الاستلام',
     importance: Importance.high,
   );
@@ -135,7 +135,7 @@ class FirebaseMessagingService {
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'loqma_high_importance',
-          'إشعارات لقمة',
+          'إشعارات جُود',
           channelDescription: 'إشعارات التبرعات والحجوزات وتحديثات الاستلام',
           importance: Importance.high,
           priority: Priority.high,

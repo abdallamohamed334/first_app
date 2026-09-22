@@ -88,7 +88,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         const Text(
-          'Loqma',
+          'loqma',
           style: TextStyle(
             color: Color(0xFF0B7650),
             fontSize: 21,
@@ -129,7 +129,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 17),
         const Text(
-          'انضم إلى لقمة',
+          'انضم إلى جُود',
           style: TextStyle(
             color: Color(0xFF123F31),
             fontSize: 29,
@@ -455,8 +455,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (phone.startsWith('+20')) phone = phone.substring(3);
     if (phone.startsWith('0020')) phone = phone.substring(4);
-    if (phone.startsWith('20') && phone.length == 12)
+    if (phone.startsWith('20') && phone.length == 12) {
       phone = phone.substring(2);
+    }
     if (phone.length == 10) phone = '0$phone';
     return phone;
   }

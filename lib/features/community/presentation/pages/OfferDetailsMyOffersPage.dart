@@ -59,9 +59,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
             final fullUrl = _getFullImageUrl(url);
             if (fullUrl.isNotEmpty) {
               imageUrls.add(fullUrl);
-              if (primaryUrl == null) {
-                primaryUrl = fullUrl;
-              }
+              primaryUrl ??= fullUrl;
             }
           }
         }
@@ -121,7 +119,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
 
     // ✅ بناء الرابط من Supabase Storage
     // الصورة مخزنة في Bucket باسم community-offers
-    final baseUrl =
+    const baseUrl =
         'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/community-offers/';
 
     // لو الـ path يبدأ بـ / نشيله
@@ -164,7 +162,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
       foregroundColor: _onSurface,
       leading: Container(
         margin: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: _secondaryContainer,
           shape: BoxShape.circle,
         ),
@@ -200,7 +198,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
           height: 260,
           width: double.infinity,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [_primaryContainer, _primary],
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
@@ -239,7 +237,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 10,
                   offset: const Offset(0, 2),
                 ),
@@ -284,7 +282,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _onPrimary.withOpacity(0.2),
+                      color: _onPrimary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -326,7 +324,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _onPrimary.withOpacity(0.2),
+                      color: _onPrimary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -392,7 +390,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -431,7 +429,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -456,7 +454,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -495,7 +493,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -603,7 +601,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -633,7 +631,7 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -887,8 +885,8 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.warning_amber_rounded, color: _errorColor, size: 28),
             SizedBox(width: 8),
             Text(
@@ -1001,8 +999,8 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.warning_amber_rounded, color: _errorColor),
             SizedBox(width: 8),
             Text('رفض الطلب'),

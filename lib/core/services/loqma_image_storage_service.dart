@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,16 +8,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// - charity-images: charities/<user-id>/<file>
 /// - restaurant-offers: <user-id>/<file>
 /// - community-offers: direct/<user-id>/<file>
-class LoqmaImageStorageService {
+class loqmaImageStorageService {
   final SupabaseClient _client;
 
-  LoqmaImageStorageService({SupabaseClient? client})
+  loqmaImageStorageService({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
   Future<User> _requireUser() async {
     final user = _client.auth.currentUser;
     if (user == null) {
-      throw const LoqmaStorageAuthException('يجب تسجيل الدخول أولًا');
+      throw const loqmaStorageAuthException('يجب تسجيل الدخول أولًا');
     }
     return user;
   }
@@ -161,10 +159,10 @@ class LoqmaImageStorageService {
   }
 }
 
-class LoqmaStorageAuthException implements Exception {
+class loqmaStorageAuthException implements Exception {
   final String message;
 
-  const LoqmaStorageAuthException(this.message);
+  const loqmaStorageAuthException(this.message);
 
   @override
   String toString() => message;

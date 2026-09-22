@@ -126,7 +126,9 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
           create: (_) => CharityBloc(),
         ),
         BlocProvider<MapBloc>(
-          create: (_) => MapBloc(widget.service),
+          create: (_) => MapBloc(
+            locationService: null,
+          ),
         ),
         BlocProvider<VolunteerBloc>(
           create: (_) => VolunteerBloc(widget.service),

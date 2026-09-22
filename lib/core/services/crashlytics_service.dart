@@ -1,13 +1,13 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized Crashlytics reporting for Loqma.
+/// Centralized Crashlytics reporting for loqma.
 ///
 /// The helper accepts only short, non-sensitive context. Do not pass user
 /// names, email addresses, phone numbers, passwords, auth tokens, full
 /// addresses, or database identifiers.
-class LoqmaCrashlytics {
-  LoqmaCrashlytics({FirebaseCrashlytics? crashlytics})
+class loqmaCrashlytics {
+  loqmaCrashlytics({FirebaseCrashlytics? crashlytics})
       : _crashlytics = crashlytics ?? FirebaseCrashlytics.instance;
 
   final FirebaseCrashlytics _crashlytics;

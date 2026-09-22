@@ -1,80 +1,247 @@
-import 'dart:convert';
+// lib/features/map/presentation/bloc/map_bloc.dart
 
 import 'package:bloc/bloc.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'package:injectable/injectable.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer.dart';
+
+import '../../../../core/services/location_service.dart';
+import '../../data/repositories/map_repository_impl.dart';
+import '../../../offers/domain/entities/food_offer.dart';
 import 'map_event.dart';
 import 'map_state.dart';
 
-@injectable
 class MapBloc extends Bloc<MapEvent, MapState> {
-  final SupabaseService _supabaseService;
+  final LocationService _locationService;
+  final MapRepositoryImpl _mapRepository;
 
-  MapBloc(this._supabaseService) : super(const MapInitial()) {
-    on<MapStarted>(_onStarted);
+  MapBloc({
+    LocationService? locationService,
+    MapRepositoryImpl? mapRepository,
+  })  : _locationService = locationService ?? LocationService(),
+        _mapRepository = mapRepository ?? MapRepositoryImpl(),
+        super(const MapState()) {
+    on<MapStarted>(_onMapStarted);
+    on<MapLocationUpdated>(_onMapLocationUpdated);
+    on<MapOffersLoaded>(_onMapOffersLoaded);
     on<SelectOffer>(_onSelectOffer);
+    on<ClearSelectedOffer>(_onClearSelectedOffer);
     on<FilterOffers>(_onFilterOffers);
-    on<SearchLocation>(_onSearchLocation);
     on<ChangeRadius>(_onChangeRadius);
+    on<SearchLocation>(_onSearchLocation);
     on<GoToMyLocation>(_onGoToMyLocation);
+    on<RefreshOffers>(_onRefreshOffers);
+    on<PermissionDenied>(_onPermissionDenied);
+    on<PermissionDeniedForever>(_onPermissionDeniedForever);
+    on<LocationServiceDisabled>(_onLocationServiceDisabled);
+    on<MapLocationError>(_onMapLocationError);
+    on<MapOffersError>(_onMapOffersError);
   }
 
-  Future<void> _onStarted(
+  Future<void> _onMapStarted(
     MapStarted event,
     Emitter<MapState> emit,
   ) async {
-    emit(const MapLoading());
+    print('📍 [MapBloc] MapStarted received');
+    emit(state.copyWith(status: MapStatus.loadingLocation, isLoading: true));
+
+    final isServiceEnabled = await _locationService.isLocationServiceEnabled();
+    print('📍 [MapBloc] isServiceEnabled: $isServiceEnabled');
+
+    if (!isServiceEnabled) {
+      print('📍 [MapBloc] Location service DISABLED');
+      add(LocationServiceDisabled());
+      return;
+    }
+
+    final permission = await _locationService.checkPermission();
+    print('📍 [MapBloc] permission: $permission');
+
+    if (permission == LocationPermission.denied) {
+      print('📍 [MapBloc] Permission denied, requesting...');
+      final newPermission = await _locationService.requestPermission();
+      print('📍 [MapBloc] New permission: $newPermission');
+      if (newPermission == LocationPermission.denied) {
+        add(PermissionDenied());
+        return;
+      }
+      if (newPermission == LocationPermission.deniedForever) {
+        add(PermissionDeniedForever());
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      print('📍 [MapBloc] Permission denied FOREVER');
+      add(PermissionDeniedForever());
+      return;
+    }
 
     try {
-      final offersData = await _supabaseService.getFoodOffers();
-      final offers = <FoodOffer>[];
-
-      for (final data in offersData) {
-        try {
-          offers.add(FoodOffer.fromJson(data));
-        } catch (e) {
-          print('❌ Error parsing offer: $e');
-        }
-      }
-
-      emit(MapLoaded(
-        allOffers: offers,
-        filteredOffers: offers,
-        selectedOffer: offers.isNotEmpty ? offers.first : null,
-        selectedFilter: 'كل الوجبات',
-        radius: 5.0,
-        userLatitude: 30.0444,
-        userLongitude: 31.2357,
+      print('📍 [MapBloc] Getting current position...');
+      final position = await _locationService.getCurrentPosition();
+      print(
+          '📍 [MapBloc] Position: ${position.latitude}, ${position.longitude}');
+      add(MapLocationUpdated(
+        latitude: position.latitude,
+        longitude: position.longitude,
       ));
     } catch (e) {
-      emit(MapError('حدث خطأ أثناء تحميل البيانات: $e'));
+      print('📍 [MapBloc] Error getting position: $e');
+      add(const MapLocationError('تعذر تحديد موقعك. حاول مرة أخرى.'));
     }
   }
 
-  void _onSelectOffer(SelectOffer event, Emitter<MapState> emit) {
-    final currentState = state;
-    if (currentState is MapLoaded) {
-      emit(currentState.copyWith(selectedOffer: event.offer));
+  Future<void> _onMapLocationUpdated(
+    MapLocationUpdated event,
+    Emitter<MapState> emit,
+  ) async {
+    print(
+        '📍 [MapBloc] MapLocationUpdated: ${event.latitude}, ${event.longitude}');
+    emit(state.copyWith(
+      status: MapStatus.locationLoaded,
+      userLatitude: event.latitude,
+      userLongitude: event.longitude,
+    ));
+
+    emit(state.copyWith(status: MapStatus.loadingOffers, isLoading: true));
+
+    try {
+      final offers = await _mapRepository.getNearbyOffers(
+        latitude: event.latitude,
+        longitude: event.longitude,
+        radiusMeters: state.radius,
+      );
+
+      add(MapOffersLoaded(offers));
+    } catch (e) {
+      add(MapOffersError(e.toString().replaceFirst('Exception: ', '')));
     }
   }
 
-  void _onFilterOffers(FilterOffers event, Emitter<MapState> emit) {
-    final currentState = state;
-    if (currentState is! MapLoaded) return;
+  Future<void> _onMapOffersLoaded(
+    MapOffersLoaded event,
+    Emitter<MapState> emit,
+  ) async {
+    print('📍 [MapBloc] MapOffersLoaded: ${event.offers.length} offers');
+    emit(state.copyWith(
+      status: MapStatus.offersLoaded,
+      offers: event.offers,
+      filteredOffers: _applyFilter(event.offers, state.selectedFilter),
+      isLoading: false,
+    ));
+  }
 
-    final filtered = event.filter == 'كل الوجبات'
-        ? currentState.allOffers
-        : currentState.allOffers
-            .where((offer) => offer.foodType.contains(event.filter))
-            .toList();
+  Future<void> _onGoToMyLocation(
+    GoToMyLocation event,
+    Emitter<MapState> emit,
+  ) async {
+    print('📍 [MapBloc] GoToMyLocation called');
 
-    emit(currentState.copyWith(
-      filteredOffers: filtered,
+    final isServiceEnabled = await _locationService.isLocationServiceEnabled();
+    if (!isServiceEnabled) {
+      add(LocationServiceDisabled());
+      return;
+    }
+
+    final permission = await _locationService.checkPermission();
+    if (permission == LocationPermission.denied) {
+      final newPermission = await _locationService.requestPermission();
+      if (newPermission == LocationPermission.denied) {
+        add(PermissionDenied());
+        return;
+      }
+      if (newPermission == LocationPermission.deniedForever) {
+        add(PermissionDeniedForever());
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      add(PermissionDeniedForever());
+      return;
+    }
+
+    try {
+      final position = await _locationService.getCurrentPosition();
+      add(MapLocationUpdated(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      ));
+    } catch (e) {
+      add(const MapLocationError('تعذر تحديث موقعك. حاول مرة أخرى.'));
+    }
+  }
+
+  Future<void> _onRefreshOffers(
+    RefreshOffers event,
+    Emitter<MapState> emit,
+  ) async {
+    print('📍 [MapBloc] RefreshOffers called');
+
+    if (state.userLatitude == null || state.userLongitude == null) {
+      add(GoToMyLocation());
+      return;
+    }
+
+    emit(state.copyWith(status: MapStatus.loadingOffers, isLoading: true));
+
+    try {
+      final offers = await _mapRepository.getNearbyOffers(
+        latitude: state.userLatitude!,
+        longitude: state.userLongitude!,
+        radiusMeters: state.radius,
+      );
+
+      add(MapOffersLoaded(offers));
+    } catch (e) {
+      add(MapOffersError(e.toString().replaceFirst('Exception: ', '')));
+    }
+  }
+
+  Future<void> _onChangeRadius(
+    ChangeRadius event,
+    Emitter<MapState> emit,
+  ) async {
+    print('📍 [MapBloc] ChangeRadius: ${event.radius}');
+    emit(state.copyWith(radius: event.radius));
+
+    if (state.userLatitude != null && state.userLongitude != null) {
+      emit(state.copyWith(status: MapStatus.loadingOffers, isLoading: true));
+
+      try {
+        final offers = await _mapRepository.getNearbyOffers(
+          latitude: state.userLatitude!,
+          longitude: state.userLongitude!,
+          radiusMeters: event.radius,
+        );
+
+        add(MapOffersLoaded(offers));
+      } catch (e) {
+        add(MapOffersError(e.toString().replaceFirst('Exception: ', '')));
+      }
+    }
+  }
+
+  void _onSelectOffer(
+    SelectOffer event,
+    Emitter<MapState> emit,
+  ) {
+    emit(state.copyWith(selectedOffer: event.offer));
+  }
+
+  void _onClearSelectedOffer(
+    ClearSelectedOffer event,
+    Emitter<MapState> emit,
+  ) {
+    emit(state.copyWith(selectedOffer: null));
+  }
+
+  void _onFilterOffers(
+    FilterOffers event,
+    Emitter<MapState> emit,
+  ) {
+    emit(state.copyWith(
       selectedFilter: event.filter,
-      selectedOffer: filtered.isNotEmpty ? filtered.first : null,
+      filteredOffers: _applyFilter(state.offers, event.filter),
     ));
   }
 
@@ -82,120 +249,99 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     SearchLocation event,
     Emitter<MapState> emit,
   ) async {
-    final query = event.query.trim();
-    if (query.isEmpty) return;
-
-    final currentState = state;
-    if (currentState is! MapLoaded) return;
-
-    print('🔎 Searching for location: $query');
-
-    try {
-      final uri = Uri.https(
-        'nominatim.openstreetmap.org',
-        '/search',
-        <String, String>{
-          'q': query,
-          'format': 'jsonv2',
-          'limit': '1',
-          'addressdetails': '1',
-          'accept-language': 'ar,en',
-        },
-      );
-
-      final response = await http.get(
-        uri,
-        headers: const {
-          'Accept': 'application/json',
-          'User-Agent': 'Loqma-Food-Rescue-App/1.0',
-        },
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode != 200) {
-        throw Exception('Geocoding HTTP ${response.statusCode}');
-      }
-
-      final decoded = jsonDecode(response.body);
-      if (decoded is! List || decoded.isEmpty) {
-        emit(MapError(
-            'لم نجد المكان "$query". جرّب اسم المدينة أو البلد بالإنجليزية.'));
-        return;
-      }
-
-      final result = decoded.first as Map<String, dynamic>;
-      final latitude = double.tryParse(result['lat']?.toString() ?? '');
-      final longitude = double.tryParse(result['lon']?.toString() ?? '');
-
-      if (latitude == null || longitude == null) {
-        emit(const MapError('تعذر قراءة إحداثيات المكان الذي اخترته.'));
-        return;
-      }
-
-      print('📍 Found $query at $latitude, $longitude');
-
-      // MapPage يستمع إلى MapLoaded ويحرّك MapController عند تغيّر الإحداثيات.
-      emit(currentState.copyWith(
-        userLatitude: latitude,
-        userLongitude: longitude,
-      ));
-    } catch (e) {
-      print('❌ Location search error: $e');
-      emit(MapError(
-          'تعذر البحث عن "$query". تأكد من اتصال الإنترنت وحاول مرة أخرى.'));
-    }
+    // TODO: Implement geocoding search
   }
 
-  void _onChangeRadius(ChangeRadius event, Emitter<MapState> emit) {
-    final currentState = state;
-    if (currentState is MapLoaded) {
-      emit(currentState.copyWith(radius: event.radius));
-    }
-  }
-
-  Future<void> _onGoToMyLocation(
-    GoToMyLocation event,
+  void _onPermissionDenied(
+    PermissionDenied event,
     Emitter<MapState> emit,
-  ) async {
-    final currentState = state;
-    if (currentState is! MapLoaded) return;
+  ) {
+    print('📍 [MapBloc] PermissionDenied');
+    emit(state.copyWith(
+      status: MapStatus.permissionDenied,
+      errorMessage: 'يرجى السماح للتطبيق بالوصول إلى موقعك',
+      isLoading: false,
+    ));
+  }
 
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        emit(const MapError('افتح GPS من إعدادات الهاتف أولًا.'));
-        return;
+  void _onPermissionDeniedForever(
+    PermissionDeniedForever event,
+    Emitter<MapState> emit,
+  ) {
+    print('📍 [MapBloc] PermissionDeniedForever');
+    emit(state.copyWith(
+      status: MapStatus.permissionDeniedForever,
+      errorMessage:
+          'فعّل صلاحية الموقع من إعدادات الهاتف لعرض العروض القريبة منك',
+      isLoading: false,
+    ));
+  }
+
+  void _onLocationServiceDisabled(
+    LocationServiceDisabled event,
+    Emitter<MapState> emit,
+  ) {
+    print('📍 [MapBloc] LocationServiceDisabled');
+    emit(state.copyWith(
+      status: MapStatus.locationServiceDisabled,
+      errorMessage: 'خدمة الموقع مغلقة. فعّل الموقع لعرض العروض القريبة منك',
+      isLoading: false,
+    ));
+  }
+
+  void _onMapLocationError(
+    MapLocationError event,
+    Emitter<MapState> emit,
+  ) {
+    print('📍 [MapBloc] MapLocationError: ${event.message}');
+    emit(state.copyWith(
+      status: MapStatus.error,
+      errorMessage: event.message,
+      isLoading: false,
+    ));
+  }
+
+  void _onMapOffersError(
+    MapOffersError event,
+    Emitter<MapState> emit,
+  ) {
+    print('📍 [MapBloc] MapOffersError: ${event.message}');
+    emit(state.copyWith(
+      status: MapStatus.error,
+      errorMessage: event.message,
+      isLoading: false,
+    ));
+  }
+
+  List<FoodOffer> _applyFilter(List<FoodOffer> offers, String? filter) {
+    if (filter == null || filter == 'all') return offers;
+
+    return offers.where((offer) {
+      if (filter == 'food') {
+        return offer.foodType.toLowerCase() == 'وجبات';
       }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      if (filter == 'bakery') {
+        return offer.foodType.toLowerCase() == 'مخبوزات';
       }
-
-      if (permission == LocationPermission.denied) {
-        emit(const MapError('تم رفض صلاحية الوصول إلى موقعك.'));
-        return;
+      if (filter == 'dessert') {
+        return offer.foodType.toLowerCase() == 'حلويات';
       }
-
-      if (permission == LocationPermission.deniedForever) {
-        emit(const MapError(
-          'صلاحية الموقع مرفوضة نهائيًا. فعّلها من إعدادات التطبيق.',
-        ));
-        return;
+      if (filter == 'fruit') {
+        return offer.foodType.toLowerCase() == 'فواكه';
       }
-
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      print('📍 User location: ${position.latitude}, ${position.longitude}');
-
-      emit(currentState.copyWith(
-        userLatitude: position.latitude,
-        userLongitude: position.longitude,
-      ));
-    } catch (e) {
-      print('❌ GPS error: $e');
-      emit(const MapError('تعذر جلب موقعك. تأكد من تشغيل GPS.'));
-    }
+      if (filter == 'drink') {
+        return offer.foodType.toLowerCase() == 'مشروبات';
+      }
+      if (filter == 'meat') {
+        return offer.foodType.toLowerCase() == 'لحوم';
+      }
+      if (filter == 'halal') {
+        return offer.isHalal == true;
+      }
+      if (filter == 'vegetarian') {
+        return offer.isVegetarian == true;
+      }
+      return true;
+    }).toList();
   }
 }

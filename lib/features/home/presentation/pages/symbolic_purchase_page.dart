@@ -1,12 +1,11 @@
+// lib/features/home/presentation/pages/symbolic_purchase_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
-import 'package:loqma/features/donation/presentation/pages/offer_details_page.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
-import 'package:loqma/features/institutions/data/repositories/institutions_repository.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
 
 class SymbolicPurchasePage extends StatefulWidget {
   const SymbolicPurchasePage({super.key});
@@ -16,205 +15,260 @@ class SymbolicPurchasePage extends StatefulWidget {
 }
 
 class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
-  static const green = Color(0xFF0B7650);
-  static const darkGreen = Color(0xFF123F31);
-  static const background = Color(0xFFF5F8F6);
-
   final SupabaseClient _client = SupabaseService().client;
+
   final CommunityOfferRepository _communityRepository =
       CommunityOfferRepository();
-  final InstitutionsRepository _institutionRepository =
-      InstitutionsRepository();
+
   final TextEditingController _search = TextEditingController();
+
   List<Map<String, dynamic>> _offers = [];
+
   bool _loading = true;
+
   String _filter = 'الكل';
   String _query = '';
 
-  static const filters = ['الكل', 'مطاعم', 'مؤسسات', 'أشخاص'];
+  static const List<String> filters = [
+    'الكل',
+    'ملابس',
+    'أثاث',
+    'إلكترونيات',
+    'أخرى',
+  ];
+
+  // ============================================================
+  // Lifecycle
+  // ============================================================
 
   @override
   void initState() {
     super.initState();
-    _search.addListener(() {
-      if (mounted) setState(() => _query = _search.text.trim());
-    });
+
+    _search.addListener(_onSearchChanged);
+
     _loadOffers();
   }
 
   @override
   void dispose() {
+    _search.removeListener(_onSearchChanged);
     _search.dispose();
+
     super.dispose();
   }
 
-  // ============================================================
-  // ✅ Normalization عربي: أكل = اكل = أكل
-  // ============================================================
-  String _norm(String s) => s
-      .toLowerCase()
-      .trim()
-      .replaceAll(RegExp('[أإآٱ]'), 'ا')
-      .replaceAll('ى', 'ي')
-      .replaceAll('ة', 'ه');
-
-  // ============================================================
-  // ✅ لسه فيه كمية؟ (شغال حتى لو reserved_quantity مش موجودة)
-  // ============================================================
-  bool _hasRemaining(Map<String, dynamic> row) {
-    final remaining = row['remaining_quantity'];
-    if (remaining is num) return remaining > 0;
-    final q = row['quantity'];
-    if (q is num) {
-      final reserved = row['reserved_quantity'];
-      return q - (reserved is num ? reserved : 0) > 0;
+  void _onSearchChanged() {
+    if (!mounted) {
+      return;
     }
-    return true;
-  }
 
-  Future<void> _loadOffers() async {
-    if (mounted) setState(() => _loading = true);
-    final parts = await Future.wait<List<Map<String, dynamic>>>([
-      _restaurantOffers(),
-      _institutionOffers(),
-      _personOffers(),
-    ]);
-    final merged = <Map<String, dynamic>>[];
-    for (final part in parts) {
-      merged.addAll(part);
-    }
-    merged.sort((a, b) => _date(b).compareTo(_date(a)));
-    if (!mounted) return;
     setState(() {
-      _offers = merged;
-      _loading = false;
+      _query = _search.text.trim();
     });
   }
 
   // ============================================================
-  // ✅ 1) مطاعم — food_offers
+  // Arabic normalization
   // ============================================================
-  Future<List<Map<String, dynamic>>> _restaurantOffers() async {
+
+  String _norm(String value) {
+    return value
+        .toLowerCase()
+        .trim()
+        .replaceAll(
+          RegExp('[أإآٱ]'),
+          'ا',
+        )
+        .replaceAll(
+          'ى',
+          'ي',
+        )
+        .replaceAll(
+          'ة',
+          'ه',
+        );
+  }
+
+  // ============================================================
+  // Load Offers
+  // ============================================================
+
+  Future<void> _loadOffers() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+      });
+    }
+
     try {
-      final rows = await _client.from('food_offers').select('''
-        *, businesses:business_id (id, name, logo)
-      ''').inFilter('status', [
-        'available',
-      ]).order('created_at', ascending: false);
-      return (rows as List)
-          .map((raw) {
-            final row = Map<String, dynamic>.from(raw as Map);
-            row['_type'] = 'مطاعم';
-            row['_owner'] = _name(row['businesses']) ?? 'مطعم مشارك';
-            row['_price'] = row['sale_price'];
-            row['_image'] =
-                _firstImage('restaurant-offers', row['image'], row['images']);
-            if (row['_image'] != null) {
-              row['images'] = <String>[row['_image']];
-            }
-            return row;
-          })
-          .where(_isLive)
-          .where(_hasRemaining)
-          .toList();
-    } catch (e) {
-      debugPrint('[SymbolicPurchase] restaurant error: $e');
-      return [];
+      // Community عندنا = symbolic_sale فقط.
+      //
+      // لا نرسل listingType هنا لأن الـRepository
+      // أصبح مسؤولًا عن فرض symbolic_sale.
+      final rows = await _personOffers();
+
+      rows.sort(
+        (a, b) => _date(b).compareTo(
+          _date(a),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _offers = rows;
+        _loading = false;
+      });
+    } catch (error) {
+      debugPrint(
+        '[SymbolicPurchase] load error: $error',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _offers = [];
+        _loading = false;
+      });
     }
   }
 
   // ============================================================
-  // ✅ 2) مؤسسات — institution_offers_core + side tables
+  // Person Offers
   // ============================================================
-  Future<List<Map<String, dynamic>>> _institutionOffers() async {
-    try {
-      final rows = await _client.from('institution_offers_core').select('''
-        *,
-        institutions(id, name, institution_type, logo_url),
-        institution_offer_pricing(*),
-        institution_offer_inventory(*),
-        institution_offer_pickup(*),
-        institution_offer_media(*)
-      ''').eq('status', 'active').order('created_at', ascending: false);
 
-      return (rows as List).map((raw) {
-        final source = Map<String, dynamic>.from(raw as Map);
-        final pricing = _nestedMap(source['institution_offer_pricing']);
-        final inventory = _nestedMap(source['institution_offer_inventory']);
-        final pickup = _nestedMap(source['institution_offer_pickup']);
-        final media = _nestedMaps(source['institution_offer_media']);
-        final images = media
-            .map((item) => item['public_url']?.toString().trim() ?? '')
-            .where((url) => url.isNotEmpty)
-            .toList(growable: false);
-        final row = <String, dynamic>{
-          'id': source['id'],
-          'institution_id': source['institution_id'],
-          'title': source['title'],
-          'description': source['description'],
-          'category': source['category'] ?? 'other',
-          'quantity': inventory['quantity'] ?? 0,
-          'remaining_quantity': inventory['remaining_quantity'] ?? 0,
-          'symbolic_price': pricing['symbolic_price'] ?? 0,
-          'original_price': pricing['original_price'],
-          'images': images,
-          'pickup_location': pickup['location_text'] ?? pickup['address'],
-          'expires_at': source['expires_at'],
-          'status': source['status'],
-          'created_at': source['created_at'],
-          'updated_at': source['updated_at'] ?? source['created_at'],
-          'institutions': source['institutions'],
-          '_type': 'مؤسسات',
-          '_owner': _name(source['institutions']) ?? 'مؤسسة مشاركة',
-          '_price': pricing['symbolic_price'],
-          '_image': images.isEmpty ? null : images.first,
-        };
-        return row;
-      }).where((row) {
-        final expiry = DateTime.tryParse(row['expires_at']?.toString() ?? '');
-        return row['status']?.toString() == 'active' &&
-            (expiry == null || expiry.isAfter(DateTime.now())) &&
-            _hasRemaining(row);
-      }).toList(growable: false);
-    } catch (e, stack) {
-      debugPrint('[SymbolicPurchase] institution error: $e');
-      debugPrint('[SymbolicPurchase] institution stack: $stack');
-      return [];
-    }
-  }
-
-  // ============================================================
-  // ✅ 3) أشخاص — community_offers (symbolic_sale)
-  // ============================================================
   Future<List<Map<String, dynamic>>> _personOffers() async {
     try {
-      final rows = await _communityRepository.getOffers(
-        listingType: 'symbolic_sale',
-      );
+      final rows = await _communityRepository.getOffers();
+
       return rows
-          .map((raw) {
-            final row = Map<String, dynamic>.from(raw);
-            row['_type'] = 'أشخاص';
-            row['_owner'] = 'مستخدم Loqma';
-            row['_price'] = row['price'];
-            row['_image'] =
-                _firstImage('community-offers', row['image'], row['images']);
-            if (row['_image'] != null) {
-              row['images'] = <String>[row['_image']];
-            }
-            return row;
-          })
+          .map(
+            (raw) {
+              final row = Map<String, dynamic>.from(
+                raw,
+              );
+
+              // --------------------------------------------------
+              // Owner
+              // --------------------------------------------------
+
+              final owner = row['users'] is Map
+                  ? Map<String, dynamic>.from(
+                      row['users'] as Map,
+                    )
+                  : <String, dynamic>{};
+
+              row['_type'] = 'أشخاص';
+
+              row['_owner'] = owner['name']?.toString().trim() ?? '';
+
+              // Repository قد يكون بالفعل رجع بيانات الاتصال
+              // لذلك نحتفظ بها لو موجودة.
+              final existingPhone = row['phone']?.toString().trim() ?? '';
+
+              final existingWhatsapp = row['whatsapp']?.toString().trim() ?? '';
+
+              row['phone'] = existingPhone.isNotEmpty
+                  ? existingPhone
+                  : owner['phone']?.toString().trim() ?? '';
+
+              row['whatsapp'] = existingWhatsapp.isNotEmpty
+                  ? existingWhatsapp
+                  : owner['whatsapp']?.toString().trim() ?? '';
+
+              // --------------------------------------------------
+              // Price
+              // --------------------------------------------------
+
+              row['_price'] = _toDouble(
+                row['price'],
+              );
+
+              // --------------------------------------------------
+              // Images
+              // --------------------------------------------------
+
+              final image = _firstImage(
+                'community-offers',
+                row['image'],
+                row['images'],
+              );
+
+              row['_image'] = image;
+
+              // لا نمسح الصور الأصلية.
+              // فقط نضيف الصورة الأولى لو موجودة.
+              if (image != null && image.isNotEmpty) {
+                final existingImages = _extractImages(
+                  row['images'],
+                );
+
+                if (existingImages.isEmpty) {
+                  row['images'] = <String>[image];
+                }
+              }
+
+              return row;
+            },
+          )
           .where(_isLive)
           .where(_hasRemaining)
-          .toList(growable: false);
-    } catch (e) {
-      debugPrint('[SymbolicPurchase] person error: $e');
+          .toList(
+            growable: false,
+          );
+    } catch (error) {
+      debugPrint(
+        '[SymbolicPurchase] person error: $error',
+      );
+
       return [];
     }
   }
 
-  bool _isLive(Map<String, dynamic> row) {
-    final status = row['status']?.toString().toLowerCase();
+  // ============================================================
+  // Remaining Quantity
+  // ============================================================
+
+  bool _hasRemaining(
+    Map<String, dynamic> row,
+  ) {
+    final remaining = row['remaining_quantity'];
+
+    if (remaining is num) {
+      return remaining > 0;
+    }
+
+    final quantity = _toDouble(
+      row['quantity'],
+    );
+
+    if (quantity != null) {
+      final reserved = _toDouble(
+        row['reserved_quantity'],
+      );
+
+      return quantity - (reserved ?? 0) > 0;
+    }
+
+    // لو مفيش أعمدة كمية في البيانات
+    // نعتبر العرض متاح.
+    return true;
+  }
+
+  // ============================================================
+  // Live Offer
+  // ============================================================
+
+  bool _isLive(
+    Map<String, dynamic> row,
+  ) {
+    final status = row['status']?.toString().toLowerCase().trim();
+
     if (status == 'paused' ||
         status == 'expired' ||
         status == 'completed' ||
@@ -222,138 +276,391 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
         status == 'sold_out') {
       return false;
     }
-    final rawExpiry = row['expiry_time'] ?? row['expires_at'];
-    final expiry = DateTime.tryParse(rawExpiry?.toString() ?? '');
-    return expiry == null || expiry.isAfter(DateTime.now());
-  }
 
-  DateTime _date(Map<String, dynamic> row) =>
-      DateTime.tryParse(
-        row['created_at']?.toString() ?? '',
-      ) ??
-      DateTime.fromMillisecondsSinceEpoch(0);
+    final rawExpiry = row['expires_at'] ?? row['expiry_time'];
 
-  Map<String, dynamic> _nestedMap(dynamic value) {
-    if (value is Map) return Map<String, dynamic>.from(value);
-    if (value is List && value.isNotEmpty && value.first is Map) {
-      return Map<String, dynamic>.from(value.first as Map);
+    if (rawExpiry == null) {
+      return true;
     }
-    return const <String, dynamic>{};
-  }
 
-  List<Map<String, dynamic>> _nestedMaps(dynamic value) {
-    if (value is! List) return const <Map<String, dynamic>>[];
-    return value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: false);
-  }
+    final expiry = DateTime.tryParse(
+      rawExpiry.toString(),
+    );
 
-  String? _name(dynamic value) {
-    if (value is Map) return value['name']?.toString();
-    if (value is List && value.isNotEmpty && value.first is Map) {
-      return (value.first as Map)['name']?.toString();
+    if (expiry == null) {
+      return true;
     }
-    return null;
+
+    return expiry.toUtc().isAfter(
+          DateTime.now().toUtc(),
+        );
   }
 
   // ============================================================
-  // ✅ الصور: بيتخطى القيم الفاضية والـ paths المكسورة بهدوء
+  // Date
   // ============================================================
-  String? _firstImage(String? bucket, dynamic one, dynamic many) {
+
+  DateTime _date(
+    Map<String, dynamic> row,
+  ) {
+    return DateTime.tryParse(
+          row['created_at']?.toString() ?? '',
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(
+          0,
+          isUtc: true,
+        );
+  }
+
+  // ============================================================
+  // Images
+  // ============================================================
+
+  List<String> _extractImages(
+    dynamic many,
+  ) {
+    if (many is! List) {
+      return [];
+    }
+
+    return many
+        .map(
+          (item) => item?.toString().trim() ?? '',
+        )
+        .where(
+          (item) => item.isNotEmpty && item != 'null',
+        )
+        .toList(
+          growable: false,
+        );
+  }
+
+  String? _firstImage(
+    String? bucket,
+    dynamic one,
+    dynamic many,
+  ) {
     final values = <dynamic>[
       if (one != null) one,
       if (many is List) ...many,
     ];
+
     for (final value in values) {
       final text = value?.toString().trim() ?? '';
-      if (text.isEmpty || text == 'null') continue;
-      if (text.startsWith('http')) return text;
+
+      if (text.isEmpty || text == 'null') {
+        continue;
+      }
+
+      // Full URL
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        return text;
+      }
+
       if (bucket != null) {
         try {
-          return _client.storage
-              .from(bucket)
-              .getPublicUrl(text.replaceFirst(RegExp(r'^/+'), ''));
-        } catch (_) {
+          final path = text.replaceFirst(
+            RegExp(r'^/+'),
+            '',
+          );
+
+          return _client.storage.from(bucket).getPublicUrl(path);
+        } catch (error) {
+          debugPrint(
+            '[SymbolicPurchase] image url error: $error',
+          );
+
           continue;
         }
       }
+
       return text;
     }
+
     return null;
   }
 
   // ============================================================
-  // ✅ الفلترة: نوع + بحث (بالـ normalization العربي)
+  // Numeric Helpers
   // ============================================================
-  List<Map<String, dynamic>> get _visibleOffers => _offers.where((row) {
-        final type = row['_type']?.toString() ?? '';
-        if (_filter != 'الكل' && type != _filter) return false;
-        if (_query.isEmpty) return true;
-        final q = _norm(_query);
-        final haystack = _norm([
-          row['title'],
-          row['description'],
-          row['category'],
-          row['food_type'],
-          row['_owner'],
-          type,
-        ].map((v) => v?.toString() ?? '').join(' '));
-        return haystack.contains(q);
-      }).toList(growable: false);
+
+  double? _toDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString(),
+    );
+  }
+
+  String _formatPrice(
+    dynamic value,
+  ) {
+    final price = _toDouble(value) ?? 0;
+
+    if (price == price.roundToDouble()) {
+      return '${price.toStringAsFixed(0)} جنيه';
+    }
+
+    return '${price.toStringAsFixed(2)} جنيه';
+  }
+
+  // ============================================================
+  // Visible Offers
+  // ============================================================
+
+  List<Map<String, dynamic>> get _visibleOffers {
+    final normalizedQuery = _norm(_query);
+
+    return _offers.where(
+      (row) {
+        final category = _categoryArabic(
+          row,
+        );
+
+        if (_filter != 'الكل') {
+          if (!_categoryMatchesFilter(
+            row,
+            _filter,
+          )) {
+            return false;
+          }
+        }
+
+        if (normalizedQuery.isEmpty) {
+          return true;
+        }
+
+        final owner = row['_owner']?.toString() ?? '';
+
+        final title = row['title']?.toString() ?? '';
+
+        final description = row['description']?.toString() ?? '';
+
+        final location = row['pickup_location']?.toString() ?? '';
+
+        final categorySlug = row['category']?.toString() ?? '';
+
+        final haystack = _norm(
+          [
+            title,
+            description,
+            category,
+            categorySlug,
+            owner,
+            location,
+            'أشخاص',
+            'شراء بسعر رمزي',
+          ].join(' '),
+        );
+
+        return haystack.contains(
+          normalizedQuery,
+        );
+      },
+    ).toList(
+      growable: false,
+    );
+  }
+
+  // ============================================================
+  // Category
+  // ============================================================
+
+  String _categoryArabic(
+    Map<String, dynamic> row,
+  ) {
+    final nested = row['community_categories'];
+
+    if (nested is Map) {
+      final name = nested['name_ar']?.toString().trim() ?? '';
+
+      if (name.isNotEmpty) {
+        return name;
+      }
+    }
+
+    final direct = row['category_name_ar']?.toString().trim() ?? '';
+
+    if (direct.isNotEmpty) {
+      return direct;
+    }
+
+    final slug = row['category']?.toString().trim().toLowerCase() ?? '';
+
+    switch (slug) {
+      case 'clothing':
+        return 'ملابس';
+
+      case 'furniture':
+        return 'أثاث';
+
+      case 'electronics':
+        return 'إلكترونيات';
+
+      default:
+        return 'أخرى';
+    }
+  }
+
+  bool _categoryMatchesFilter(
+    Map<String, dynamic> row,
+    String filter,
+  ) {
+    final category = _norm(
+      _categoryArabic(row),
+    );
+
+    final normalizedFilter = _norm(filter);
+
+    if (normalizedFilter == 'ملابس') {
+      return category == 'ملابس';
+    }
+
+    if (normalizedFilter == 'اثاث') {
+      return category == 'اثاث';
+    }
+
+    if (normalizedFilter == 'الكترونيات') {
+      return category == 'الكترونيات';
+    }
+
+    if (normalizedFilter == 'اخري') {
+      return category == 'اخري';
+    }
+
+    return true;
+  }
+
+  // ============================================================
+  // Build
+  // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final visible = _visibleOffers;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: background,
+        backgroundColor: colors.surface,
         appBar: AppBar(
-          title: const Text('شراء بسعر رمزي',
-              style: TextStyle(fontWeight: FontWeight.w900)),
+          title: const Text(
+            'شراء بسعر رمزي',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           centerTitle: true,
-          backgroundColor: Colors.white,
-          foregroundColor: darkGreen,
+          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          foregroundColor: colors.onSurface,
           elevation: 0,
+          scrolledUnderElevation: 0,
+          actions: [
+            IconButton(
+              onPressed: _loading ? null : _loadOffers,
+              tooltip: 'تحديث',
+              icon: const Icon(
+                Icons.refresh_rounded,
+              ),
+            ),
+          ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator(color: green))
+            ? Center(
+                child: CircularProgressIndicator(
+                  color: colors.primary,
+                ),
+              )
             : RefreshIndicator(
-                color: green,
+                color: colors.primary,
                 onRefresh: _loadOffers,
                 child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    32,
+                  ),
                   children: [
-                    _hero(),
-                    const SizedBox(height: 14),
-                    _searchBox(),
-                    const SizedBox(height: 12),
-                    _filterBar(),
-                    const SizedBox(height: 18),
+                    _hero(colors),
+                    const SizedBox(
+                      height: 14,
+                    ),
+                    _searchBox(
+                      colors,
+                      isDark,
+                    ),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    _filterBar(
+                      colors,
+                      isDark,
+                    ),
+                    const SizedBox(
+                      height: 18,
+                    ),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('العروض المتاحة',
+                        Expanded(
+                          child: Text(
+                            'العروض المتاحة',
                             style: TextStyle(
-                                color: darkGreen,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900)),
-                        Text('${visible.length} عرض',
-                            style: const TextStyle(
-                                color: green, fontWeight: FontWeight.w800)),
+                              color: colors.onSurface,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${visible.length} عرض',
+                          style: TextStyle(
+                            color: colors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(
+                      height: 10,
+                    ),
                     if (visible.isEmpty)
-                      _empty()
+                      _empty(colors)
                     else
-                      ...visible.map((row) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _OfferCard(
-                                row: row, onTap: () => _openDetails(row)),
-                          )),
+                      ...visible.map(
+                        (
+                          row,
+                        ) =>
+                            Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: 12,
+                          ),
+                          child: _OfferCard(
+                            row: row,
+                            onTap: () => _openDetails(
+                              row,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -361,265 +668,1008 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
     );
   }
 
-  Widget _hero() => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [darkGreen, green],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft),
-          borderRadius: BorderRadius.circular(26),
-          boxShadow: [
-            BoxShadow(
-                color: green.withAlpha(35),
-                blurRadius: 18,
-                offset: const Offset(0, 8))
+  // ============================================================
+  // Hero
+  // ============================================================
+
+  Widget _hero(
+    ColorScheme colors,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primary,
+            colors.primary.withAlpha(180),
           ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
-        child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('اختار اللي يناسبك',
+        borderRadius: BorderRadius.circular(
+          26,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withAlpha(35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'اختار اللي يناسبك',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      fontWeight: FontWeight.w900)),
-              SizedBox(height: 7),
-              Text('عروض حقيقية من المطاعم والمؤسسات والأشخاص بأسعار رمزية.',
-                  style: TextStyle(color: Colors.white70, height: 1.5)),
-            ]),
-      );
-
-  Widget _searchBox() => TextField(
-        controller: _search,
-        decoration: InputDecoration(
-          hintText: 'ابحث عن عرض أو تصنيف...',
-          prefixIcon: const Icon(Icons.search_rounded, color: green),
-          suffixIcon: _query.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: _search.clear,
-                  icon: const Icon(Icons.close_rounded)),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(17),
-              borderSide: BorderSide.none),
-        ),
-      );
-
-  Widget _filterBar() => SizedBox(
-        height: 42,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: filters.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) {
-            final selected = filters[i] == _filter;
-            return ChoiceChip(
-              label: Text(filters[i]),
-              selected: selected,
-              onSelected: (_) => setState(() => _filter = filters[i]),
-              selectedColor: green,
-              backgroundColor: Colors.white,
-              labelStyle: TextStyle(
-                  color: selected ? Colors.white : darkGreen,
-                  fontWeight: FontWeight.w800),
-              side:
-                  BorderSide(color: selected ? green : const Color(0xFFE1EAE5)),
-            );
-          },
-        ),
-      );
-
-  Widget _empty() => Padding(
-        padding: const EdgeInsets.only(top: 70),
-        child: Column(children: [
-          Icon(Icons.search_off_rounded, size: 68, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          const Text('لا توجد عروض مطابقة',
-              style: TextStyle(
-                  color: darkGreen, fontSize: 18, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 6),
-          const Text('غيّر الفلتر أو جرّب كلمة بحث أخرى.',
-              style: TextStyle(color: Colors.grey)),
-        ]),
-      );
-
-  // ============================================================
-  // ✅ التفاصيل: كل نوع بياخد الـ shape اللي صفحته بتستناه
-  // ============================================================
-  void _openDetails(Map<String, dynamic> row) {
-    final type = row['_type']?.toString();
-    if (type == 'مطاعم') {
-      Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => OfferDetailsPage(offer: _restaurantDetailsMap(row))));
-    } else if (type == 'أشخاص') {
-      final normalized = Map<String, dynamic>.from(row);
-      normalized['images'] = row['images'] is List
-          ? row['images']
-          : (row['_image'] != null ? <String>[row['_image']] : <String>[]);
-      Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PersonOfferDetailsPage(offer: normalized)));
-    } else {
-      final normalized = Map<String, dynamic>.from(row)
-        ..removeWhere((key, value) => key.startsWith('_'));
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => InstitutionOfferDetailsPage(
-          offer: InstitutionOffer.fromJson(normalized),
-        ),
-      ));
-    }
+                    color: colors.onPrimary,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(
+                  height: 7,
+                ),
+                Text(
+                  'حاجات من أشخاص حقيقيين بأسعار رمزية، قريبة منك وتستحق فرصة جديدة.',
+                  style: TextStyle(
+                    color: colors.onPrimary.withAlpha(210),
+                    fontSize: 12,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(
+            width: 12,
+          ),
+          Icon(
+            Icons.shopping_bag_rounded,
+            color: colors.onPrimary,
+            size: 42,
+          ),
+        ],
+      ),
+    );
   }
 
-  // ✅ الـ shape اللي OfferDetailsPage بيقراها بالظبط (زي ما كانت الـ Home بتبعتها)
-  Map<String, dynamic> _restaurantDetailsMap(Map<String, dynamic> row) {
-    final biz = row['businesses'];
-    final bizMap = biz is Map
-        ? Map<String, dynamic>.from(biz)
-        : (biz is List && biz.isNotEmpty
-            ? Map<String, dynamic>.from(biz.first as Map)
-            : <String, dynamic>{});
-    return {
-      'id': row['id'],
-      'title': row['title'],
-      'description': row['description'],
-      'quantity': row['quantity'],
-      'food_type': row['food_type'],
-      'expiry_time': row['expiry_time'],
-      'pickup_before': row['pickup_before'],
-      'pickup_location': row['pickup_location'],
-      'latitude': row['latitude'],
-      'longitude': row['longitude'],
-      'image': row['_image'],
-      'status': row['status'],
-      'business_id': row['business_id'],
-      'charity_id': row['charity_id'],
-      'created_at': row['created_at'],
-      'updated_at': row['updated_at'],
-      'businesses': {
-        'name': bizMap['name'] ?? '',
-        'logo': bizMap['logo'],
-      },
-      'images': row['images'] is List
-          ? row['images']
-          : (row['_image'] != null ? <String>[row['_image']] : <String>[]),
+  // ============================================================
+  // Search
+  // ============================================================
+
+  Widget _searchBox(
+    ColorScheme colors,
+    bool isDark,
+  ) {
+    return TextField(
+      controller: _search,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        hintText: 'ابحث عن عرض أو تصنيف...',
+        hintStyle: TextStyle(
+          color: colors.onSurfaceVariant,
+          fontSize: 12,
+        ),
+        prefixIcon: Icon(
+          Icons.search_rounded,
+          color: colors.primary,
+        ),
+        suffixIcon: _query.isEmpty
+            ? null
+            : IconButton(
+                onPressed: _search.clear,
+                icon: Icon(
+                  Icons.close_rounded,
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+        filled: true,
+        fillColor: isDark
+            ? const Color(
+                0xFF1F1F1F,
+              )
+            : Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(
+            17,
+          ),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(
+            17,
+          ),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(
+            17,
+          ),
+          borderSide: BorderSide(
+            color: colors.primary.withAlpha(100),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // Filters
+  // ============================================================
+
+  Widget _filterBar(
+    ColorScheme colors,
+    bool isDark,
+  ) {
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(
+          width: 8,
+        ),
+        itemBuilder: (_, index) {
+          final value = filters[index];
+
+          final selected = value == _filter;
+
+          return ChoiceChip(
+            label: Text(value),
+            selected: selected,
+            onSelected: (_) {
+              setState(() {
+                _filter = value;
+              });
+            },
+            selectedColor: colors.primary,
+            backgroundColor: isDark
+                ? const Color(
+                    0xFF1F1F1F,
+                  )
+                : Colors.white,
+            labelStyle: TextStyle(
+              color: selected ? colors.onPrimary : colors.onSurface,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+            side: BorderSide(
+              color: selected ? colors.primary : colors.outlineVariant,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                20,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ============================================================
+  // Empty
+  // ============================================================
+
+  Widget _empty(
+    ColorScheme colors,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        top: 70,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 78,
+            height: 78,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary.withAlpha(18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.search_off_rounded,
+              size: 40,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(
+            height: 14,
+          ),
+          Text(
+            'لا توجد عروض مطابقة',
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(
+            height: 6,
+          ),
+          Text(
+            'غيّر التصنيف أو جرّب كلمة بحث أخرى.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colors.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(
+            height: 16,
+          ),
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _filter = 'الكل';
+                _search.clear();
+              });
+            },
+            icon: const Icon(
+              Icons.refresh_rounded,
+              size: 17,
+            ),
+            label: const Text(
+              'عرض الكل',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: colors.primary,
+              side: BorderSide(
+                color: colors.primary,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  13,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // Details
+  // ============================================================
+
+  void _openDetails(
+    Map<String, dynamic> row,
+  ) {
+    final allImages = <String>[];
+
+    final firstImage = row['_image']?.toString().trim() ?? '';
+
+    if (firstImage.isNotEmpty && firstImage != 'null') {
+      allImages.add(
+        firstImage,
+      );
+    }
+
+    final images = _extractImages(
+      row['images'],
+    );
+
+    for (final image in images) {
+      if (!allImages.contains(image)) {
+        allImages.add(image);
+      }
+    }
+
+    final owner = row['users'] is Map
+        ? Map<String, dynamic>.from(
+            row['users'] as Map,
+          )
+        : <String, dynamic>{};
+
+    final ownerName = row['_owner']?.toString().trim() ??
+        owner['name']?.toString().trim() ??
+        '';
+
+    final ownerPhone = row['phone']?.toString().trim() ??
+        owner['phone']?.toString().trim() ??
+        '';
+
+    final ownerWhatsapp = row['whatsapp']?.toString().trim() ??
+        owner['whatsapp']?.toString().trim() ??
+        '';
+
+    final detailsOffer = <String, dynamic>{
+      ...row,
+
+      // Community = symbolic_sale
+      'listing_type': 'symbolic_sale',
+
+      'images': allImages.toSet().toList(),
+
+      'owner_name': ownerName,
+
+      'phone': ownerPhone,
+
+      'whatsapp': ownerWhatsapp,
     };
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CommunityOfferDetailsPage(
+          offer: detailsOffer,
+        ),
+      ),
+    );
   }
 }
+
+// ============================================================================
+// OFFER CARD
+// ============================================================================
 
 class _OfferCard extends StatelessWidget {
   final Map<String, dynamic> row;
   final VoidCallback onTap;
-  const _OfferCard({required this.row, required this.onTap});
+
+  const _OfferCard({
+    required this.row,
+    required this.onTap,
+  });
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+
+  double _price() {
+    final value = row['_price'] ?? row['price'];
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value?.toString() ?? '',
+        ) ??
+        0.0;
+  }
+
+  String _formatPrice() {
+    final price = _price();
+
+    if (price == price.roundToDouble()) {
+      return '${price.toStringAsFixed(0)} جنيه';
+    }
+
+    return '${price.toStringAsFixed(2)} جنيه';
+  }
+
+  String _categoryArabic() {
+    final nested = row['community_categories'];
+
+    if (nested is Map) {
+      final name = nested['name_ar']?.toString().trim() ?? '';
+
+      if (name.isNotEmpty) {
+        return name;
+      }
+    }
+
+    final direct = row['category_name_ar']?.toString().trim() ?? '';
+
+    if (direct.isNotEmpty) {
+      return direct;
+    }
+
+    final slug = row['category']?.toString().trim().toLowerCase() ?? '';
+
+    switch (slug) {
+      case 'clothing':
+        return 'ملابس';
+
+      case 'furniture':
+        return 'أثاث';
+
+      case 'electronics':
+        return 'إلكترونيات';
+
+      case 'mobile_phones':
+        return 'موبايلات';
+
+      case 'home_appliances':
+        return 'أجهزة منزلية';
+
+      case 'shoes':
+        return 'أحذية';
+
+      case 'bags':
+        return 'شنط';
+
+      case 'books':
+        return 'كتب';
+
+      case 'toys':
+        return 'ألعاب';
+
+      case 'kids':
+        return 'أطفال';
+
+      case 'home_items':
+        return 'أدوات منزلية';
+
+      case 'tools':
+        return 'أدوات';
+
+      case 'sports':
+        return 'رياضة';
+
+      case 'car_accessories':
+        return 'إكسسوارات سيارات';
+
+      case 'collectibles':
+        return 'مقتنيات';
+
+      case 'musical_instruments':
+        return 'آلات موسيقية';
+
+      case 'office_supplies':
+        return 'مستلزمات مكتبية';
+
+      default:
+        return 'أخرى';
+    }
+  }
+
+  String _conditionLabel() {
+    final value = row['item_condition']?.toString().trim() ?? 'good';
+
+    switch (value) {
+      case 'new':
+        return 'جديد';
+
+      case 'very_good':
+        return 'جيد جدًا';
+
+      case 'good':
+        return 'جيد';
+
+      case 'needs_repair':
+        return 'يحتاج إصلاح';
+
+      default:
+        return 'حالة جيدة';
+    }
+  }
+
+  String? _location() {
+    final value = row['pickup_location']?.toString().trim() ?? '';
+
+    return value.isEmpty ? null : value;
+  }
+
+  String _owner() {
+    final owner = row['_owner']?.toString().trim() ?? '';
+
+    if (owner.isNotEmpty) {
+      return owner;
+    }
+
+    return 'مستخدم من المجتمع';
+  }
+
+  String? _expiryLabel() {
+    final raw = row['expires_at'] ?? row['expiry_time'];
+
+    if (raw == null) {
+      return null;
+    }
+
+    final expiry = DateTime.tryParse(
+      raw.toString(),
+    );
+
+    if (expiry == null) {
+      return null;
+    }
+
+    final remaining = expiry.toUtc().difference(
+          DateTime.now().toUtc(),
+        );
+
+    if (remaining.isNegative || remaining.inSeconds <= 0) {
+      return null;
+    }
+
+    if (remaining.inDays >= 1) {
+      return 'متبقي ${remaining.inDays} يوم';
+    }
+
+    final hours = remaining.inHours;
+
+    if (hours >= 1) {
+      return 'متبقي $hours ساعة';
+    }
+
+    return 'ينتهي قريبًا';
+  }
+
+  // ============================================================
+  // Images
+  // ============================================================
+
+  String? _image() {
+    final direct = row['_image']?.toString().trim() ?? '';
+
+    if (direct.isNotEmpty && direct != 'null') {
+      return direct;
+    }
+
+    final image = row['image']?.toString().trim() ?? '';
+
+    if (image.isNotEmpty && image != 'null') {
+      return image;
+    }
+
+    final images = row['images'];
+
+    if (images is List) {
+      for (final item in images) {
+        final value = item?.toString().trim() ?? '';
+
+        if (value.isNotEmpty && value != 'null') {
+          return value;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // Build
+  // ============================================================
 
   @override
-  Widget build(BuildContext context) {
-    final image = row['_image']?.toString();
-    final type = row['_type']?.toString() ?? '';
-    final price = row['_price'];
-    final title = row['title']?.toString().trim();
+  Widget build(
+    BuildContext context,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final image = _image();
+
+    final title = row['title']?.toString().trim() ?? '';
+
     final remaining = row['remaining_quantity'];
+
     final quantity = row['quantity'];
+
+    final location = _location();
+
+    final expiry = _expiryLabel();
+
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
+      color: isDark
+          ? const Color(
+              0xFF1F1F1F,
+            )
+          : Colors.white,
+      borderRadius: BorderRadius.circular(
+        22,
+      ),
       clipBehavior: Clip.antiAlias,
+      elevation: 0,
       child: InkWell(
         onTap: onTap,
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(
-            height: 155,
-            child: Stack(fit: StackFit.expand, children: [
-              image == null || image.isEmpty
-                  ? Container(
-                      color: const Color(0xFFE2F1E8),
-                      child: const Icon(Icons.shopping_bag_rounded,
-                          color: Color(0xFF0B7650), size: 48))
-                  : Image.network(image,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ----------------------------------------------------
+            // Image
+            // ----------------------------------------------------
+
+            SizedBox(
+              height: 175,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (image == null || image.isEmpty)
+                    Container(
+                      color: colors.primary.withAlpha(
+                        18,
+                      ),
+                      child: Icon(
+                        Icons.shopping_bag_rounded,
+                        color: colors.primary,
+                        size: 52,
+                      ),
+                    )
+                  else
+                    Image.network(
+                      image,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFE2F1E8),
-                          child: const Icon(Icons.shopping_bag_rounded,
-                              color: Color(0xFF0B7650), size: 48))),
-              Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
+                      errorBuilder: (
+                        _,
+                        __,
+                        ___,
+                      ) {
+                        return Container(
+                          color: colors.primary.withAlpha(
+                            18,
+                          ),
+                          child: Icon(
+                            Icons.shopping_bag_rounded,
+                            color: colors.primary,
+                            size: 52,
+                          ),
+                        );
+                      },
+                      loadingBuilder: (
+                        context,
+                        child,
+                        progress,
+                      ) {
+                        if (progress == null) {
+                          return child;
+                        }
+
+                        return Container(
+                          color: colors.primary.withAlpha(
+                            10,
+                          ),
+                          alignment: Alignment.center,
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.primary,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
+                  // ------------------------------------------------
+                  // Person badge
+                  // ------------------------------------------------
+
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                          color: const Color(0xEEFFFFFF),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Text(type,
-                          style: const TextStyle(
-                              color: Color(0xFF0B7650),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900)))),
-              if (price != null)
-                Positioned(
+                        color: isDark
+                            ? const Color(
+                                0xEE1F1F1F,
+                              )
+                            : const Color(
+                                0xEEFFFFFF,
+                              ),
+                        borderRadius: BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_outline_rounded,
+                            size: 14,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(
+                            width: 4,
+                          ),
+                          Text(
+                            'أشخاص',
+                            style: TextStyle(
+                              color: colors.primary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ------------------------------------------------
+                  // Price
+                  // ------------------------------------------------
+
+                  Positioned(
                     bottom: 12,
                     left: 12,
                     child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 11, vertical: 7),
-                        decoration: BoxDecoration(
-                            color: const Color(0xFF0B7650),
-                            borderRadius: BorderRadius.circular(12)),
-                        child: Text('$price جنيه',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900)))),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(15, 13, 15, 15),
-            child: Row(children: [
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text(title?.isNotEmpty == true ? title! : 'عرض متاح',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Color(0xFF123F31),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 6),
-                    Text(row['_owner']?.toString() ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Color(0xFF71837C),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      if (remaining is num || quantity != null)
-                        Text(
-                          remaining is num
-                              ? 'المتاح: $remaining'
-                              : 'الكمية: $quantity',
-                          style: const TextStyle(
-                              color: Color(0xFF71837C), fontSize: 11),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        borderRadius: BorderRadius.circular(
+                          12,
                         ),
-                      if (row['category'] != null) ...[
-                        const SizedBox(width: 10),
-                        Text(row['category'].toString(),
-                            style: const TextStyle(
-                                color: Color(0xFF0B7650),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800))
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(
+                              35,
+                            ),
+                            blurRadius: 8,
+                            offset: const Offset(
+                              0,
+                              3,
+                            ),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _formatPrice(),
+                        style: TextStyle(
+                          color: colors.onPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ------------------------------------------------------
+            // Content
+            // ------------------------------------------------------
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                15,
+                13,
+                15,
+                15,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title.isNotEmpty ? title : 'عرض متاح',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurface,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            height: 1.25,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        width: 8,
+                      ),
+                      Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 17,
+                        color: colors.primary,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 7,
+                  ),
+
+                  // ------------------------------------------------
+                  // Owner
+                  // ------------------------------------------------
+
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 14,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      const SizedBox(
+                        width: 4,
+                      ),
+                      Expanded(
+                        child: Text(
+                          _owner(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 9,
+                  ),
+
+                  // ------------------------------------------------
+                  // Tags
+                  // ------------------------------------------------
+
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _tag(
+                        _categoryArabic(),
+                        colors.primary.withAlpha(
+                          20,
+                        ),
+                        colors.primary,
+                      ),
+                      _tag(
+                        _conditionLabel(),
+                        const Color(
+                          0xFFE3F0FF,
+                        ),
+                        const Color(
+                          0xFF1A6CB5,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(
+                    height: 9,
+                  ),
+
+                  // ------------------------------------------------
+                  // Quantity + Location
+                  // ------------------------------------------------
+
+                  Row(
+                    children: [
+                      if (remaining is num || quantity != null)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.inventory_2_outlined,
+                              size: 14,
+                              color: colors.onSurfaceVariant,
+                            ),
+                            const SizedBox(
+                              width: 4,
+                            ),
+                            Text(
+                              remaining is num
+                                  ? 'المتاح: $remaining'
+                                  : 'الكمية: $quantity',
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (remaining is num || quantity != null)
+                        const SizedBox(
+                          width: 10,
+                        ),
+                      if (location != null)
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 14,
+                                color: colors.onSurfaceVariant,
+                              ),
+                              const SizedBox(
+                                width: 3,
+                              ),
+                              Expanded(
+                                child: Text(
+                                  location,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+
+                  // ------------------------------------------------
+                  // Expiry
+                  // ------------------------------------------------
+
+                  if (expiry != null) ...[
+                    const SizedBox(
+                      height: 7,
+                    ),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule_outlined,
+                          size: 14,
+                          color: Color(
+                            0xFF9A6B1E,
+                          ),
+                        ),
+                        const SizedBox(
+                          width: 4,
+                        ),
+                        Text(
+                          expiry,
+                          style: const TextStyle(
+                            color: Color(
+                              0xFF9A6B1E,
+                            ),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ],
-                    ]),
-                  ])),
-              const Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 18, color: Color(0xFF0B7650)),
-            ]),
-          ),
-        ]),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // Tag
+  // ============================================================
+
+  Widget _tag(
+    String text,
+    Color background,
+    Color foreground,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(
+          20,
+        ),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }

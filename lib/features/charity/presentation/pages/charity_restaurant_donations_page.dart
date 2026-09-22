@@ -403,18 +403,17 @@ class _CharityRestaurantDonationsPageState
                 color: muted, fontSize: 11, fontWeight: FontWeight.w700)),
       ]));
 
-  Widget _empty() => Center(
+  Widget _empty() => const Center(
       child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.volunteer_activism_rounded,
-                size: 64, color: green),
-            const SizedBox(height: 14),
-            const Text('لا توجد تبرعات مطاعم حتى الآن',
+            Icon(Icons.volunteer_activism_rounded, size: 64, color: green),
+            SizedBox(height: 14),
+            Text('لا توجد تبرعات مطاعم حتى الآن',
                 style: TextStyle(
                     color: primary, fontSize: 18, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 7),
-            const Text('ستظهر هنا التبرعات الجديدة فور إرسالها من المطاعم.',
+            SizedBox(height: 7),
+            Text('ستظهر هنا التبرعات الجديدة فور إرسالها من المطاعم.',
                 textAlign: TextAlign.center, style: TextStyle(color: muted)),
           ])));
 

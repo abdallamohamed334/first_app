@@ -29,8 +29,6 @@ class BookingRepository {
           .select(_bookingSelect)
           .eq('user_id', cleanUserId)
           .order('requested_at', ascending: false);
-
-      if (response is! List) return const <Booking>[];
       return response
           .whereType<Map>()
           .map((row) => Booking.fromJson(Map<String, dynamic>.from(row)))

@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
 import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_page.dart';
 import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_pickup_page.dart';
 import 'package:loqma/features/business/restaurant/presentation/widgets/business_restaurant_state_widgets.dart';
-import 'package:loqma/features/business/restaurant/presentation/widgets/business_restaurant_widgets.dart';
 
 class BusinessRestaurantRequestsPage extends StatefulWidget {
   final BusinessRestaurantRepository? repository;
@@ -190,7 +188,7 @@ class _BusinessRestaurantRequestsPageState
               ),
               const SizedBox(height: 14),
               _detail('العرض', request['offer_title'] ?? 'عرض المطعم'),
-              _detail('المستخدم', request['requester_name'] ?? 'مستخدم Loqma'),
+              _detail('المستخدم', request['requester_name'] ?? 'مستخدم loqma'),
               _detail('الكمية', request['quantity'] ?? 'غير محددة'),
               _detail('الحالة', _statusLabel(status)),
               if (status == 'accepted') ...[
@@ -279,7 +277,7 @@ class _RequestCard extends StatelessWidget {
         .toString()
         .toLowerCase();
     final offerTitle = request['offer_title']?.toString() ?? 'عرض المطعم';
-    final requester = request['requester_name']?.toString() ?? 'مستخدم Loqma';
+    final requester = request['requester_name']?.toString() ?? 'مستخدم loqma';
     final isActionable = status == 'ready_for_pickup';
 
     return Material(

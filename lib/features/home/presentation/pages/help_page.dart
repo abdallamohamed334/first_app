@@ -42,11 +42,11 @@ class HelpPage extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF3679C8).withOpacity(0.2),
+          color: const Color(0xFF3679C8).withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF3679C8).withOpacity(0.06),
+            color: const Color(0xFF3679C8).withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -60,7 +60,7 @@ class HelpPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3679C8).withOpacity(0.1),
+                  color: const Color(0xFF3679C8).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -155,7 +155,7 @@ class HelpPage extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(

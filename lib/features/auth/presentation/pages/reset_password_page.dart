@@ -136,7 +136,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
           ),
         ),
         Text(
-          'Loqma',
+          'loqma',
           style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,

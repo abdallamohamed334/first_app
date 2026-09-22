@@ -1,4 +1,6 @@
-﻿import 'dart:async';
+﻿// lib/features/splash/presentation/pages/splash_page.dart
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +32,15 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   late final Animation<double> _glowAnimation;
   Timer? _progressTimer;
   bool _isNavigating = false;
+
+  static const _businessUserTypes = {
+    'restaurant',
+    'business',
+    'hotel',
+    'supermarket',
+    'bakery',
+    'cafe',
+  };
 
   @override
   void initState() {
@@ -101,16 +112,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     if (_isNavigating || !mounted) return;
     _isNavigating = true;
 
-    // استخدم GoRouter بدل Navigator حتى لا تبقى Route قديمة
-    // تعيد فتح Onboarding أو Login بعد الانتقال.
-    // Never default an existing session to Home or the public charities list.
-    // A session is routed only after its authoritative identity is resolved.
     String nextLocation = AppRouter.login;
     final client = Supabase.instance.client;
 
-    // Supabase may still be restoring the persisted session when the splash
-    // timer fires. Wait for the initial auth event before deciding whether to
-    // show onboarding/login; otherwise users see a brief login flash.
+    // ✅ انتظر استعادة الجلسة
     Session? session = client.auth.currentSession;
     if (session == null) {
       try {
@@ -124,18 +129,28 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
 
     if (session != null) {
       try {
-        final resolved =
-            await AuthIdentityResolver.resolve(client, session.user.id);
-        if (resolved == 'user') {
-          nextLocation = AppRouter.home;
-        } else if (resolved == 'charity')
+        // ✅ جلب نوع المستخدم من users.user_type
+        final userData = await client
+            .from('users')
+            .select('user_type')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+        final type = userData?['user_type']?.toString().toLowerCase() ?? '';
+
+        if (type == 'user') {
+          nextLocation = AppRouter.map; // ✅ المستخدم العادي يروح للخريطة
+        } else if (type == 'charity') {
           nextLocation = AppRouter.charityHome;
-        else if (resolved == 'restaurant')
+        } else if (type == 'institution') {
+          nextLocation = AppRouter.institutionsHome;
+        } else if (_businessUserTypes.contains(type)) {
           nextLocation = AppRouter.restaurantHome;
-        else
+        } else {
           nextLocation = AppRouter.login;
+        }
       } catch (error) {
-        debugPrint('⚠️ Could not resolve session identity: $error');
+        debugPrint('⚠️ Could not resolve user type: $error');
         nextLocation = AppRouter.login;
       }
     } else {
@@ -151,8 +166,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     if (!mounted) return;
     context.go(nextLocation);
   }
-
-  // Resolver moved to AuthIdentityResolver to avoid duplicated logic.
 
   @override
   void dispose() {
@@ -182,13 +195,13 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           children: [
             // ✅ خلفية مع تدرج
             Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    const Color(0xFFF4EEE5),
-                    const Color(0xFFE6D9C8),
+                    Color(0xFFF4EEE5),
+                    Color(0xFFE6D9C8),
                   ],
                 ),
               ),
@@ -322,7 +335,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       child: Column(
         children: [
           Text(
-            'Loqma',
+            'loqma',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
@@ -395,7 +408,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       child: Column(
         children: [
           Text(
-            'استدامة . عطاء . لقمة',
+            'استدامة . عطاء . جُود',
             style: TextStyle(
               color: const Color(0xFF315A45).withValues(alpha: 0.58),
               fontSize: 14,

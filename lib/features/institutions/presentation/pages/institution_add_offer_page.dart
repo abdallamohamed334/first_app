@@ -161,8 +161,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       if (!mounted) return;
       setState(() => _images.addAll(selectedBytes));
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         _showMessage('تعذر اختيار الصور. حاول مرة أخرى', error: true);
+      }
     }
   }
 
@@ -246,6 +247,15 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
+    // ✅ التحقق من أن السعر الرمزي لا يتجاوز السعر الأصلي
+    if (originalPrice != null && symbolicPrice > originalPrice) {
+      _showMessage(
+        '⚠️ السعر الرمزي ($symbolicPrice ج.م) لا يمكن أن يكون أكبر من السعر الأصلي ($originalPrice ج.م)',
+        error: true,
+      );
+      return;
+    }
+
     // ✅ التأكد من أن التاريخ مش منتهي
     if (_expiresAt.isBefore(DateTime.now())) {
       _showMessage('تاريخ الانتهاء لا يمكن أن يكون في الماضي', error: true);
@@ -308,6 +318,16 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
     if (text.contains('null value in column')) {
       return 'بعض الحقول المطلوبة فارغة. تأكد من ملء جميع البيانات.';
+    }
+    if (text.contains('symbolic price cannot exceed original price')) {
+      return '⚠️ السعر الرمزي لا يمكن أن يكون أكبر من السعر الأصلي';
+    }
+    if (text.contains('expires_at') || text.contains('صلاحية')) {
+      return '⏰ صلاحية العرض لا تتجاوز 12 ساعة من الآن';
+    }
+    if (text.contains('institution not found') ||
+        text.contains('المؤسسة غير موجودة')) {
+      return '🏢 المؤسسة غير موجودة أو غير نشطة';
     }
     return 'تعذر نشر العرض الآن: ${error.toString().replaceFirst('Exception: ', '')}';
   }
@@ -456,9 +476,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withOpacity(0.2)),
+                border: Border.all(color: color.withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -485,9 +505,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.05),
+            color: color.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.1)),
+            border: Border.all(color: color.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
@@ -512,9 +532,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _accent.withOpacity(0.1),
+                color: _accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _accent.withOpacity(0.2)),
+                border: Border.all(color: _accent.withValues(alpha: 0.2)),
               ),
               child: Row(
                 children: [
@@ -527,7 +547,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                   Expanded(
                     child: Text(
                       '⚠️ هذا العرض سينتهي خلال $daysLeft أيام - مناسب للاستخدام الفوري',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: _accent,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -544,18 +564,18 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _error.withOpacity(0.1),
+                color: _error.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _error.withOpacity(0.2)),
+                border: Border.all(color: _error.withValues(alpha: 0.2)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.warning_amber_rounded,
                     color: _error,
                     size: 16,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '⚠️ هذا التاريخ منتهي، يرجى اختيار تاريخ مستقبلي',
@@ -1131,7 +1151,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: 'تاريخ الانتهاء',
-          prefixIcon: Icon(Icons.event_outlined, color: _muted),
+          prefixIcon: const Icon(Icons.event_outlined, color: _muted),
           filled: true,
           fillColor: _surfaceVariant,
           contentPadding:

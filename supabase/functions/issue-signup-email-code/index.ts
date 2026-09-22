@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: FROM_ADDRESS,
         to: [email],
-        subject: "كود تفعيل حسابك في لقمة",
+        subject: "كود تفعيل حسابك في جُود",
         html: `
           <div dir="rtl" style="font-family: sans-serif; text-align: right;">
             <h2>كود التحقق الخاص بك</h2>

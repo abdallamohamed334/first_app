@@ -1,22 +1,13 @@
+// lib/features/auth/presentation/pages/login_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:loqma/features/home/presentation/bloc/home_bloc.dart';
-import 'package:loqma/features/profile/presentation/bloc/profile_bloc.dart';
-import 'package:loqma/features/map/presentation/bloc/map_bloc.dart';
-import 'package:loqma/features/volunteer/presentation/bloc/volunteer_bloc.dart';
-import 'package:loqma/features/booking/presentation/bloc/booking_bloc.dart';
-import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
-import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
-import 'package:loqma/features/notification/notification_injection.dart';
+import 'package:go_router/go_router.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_page.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_workspace_page.dart';
-import 'package:loqma/features/institutions/presentation/pages/institutions_home_page.dart';
+import 'package:loqma/routes/app_router.dart';
 
-import 'package:loqma/features/home/presentation/pages/home_page.dart';
 import 'package:loqma/core/services/firebase_messaging_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -186,7 +177,7 @@ class _LoginPageState extends State<LoginPage>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          'Loqma',
+          'loqma',
           style: TextStyle(
             color: Color(0xFF0B7650),
             fontSize: 22,
@@ -212,7 +203,7 @@ class _LoginPageState extends State<LoginPage>
         ),
         SizedBox(height: 7),
         Text(
-          'سجّل دخولك واستكمل رحلتك مع لقمة',
+          'سجّل دخولك واستكمل رحلتك مع جُود',
           style: TextStyle(color: Colors.black54, fontSize: 14),
         ),
       ],
@@ -403,10 +394,12 @@ class _LoginPageState extends State<LoginPage>
             debugPrint('⚠️ FCM initialization failed: ${e.runtimeType}');
           }
 
-          // ✅ تسجيل الجهاز بعد نجاح تسجيل الدخول
           await _registerDevice();
 
-          if (mounted) await _navigateToHome(user);
+          if (mounted) {
+            print('🔴 [LoginPage] User type: ${user.type.value}');
+            await _navigateToHome(user);
+          }
         },
       );
     } catch (e) {
@@ -416,7 +409,6 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
-  // ✅ دالة تسجيل الجهاز
   Future<void> _registerDevice() async {
     try {
       final supabase = SupabaseService();
@@ -427,67 +419,40 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  // ✅ التوجيه حسب نوع المستخدم
   Future<void> _navigateToHome(UserModel user) async {
     if (!mounted) return;
 
-    // AuthRepository already loaded and validated users.user_type.
-    // Reuse that exact role instead of running a second query that can fail
-    // because of RLS and incorrectly reject a valid institution account.
     final type = user.type.value.trim().toLowerCase();
+    print('🔴 [LoginPage] _navigateToHome - type: "$type"');
+
     if (type.isEmpty) {
       _showError('نوع الحساب غير معروف. تواصل مع الإدارة للتحقق من الحساب.');
       return;
     }
 
-    // المستخدم العادي فقط يدخل Home. أي مؤسسة لا تمر من هذا الفرع.
+    // ✅ المستخدم العادي → الخريطة
     if (type == 'user') {
-      await Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MultiBlocProvider(
-            providers: [
-              BlocProvider<HomeBloc>(create: (_) => HomeBloc()),
-              BlocProvider<ProfileBloc>(create: (_) => ProfileBloc()),
-              BlocProvider<MapBloc>(create: (_) => MapBloc(SupabaseService())),
-              BlocProvider<VolunteerBloc>(
-                create: (_) => VolunteerBloc(SupabaseService()),
-              ),
-              BlocProvider<NotificationBloc>(
-                  create: (_) => sl<NotificationBloc>()),
-              BlocProvider<BookingBloc>(
-                create: (_) =>
-                    BookingBloc(BookingRepository(SupabaseService())),
-              ),
-            ],
-            child: const HomePage(),
-          ),
-        ),
-        (route) => false,
-      );
+      print('🔴 [LoginPage] Going to Map (user)');
+      context.go(AppRouter.map);
       return;
     }
 
-    // Charity routing is allowed only when users.user_type is charity.
+    // ✅ جمعية → صفحة الجمعية
     if (type == 'charity') {
-      await Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const CharityWorkspacePage()),
-        (route) => false,
-      );
+      print('🔴 [LoginPage] Going to CharityHome');
+      context.go(AppRouter.charityHome);
       return;
     }
 
-    // Isolated institution accounts use only the new institutions module.
+    // ✅ مؤسسة → صفحة المؤسسة
     if (type == 'institution') {
-      await Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const InstitutionsHomePage()),
-        (route) => false,
-      );
+      print('🔴 [LoginPage] Going to InstitutionsHome');
+      context.go(AppRouter.institutionsHome);
       return;
     }
 
-    // Commercial institutions route only when users.user_type is a business type.
+    // ✅ مطعم/بقالة → صفحة المطعم
     if (_businessUserTypes.contains(type)) {
       final businessId = await _authoritativeBusinessId();
       if (!mounted) return;
@@ -495,58 +460,13 @@ class _LoginPageState extends State<LoginPage>
         _showError('حساب المؤسسة غير مرتبط بنشاط تجاري فعال');
         return;
       }
-
-      await Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-            builder: (_) => BusinessRestaurantPage(businessId: businessId)),
-        (route) => false,
-      );
+      print('🔴 [LoginPage] Going to RestaurantHome');
+      context.go('${AppRouter.restaurantHome}?businessId=$businessId');
       return;
     }
 
-    // لا يوجد fallback إلى Home للأنواع غير المعروفة.
+    print('🔴 [LoginPage] Unknown type, going to login');
     _showError('نوع الحساب غير معروف. تواصل مع الإدارة للتحقق من الحساب.');
-  }
-
-  Future<String> _authoritativeIdentityType() async {
-    final authUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (authUserId == null || authUserId.trim().isEmpty) return 'unknown';
-
-    final row = await Supabase.instance.client
-        .from('users')
-        .select('user_type')
-        .eq('id', authUserId)
-        .maybeSingle();
-
-    final userType = (row?['user_type']?.toString() ?? '').trim().toLowerCase();
-
-    if (userType == 'user') return 'user';
-    if (userType == 'charity') return 'charity';
-    if (userType == 'institution') return 'institution';
-    if (_businessUserTypes.contains(userType)) return 'restaurant';
-
-    // Never infer a role from businesses, restaurants, charities,
-    // organizations, cached values, names, or linked IDs.
-    return 'unknown';
-  }
-
-  Future<String?> _authoritativeInstitutionId() async {
-    try {
-      final authUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (authUserId == null || authUserId.trim().isEmpty) return null;
-
-      final row = await Supabase.instance.client
-          .from('institutions')
-          .select('id')
-          .eq('user_id', authUserId)
-          .eq('status', 'active')
-          .maybeSingle();
-      return row?['id']?.toString().trim();
-    } catch (error) {
-      debugPrint('Institution profile lookup failed: $error');
-      return null;
-    }
   }
 
   Future<String?> _authoritativeBusinessId() async {

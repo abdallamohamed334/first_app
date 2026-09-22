@@ -123,7 +123,7 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
     setState(() => _isLoadingImages = true);
 
     try {
-      final bucket = 'restaurant-offers';
+      const bucket = 'restaurant-offers';
       final List<String> urls = [];
 
       // ✅ 1. جرب البحث في مجلد العرض مباشرة
