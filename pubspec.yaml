@@ -82,6 +82,8 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+  # ✅ تعطيل Swift Package Manager لتجنب تعارض CocoaPods
+  disable-swift-package-manager: true
 
   assets:
     - .env
