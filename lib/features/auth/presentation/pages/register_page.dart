@@ -1,16 +1,23 @@
+// lib/features/auth/presentation/pages/register_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
-import 'package:loqma/features/auth/presentation/pages/email_otp_verification_page.dart';
-import 'package:loqma/features/home/presentation/pages/home_page.dart';
+import 'package:loqma/features/auth/presentation/pages/otp_verify_page.dart';
 
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  /// نوع الحساب: user | provider | institution
+  final String role;
+
+  const RegisterPage({
+    super.key,
+    this.role = 'user',
+  });
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -20,26 +27,39 @@ class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
 
   final AuthRepository _authRepo = AuthRepository(SupabaseService());
 
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
   bool _agreeTerms = false;
-  // التسجيل العام مخصص للمستخدم العادي فقط.
-  static const _ordinaryUserType = 'user';
+
+  // ── ألوان
+  static const _bg = Color(0xFFF5F8F6);
+  static const _primary = Color(0xFF0B7650);
+  static const _primaryLight = Color(0xFF25B77C);
+  static const _darkGreen = Color(0xFF123F31);
+  static const _red = Color(0xFFD64545);
+
+  // ✅ هل ده تسجيل مؤسسة/مقدم؟
+  bool get _isProvider => widget.role == 'provider';
+  bool get _isInstitution => widget.role == 'institution';
+
+  String get _roleTitle {
+    if (_isProvider) return 'مقدم خدمة';
+    if (_isInstitution) return 'مؤسسة';
+    return 'مستخدم';
+  }
+
+  IconData get _roleIcon {
+    if (_isProvider) return Icons.handyman_rounded;
+    if (_isInstitution) return Icons.business_rounded;
+    return Icons.person_rounded;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -50,7 +70,7 @@ class _RegisterPageState extends State<RegisterPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F8F6),
+        backgroundColor: _bg,
         body: SafeArea(
           child: Form(
             key: _formKey,
@@ -75,6 +95,9 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Top Bar
+  // ═══════════════════════════════════════════════════════════
   Widget _buildTopBar(ColorScheme colors) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -84,14 +107,14 @@ class _RegisterPageState extends State<RegisterPage> {
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
             backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFF174C3B),
+            foregroundColor: _darkGreen,
           ),
         ),
         const Text(
-          'loqma',
+          'جُود',
           style: TextStyle(
-            color: Color(0xFF0B7650),
-            fontSize: 21,
+            color: _primary,
+            fontSize: 22,
             fontWeight: FontWeight.w900,
           ),
         ),
@@ -100,6 +123,9 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Hero
+  // ═══════════════════════════════════════════════════════════
   Widget _buildHero(ColorScheme colors) {
     return Column(
       children: [
@@ -108,37 +134,37 @@ class _RegisterPageState extends State<RegisterPage> {
           height: 84,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF0B7650), Color(0xFF25B77C)],
+              colors: [_primary, _primaryLight],
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
             ),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0B7650).withAlpha(55),
+                color: _primary.withValues(alpha: 0.35),
                 blurRadius: 22,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Icon(
-            Icons.volunteer_activism_rounded,
+          child: Icon(
+            _roleIcon,
             color: Colors.white,
             size: 43,
           ),
         ),
         const SizedBox(height: 17),
-        const Text(
+        Text(
           'انضم إلى جُود',
-          style: TextStyle(
-            color: Color(0xFF123F31),
+          style: const TextStyle(
+            color: _darkGreen,
             fontSize: 29,
             fontWeight: FontWeight.w900,
           ),
         ),
         const SizedBox(height: 6),
         Text(
-          'شارك الطعام، قلّل الهدر، واصنع أثرًا حقيقيًا',
+          'سجّل بياناتك وهيوصلك كود على واتساب',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: colors.onSurfaceVariant,
@@ -149,6 +175,9 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Form Card
+  // ═══════════════════════════════════════════════════════════
   Widget _buildFormCard(ColorScheme colors) {
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 19, 18, 20),
@@ -158,7 +187,7 @@ class _RegisterPageState extends State<RegisterPage> {
         border: Border.all(color: const Color(0xFFE2ECE7)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(10),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
@@ -167,9 +196,9 @@ class _RegisterPageState extends State<RegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'أنشئ حسابك الآن',
-            style: TextStyle(
+          Text(
+            'حساب $_roleTitle جديد',
+            style: const TextStyle(
               color: Color(0xFF153F31),
               fontSize: 19,
               fontWeight: FontWeight.w800,
@@ -177,22 +206,30 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 5),
           const Text(
-            'اختر نوع الحساب وأدخل بياناتك',
+            'ادخل بياناتك وهنراجع الحساب',
             style: TextStyle(color: Colors.black54, fontSize: 13),
           ),
           const SizedBox(height: 17),
-          _buildOrdinaryUserNotice(),
+
+          // ── تنبيه واتساب
+          _buildWhatsAppNotice(),
           const SizedBox(height: 18),
+
+          // ── الاسم
           AuthTextField(
             controller: _nameController,
-            label: 'الاسم الكامل',
-            hint: 'أدخل اسمك بالكامل',
-            prefixIcon: Icons.person_outline_rounded,
+            label: _isInstitution ? 'اسم المؤسسة' : 'الاسم الكامل',
+            hint: _isInstitution ? 'مثال: مؤسسة الخير' : 'أدخل اسمك بالكامل',
+            prefixIcon: _isInstitution
+                ? Icons.business_rounded
+                : Icons.person_outline_rounded,
           ),
           const SizedBox(height: 13),
+
+          // ── الهاتف
           AuthTextField(
             controller: _phoneController,
-            label: 'رقم الهاتف',
+            label: 'رقم الهاتف (واتساب)',
             hint: '01012345678',
             prefixIcon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
@@ -201,65 +238,39 @@ class _RegisterPageState extends State<RegisterPage> {
               LengthLimitingTextInputFormatter(16),
             ],
           ),
-          const SizedBox(height: 13),
-          AuthTextField(
-            controller: _emailController,
-            label: 'البريد الإلكتروني',
-            hint: 'example@domain.com',
-            prefixIcon: Icons.alternate_email_rounded,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 13),
-          AuthTextField(
-            controller: _passwordController,
-            label: 'كلمة المرور',
-            hint: '6 أحرف على الأقل',
-            prefixIcon: Icons.lock_outline_rounded,
-            obscureText: _obscurePassword,
-            suffixIcon: IconButton(
-              onPressed: () => setState(
-                () => _obscurePassword = !_obscurePassword,
-              ),
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-              ),
-            ),
-          ),
-          const SizedBox(height: 13),
-          AuthTextField(
-            controller: _confirmPasswordController,
-            label: 'تأكيد كلمة المرور',
-            hint: 'أعد كتابة كلمة المرور',
-            prefixIcon: Icons.lock_reset_outlined,
-            obscureText: _obscureConfirmPassword,
-            suffixIcon: IconButton(
-              onPressed: () => setState(
-                () => _obscureConfirmPassword = !_obscureConfirmPassword,
-              ),
-              icon: Icon(
-                _obscureConfirmPassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-              ),
-            ),
-          ),
           const SizedBox(height: 14),
+
+          // ── الشروط
           _buildTermsRow(colors),
           const SizedBox(height: 15),
+
+          // ── زر الإرسال
           AuthButton(
-            text: 'إنشاء الحساب',
+            text: 'إرسال كود التحقق',
             isLoading: _isLoading,
             onPressed: _handleRegister,
-            icon: Icons.person_add_alt_1_rounded,
+            icon: Icons.send_rounded,
+          ),
+
+          const SizedBox(height: 10),
+          const Center(
+            child: Text(
+              'هيوصلك كود مكوّن من 6 أرقام على واتساب 📲',
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: 11.5,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOrdinaryUserNotice() {
+  // ═══════════════════════════════════════════════════════════
+  // Notice
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildWhatsAppNotice() {
     return Container(
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -267,13 +278,25 @@ class _RegisterPageState extends State<RegisterPage> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFD7EADF)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.person_outline_rounded, color: Color(0xFF0B7650)),
-          SizedBox(width: 10),
-          Expanded(
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child:
+                const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
-              'التسجيل هنا للمستخدمين العاديين فقط. حسابات المطاعم والمؤسسات يتم إنشاؤها وإدارتها من لوحة الإدارة.',
+              'هنبعتلك كود تحقق على واتساب. تأكد إن الرقم متاح على واتساب.',
               style: TextStyle(
                 color: Color(0xFF315A49),
                 fontSize: 12,
@@ -287,6 +310,9 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Terms
+  // ═══════════════════════════════════════════════════════════
   Widget _buildTermsRow(ColorScheme colors) {
     return InkWell(
       onTap: () => setState(() => _agreeTerms = !_agreeTerms),
@@ -309,6 +335,9 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Login Link
+  // ═══════════════════════════════════════════════════════════
   Widget _buildLoginLink(ColorScheme colors) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -333,32 +362,20 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Register Handler — بيسجل + يروح لصفحة OTP
+  // ═══════════════════════════════════════════════════════════
   Future<void> _handleRegister() async {
     final name = _nameController.text.trim();
     final phone = _normalizeEgyptianPhone(_phoneController.text);
-    final email = _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text;
-    final confirmation = _confirmPasswordController.text;
 
+    // ── Validation
     if (name.length < 3) {
       _showError('يرجى إدخال الاسم، 3 أحرف على الأقل');
       return;
     }
     if (!RegExp(r'^01[0125]\d{8}$').hasMatch(phone)) {
-      _showError(
-          'أدخل رقم هاتف مصري صحيح مكونًا من 11 رقمًا ويبدأ بـ 010 أو 011 أو 012 أو 015');
-      return;
-    }
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      _showError('يرجى إدخال بريد إلكتروني صحيح');
-      return;
-    }
-    if (password.length < 6) {
-      _showError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
-      return;
-    }
-    if (password != confirmation) {
-      _showError('كلمتا المرور غير متطابقتين');
+      _showError('أدخل رقم هاتف مصري صحيح (11 رقم يبدأ بـ 010/011/012/015)');
       return;
     }
     if (!_agreeTerms) {
@@ -369,75 +386,58 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('[RegisterPageDebug] PATCHED_REGISTER_PAGE_V2');
-      debugPrint(
-        '[RegisterPageDebug] before AuthRepository.register '
-        'email=$email phone=$phone userType=$_ordinaryUserType',
-      );
-      final result = await _authRepo.register(
-        name: name,
-        phone: phone,
-        email: email,
-        password: password,
-        userType: _ordinaryUserType,
-      );
+      debugPrint('📌 [Register] name=$name phone=$phone role=${widget.role}');
 
-      debugPrint(
-          '[RegisterPageDebug] after AuthRepository.register result=$result');
+      // ── نبني البروفايل كامل (للأدوار)
+      final profile = <String, dynamic>{
+        'name': name,
+        'role': widget.role,
+        'city': 'طنطا',
+      };
+
+      // ✅ نبعت OTP عبر AuthRepository
+      final result = await _authRepo.sendOtp(phone: phone);
+
       if (!mounted) return;
 
-      result.fold(
-        _showRegistrationError,
-        (userId) {
-          _openEmailVerification(userId, email);
+      await result.fold(
+        (error) async {
+          _showError(error);
+        },
+        (returnedPhone) async {
+          // ✅ نروح لصفحة التحقق
+          final verified = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OtpVerifyPage(
+                phone: returnedPhone,
+                profile: profile,
+              ),
+            ),
+          );
+
+          if (!mounted) return;
+
+          if (verified == true) {
+            // ✅ التسجيل تم بنجاح
+            // OtpVerifyPage هيتعامل مع التوجيه حسب الـ role
+            debugPrint('✅ [Register] verification success');
+          }
         },
       );
     } catch (error, stackTrace) {
-      debugPrint('[RegisterPageDebug] CATCH type=${error.runtimeType}');
-      debugPrint('[RegisterPageDebug] CATCH error=$error');
-      debugPrint('[RegisterPageDebug] CATCH stack=$stackTrace');
-      if (mounted) _showRegistrationError(error.toString());
+      debugPrint('❌ [Register] type=${error.runtimeType}');
+      debugPrint('❌ [Register] error=$error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) _showError('تعذر إتمام التسجيل، حاول تاني');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _openEmailVerification(String userId, String email) async {
-    final result = await _authRepo.issueSignupEmailCode(
-      userId: userId,
-      email: email,
-      name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-    );
-    if (!mounted) return;
-
-    String? errorMessage;
-    result.fold((error) => errorMessage = error, (_) {});
-    if (errorMessage != null) {
-      _showRegistrationError(errorMessage!);
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EmailOtpVerificationPage(
-          email: email,
-          authRepo: _authRepo,
-          onVerified: (_) async {
-            await _authRepo.logout();
-            if (!mounted) return;
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginPage()),
-              (route) => false,
-            );
-          },
-        ),
-      ),
-    );
-  }
-
+  // ═══════════════════════════════════════════════════════════
+  // Normalize Egyptian Phone
+  // ═══════════════════════════════════════════════════════════
   String _normalizeEgyptianPhone(String value) {
     var phone = value
         .trim()
@@ -466,29 +466,11 @@ class _RegisterPageState extends State<RegisterPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xFFD64545),
+        backgroundColor: _red,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
-  }
-
-  void _showRegistrationError(String error) {
-    final normalized = error.toLowerCase();
-    var message = error;
-
-    if (normalized.contains('already') || normalized.contains('exists')) {
-      message = 'البريد الإلكتروني مستخدم بالفعل. استخدم بريدًا آخر.';
-    } else if (normalized.contains('phone')) {
-      message = 'رقم الهاتف مستخدم بالفعل. استخدم رقمًا آخر.';
-    } else if (normalized.contains('rate') || normalized.contains('too many')) {
-      message = 'تمت محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.';
-    } else if (normalized.contains('confirm') ||
-        normalized.contains('تأكيد البريد')) {
-      message = error;
-    }
-
-    _showError(message);
   }
 }

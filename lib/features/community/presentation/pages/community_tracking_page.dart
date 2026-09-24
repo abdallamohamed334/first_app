@@ -2,10 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'community_my_requests_page.dart';
+import 'my_community_needs_page.dart';
 import 'community_my_charity_donations_page.dart';
 import 'community_my_offers_page.dart';
-import 'volunteer_donations_tracking_page.dart';
 import 'community_my_grocery_orders_page.dart';
 
 class CommunityTrackingPage extends StatefulWidget {
@@ -29,21 +28,17 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
   static const Color _textSecondary = Color(0xFFAAAAAA);
   static const Color _border = Color(0x14FFFFFF);
 
+  // ✅ شيلنا "توصيلي"
   static const List<_TrackingTab> _tabs = [
     _TrackingTab(
-      label: 'طلباتي',
-      icon: Icons.shopping_bag_rounded,
-      outlinedIcon: Icons.shopping_bag_outlined,
-    ),
-    _TrackingTab(
-      label: 'تبرعاتي',
+      label: 'احتياجاتي',
       icon: Icons.volunteer_activism_rounded,
       outlinedIcon: Icons.volunteer_activism_outlined,
     ),
     _TrackingTab(
-      label: 'توصيلي',
-      icon: Icons.delivery_dining_rounded,
-      outlinedIcon: Icons.delivery_dining_outlined,
+      label: 'تبرعاتي',
+      icon: Icons.favorite_rounded,
+      outlinedIcon: Icons.favorite_outline_rounded,
     ),
     _TrackingTab(
       label: 'طلبات البقالة',
@@ -89,9 +84,8 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
             controller: _tabController,
             physics: const BouncingScrollPhysics(),
             children: const [
-              CommunityMyRequestsPage(),
+              MyCommunityNeedsPage(embedded: true),
               CommunityMyCharityDonationsPage(),
-              VolunteerDonationsTrackingPage(),
               CommunityMyGroceryOrdersPage(),
               CommunityMyOffersPage(),
             ],
@@ -102,7 +96,7 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ AppBar حديث
+  // ✅ AppBar
   // ═══════════════════════════════════════════════════════════
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
@@ -188,20 +182,12 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ Tab Chip — Pill style حديث
+  // ✅ Tab Chip
   // ═══════════════════════════════════════════════════════════
   Widget _buildTabChip(int index) {
     return AnimatedBuilder(
       animation: _tabController,
       builder: (context, _) {
-        // نسبة الاختيار (0 = مش مختار، 1 = مختار)
-        double t = _tabController.index == index ? 1.0 : 0.0;
-        if (_tabController.indexIsChanging) {
-          final animationValue = _tabController.animation?.value ?? 0;
-          final distance = (animationValue - index).abs();
-          t = (1 - distance).clamp(0.0, 1.0);
-        }
-
         final selected = _tabController.index == index;
         final tab = _tabs[index];
 

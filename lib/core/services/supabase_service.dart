@@ -59,26 +59,21 @@ class SupabaseService {
 
   SupabaseClient get client => Supabase.instance.client;
   SupabaseClient get adminClient => client;
-
-  // ✅ أضيفت عشان التوافق مع الكود القديم
   SupabaseClient get supabase => client;
 
-  // ============ AUTH ============
-
-  Future<AuthResponse> signUp(String email, String password) async {
-    return await client.auth.signUp(email: email, password: password);
-  }
-
-  Future<Session?> signIn(String email, String password) async {
+  // ═══════════════════════════════════════════════════════════
+  // AUTH
+  // ═══════════════════════════════════════════════════════════
+  Future<void> setAuthSession({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
     try {
-      final response = await client.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
-      return response.session;
+      await client.auth.setSession(refreshToken);
+      debugPrint('✅ Auth session set');
     } catch (e) {
-      print('❌ SignIn error: $e');
-      return null;
+      debugPrint('❌ setAuthSession error: $e');
+      rethrow;
     }
   }
 
@@ -101,8 +96,9 @@ class SupabaseService {
     return client.auth.currentUser;
   }
 
-  // ============ FCM DEVICES ============
-
+  // ═══════════════════════════════════════════════════════════
+  // FCM DEVICES
+  // ═══════════════════════════════════════════════════════════
   Future<void> initializeFcmForUser(
     String userId, {
     String? webVapidKey,
@@ -204,223 +200,102 @@ class SupabaseService {
     }
   }
 
-  Future<void> updatePasswordInAuth(String email, String newPassword) async {
-    try {
-      final currentUser = client.auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('يجب تسجيل الدخول قبل تغيير كلمة المرور');
-      }
-
-      if (newPassword.trim().length < 6) {
-        throw Exception('كلمة المرور يجب أن تحتوي على 6 أحرف على الأقل');
-      }
-
-      await client.auth.updateUser(
-        UserAttributes(password: newPassword.trim()),
-      );
-
-      print('✅ Auth password updated for user: ${currentUser.id}');
-    } catch (e) {
-      print('❌ Error updating Auth password: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> saveOtp(String email, String code) async {
-    try {
-      await client.from('otp_codes').insert({
-        'email': email,
-        'code': code,
-        'is_used': false,
-        'expires_at':
-            DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-      });
-      print('✅ OTP saved for $email');
-    } catch (e) {
-      print('❌ Error saving OTP: $e');
-      rethrow;
-    }
-  }
-
-  Future<bool> verifyOtp(String email, String code) async {
-    try {
-      print('📌 Verifying OTP for $email: $code');
-
-      final response = await client
-          .from('otp_codes')
-          .select()
-          .eq('email', email)
-          .eq('code', code)
-          .eq('is_used', false)
-          .maybeSingle();
-
-      if (response == null) {
-        print('❌ OTP not found or already used');
-        return false;
-      }
-
-      final expiresAt = DateTime.parse(response['expires_at'] as String);
-      if (DateTime.now().isAfter(expiresAt)) {
-        print('❌ OTP expired');
-        await client.from('otp_codes').delete().eq('id', response['id']);
-        return false;
-      }
-
-      await client
-          .from('otp_codes')
-          .update({'is_used': true}).eq('id', response['id']);
-      print('✅ OTP verified successfully');
-      return true;
-    } catch (e) {
-      print('❌ OTP verification error: $e');
-      return false;
-    }
-  }
-
-  String generateOtp() {
-    final random = String.fromCharCodes(
-      List.generate(6, (_) => 48 + (DateTime.now().microsecond % 10)),
-    );
-    return random;
-  }
-
-  // ============ USERS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // USERS
+  // ═══════════════════════════════════════════════════════════
   Future<UserModel> createUser(Map<String, dynamic> data) async {
     try {
       final cleanData = Map<String, dynamic>.from(data);
-      print('📌 Creating user with data: $cleanData');
+      debugPrint('📌 Creating user');
 
       final response =
           await adminClient.from('users').insert(cleanData).select().single();
 
-      print('📌 User created: $response');
       return UserModel.fromJson(response);
     } catch (e) {
-      print('❌ Error creating user: $e');
+      debugPrint('❌ Error creating user: $e');
       rethrow;
-    }
-  }
-
-  Future<UserModel?> getUserByEmail(String email) async {
-    try {
-      print('📌 Looking for user with email: $email');
-
-      final response = await adminClient
-          .from('users')
-          .select()
-          .eq('email', email)
-          .maybeSingle();
-
-      if (response == null) {
-        print('📌 No user found with email: $email');
-        return null;
-      }
-
-      print('📌 User found: $response');
-      var user = UserModel.fromJson(response);
-
-      final userType = user.type.value.toLowerCase();
-      if (userType == 'restaurant' ||
-          userType == 'business' ||
-          userType == 'hotel' ||
-          userType == 'supermarket' ||
-          userType == 'bakery' ||
-          userType == 'cafe') {
-        final businessResponse = await adminClient
-            .from('businesses')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (businessResponse != null) {
-          final businessId = businessResponse['id'] as String;
-          print('📌 Found business ID: $businessId');
-          user = user.copyWith(
-            businessId: businessId,
-            restaurantId: businessId,
-          );
-        } else {
-          print('⚠️ No business found for user: ${user.id}');
-        }
-      }
-
-      if (userType == 'charity') {
-        final charityResponse = await adminClient
-            .from('charities')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (charityResponse != null) {
-          final charityId = charityResponse['id'] as String;
-          print('📌 Found charity ID: $charityId');
-          user = user.copyWith(charityId: charityId);
-        }
-      }
-
-      return user;
-    } catch (e) {
-      print('❌ Error getting user by email: $e');
-      return null;
     }
   }
 
   Future<UserModel?> getUserById(String id) async {
     try {
-      print('📌 Looking for user with id: $id');
+      debugPrint('📌 Looking for user with id: $id');
 
       final response =
           await adminClient.from('users').select().eq('id', id).maybeSingle();
 
       if (response == null) {
-        print('📌 No user found with id: $id');
+        debugPrint('📌 No user found with id: $id');
         return null;
       }
 
-      print('📌 User found: $response');
       var user = UserModel.fromJson(response);
+      final role = user.type.value.toLowerCase();
 
-      final userType = user.type.value.toLowerCase();
-      if (userType == 'restaurant' ||
-          userType == 'business' ||
-          userType == 'hotel' ||
-          userType == 'supermarket' ||
-          userType == 'bakery' ||
-          userType == 'cafe') {
-        final businessResponse = await adminClient
-            .from('businesses')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
+      if (role == 'provider') {
+        try {
+          final provider = await adminClient
+              .from('service_providers')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle();
 
-        if (businessResponse != null) {
-          final businessId = businessResponse['id'] as String;
-          print('📌 Found business ID: $businessId');
-          user = user.copyWith(
-            businessId: businessId,
-            restaurantId: businessId,
-          );
+          if (provider != null) {
+            user = user.copyWith(
+              serviceProviderId: provider['id'] as String?,
+            );
+          }
+        } catch (e) {
+          debugPrint('⚠️ Provider enrichment skipped: $e');
         }
       }
 
-      if (userType == 'charity') {
-        final charityResponse = await adminClient
-            .from('charities')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
+      if (role == 'institution') {
+        try {
+          final inst = await adminClient
+              .from('institutions')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle();
 
-        if (charityResponse != null) {
-          final charityId = charityResponse['id'] as String;
-          print('📌 Found charity ID: $charityId');
-          user = user.copyWith(charityId: charityId);
+          if (inst != null) {
+            user = user.copyWith(
+              institutionId: inst['id'] as String?,
+            );
+          }
+        } catch (e) {
+          debugPrint('⚠️ Institution enrichment skipped: $e');
         }
       }
 
       return user;
     } catch (e) {
-      print('❌ Error getting user by id: $e');
+      debugPrint('❌ Error getting user by id: $e');
+      return null;
+    }
+  }
+
+  Future<UserModel?> getUserByPhone(String phone) async {
+    try {
+      var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+      if (cleaned.startsWith('0')) {
+        cleaned = '20${cleaned.substring(1)}';
+      } else if (cleaned.length == 10) {
+        cleaned = '20$cleaned';
+      }
+
+      final response = await adminClient
+          .from('users')
+          .select()
+          .eq('phone', cleaned)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      return await getUserById(response['id'] as String);
+    } catch (e) {
+      debugPrint('❌ Error getting user by phone: $e');
       return null;
     }
   }
@@ -434,62 +309,56 @@ class SupabaseService {
           .select()
           .single();
 
-      print('📌 User updated: $response');
+      debugPrint('📌 User updated');
       return UserModel.fromJson(response);
     } catch (e) {
-      print('❌ Error updating user: $e');
+      debugPrint('❌ Error updating user: $e');
       rethrow;
-    }
-  }
-
-  Future<bool> userExistsByEmail(String email) async {
-    try {
-      final response =
-          await adminClient.from('users').select('id').eq('email', email);
-      return response.isNotEmpty;
-    } catch (e) {
-      return false;
     }
   }
 
   Future<bool> userExistsByPhone(String phone) async {
     try {
+      var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+      if (cleaned.startsWith('0')) {
+        cleaned = '20${cleaned.substring(1)}';
+      } else if (cleaned.length == 10) {
+        cleaned = '20$cleaned';
+      }
+
       final response =
-          await adminClient.from('users').select('id').eq('phone', phone);
+          await adminClient.from('users').select('id').eq('phone', cleaned);
       return response.isNotEmpty;
     } catch (e) {
       return false;
     }
   }
 
-  // ============ BUSINESS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // BUSINESS
+  // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> getBusinessByUserId(String userId) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('businesses')
           .select()
           .eq('user_id', userId)
           .maybeSingle();
-
-      return response;
     } catch (e) {
-      print('❌ Error getting business by user id: $e');
+      debugPrint('❌ Error getting business: $e');
       return null;
     }
   }
 
   Future<Map<String, dynamic>?> getBusinessById(String businessId) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('businesses')
           .select()
           .eq('id', businessId)
           .maybeSingle();
-
-      return response;
     } catch (e) {
-      print('❌ Error getting business by id: $e');
+      debugPrint('❌ Error getting business by id: $e');
       return null;
     }
   }
@@ -505,19 +374,20 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting businesses by type: $e');
+      debugPrint('❌ Error getting businesses by type: $e');
       return [];
     }
   }
 
   Future<Map<String, dynamic>> createBusiness(Map<String, dynamic> data) async {
     try {
-      final response =
-          await adminClient.from('businesses').insert(data).select().single();
-
-      return response;
+      return await adminClient
+          .from('businesses')
+          .insert(data)
+          .select()
+          .single();
     } catch (e) {
-      print('❌ Error creating business: $e');
+      debugPrint('❌ Error creating business: $e');
       rethrow;
     }
   }
@@ -527,16 +397,14 @@ class SupabaseService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('businesses')
           .update(data)
           .eq('id', businessId)
           .select()
           .single();
-
-      return response;
     } catch (e) {
-      print('❌ Error updating business: $e');
+      debugPrint('❌ Error updating business: $e');
       rethrow;
     }
   }
@@ -551,14 +419,14 @@ class SupabaseService {
 
       return List<String>.from(response.map((e) => e['capability'] as String));
     } catch (e) {
-      print('❌ Error getting business capabilities: $e');
+      debugPrint('❌ Error getting business capabilities: $e');
       return [];
     }
   }
 
-  // ============ USER STATS ============
-
-  // ✅ جلب النقاط من جدول users مباشرة
+  // ═══════════════════════════════════════════════════════════
+  // USER STATS
+  // ═══════════════════════════════════════════════════════════
   Future<int> getUserTotalPoints(String userId) async {
     try {
       final response = await adminClient
@@ -569,12 +437,11 @@ class SupabaseService {
 
       return response?['points'] as int? ?? 0;
     } catch (e) {
-      print('❌ Error getting user points: $e');
+      debugPrint('❌ Error getting user points: $e');
       return 0;
     }
   }
 
-  // ✅ جلب مستوى المستخدم من جدول users
   Future<int> getUserLevel(String userId) async {
     try {
       final response = await adminClient
@@ -585,12 +452,11 @@ class SupabaseService {
 
       return response?['level'] as int? ?? 1;
     } catch (e) {
-      print('❌ Error getting user level: $e');
+      debugPrint('❌ Error getting user level: $e');
       return 1;
     }
   }
 
-  // ✅ جلب عدد التوصيلات
   Future<int> getUserDeliveriesCount(String userId) async {
     try {
       final response = await adminClient
@@ -601,12 +467,11 @@ class SupabaseService {
 
       return response.length;
     } catch (e) {
-      print('❌ Error getting deliveries count: $e');
+      debugPrint('❌ Error getting deliveries count: $e');
       return 0;
     }
   }
 
-  // ✅ جلب عدد الوجبات المنقذة
   Future<int> getUserMealsSaved(String userId) async {
     try {
       final response = await adminClient
@@ -630,7 +495,6 @@ class SupabaseService {
     }
   }
 
-  // ✅ جلب عدد المهام المكتملة
   Future<int> getUserCompletedTasks(String userId) async {
     try {
       final response = await adminClient
@@ -641,15 +505,13 @@ class SupabaseService {
 
       return response.length;
     } catch (e) {
-      print('❌ Error getting completed tasks: $e');
+      debugPrint('❌ Error getting completed tasks: $e');
       return 0;
     }
   }
 
-  // ✅ جلب جميع إحصائيات المستخدم مرة واحدة
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
-      // جلب المستخدم كامل
       final userResponse = await adminClient
           .from('users')
           .select()
@@ -681,7 +543,7 @@ class SupabaseService {
         'tasksCompleted': tasksCompleted,
       };
     } catch (e) {
-      print('❌ Error getting user stats: $e');
+      debugPrint('❌ Error getting user stats: $e');
       return {
         'points': 0,
         'level': 1,
@@ -692,7 +554,6 @@ class SupabaseService {
     }
   }
 
-  // ✅ جلب المكافآت المتاحة للمستخدم
   Future<List<RewardData>> getUserRewards(String userId) async {
     try {
       final points = await getUserTotalPoints(userId);
@@ -714,12 +575,11 @@ class SupabaseService {
       }
       return rewards;
     } catch (e) {
-      print('❌ Error getting user rewards: $e');
+      debugPrint('❌ Error getting user rewards: $e');
       return [];
     }
   }
 
-  // ✅ إضافة نقاط للمستخدم (تحديث في جدول users)
   Future<void> addPoints({
     required String userId,
     required int points,
@@ -727,7 +587,6 @@ class SupabaseService {
     String? deliveryId,
   }) async {
     try {
-      // ✅ جلب النقاط الحالية
       final current = await adminClient
           .from('users')
           .select('points')
@@ -737,67 +596,57 @@ class SupabaseService {
       final currentPoints = current?['points'] as int? ?? 0;
       final newPoints = currentPoints + points;
 
-      // ✅ تحديث النقاط في جدول users
       await adminClient.from('users').update({
         'points': newPoints,
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', userId);
 
-      // ✅ تحديث المستوى بناءً على النقاط
       int newLevel = 1;
       if (newPoints >= 1000) {
         newLevel = 5;
-      } else if (newPoints >= 500)
+      } else if (newPoints >= 500) {
         newLevel = 4;
-      else if (newPoints >= 200)
+      } else if (newPoints >= 200) {
         newLevel = 3;
-      else if (newPoints >= 50) newLevel = 2;
+      } else if (newPoints >= 50) {
+        newLevel = 2;
+      }
 
       await adminClient
           .from('users')
           .update({'level': newLevel}).eq('id', userId);
 
-      print(
-          '✅ Added $points points to user $userId (total: $newPoints, level: $newLevel)');
+      debugPrint(
+          '✅ Added $points points (total: $newPoints, level: $newLevel)');
     } catch (e) {
-      print('❌ Error adding points: $e');
+      debugPrint('❌ Error adding points: $e');
     }
   }
 
-  // ============ FOOD OFFERS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // FOOD OFFERS
+  // ═══════════════════════════════════════════════════════════
   Future<void> _expireOverdueFoodOffers() async {
     try {
       await client.rpc('expire_overdue_food_offers');
     } catch (e) {
-      print('⚠️ Expiry cleanup skipped: $e');
+      debugPrint('⚠️ Expiry cleanup skipped: $e');
     }
   }
 
   Future<List<Map<String, dynamic>>> getFoodOffers() async {
     await _expireOverdueFoodOffers();
     try {
-      print('📌🔴 getFoodOffers: START');
-
       final response = await client.from('food_offers').select('''
           *,
           businesses:business_id (
-            id,
-            name,
-            logo,
-            address,
-            phone,
-            rating,
-            latitude,
-            longitude
+            id, name, logo, address, phone, rating, latitude, longitude
           )
         ''').eq('status', 'available').order('created_at', ascending: false);
 
-      print('📌🔴 getFoodOffers: response length = ${response.length ?? 0}');
-
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
-      print('❌🔴 getFoodOffers ERROR: $e');
+      debugPrint('❌ getFoodOffers ERROR: $e');
       return [];
     }
   }
@@ -805,25 +654,15 @@ class SupabaseService {
   Future<Map<String, dynamic>?> getFoodOfferById(String id) async {
     await _expireOverdueFoodOffers();
     try {
-      final response = await client.from('food_offers').select('''
+      return await client.from('food_offers').select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              phone,
-              rating,
-              description,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, phone, rating, description,
+              latitude, longitude, business_type
             )
           ''').eq('id', id).maybeSingle();
-
-      return response;
     } catch (e) {
-      print('❌ Error getting food offer: $e');
+      debugPrint('❌ Error getting food offer: $e');
       return null;
     }
   }
@@ -837,16 +676,8 @@ class SupabaseService {
       final response = await client.from('food_offers').select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              phone,
-              rating,
-              description,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, phone, rating, description,
+              latitude, longitude, business_type
             )
           ''').eq('id', offerId).maybeSingle();
 
@@ -875,7 +706,7 @@ class SupabaseService {
 
       return response;
     } catch (e) {
-      print('❌ Error getting food offer with details: $e');
+      debugPrint('❌ Error getting food offer with details: $e');
       return null;
     }
   }
@@ -891,13 +722,7 @@ class SupabaseService {
           .select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, latitude, longitude, business_type
             )
           ''')
           .eq('status', 'available')
@@ -906,10 +731,9 @@ class SupabaseService {
           .order('expiry_time', ascending: true)
           .limit(10);
 
-      print('📌 Urgent food offers found: ${response.length}');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting urgent food offers: $e');
+      debugPrint('❌ Error getting urgent food offers: $e');
       return [];
     }
   }
@@ -926,10 +750,9 @@ class SupabaseService {
         'lng': lng,
         'radius_km': radius,
       });
-
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
-      print('❌ Error getting nearby food offers: $e');
+      debugPrint('❌ Error getting nearby food offers: $e');
       return [];
     }
   }
@@ -942,15 +765,7 @@ class SupabaseService {
           .select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              phone,
-              rating,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, phone, rating, latitude, longitude, business_type
             )
           ''')
           .eq('status', 'available')
@@ -960,7 +775,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting offers: $e');
+      debugPrint('❌ Error getting offers: $e');
       return [];
     }
   }
@@ -974,15 +789,7 @@ class SupabaseService {
           .select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              phone,
-              rating,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, phone, rating, latitude, longitude, business_type
             )
           ''')
           .eq('status', 'available')
@@ -1022,7 +829,7 @@ class SupabaseService {
 
       return offers;
     } catch (e) {
-      print('❌ Error getting offers with requests: $e');
+      debugPrint('❌ Error getting offers with requests: $e');
       return [];
     }
   }
@@ -1030,29 +837,21 @@ class SupabaseService {
   Future<Map<String, dynamic>?> getOfferById(String id) async {
     await _expireOverdueFoodOffers();
     try {
-      final response = await client.from('food_offers').select('''
+      return await client.from('food_offers').select('''
             *,
             businesses:business_id (
-              id,
-              name,
-              logo,
-              address,
-              phone,
-              rating,
-              latitude,
-              longitude,
-              business_type
+              id, name, logo, address, phone, rating, latitude, longitude, business_type
             )
           ''').eq('id', id).maybeSingle();
-      return response;
     } catch (e) {
-      print('❌ Error getting offer: $e');
+      debugPrint('❌ Error getting offer: $e');
       return null;
     }
   }
 
-  // ============ OFFER REQUESTS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // OFFER REQUESTS
+  // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>> acceptOfferRequest(String requestId) async {
     try {
       final request = await client
@@ -1061,10 +860,7 @@ class SupabaseService {
           .eq('id', requestId)
           .maybeSingle();
 
-      if (request == null) {
-        throw Exception('الطلب غير موجود');
-      }
-
+      if (request == null) throw Exception('الطلب غير موجود');
       if (request['status'] != 'pending') {
         throw Exception('لا يمكن قبول طلب غير معلق');
       }
@@ -1094,7 +890,7 @@ class SupabaseService {
 
       return updatedRequest;
     } catch (e) {
-      print('❌ acceptOfferRequest error: $e');
+      debugPrint('❌ acceptOfferRequest error: $e');
       rethrow;
     }
   }
@@ -1107,11 +903,9 @@ class SupabaseService {
           .eq('id', requestId)
           .maybeSingle();
 
-      if (request == null) {
-        throw Exception('الطلب غير موجود');
-      }
+      if (request == null) throw Exception('الطلب غير موجود');
 
-      final updatedRequest = await client
+      return await client
           .from('offer_requests')
           .update({
             'status': 'rejected',
@@ -1120,10 +914,8 @@ class SupabaseService {
           .eq('id', requestId)
           .select()
           .single();
-
-      return updatedRequest;
     } catch (e) {
-      print('❌ rejectOfferRequest error: $e');
+      debugPrint('❌ rejectOfferRequest error: $e');
       rethrow;
     }
   }
@@ -1136,9 +928,7 @@ class SupabaseService {
           .eq('id', requestId)
           .maybeSingle();
 
-      if (request == null) {
-        throw Exception('الطلب غير موجود');
-      }
+      if (request == null) throw Exception('الطلب غير موجود');
 
       final offerId = request['offer_id'] as String;
       final wasAccepted = request['status'] == 'accepted';
@@ -1168,7 +958,7 @@ class SupabaseService {
 
       return cancelledRequest;
     } catch (e) {
-      print('❌ cancelOfferRequest error: $e');
+      debugPrint('❌ cancelOfferRequest error: $e');
       rethrow;
     }
   }
@@ -1182,12 +972,7 @@ class SupabaseService {
           .from('offer_requests')
           .select('''
             *,
-            users (
-              id,
-              name,
-              phone,
-              avatar_url
-            )
+            users (id, name, phone, avatar_url)
           ''')
           .eq('offer_id', offerId)
           .eq('food_offers.business_id', businessId)
@@ -1195,7 +980,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ getOfferRequestsForBusiness error: $e');
+      debugPrint('❌ getOfferRequestsForBusiness error: $e');
       return [];
     }
   }
@@ -1205,16 +990,14 @@ class SupabaseService {
     String userId,
   ) async {
     try {
-      final response = await client
+      return await client
           .from('offer_requests')
           .select()
           .eq('offer_id', offerId)
           .eq('user_id', userId)
           .maybeSingle();
-
-      return response;
     } catch (e) {
-      print('❌ getUserOfferRequest error: $e');
+      debugPrint('❌ getUserOfferRequest error: $e');
       return null;
     }
   }
@@ -1226,26 +1009,10 @@ class SupabaseService {
           .from('offer_requests')
           .select('''
             *,
-            users (
-              id,
-              name,
-              phone,
-              avatar_url
-            ),
+            users (id, name, phone, avatar_url),
             food_offers!inner (
-              id,
-              title,
-              quantity,
-              pickup_location,
-              expiry_time,
-              business_id,
-              businesses:business_id (
-                id,
-                name,
-                logo,
-                address,
-                phone
-              )
+              id, title, quantity, pickup_location, expiry_time, business_id,
+              businesses:business_id (id, name, logo, address, phone)
             )
           ''')
           .eq('food_offers.business_id', businessId)
@@ -1253,16 +1020,16 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ getBusinessAllOfferRequests error: $e');
+      debugPrint('❌ getBusinessAllOfferRequests error: $e');
       return [];
     }
   }
 
-  // ============ COMMUNITY STATS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // COMMUNITY STATS
+  // ═══════════════════════════════════════════════════════════
   Future<CommunityStats> getCommunityStats() async {
     try {
-      // ✅ جلب عدد الوجبات المنقذة من donations
       int mealsSaved = 0;
       try {
         final donationsResponse = await client
@@ -1276,20 +1043,18 @@ class SupabaseService {
         mealsSaved = 0;
       }
 
-      // ✅ جلب عدد المتطوعين النشطين
       int activeVolunteers = 0;
       try {
         final volunteersResponse = await client
             .from('users')
             .select('id')
-            .eq('user_type', 'user')
+            .eq('role', 'user')
             .eq('is_active', true);
         activeVolunteers = volunteersResponse.length;
       } catch (_) {
         activeVolunteers = 0;
       }
 
-      // ✅ جلب عدد المطاعم المشاركة
       int participatingRestaurants = 0;
       try {
         final restaurantsResponse = await client
@@ -1301,7 +1066,6 @@ class SupabaseService {
         participatingRestaurants = 0;
       }
 
-      // ✅ جلب عدد الجمعيات المستفيدة
       int beneficiaryCharities = 0;
       try {
         final charitiesResponse =
@@ -1311,7 +1075,6 @@ class SupabaseService {
         beneficiaryCharities = 0;
       }
 
-      // ✅ تم تعديلها: من غير lastUpdated
       return CommunityStats(
         mealsSaved: mealsSaved,
         activeVolunteers: activeVolunteers,
@@ -1319,17 +1082,16 @@ class SupabaseService {
         beneficiaryCharities: beneficiaryCharities,
       );
     } catch (e) {
-      print('❌ Error getting community stats: $e');
-      return const CommunityStats(); // ✅ استخدام empty constructor
+      debugPrint('❌ Error getting community stats: $e');
+      return const CommunityStats();
     }
   }
 
-  // ============ DELIVERIES ============
-
+  // ═══════════════════════════════════════════════════════════
+  // DELIVERIES
+  // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>> createDelivery(Map<String, dynamic> data) async {
-    final response =
-        await client.from('deliveries').insert(data).select().single();
-    return response;
+    return await client.from('deliveries').insert(data).select().single();
   }
 
   Future<List<Map<String, dynamic>>> getDeliveriesByVolunteer(
@@ -1343,7 +1105,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting deliveries: $e');
+      debugPrint('❌ Error getting deliveries: $e');
       return [];
     }
   }
@@ -1353,21 +1115,21 @@ class SupabaseService {
     String status,
   ) async {
     try {
-      final response = await client
+      return await client
           .from('deliveries')
           .update({'status': status})
           .eq('id', id)
           .select()
           .single();
-      return response;
     } catch (e) {
-      print('❌ Error updating delivery: $e');
+      debugPrint('❌ Error updating delivery: $e');
       return null;
     }
   }
 
-  // ============ NOTIFICATIONS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════
   Future<List<Map<String, dynamic>>> getNotificationsByUser(
       String userId) async {
     try {
@@ -1380,7 +1142,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting notifications: $e');
+      debugPrint('❌ Error getting notifications: $e');
       return [];
     }
   }
@@ -1389,7 +1151,7 @@ class SupabaseService {
     try {
       await client.from('notifications').update({'is_read': true}).eq('id', id);
     } catch (e) {
-      print('❌ Error marking notification: $e');
+      debugPrint('❌ Error marking notification: $e');
     }
   }
 
@@ -1401,10 +1163,6 @@ class SupabaseService {
     Map<String, dynamic>? data,
   }) async {
     try {
-      print('📌 Sending notification to user: $userId');
-      print('📌 Title: $title');
-      print('📌 Body: $body');
-
       await client.from('notifications').insert({
         'user_id': userId,
         'title': title,
@@ -1414,10 +1172,8 @@ class SupabaseService {
         'data': data,
         'created_at': DateTime.now().toIso8601String(),
       });
-
-      print('✅ Notification saved to database');
     } catch (e) {
-      print('❌ Error sending notification: $e');
+      debugPrint('❌ Error sending notification: $e');
     }
   }
 
@@ -1431,70 +1187,18 @@ class SupabaseService {
 
       return response.length;
     } catch (e) {
-      print('❌ Error getting unread count: $e');
+      debugPrint('❌ Error getting unread count: $e');
       return 0;
-    }
-  }
-
-  Future<void> sendNotificationToAllDevices({
-    required String userId,
-    required String title,
-    required String body,
-    String? type,
-    Map<String, dynamic>? data,
-  }) async {
-    try {
-      print('📌 Sending notification to all devices of user: $userId');
-
-      await client.from('notifications').insert({
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'type': type ?? 'general',
-        'is_read': false,
-        'data': data,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      final devices = await client
-          .from('user_devices')
-          .select('fcm_token')
-          .eq('user_id', userId)
-          .eq('is_active', true);
-
-      if (devices.isEmpty) {
-        print('⚠️ No active devices found for user: $userId');
-        return;
-      }
-
-      print('📌 Sending to ${devices.length} devices');
-
-      for (final device in devices) {
-        final token = device['fcm_token']?.toString();
-        if (token != null && token.isNotEmpty) {
-          print('📌 Sending to device: ${token.substring(0, 10)}...');
-        }
-      }
-
-      print('✅ Notification sent to ${devices.length} devices');
-    } catch (e) {
-      print('❌ Error sending notification to all devices: $e');
     }
   }
 
   Future<void> registerCurrentDevice() async {
     try {
       final user = client.auth.currentUser;
-      if (user == null) {
-        debugPrint('⚠️ No user logged in, skipping device registration');
-        return;
-      }
+      if (user == null) return;
 
       final fcmToken = await _fcmNotifications.currentToken();
-      if (fcmToken == null || fcmToken.isEmpty) {
-        debugPrint('⚠️ No FCM token available');
-        return;
-      }
+      if (fcmToken == null || fcmToken.isEmpty) return;
 
       final deviceName = await _getDeviceName();
       final appVersion = await _getAppVersion();
@@ -1505,8 +1209,6 @@ class SupabaseService {
         deviceName: deviceName,
         appVersion: appVersion,
       );
-
-      debugPrint('✅ Device registered for user: ${user.id}');
     } catch (e) {
       debugPrint('❌ Error registering device: $e');
     }
@@ -1522,77 +1224,70 @@ class SupabaseService {
   }
 
   Future<String> _getAppVersion() async {
-    try {
-      return '1.0.0';
-    } catch (e) {
-      return '1.0.0';
-    }
+    return '1.0.0';
   }
 
-  // ============ CHARITIES ============
-
+  // ═══════════════════════════════════════════════════════════
+  // CHARITIES
+  // ═══════════════════════════════════════════════════════════
   Future<List<Map<String, dynamic>>> getCharities() async {
     try {
-      print('📌 Getting charities from database...');
-
       final response = await adminClient
           .from('charities')
           .select()
           .eq('status', 'active')
           .order('created_at', ascending: false);
 
-      print('📌 Charities found: ${response.length ?? 0}');
-
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
-      print('❌ Error getting charities: $e');
+      debugPrint('❌ Error getting charities: $e');
       return [];
     }
   }
 
   Future<Map<String, dynamic>?> getCharityById(String id) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('charities')
           .select()
           .eq('id', id)
           .maybeSingle();
-      return response;
     } catch (e) {
-      print('❌ Error getting charity: $e');
+      debugPrint('❌ Error getting charity: $e');
       return null;
     }
   }
 
-  // ============ RESTAURANTS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // RESTAURANTS
+  // ═══════════════════════════════════════════════════════════
   Future<List<Map<String, dynamic>>> getRestaurants() async {
     try {
       final response =
           await adminClient.from('restaurants').select().eq('status', 'active');
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
-      print('❌ Error getting restaurants: $e');
+      debugPrint('❌ Error getting restaurants: $e');
       return [];
     }
   }
 
   Future<Map<String, dynamic>?> getRestaurantById(String id) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('restaurants')
           .select()
           .eq('id', id)
           .maybeSingle();
-      return response;
     } catch (e) {
-      print('❌ Error getting restaurant: $e');
+      debugPrint('❌ Error getting restaurant: $e');
       return null;
     }
   }
 
-  // ============ PROFILE ============
-
+  // ═══════════════════════════════════════════════════════════
+  // PROFILE
+  // ═══════════════════════════════════════════════════════════
   Future<UserModel> updateProfile({
     required String userId,
     required String name,
@@ -1600,6 +1295,8 @@ class SupabaseService {
     String? city,
     String? address,
     String? avatarUrl,
+    double? lat, // ✅
+    double? lng, // ✅
   }) async {
     try {
       final data = <String, dynamic>{
@@ -1613,6 +1310,9 @@ class SupabaseService {
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         data['avatar_url'] = avatarUrl;
       }
+      // ✅ بنحفظ في latitude/longitude (الأعمدة الموجودة أصلاً)
+      if (lat != null) data['latitude'] = lat;
+      if (lng != null) data['longitude'] = lng;
 
       final response = await adminClient
           .from('users')
@@ -1621,10 +1321,9 @@ class SupabaseService {
           .select()
           .single();
 
-      print('✅ Profile updated: $response');
       return UserModel.fromJson(response);
     } catch (e) {
-      print('❌ Error updating profile: $e');
+      debugPrint('❌ Error updating profile: $e');
       rethrow;
     }
   }
@@ -1645,26 +1344,24 @@ class SupabaseService {
           .from('users')
           .update({'avatar_url': publicUrl}).eq('id', userId);
 
-      print('✅ Avatar uploaded successfully: $publicUrl');
       return publicUrl;
     } catch (e) {
-      print('❌ Error uploading avatar: $e');
+      debugPrint('❌ Error uploading avatar: $e');
       rethrow;
     }
   }
 
-  // ============ OFFER REQUESTS (EXISTING METHODS) ============
-
-  Future<String?> _resolveRestaurantIdFromBusinessId(
-    String businessId,
-  ) async {
-    final normalizedBusinessId = businessId.trim();
-    if (normalizedBusinessId.isEmpty) return null;
+  // ═══════════════════════════════════════════════════════════
+  // OFFER REQUESTS (create / update)
+  // ═══════════════════════════════════════════════════════════
+  Future<String?> _resolveRestaurantIdFromBusinessId(String businessId) async {
+    final normalized = businessId.trim();
+    if (normalized.isEmpty) return null;
 
     final business = await client
         .from('businesses')
         .select('user_id')
-        .eq('id', normalizedBusinessId)
+        .eq('id', normalized)
         .maybeSingle();
 
     final ownerId = business?['user_id']?.toString();
@@ -1691,7 +1388,7 @@ class SupabaseService {
         throw Exception('لا يوجد مطعم مرتبط بهذا العرض');
       }
 
-      final response = await client
+      return await client
           .from('offer_requests')
           .insert({
             'offer_id': offerId,
@@ -1703,10 +1400,8 @@ class SupabaseService {
           })
           .select()
           .single();
-
-      return response;
     } catch (e) {
-      print('❌ Error creating offer request: $e');
+      debugPrint('❌ Error creating offer request: $e');
       rethrow;
     }
   }
@@ -1716,16 +1411,14 @@ class SupabaseService {
     required String userId,
   }) async {
     try {
-      final response = await client
+      return await client
           .from('offer_requests')
           .select()
           .eq('offer_id', offerId)
           .eq('user_id', userId)
           .maybeSingle();
-
-      return response;
     } catch (e) {
-      print('❌ Error getting offer request: $e');
+      debugPrint('❌ Error getting offer request: $e');
       return null;
     }
   }
@@ -1734,39 +1427,17 @@ class SupabaseService {
     try {
       final response = await client.from('offer_requests').select('''
             *,
-            restaurants:restaurant_id (
-              id,
-              name,
-              logo,
-              address,
-              phone
-            ),
+            restaurants:restaurant_id (id, name, logo, address, phone),
             food_offers:offer_id (
-              id,
-              title,
-              description,
-              quantity,
-              food_type,
-              expiry_time,
-              pickup_before,
-              pickup_location,
-              image,
-              images,
-              status,
-              business_id,
-              businesses:business_id (
-                id,
-                name,
-                logo,
-                address,
-                phone
-              )
+              id, title, description, quantity, food_type, expiry_time,
+              pickup_before, pickup_location, image, images, status, business_id,
+              businesses:business_id (id, name, logo, address, phone)
             )
           ''').eq('user_id', userId).order('requested_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting user requests: $e');
+      debugPrint('❌ Error getting user requests: $e');
       return [];
     }
   }
@@ -1778,26 +1449,10 @@ class SupabaseService {
           .from('offer_requests')
           .select('''
             *,
-            users (
-              id,
-              name,
-              phone,
-              avatar_url
-            ),
+            users (id, name, phone, avatar_url),
             food_offers!inner (
-              id,
-              title,
-              quantity,
-              pickup_location,
-              expiry_time,
-              business_id,
-              businesses:business_id (
-                id,
-                name,
-                logo,
-                address,
-                phone
-              )
+              id, title, quantity, pickup_location, expiry_time, business_id,
+              businesses:business_id (id, name, logo, address, phone)
             )
           ''')
           .eq('food_offers.business_id', businessId)
@@ -1806,7 +1461,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting business requests: $e');
+      debugPrint('❌ Error getting business requests: $e');
       return [];
     }
   }
@@ -1818,26 +1473,10 @@ class SupabaseService {
           .from('offer_requests')
           .select('''
             *,
-            users (
-              id,
-              name,
-              phone,
-              avatar_url
-            ),
+            users (id, name, phone, avatar_url),
             food_offers!inner (
-              id,
-              title,
-              quantity,
-              pickup_location,
-              expiry_time,
-              business_id,
-              businesses:business_id (
-                id,
-                name,
-                logo,
-                address,
-                phone
-              )
+              id, title, quantity, pickup_location, expiry_time, business_id,
+              businesses:business_id (id, name, logo, address, phone)
             )
           ''')
           .eq('food_offers.business_id', businessId)
@@ -1845,7 +1484,7 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting business requests: $e');
+      debugPrint('❌ Error getting business requests: $e');
       return [];
     }
   }
@@ -1869,21 +1508,23 @@ class SupabaseService {
 
       return Map<String, dynamic>.from(response);
     } catch (e) {
-      print('❌ Error updating offer request status: $e');
+      debugPrint('❌ Error updating offer request status: $e');
       rethrow;
     }
   }
 
-  // ============ OFFERS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // OFFERS
+  // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> createOffer(Map<String, dynamic> data) async {
     try {
-      final response =
-          await adminClient.from('food_offers').insert(data).select().single();
-
-      return response;
+      return await adminClient
+          .from('food_offers')
+          .insert(data)
+          .select()
+          .single();
     } catch (e) {
-      print('❌ createOffer error: $e');
+      debugPrint('❌ createOffer error: $e');
       rethrow;
     }
   }
@@ -1893,16 +1534,14 @@ class SupabaseService {
     Map<String, dynamic> data,
   ) async {
     try {
-      final response = await adminClient
+      return await adminClient
           .from('food_offers')
           .update(data)
           .eq('id', offerId)
           .select()
           .single();
-
-      return response;
     } catch (e) {
-      print('❌ updateOffer error: $e');
+      debugPrint('❌ updateOffer error: $e');
       rethrow;
     }
   }
@@ -1911,19 +1550,19 @@ class SupabaseService {
     try {
       await adminClient.from('food_offers').delete().eq('id', offerId);
     } catch (e) {
-      print('❌ deleteOffer error: $e');
+      debugPrint('❌ deleteOffer error: $e');
       rethrow;
     }
   }
 
-  // ============ SESSION ============
-
+  // ═══════════════════════════════════════════════════════════
+  // SESSION
+  // ═══════════════════════════════════════════════════════════
   Future<Session?> getCurrentSession() async {
     try {
-      final session = client.auth.currentSession;
-      return session;
+      return client.auth.currentSession;
     } catch (e) {
-      print('❌ getCurrentSession error: $e');
+      debugPrint('❌ getCurrentSession error: $e');
       return null;
     }
   }
@@ -1937,8 +1576,9 @@ class SupabaseService {
     }
   }
 
-  // ============ FILTERED OFFERS ============
-
+  // ═══════════════════════════════════════════════════════════
+  // FILTERED OFFERS
+  // ═══════════════════════════════════════════════════════════
   Future<List<Map<String, dynamic>>> getAvailableOffersFiltered({
     String? city,
     String? foodType,
@@ -1960,14 +1600,14 @@ class SupabaseService {
       final response = await query.order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ getAvailableOffersFiltered error: $e');
+      debugPrint('❌ getAvailableOffersFiltered error: $e');
       return [];
     }
   }
 
-  // ============ COMMUNITY OFFERS ============
-
-  // ✅ جلب صورة العرض المجتمعي
+  // ═══════════════════════════════════════════════════════════
+  // COMMUNITY OFFERS (images)
+  // ═══════════════════════════════════════════════════════════
   Future<String?> getCommunityOfferImage(String offerId) async {
     try {
       final response = await client
@@ -1978,12 +1618,11 @@ class SupabaseService {
 
       return response?['image']?.toString();
     } catch (e) {
-      print('❌ Error getting community offer image: $e');
+      debugPrint('❌ Error getting community offer image: $e');
       return null;
     }
   }
 
-  // ✅ جلب جميع صور العرض المجتمعي
   Future<List<String>> getCommunityOfferImages(String offerId) async {
     try {
       final response = await client
@@ -2000,24 +1639,22 @@ class SupabaseService {
           .where((url) => url.isNotEmpty)
           .toList();
     } catch (e) {
-      print('❌ Error getting community offer images: $e');
+      debugPrint('❌ Error getting community offer images: $e');
       return [];
     }
   }
 
-  // ✅ جلب الصورة الأساسية مع الـ URL الكامل
   Future<String?> getCommunityOfferPrimaryImageUrl(String offerId) async {
     try {
       final image = await getCommunityOfferImage(offerId);
       if (image == null || image.isEmpty) return null;
       return _buildCommunityImageUrl(image);
     } catch (e) {
-      print('❌ Error getting community offer primary image URL: $e');
+      debugPrint('❌ Error getting community offer primary image URL: $e');
       return null;
     }
   }
 
-  // ✅ جلب العرض المجتمعي كامل مع الصور
   Future<Map<String, dynamic>?> getCommunityOfferWithImages(
       String offerId) async {
     try {
@@ -2038,12 +1675,11 @@ class SupabaseService {
 
       return response;
     } catch (e) {
-      print('❌ Error getting community offer with images: $e');
+      debugPrint('❌ Error getting community offer with images: $e');
       return null;
     }
   }
 
-  // ✅ دالة مساعدة لبناء رابط الصورة
   String _buildCommunityImageUrl(String imagePath) {
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
       return imagePath;
@@ -2058,7 +1694,6 @@ class SupabaseService {
     return '$baseUrl$imagePath';
   }
 
-  // ✅ جلب الصور لعرض معين (للعروض التانية - institution_offer_media)
   Future<List<Map<String, dynamic>>> getOfferMedia(String offerId) async {
     try {
       final response = await adminClient
@@ -2069,12 +1704,11 @@ class SupabaseService {
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('❌ Error getting offer media: $e');
+      debugPrint('❌ Error getting offer media: $e');
       return [];
     }
   }
 
-  // ✅ جلب الصورة الأساسية للعرض (من institution_offer_media)
   Future<String?> getOfferPrimaryImage(String offerId) async {
     try {
       final response = await adminClient
@@ -2086,12 +1720,11 @@ class SupabaseService {
 
       return response?['public_url']?.toString();
     } catch (e) {
-      print('❌ Error getting primary image: $e');
+      debugPrint('❌ Error getting primary image: $e');
       return null;
     }
   }
 
-  // ✅ جلب جميع صور العرض (من institution_offer_media)
   Future<List<String>> getOfferImages(String offerId) async {
     try {
       final response = await adminClient
@@ -2105,7 +1738,7 @@ class SupabaseService {
           .where((url) => url.isNotEmpty)
           .toList();
     } catch (e) {
-      print('❌ Error getting offer images: $e');
+      debugPrint('❌ Error getting offer images: $e');
       return [];
     }
   }

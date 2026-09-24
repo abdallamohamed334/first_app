@@ -8,11 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/core/repositories/auth_repository.dart';
-import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/routes/app_router.dart';
-import 'package:loqma/core/services/auth_identity_resolver.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -32,15 +28,6 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   late final Animation<double> _glowAnimation;
   Timer? _progressTimer;
   bool _isNavigating = false;
-
-  static const _businessUserTypes = {
-    'restaurant',
-    'business',
-    'hotel',
-    'supermarket',
-    'bakery',
-    'cafe',
-  };
 
   @override
   void initState() {
@@ -108,62 +95,88 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Navigation — النظام الجديد (مع انتظار قوي للجلسة)
+  // ═══════════════════════════════════════════════════════════
   Future<void> _navigateToNext() async {
     if (_isNavigating || !mounted) return;
     _isNavigating = true;
 
-    String nextLocation = AppRouter.login;
+    String nextLocation = AppRouter.userTypeSelection;
     final client = Supabase.instance.client;
 
-    // ✅ انتظر استعادة الجلسة
+    // ═══════════════════════════════════════════════════════════
+    // ✅ 1. نستنى استعادة الجلسة — بقوة أكبر
+    // ═══════════════════════════════════════════════════════════
     Session? session = client.auth.currentSession;
+
+    // لو مش موجودة، نستنى شوية ونجرب تاني (5 محاولات × 300ms = 1.5s)
     if (session == null) {
-      try {
-        final restored = await client.auth.onAuthStateChange.first
-            .timeout(const Duration(seconds: 2));
-        session = restored.session;
-      } catch (_) {
+      for (int i = 0; i < 5; i++) {
+        await Future.delayed(const Duration(milliseconds: 300));
         session = client.auth.currentSession;
+        if (session != null) break;
+        debugPrint('⏳ [Splash] waiting for session... (${i + 1}/5)');
       }
     }
 
+    debugPrint('🔴 [Splash] session=${session != null ? "found" : "null"}');
+
+    // ═══════════════════════════════════════════════════════════
+    // ✅ 2. لو فيه جلسة → نروح حسب الـ role
+    // ═══════════════════════════════════════════════════════════
     if (session != null) {
       try {
-        // ✅ جلب نوع المستخدم من users.user_type
         final userData = await client
             .from('users')
-            .select('user_type')
+            .select('role, name, city')
             .eq('id', session.user.id)
             .maybeSingle();
 
-        final type = userData?['user_type']?.toString().toLowerCase() ?? '';
+        final role = userData?['role']?.toString().toLowerCase() ?? '';
+        final name = userData?['name']?.toString().trim() ?? '';
+        final city = userData?['city']?.toString().trim() ?? '';
 
-        if (type == 'user') {
-          nextLocation = AppRouter.map; // ✅ المستخدم العادي يروح للخريطة
-        } else if (type == 'charity') {
-          nextLocation = AppRouter.charityHome;
-        } else if (type == 'institution') {
-          nextLocation = AppRouter.institutionsHome;
-        } else if (_businessUserTypes.contains(type)) {
-          nextLocation = AppRouter.restaurantHome;
-        } else {
-          nextLocation = AppRouter.login;
+        debugPrint('🔴 [Splash] role=$role, name=$name, city=$city');
+
+        switch (role) {
+          case 'user':
+            nextLocation = AppRouter.home;
+            break;
+          case 'provider':
+            nextLocation = AppRouter.providerHome;
+            break;
+          case 'institution':
+          case 'charity': // توافق للخلف
+            nextLocation = AppRouter.institutionsHome;
+            break;
+          case 'admin':
+            nextLocation = AppRouter.home;
+            break;
+          default:
+            // ✅ role فاضي (المستخدم لسه مكملش البيانات) — لكن الجلسة موجودة
+            // فنروح Home بدل ما نرجع UserTypeSelection
+            nextLocation = AppRouter.home;
         }
       } catch (error) {
-        debugPrint('⚠️ Could not resolve user type: $error');
-        nextLocation = AppRouter.login;
+        debugPrint('⚠️ Could not resolve user role: $error');
+        // ✅ لو الجلسة موجودة بس الـ query فشل → نروح Home برضه
+        nextLocation = AppRouter.home;
       }
     } else {
+      // ✅ 3. مفيش جلسة → نفحص الـ onboarding
       final prefs = await SharedPreferences.getInstance();
       final onboardingSeen = prefs.getBool('onboarding_seen') ??
           prefs.getBool('onboarding_completed') ??
           prefs.getBool('has_seen_onboarding') ??
           false;
 
-      nextLocation = onboardingSeen ? AppRouter.login : AppRouter.onboarding;
+      nextLocation =
+          onboardingSeen ? AppRouter.userTypeSelection : AppRouter.onboarding;
     }
 
     if (!mounted) return;
+    debugPrint('🔴 [Splash] going to: $nextLocation');
     context.go(nextLocation);
   }
 
@@ -193,7 +206,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         ),
         child: Stack(
           children: [
-            // ✅ خلفية مع تدرج
+            // ✅ خلفية
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -206,30 +219,24 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            // ✅ نمط الخلفية
             _buildFoodPattern(context),
-            // ✅ محتوى وسطي
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // ✅ شعار مع glow - تمرير colorScheme
                   _buildLogo(colorScheme),
                   const SizedBox(height: 30),
-                  // ✅ اسم التطبيق مع حركة
                   _buildAppInfo(context),
                 ],
               ),
             ),
-            // ✅ شريط التقدم
             Positioned(
               bottom: MediaQuery.of(context).size.height * 0.12,
               left: 40,
               right: 40,
               child: _buildProgress(),
             ),
-            // ✅ النص السفلي
             Positioned(
               bottom: MediaQuery.of(context).viewPadding.bottom + 20,
               left: 0,
@@ -242,7 +249,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ============ LOGO ============
+  // ═══════════════════════════════════════════════════════════
+  // LOGO
+  // ═══════════════════════════════════════════════════════════
   Widget _buildLogo(ColorScheme colorScheme) {
     final rotationAnimation = Tween<double>(
       begin: -0.012,
@@ -314,7 +323,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                     color: colorScheme.primary,
                     alignment: Alignment.center,
                     child: const Icon(
-                      Icons.restaurant_rounded,
+                      Icons.volunteer_activism_rounded,
                       size: 64,
                       color: Colors.white,
                     ),
@@ -328,14 +337,16 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ============ APP INFO ============
+  // ═══════════════════════════════════════════════════════════
+  // APP INFO
+  // ═══════════════════════════════════════════════════════════
   Widget _buildAppInfo(BuildContext context) {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
         children: [
           Text(
-            'loqma',
+            'جُود',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
@@ -368,7 +379,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ============ PROGRESS ============
+  // ═══════════════════════════════════════════════════════════
+  // PROGRESS
+  // ═══════════════════════════════════════════════════════════
   Widget _buildProgress() {
     return AnimatedBuilder(
       animation: _progressAnimation,
@@ -401,7 +414,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ============ BRANDING ============
+  // ═══════════════════════════════════════════════════════════
+  // BRANDING
+  // ═══════════════════════════════════════════════════════════
   Widget _buildBranding() {
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -432,7 +447,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ============ FOOD PATTERN ============
+  // ═══════════════════════════════════════════════════════════
+  // FOOD PATTERN
+  // ═══════════════════════════════════════════════════════════
   Widget _buildFoodPattern(BuildContext context) {
     return SizedBox(
       width: double.infinity,
@@ -444,7 +461,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   }
 }
 
-// ============ PATTERN PAINTER ============
+// ═══════════════════════════════════════════════════════════
+// PATTERN PAINTER
+// ═══════════════════════════════════════════════════════════
 class _FoodPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

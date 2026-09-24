@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'dart:async';
 
 import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
@@ -30,7 +32,7 @@ import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 
-// ✅ إضافة استيراد الـ ThemeNotifier
+// ✅ ThemeNotifier
 import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
@@ -101,9 +103,7 @@ Future<void> main() async {
               notificationType: notificationType,
             );
           } catch (error, stack) {
-            debugPrint(
-              'Notification analytics failed: $error',
-            );
+            debugPrint('Notification analytics failed: $error');
             debugPrintStack(stackTrace: stack);
           }
         }
@@ -185,9 +185,7 @@ void _installGlobalErrorHandlers() {
         ),
       );
     } else {
-      debugPrint(
-        'Async error before Crashlytics initialization: $error',
-      );
+      debugPrint('Async error before Crashlytics initialization: $error');
       debugPrintStack(stackTrace: stack);
     }
 
@@ -219,15 +217,11 @@ Future<bool> _initializeFirebaseSafely() async {
 
 Future<void> _configureAnalytics() async {
   try {
-    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
-      true,
-    );
+    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
     debugPrint('Firebase Analytics configured');
   } catch (error, stack) {
-    debugPrint(
-      'Firebase Analytics configuration failed: $error',
-    );
+    debugPrint('Firebase Analytics configuration failed: $error');
     debugPrintStack(stackTrace: stack);
   }
 }
@@ -241,13 +235,10 @@ Future<void> _configureCrashlytics() async {
     _firebaseCrashlyticsReady = true;
 
     debugPrint(
-      'Firebase Crashlytics configured; '
-      'collection=${!kDebugMode}',
+      'Firebase Crashlytics configured; collection=${!kDebugMode}',
     );
   } catch (error, stack) {
-    debugPrint(
-      'Firebase Crashlytics configuration failed: $error',
-    );
+    debugPrint('Firebase Crashlytics configuration failed: $error');
     debugPrintStack(stackTrace: stack);
   }
 }
@@ -259,13 +250,10 @@ Future<void> _configurePerformance() async {
     );
 
     debugPrint(
-      'Firebase Performance configured; '
-      'collection=${!kDebugMode}',
+      'Firebase Performance configured; collection=${!kDebugMode}',
     );
   } catch (error, stack) {
-    debugPrint(
-      'Firebase Performance configuration failed: $error',
-    );
+    debugPrint('Firebase Performance configuration failed: $error');
     debugPrintStack(stackTrace: stack);
   }
 }
@@ -282,24 +270,23 @@ Future<void> _configureRemoteConfig() async {
       ),
     );
 
+    // ✅ تحديث الـ defaults للأدوار الجديدة
     await remoteConfig.setDefaults(
       const <String, dynamic>{
         'maintenance_mode': false,
-        'show_new_donation_flow': false,
         'show_new_home_banner': false,
         'donation_expiry_warning_minutes': 30,
         'max_donation_images': 5,
-        'enable_qr_pickup': true,
-        'enable_charity_notifications': true,
-        'enable_restaurant_features': true,
+        'enable_whatsapp_otp': true,
+        'enable_provider_features': true,
+        'enable_institution_features': true,
+        'enable_urgent_calls': false,
       },
     );
 
     await remoteConfig.fetchAndActivate();
 
-    debugPrint(
-      'Firebase Remote Config configured and activated',
-    );
+    debugPrint('Firebase Remote Config configured and activated');
   } catch (error, stack) {
     debugPrint(
       'Firebase Remote Config configuration failed; '
@@ -325,7 +312,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    // ✅ تهيئة الـ ThemeNotifier بناءً على القيمة المحفوظة
     ThemeNotifier.isDarkMode.value = widget.initialIsDarkMode;
   }
 
@@ -350,7 +336,9 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
         BlocProvider(
-          create: (_) => ProfileBloc(),
+          create: (_) => ProfileBloc(
+            supabaseService: supabaseService,
+          ),
         ),
       ],
       child: SessionAwareBlocScope(
@@ -359,7 +347,8 @@ class _MyAppState extends State<MyApp> {
           valueListenable: ThemeNotifier.isDarkMode,
           builder: (context, isDarkMode, _) {
             return MaterialApp.router(
-              title: 'loqma | جُود',
+              // ✅ الاسم الجديد
+              title: 'جُود',
               debugShowCheckedModeBanner: false,
               routerConfig: AppRouter.router,
               theme: AppTheme.light(),

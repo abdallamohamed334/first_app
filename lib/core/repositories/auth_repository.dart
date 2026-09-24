@@ -1,12 +1,14 @@
+// lib/features/auth/data/repositories/auth_repository.dart
+
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
+import 'package:loqma/core/models/user_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/user_model.dart';
-import '../services/analytics_service.dart';
-import '../services/fcm_notification_service.dart';
-import '../services/supabase_service.dart';
-import '../utils/validators.dart';
+import '../../../../core/services/supabase_service.dart';
+import '../../../../core/services/analytics_service.dart';
+import '../../../../core/services/fcm_notification_service.dart';
+import '../../../../core/utils/validators.dart';
 
 class AuthRepository {
   final SupabaseService _supabase;
@@ -23,16 +25,27 @@ class AuthRepository {
         _analytics = analytics ?? loqmaAnalytics(),
         _webVapidKey = webVapidKey;
 
-  static const Set<String> _businessTypes = {
-    'restaurant',
-    'business',
-    'hotel',
-    'supermarket',
-    'bakery',
-    'cafe',
+  // ═══════════════════════════════════════════════════════════
+  // 🎯 الأدوار المدعومة (3 بس)
+  // ═══════════════════════════════════════════════════════════
+  static const Set<String> _supportedRoles = {
+    'user',
+    'provider',
+    'institution',
   };
 
-  static const String _institutionType = 'institution';
+  // ═══════════════════════════════════════════════════════════
+  // 🔧 Helpers
+  // ═══════════════════════════════════════════════════════════
+  String _cleanPhone(String phone) {
+    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '20${cleaned.substring(1)}';
+    } else if (cleaned.length == 10) {
+      cleaned = '20$cleaned';
+    }
+    return cleaned;
+  }
 
   String _friendlyAuthError(Object error) {
     final raw = error.toString().toLowerCase();
@@ -44,16 +57,21 @@ class AuthRepository {
       if (raw.contains('phone')) {
         return 'رقم الهاتف مسجل بالفعل. استخدم رقمًا آخر.';
       }
-      return 'البريد الإلكتروني مسجل بالفعل. استخدم بريدًا آخر.';
+      return 'الحساب مسجل بالفعل.';
     }
-    if (raw.contains('invalid email')) return 'البريد الإلكتروني غير صحيح.';
-    if (raw.contains('password') || raw.contains('كلمة المرور')) {
-      return 'كلمة المرور ضعيفة أو غير صالحة.';
+    if (raw.contains('invalid phone') || raw.contains('رقم غير صحيح')) {
+      return 'رقم الهاتف غير صحيح.';
     }
     if (raw.contains('rate') ||
         raw.contains('too many') ||
         raw.contains('429')) {
       return 'تمت محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.';
+    }
+    if (raw.contains('otp') || raw.contains('code')) {
+      return 'كود التحقق غير صحيح أو منتهي.';
+    }
+    if (raw.contains('expired')) {
+      return 'انتهت صلاحية الكود. اطلب كود جديد.';
     }
     if (raw.contains('authretryablefetchexception') ||
         raw.contains('fetch') ||
@@ -62,25 +80,25 @@ class AuthRepository {
         raw.contains('socket') ||
         raw.contains('timeout') ||
         raw.contains('connection')) {
-      return 'تعذر الاتصال بخدمة التسجيل. تحقق من الإنترنت وحاول مرة أخرى.';
+      return 'تعذر الاتصال بالخدمة. تحقق من الإنترنت وحاول تاني.';
     }
     if (raw.contains('23502') || raw.contains('not-null')) {
-      return 'تعذر حفظ بيانات الحساب. تأكد من اكتمال البيانات.';
+      return 'تعذر حفظ البيانات. تأكد من اكتمال البيانات.';
     }
     if (raw.contains('42501') || raw.contains('permission denied')) {
       return 'ليس لديك صلاحية لإتمام العملية.';
     }
-    return 'تعذر إتمام العملية حاليًا. حاول مرة أخرى.';
+    return 'تعذر إتمام العملية حاليًا. حاول تاني.';
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 🔔 FCM
+  // ═══════════════════════════════════════════════════════════
   Future<void> _initializeFcmForUser(String userId) async {
     final cleanUserId = userId.trim();
     if (cleanUserId.isEmpty) return;
 
     try {
-      // Rebind the callback when a different account logs in on the same
-      // process. This prevents a refreshed token from being saved for the
-      // previous account.
       await _fcmNotifications.dispose();
       await _fcmNotifications.initialize(
         webVapidKey: _webVapidKey,
@@ -89,437 +107,298 @@ class AuthRepository {
           fcmToken: token,
         ),
         onNotificationTap: (data) async {
-          // Navigation remains in the presentation layer. The data is logged
-          // only as keys/type; no email, phone, token, or private payload is
-          // written to logs.
           debugPrint(
             '[FCM] notification tap type=${data['type']?.toString() ?? 'unknown'}',
           );
         },
       );
-      debugPrint('[FCM] initialized for authenticated user');
+      debugPrint('[FCM] initialized');
     } catch (error, stack) {
-      // A notification problem must never make a valid login fail.
       debugPrint('[FCM] initialization skipped: $error');
       debugPrintStack(stackTrace: stack);
     }
   }
 
-  Future<Either<String, UserModel>> login({
-    required String email,
-    required String password,
-  }) async {
+  // ═══════════════════════════════════════════════════════════
+  // 📤 إرسال كود التحقق على واتساب
+  // ═══════════════════════════════════════════════════════════
+  Future<Either<String, String>> sendOtp({required String phone}) async {
     try {
-      final cleanEmail = email.trim().toLowerCase();
-      final session = await _supabase.signIn(cleanEmail, password);
-      if (session == null) {
-        return const Left('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+      final cleanPhone = _cleanPhone(phone);
+
+      if (cleanPhone.length < 10 || cleanPhone.length > 15) {
+        return const Left('رقم الهاتف غير صحيح');
       }
 
-      final user = await _loadUserWithRelations(session.user.id);
-      if (user == null) {
-        return const Left('تم تسجيل الدخول لكن ملف المستخدم غير موجود');
-      }
-
-      final activeRow = await _supabase.client
-          .from('users')
-          .select('is_active, is_verified')
-          .eq('id', user.id)
-          .maybeSingle();
-      final isActive = activeRow?['is_active'] == true;
-      final isVerified = activeRow?['is_verified'] == true;
-      if (!isActive || !isVerified) {
-        return const Left('يرجى تأكيد البريد الإلكتروني أولًا');
-      }
-
-      await _initializeFcmForUser(user.id);
-      await _analytics.userLogin(userRole: user.type.value);
-      debugPrint('AUTH LOGIN: role=${user.type.value}');
-      return Right(user);
-    } on AuthApiException catch (error) {
-      final code = (error.code ?? '').toLowerCase();
-      if (code == 'email_not_confirmed') {
-        return const Left('يرجى تأكيد البريد الإلكتروني أولًا');
-      }
-      if (code == 'invalid_credentials') {
-        return const Left('البريد الإلكتروني أو كلمة المرور غير صحيحة');
-      }
-      if (code == 'user_banned') return const Left('الحساب محظور');
-      debugPrint('AUTH LOGIN FAILURE: code=${error.code}');
-      return Left(_friendlyAuthError(error));
-    } catch (error) {
-      debugPrint('AUTH LOGIN FAILURE: type=${error.runtimeType}');
-      return Left(_friendlyAuthError(error));
-    }
-  }
-
-  Future<Either<String, String>> register({
-    required String name,
-    required String phone,
-    required String email,
-    required String password,
-    String? userType,
-  }) async {
-    String stage = 'register_started';
-    try {
-      debugPrint('[RegisterDebug] stage=$stage');
-      final cleanName = name.trim();
-      final cleanPhone = phone.trim();
-      final cleanEmail = email.trim().toLowerCase();
-      final cleanType = (userType ?? 'user').trim().toLowerCase();
-
-      if (!Validators.isValidName(cleanName)) {
-        return const Left('الاسم غير صالح (3 أحرف على الأقل)');
-      }
-      if (!Validators.isValidPhone(cleanPhone)) {
-        return const Left('رقم الهاتف غير صالح');
-      }
-      if (!Validators.isValidEmail(cleanEmail)) {
-        return const Left('البريد الإلكتروني غير صالح');
-      }
-      if (!Validators.isValidPassword(password)) {
-        return const Left('كلمة المرور ضعيفة (6 أحرف على الأقل)');
-      }
-
-      stage = 'before_auth_sign_up';
-      debugPrint(
-          '[RegisterDebug] stage=$stage email=$cleanEmail passwordLength=${password.length} userType=$cleanType');
-      final authResponse = await _supabase.client.auth.signUp(
-        email: cleanEmail,
-        password: password,
-        data: {
-          'name': cleanName,
-          'phone': cleanPhone,
-          'user_type': cleanType,
-        },
-      );
-
-      stage = 'after_auth_sign_up';
-      debugPrint(
-          '[RegisterDebug] stage=$stage hasAuthUser=${authResponse.user != null} hasSession=${authResponse.session != null}');
-      final authUser = authResponse.user;
-      if (authUser == null) {
-        return const Left('فشل إنشاء الحساب في المصادقة');
-      }
-
-      // Do not create public.users before OTP verification.
-      // verify_signup_email_code creates the profile atomically after success.
-      stage = 'before_signup_otp_issue';
-      debugPrint('[RegisterDebug] stage=$stage authUserId=${authUser.id}');
-      final otpResult = await issueSignupEmailCode(
-        userId: authUser.id,
-        email: cleanEmail,
-        name: cleanName,
-        phone: cleanPhone,
-      );
-      String? otpError;
-      otpResult.fold((error) => otpError = error, (_) {});
-      if (otpError != null) {
-        // الحساب اتعمل في auth بالفعل، لكن الكود فشل يوصل (مثلاً مشكلة
-        // مؤقتة في خدمة الإرسال). نوضح ده للمستخدم بدل رسالة فشل عامة
-        // موهمة إن التسجيل كله فشل.
-        stage = 'signup_otp_issue_failed';
-        debugPrint('[RegisterDebug] stage=$stage authUserId=${authUser.id}');
-        return Left(
-          '$otpError\nيمكنك طلب إعادة إرسال الكود من صفحة التحقق.',
-        );
-      }
-
-      stage = 'register_waiting_for_otp';
-      debugPrint('[RegisterDebug] stage=$stage userId=${authUser.id}');
-      return Right(authUser.id);
-    } on AuthApiException catch (error) {
-      final code = (error.code ?? '').toLowerCase();
-      final message = error.message.toLowerCase();
-      if (code.contains('already') ||
-          code.contains('exists') ||
-          message.contains('already registered') ||
-          message.contains('already exists') ||
-          message.contains('user already')) {
-        return const Left('البريد الإلكتروني مسجل بالفعل في النظام');
-      }
-      if (code.contains('weak') || message.contains('password')) {
-        return const Left('كلمة المرور ضعيفة أو غير صالحة');
-      }
-      if (code.contains('rate') || message.contains('too many')) {
-        return const Left('تمت محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى');
-      }
-      debugPrint(
-        '[RegisterDebug] stage=$stage AuthApiException '
-        'code=${error.code} status=${error.statusCode} '
-        'message=${error.message}',
-      );
-      return Left(_friendlyAuthError(error));
-    } catch (error, stackTrace) {
-      debugPrint('AUTH REGISTER FAILURE: stage=$stage');
-      debugPrint('AUTH REGISTER FAILURE: type=${error.runtimeType}');
-      debugPrint('AUTH REGISTER FAILURE: error=$error');
-      debugPrint('AUTH REGISTER FAILURE: stack=$stackTrace');
-      return Left(_friendlyAuthError(error));
-    }
-  }
-
-  Future<Either<String, Map<String, dynamic>>> verifyOrganizationAccessOtp(
-    String otp,
-  ) async {
-    try {
-      final cleanOtp = otp.trim();
-      if (!RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
-        return const Left('كود المؤسسة يجب أن يتكون من 6 أرقام');
-      }
-
-      final rawResponse = await _supabase.client.rpc(
-        'verify_organization_access_otp',
-        params: {'p_otp': cleanOtp},
-      );
-      final data = _asMap(rawResponse);
-      if (data == null || data['success'] != true) {
-        return const Left('تعذر التحقق من كود المؤسسة');
-      }
-
-      debugPrint('ORGANIZATION OTP: verified');
-      return Right(data);
-    } on PostgrestException catch (error) {
-      debugPrint('ORGANIZATION OTP FAILURE: code=${error.code}');
-      final message = error.message.toLowerCase();
-      if (message.contains('wrong') || message.contains('غير صحيح')) {
-        return const Left('كود المؤسسة غير صحيح');
-      }
-      if (message.contains('locked') || message.contains('مؤقت')) {
-        return const Left('تم إيقاف المحاولات مؤقتًا. حاول بعد قليل');
-      }
-      return const Left('تعذر التحقق من كود المؤسسة');
-    } catch (error) {
-      debugPrint('ORGANIZATION OTP FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر التحقق من كود المؤسسة حاليًا');
-    }
-  }
-
-  /// يبعت كود التحقق عبر Edge Function اللي بتكلم Resend.
-  ///
-  /// ملحوظة: ده بينادي Supabase Edge Function اسمها
-  /// `issue-signup-email-code` (مش RPC). لازم تكون منشورة فعلاً:
-  ///   supabase functions deploy issue-signup-email-code
-  ///   supabase secrets set RESEND_API_KEY=...
-  Future<Either<String, void>> issueSignupEmailCode({
-    required String userId,
-    required String email,
-    String? name,
-    String? phone,
-  }) async {
-    try {
-      final body = <String, dynamic>{
-        'p_user_id': userId,
-        'p_email': email.trim().toLowerCase(),
-      };
-      if (name != null && phone != null) {
-        body['p_name'] = name.trim();
-        body['p_phone'] = phone.trim();
-      }
+      debugPrint('📤 Sending OTP to $cleanPhone');
 
       final response = await _supabase.client.functions.invoke(
-        'issue-signup-email-code',
-        body: body,
+        'send-otp',
+        body: {'phone': cleanPhone},
       );
 
       final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
-        debugPrint('SIGNUP CODE ISSUE FAILURE: server_error=$err');
-        if (err == 'rate_limited') {
+        debugPrint('❌ sendOtp error: $err');
+        if (err.contains('rate') || err.contains('too many')) {
           return const Left('انتظر دقيقة قبل طلب كود جديد');
         }
-        return const Left('تعذر إرسال كود التحقق');
-      }
-      return const Right(null);
-    } catch (error) {
-      debugPrint(
-        'SIGNUP CODE ISSUE FAILURE: type=${error.runtimeType} error=$error',
-      );
-      return const Left('تعذر إرسال كود التحقق حاليًا');
-    }
-  }
-
-  Future<Either<String, void>> resendSignupEmailOtp({
-    required String email,
-  }) async {
-    try {
-      final cleanEmail = email.trim().toLowerCase();
-      if (!Validators.isValidEmail(cleanEmail)) {
-        return const Left('البريد الإلكتروني غير صحيح');
-      }
-      final authUserId = _supabase.client.auth.currentUser?.id;
-      if (authUserId == null || authUserId.trim().isEmpty) {
-        return const Left('انتهت جلسة التسجيل. أعد التسجيل مرة أخرى');
+        return Left(err.isNotEmpty ? err : 'تعذر إرسال الكود');
       }
 
-      final result = await issueSignupEmailCode(
-        userId: authUserId,
-        email: cleanEmail,
-      );
-      debugPrint('RESEND SIGNUP CODE: resend requested');
-      return result;
-    } on AuthApiException catch (error) {
-      return Left(_friendlyAuthError(error));
+      final returnedPhone = data['phone']?.toString() ?? cleanPhone;
+      debugPrint('✅ OTP sent to $returnedPhone');
+      return Right(returnedPhone);
     } catch (error) {
-      debugPrint('EMAIL OTP RESEND FAILURE: type=${error.runtimeType}');
+      debugPrint('❌ sendOtp exception: ${error.runtimeType}');
       return Left(_friendlyAuthError(error));
     }
   }
 
-  Future<Either<String, UserModel>> verifySignupEmailOtp({
-    required String email,
-    required String token,
+  // ═══════════════════════════════════════════════════════════
+  // ✅ التحقق + إنشاء/دخول الحساب
+  // بترجّع Map فيه {user, isNewUser}
+  // ═══════════════════════════════════════════════════════════
+  Future<Either<String, Map<String, dynamic>>> verifyAndCreate({
+    required String phone,
+    required String code,
+    required Map<String, dynamic> profile,
   }) async {
     try {
-      final cleanEmail = email.trim().toLowerCase();
-      final cleanToken = token.trim();
-      if (!Validators.isValidEmail(cleanEmail)) {
-        return const Left('البريد الإلكتروني غير صحيح');
-      }
-      if (!RegExp(r'^\d{6}$').hasMatch(cleanToken)) {
-        return const Left('كود التحقق يجب أن يتكون من 6 أرقام');
+      final cleanPhone = _cleanPhone(phone);
+      final cleanCode = code.trim();
+
+      if (!RegExp(r'^\d{6}$').hasMatch(cleanCode)) {
+        return const Left('الكود يجب أن يكون 6 أرقام');
       }
 
-      final authUserId = _supabase.client.auth.currentUser?.id;
-      if (authUserId == null || authUserId.trim().isEmpty) {
-        return const Left('انتهت جلسة التسجيل. أعد التسجيل مرة أخرى');
+      // ✅ التحقق من الدور
+      final role = (profile['role'] ?? 'user').toString().toLowerCase();
+      if (!_supportedRoles.contains(role)) {
+        return const Left('نوع الحساب غير مدعوم');
       }
 
-      final response = await _supabase.client.rpc(
-        'verify_signup_email_code',
-        params: {
-          'p_user_id': authUserId,
-          'p_email': cleanEmail,
-          'p_code': cleanToken,
+      debugPrint('📥 Verifying OTP for $cleanPhone (role=$role)');
+
+      final response = await _supabase.client.functions.invoke(
+        'verify-and-create',
+        body: {
+          'phone': cleanPhone,
+          'code': cleanCode,
+          'profile': profile,
         },
       );
-      final data = _asMap(response);
+
+      final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
-        return const Left('كود التحقق غير صحيح أو منتهي');
+        final err = data?['error']?.toString() ?? '';
+        debugPrint('❌ verifyAndCreate error: $err');
+        return Left(err.isNotEmpty ? err : 'كود التحقق غير صحيح');
       }
 
-      final user = await _loadUserWithRelations(authUserId);
-      if (user == null) {
-        return const Left('تم تأكيد البريد لكن ملف المستخدم غير موجود');
+      // ✅ نثبّت الجلسة
+      final refreshToken = data['refresh_token']?.toString();
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _supabase.client.auth.setSession(refreshToken);
       }
+
+      // ✅ نحمّل بيانات المستخدم كاملة
+      final userId = data['user']?['id']?.toString() ?? '';
+      if (userId.isEmpty) {
+        return const Left('تعذر تحميل بيانات المستخدم');
+      }
+
+      final user = await _loadUserWithRelations(userId);
+      if (user == null) {
+        return const Left('ملف المستخدم غير موجود');
+      }
+
+      // ✅ FCM + Analytics
       await _initializeFcmForUser(user.id);
-      await _analytics.userSignup(userRole: user.type.value);
-      debugPrint('EMAIL OTP: verified and user activated');
-      return Right(user);
+
+      final isNewUser = data['isNewUser'] == true;
+      if (isNewUser) {
+        await _analytics.userSignup(userRole: user.type.value);
+      } else {
+        await _analytics.userLogin(userRole: user.type.value);
+      }
+
+      debugPrint('✅ Auth success: ${isNewUser ? "new" : "existing"} user');
+
+      // ✅ نرجّع Map فيه user + isNewUser
+      return Right({
+        'user': user,
+        'isNewUser': isNewUser,
+      });
     } on AuthApiException catch (error) {
       final code = (error.code ?? '').toLowerCase();
-      if (code.contains('otp') ||
-          code.contains('token') ||
-          code.contains('expired')) {
+      if (code.contains('otp') || code.contains('token')) {
         return const Left('كود التحقق غير صحيح أو منتهي');
       }
+      debugPrint('❌ verifyAndCreate AuthApiException: ${error.code}');
       return Left(_friendlyAuthError(error));
-    } catch (error) {
-      debugPrint('EMAIL OTP VERIFY FAILURE: type=${error.runtimeType}');
+    } catch (error, stack) {
+      debugPrint('❌ verifyAndCreate exception: ${error.runtimeType}');
+      debugPrintStack(stackTrace: stack);
       return Left(_friendlyAuthError(error));
     }
   }
 
-  /// `users.user_type` is the explicit role source. Organization rows only
-  /// enrich the matching role with IDs; they never change a normal user into
-  /// a restaurant or charity.
-  Future<UserModel?> _loadUserWithRelations(String userId) async {
-    final row = await _supabase.client
-        .from('users')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
-    if (row == null) return null;
-
-    final rawRole = row['user_type']?.toString().trim().toLowerCase();
-    if (!_isSupportedRole(rawRole)) {
-      debugPrint('AUTH ROLE INVALID: user_type=$rawRole');
-      return null;
-    }
-
-    var user = UserModel.fromJson(Map<String, dynamic>.from(row));
-    final type = user.type.value.toLowerCase();
-
+  // ═══════════════════════════════════════════════════════════
+  // 📝 التسجيل (يُستخدم مع verifyAndCreate)
+  // ═══════════════════════════════════════════════════════════
+  /// بياخد بيانات التسجيل + يبعت OTP
+  /// (ملاحظة: الحساب نفسه بيتعمل في verify-and-create)
+  Future<Either<String, String>> register({
+    required String name,
+    required String phone,
+    required String role,
+    String? city,
+    // حقول مقدم الخدمة (اختيارية)
+    String? categoryId,
+    String? providerType,
+    String? address,
+    String? bio,
+    int? experienceYears,
+    List<String>? skills,
+    List<String>? serviceAreas,
+    String? pricingType,
+    double? priceFrom,
+    // حقول المؤسسة (اختيارية)
+    String? institutionType,
+    String? commercialRegister,
+    String? taxId,
+  }) async {
     try {
-      final organization = await _supabase.client
-          .from('organizations')
-          .select(
-            'organization_type, status, is_verified, business_id, '
-            'restaurant_id, charity_id',
-          )
-          .eq('auth_user_id', user.id)
+      // ✅ 1. التحقق من البيانات
+      final cleanName = name.trim();
+      final cleanPhone = _cleanPhone(phone);
+      final cleanRole = role.trim().toLowerCase();
+
+      if (!Validators.isValidName(cleanName)) {
+        return const Left('الاسم غير صالح (3 أحرف على الأقل)');
+      }
+      if (cleanPhone.length < 10) {
+        return const Left('رقم الهاتف غير صحيح');
+      }
+      if (!_supportedRoles.contains(cleanRole)) {
+        return const Left('نوع الحساب غير مدعوم');
+      }
+
+      // ✅ 2. التحقق من إضافي حسب الدور
+      if (cleanRole == 'provider') {
+        if (categoryId == null || categoryId.isEmpty) {
+          return const Left('اختار نوع الخدمة');
+        }
+      }
+      if (cleanRole == 'institution') {
+        if (institutionType == null || institutionType.isEmpty) {
+          return const Left('اختار نوع المؤسسة');
+        }
+      }
+
+      // ✅ 3. نبعت OTP
+      debugPrint('📤 Register: sending OTP to $cleanPhone (role=$cleanRole)');
+      final otpResult = await sendOtp(phone: cleanPhone);
+
+      return otpResult.fold(
+        (err) => Left(err),
+        (returnedPhone) => Right(returnedPhone),
+      );
+    } catch (error, stack) {
+      debugPrint('❌ register exception: ${error.runtimeType}');
+      debugPrintStack(stackTrace: stack);
+      return Left(_friendlyAuthError(error));
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🔄 إعادة إرسال OTP
+  // ═══════════════════════════════════════════════════════════
+  Future<Either<String, String>> resendOtp({required String phone}) async {
+    return sendOtp(phone: phone);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🚪 تسجيل خروج
+  // ═══════════════════════════════════════════════════════════
+  Future<Either<String, void>> logout() async {
+    try {
+      await _fcmNotifications.dispose();
+      await _supabase.signOut();
+      return const Right(null);
+    } catch (error) {
+      debugPrint('LOGOUT FAILURE: type=${error.runtimeType}');
+      return const Left('حدث خطأ أثناء تسجيل الخروج');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 👤 تحميل بيانات المستخدم
+  // ═══════════════════════════════════════════════════════════
+  Future<UserModel?> _loadUserWithRelations(String userId) async {
+    try {
+      final row = await _supabase.client
+          .from('users')
+          .select()
+          .eq('id', userId)
           .maybeSingle();
 
-      if (organization != null) {
-        final organizationType =
-            organization['organization_type']?.toString().trim().toLowerCase();
-        final typeMatches = _organizationMatchesUserType(
-          organizationType,
-          type,
-        );
+      if (row == null) return null;
 
-        if (!typeMatches) {
-          debugPrint(
-            'AUTH ROLE CONFLICT: userType=$type organizationType=$organizationType',
-          );
-          return user;
+      final rawRole = row['role']?.toString().trim().toLowerCase() ??
+          row['user_type']?.toString().trim().toLowerCase();
+
+      if (!_supportedRoles.contains(rawRole)) {
+        debugPrint('AUTH ROLE INVALID: role=$rawRole');
+        return null;
+      }
+
+      var user = UserModel.fromJson(Map<String, dynamic>.from(row));
+      final type = user.type.value.toLowerCase();
+
+      // ✅ مقدم خدمة → نجيب service_provider_id
+      if (type == 'provider') {
+        try {
+          final provider = await _supabase.client
+              .from('service_providers')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+          if (provider != null) {
+            user = user.copyWith(
+              serviceProviderId: _id(provider['id']),
+            );
+          }
+        } catch (e) {
+          debugPrint('PROVIDER ENRICHMENT SKIPPED: $e');
         }
-
-        user = user.copyWith(
-          businessId: _id(organization['business_id']),
-          restaurantId: _id(organization['restaurant_id']),
-          charityId: _id(organization['charity_id']),
-        );
-        return user;
       }
 
-      // Legacy enrichment is restricted to the already explicit role.
-      if (type == _institutionType) {
-        final institution = await _supabase.client
-            .from('institutions')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .maybeSingle();
-        user = user.copyWith(
-          institutionId: _id(institution?['id']),
-        );
-      } else if (_businessTypes.contains(type)) {
-        final business = await _supabase.client
-            .from('businesses')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        final restaurant = await _supabase.client
-            .from('restaurants')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        user = user.copyWith(
-          businessId: _id(business?['id']),
-          restaurantId: _id(restaurant?['id']),
-        );
-      } else if (type == 'charity') {
-        final charity = await _supabase.client
-            .from('charities')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        user = user.copyWith(charityId: _id(charity?['id']));
+      // ✅ مؤسسة → نجيب institution_id
+      if (type == 'institution') {
+        try {
+          final inst = await _supabase.client
+              .from('institutions')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+          if (inst != null) {
+            user = user.copyWith(
+              institutionId: _id(inst['id']),
+            );
+          }
+        } catch (e) {
+          debugPrint('INSTITUTION ENRICHMENT SKIPPED: $e');
+        }
       }
+
+      return user;
     } catch (error) {
-      debugPrint('AUTH RELATION ENRICHMENT SKIPPED: type=${error.runtimeType}');
+      debugPrint('LOAD USER FAILURE: type=${error.runtimeType}');
+      return null;
     }
-
-    return user;
-  }
-
-  static bool _isSupportedRole(String? value) {
-    return value == 'user' ||
-        value == 'charity' ||
-        value == _institutionType ||
-        _businessTypes.contains(value);
   }
 
   Future<Either<String, UserModel>> getUser(String id) async {
@@ -533,21 +412,22 @@ class AuthRepository {
     }
   }
 
-  Future<Either<String, UserModel>> getUserByEmail(String email) async {
+  Future<Either<String, UserModel>> getCurrentUserFromDb() async {
     try {
-      final row = await _supabase.client
-          .from('users')
-          .select('id')
-          .eq('email', email.trim().toLowerCase())
-          .maybeSingle();
-      if (row == null) return const Left('المستخدم غير موجود');
-      return getUser(_id(row['id']) ?? '');
+      final authUser = await _supabase.getCurrentUser();
+      if (authUser == null) return const Left('المستخدم غير مسجل دخول');
+      final user = await _loadUserWithRelations(authUser.id);
+      if (user == null) return const Left('ملف المستخدم غير موجود');
+      return Right(user);
     } catch (error) {
-      debugPrint('GET USER BY EMAIL FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر تحميل المستخدم');
+      debugPrint('CURRENT USER LOAD ERROR: type=${error.runtimeType}');
+      return const Left('تعذر تحميل ملف الحساب. حاول تسجيل الدخول تاني.');
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 🔄 تحديث بيانات المستخدم
+  // ═══════════════════════════════════════════════════════════
   Future<Either<String, UserModel>> updateUser({
     required String id,
     String? name,
@@ -555,7 +435,7 @@ class AuthRepository {
     String? avatarUrl,
     String? city,
     String? address,
-    String? userType,
+    String? role,
   }) async {
     try {
       final data = <String, dynamic>{};
@@ -564,7 +444,7 @@ class AuthRepository {
       if (avatarUrl != null) data['avatar_url'] = avatarUrl;
       if (city != null) data['city'] = city.trim();
       if (address != null) data['address'] = address.trim();
-      // userType is intentionally ignored: role changes must be admin-only.
+      // role change is admin-only → بنتجاهله
       data['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
       final response = await _supabase.client
@@ -573,122 +453,17 @@ class AuthRepository {
           .eq('id', id)
           .select()
           .single();
+
       return Right(UserModel.fromJson(Map<String, dynamic>.from(response)));
     } catch (error) {
       debugPrint('UPDATE USER FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر تحديث بيانات المستخدم');
+      return const Left('تعذر تحديث البيانات');
     }
   }
 
-  Future<Either<String, void>> resetPassword(String email) async {
-    try {
-      await _supabase.client.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-      );
-      return const Right(null);
-    } catch (error) {
-      debugPrint('RESET PASSWORD FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر إرسال رابط استعادة كلمة المرور');
-    }
-  }
-
-  Future<Either<String, void>> sendResetOtp(String email) async {
-    try {
-      final cleanEmail = email.trim().toLowerCase();
-      final exists = await _supabase.userExistsByEmail(cleanEmail);
-      if (!exists) return const Left('البريد الإلكتروني غير مسجل');
-      final otp = _supabase.generateOtp();
-      await _supabase.saveOtp(cleanEmail, otp);
-      debugPrint('PASSWORD OTP: generated');
-      return const Right(null);
-    } catch (error) {
-      debugPrint('SEND RESET OTP FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر إرسال كود استعادة كلمة المرور');
-    }
-  }
-
-  Future<Either<String, bool>> verifyResetOtp({
-    required String email,
-    required String code,
-  }) async {
-    try {
-      final valid =
-          await _supabase.verifyOtp(email.trim().toLowerCase(), code.trim());
-      if (!valid) return const Left('الكود غير صحيح أو منتهي الصلاحية');
-      return const Right(true);
-    } catch (error) {
-      debugPrint('VERIFY RESET OTP FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر التحقق من كود الاستعادة');
-    }
-  }
-
-  Future<Either<String, void>> updatePassword({
-    required String email,
-    required String newPassword,
-  }) async {
-    try {
-      if (!Validators.isValidPassword(newPassword)) {
-        return const Left('كلمة المرور ضعيفة (6 أحرف على الأقل)');
-      }
-      await _supabase.updatePasswordInAuth(email, newPassword);
-      return const Right(null);
-    } catch (error) {
-      debugPrint('UPDATE PASSWORD FAILURE: type=${error.runtimeType}');
-      return const Left('تعذر تحديث كلمة المرور');
-    }
-  }
-
-  Future<Either<String, String>> getUserType() async {
-    final result = await getCurrentUserFromDb();
-    return result.fold(
-      (error) => Left(error),
-      (user) => Right(user.type.value),
-    );
-  }
-
-  Future<Either<String, String>> getBusinessId(String userId) async {
-    return _getRelatedId(
-      table: 'businesses',
-      userId: userId,
-      missingMessage: 'المؤسسة غير موجودة',
-    );
-  }
-
-  Future<Either<String, String>> getRestaurantId(String userId) async {
-    return _getRelatedId(
-      table: 'restaurants',
-      userId: userId,
-      missingMessage: 'المطعم غير موجود',
-    );
-  }
-
-  Future<Either<String, String>> getCharityId(String userId) async {
-    return _getRelatedId(
-      table: 'charities',
-      userId: userId,
-      missingMessage: 'الجمعية غير موجودة',
-    );
-  }
-
-  Future<Either<String, String>> _getRelatedId({
-    required String table,
-    required String userId,
-    required String missingMessage,
-  }) async {
-    try {
-      final row = await _supabase.client
-          .from(table)
-          .select('id')
-          .eq('user_id', userId)
-          .maybeSingle();
-      final id = _id(row?['id']);
-      return id == null ? Left(missingMessage) : Right(id);
-    } catch (error) {
-      debugPrint('GET RELATED ID FAILURE: table=$table');
-      return const Left('تعذر تحميل بيانات المؤسسة');
-    }
-  }
-
+  // ═══════════════════════════════════════════════════════════
+  // 🔐 الجلسة
+  // ═══════════════════════════════════════════════════════════
   Future<Either<String, bool>> isLoggedIn() async {
     try {
       return Right(await _supabase.getCurrentSession() != null);
@@ -719,30 +494,6 @@ class AuthRepository {
     }
   }
 
-  Future<Either<String, UserModel>> getCurrentUserFromDb() async {
-    try {
-      final authUser = await _supabase.getCurrentUser();
-      if (authUser == null) return const Left('المستخدم غير مسجل دخول');
-      final user = await _loadUserWithRelations(authUser.id);
-      if (user == null) return const Left('ملف المستخدم غير موجود');
-      return Right(user);
-    } catch (error) {
-      debugPrint('CURRENT USER LOAD ERROR: type=${error.runtimeType}');
-      return const Left('تعذر تحميل ملف الحساب. حاول تسجيل الدخول مرة أخرى.');
-    }
-  }
-
-  Future<Either<String, void>> logout() async {
-    try {
-      await _fcmNotifications.dispose();
-      await _supabase.signOut();
-      return const Right(null);
-    } catch (error) {
-      debugPrint('LOGOUT FAILURE: type=${error.runtimeType}');
-      return const Left('حدث خطأ أثناء تسجيل الخروج');
-    }
-  }
-
   Future<Either<String, Map<String, dynamic>>> getSessionWithUserType() async {
     final sessionResult = await getCurrentSession();
     if (sessionResult.isLeft()) {
@@ -756,40 +507,57 @@ class AuthRepository {
     }
 
     final user = userResult.getOrElse(() => throw StateError('missing user'));
+
     return Right({
       'user': user,
-      'userType': user.type.value,
-      'restaurantId': user.restaurantId,
-      'businessId': user.businessId,
-      'charityId': user.charityId,
+      'role': user.type.value,
+      'serviceProviderId': user.serviceProviderId,
+      'institutionId': user.institutionId,
       'session': session,
     });
   }
 
-  /// Kept for API compatibility. Navigation belongs to the presentation layer.
-  Future<void> navigateByUserType({
-    required BuildContext context,
-    required String userType,
-    String? restaurantId,
-    String? charityId,
-  }) async {}
-
-  static bool _organizationMatchesUserType(
-    String? organizationType,
-    String userType,
-  ) {
-    if (organizationType == null || organizationType.isEmpty) return true;
-    if (userType == 'charity') return organizationType == 'charity';
-    if (userType == _institutionType) {
-      return organizationType == _institutionType ||
-          organizationType == 'business';
-    }
-    if (userType == 'restaurant') {
-      return organizationType == 'business' || organizationType == 'restaurant';
-    }
-    return false;
+  // ═══════════════════════════════════════════════════════════
+  // 🆔 Relations
+  // ═══════════════════════════════════════════════════════════
+  Future<Either<String, String>> getProviderId(String userId) async {
+    return _getRelatedId(
+      table: 'service_providers',
+      userId: userId,
+      missingMessage: 'بروفايل مقدم الخدمة غير موجود',
+    );
   }
 
+  Future<Either<String, String>> getInstitutionId(String userId) async {
+    return _getRelatedId(
+      table: 'institutions',
+      userId: userId,
+      missingMessage: 'المؤسسة غير موجودة',
+    );
+  }
+
+  Future<Either<String, String>> _getRelatedId({
+    required String table,
+    required String userId,
+    required String missingMessage,
+  }) async {
+    try {
+      final row = await _supabase.client
+          .from(table)
+          .select('id')
+          .eq('user_id', userId)
+          .maybeSingle();
+      final id = _id(row?['id']);
+      return id == null ? Left(missingMessage) : Right(id);
+    } catch (error) {
+      debugPrint('GET RELATED ID FAILURE: table=$table');
+      return const Left('تعذر تحميل البيانات');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🧹 Helpers
+  // ═══════════════════════════════════════════════════════════
   static String? _id(dynamic value) {
     final text = value?.toString().trim();
     return text == null || text.isEmpty ? null : text;

@@ -234,12 +234,12 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
                           ),
                         ),
                         if (verified)
-                          Row(
+                          const Row(
                             children: [
                               Icon(Icons.verified_rounded,
                                   color: green, size: 11),
-                              const SizedBox(width: 3),
-                              const Text(
+                              SizedBox(width: 3),
+                              Text(
                                 'حساب موثق',
                                 style: TextStyle(
                                   fontSize: 10,

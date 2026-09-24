@@ -581,7 +581,7 @@ class _MyRestaurantRequestsPageState extends State<MyRestaurantRequestsPage> {
                               originalPrice > price) ...[
                             const SizedBox(width: 5),
                             Text(
-                              '${originalPrice.toStringAsFixed(0)}',
+                              originalPrice.toStringAsFixed(0),
                               style: TextStyle(
                                 color: colorScheme.onSurfaceVariant,
                                 fontSize: 10,

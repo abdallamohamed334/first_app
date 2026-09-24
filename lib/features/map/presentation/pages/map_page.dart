@@ -3,14 +3,10 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:loqma/features/map/presentation/bloc/map_bloc.dart';
-import 'package:loqma/features/map/presentation/bloc/map_event.dart';
-import 'package:loqma/features/map/presentation/bloc/map_state.dart';
 import 'package:loqma/routes/app_router.dart';
 import 'package:universal_html/html.dart' as html;
 

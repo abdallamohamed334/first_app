@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart'; // ✅ استبدال الاستيراد
 import 'package:loqma/features/map/presentation/pages/map_page.dart';
@@ -11,7 +10,6 @@ import 'package:loqma/features/notification/presentation/bloc/notification_bloc.
 import 'package:loqma/features/notification/presentation/bloc/notification_state.dart';
 import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
-import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 
 class AllOffersPage extends StatefulWidget {

@@ -2,83 +2,152 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:loqma/features/map/presentation/pages/location_picker_page.dart';
 
 import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
-// ✅ استخدم UserHomePage
+import '../features/auth/presentation/pages/user_type_selection_page.dart';
+
+// ✅ UserHome
 import '../features/userhome/presentation/pages/user_home_page.dart'
     as user_home;
-// ✅ استخدم UserAllOffersPage
 import '../features/userhome/presentation/pages/user_all_offers_page.dart';
 
+// ✅ الصفحات الأساسية
 import '../features/map/presentation/pages/map_page.dart';
-// ✅ صفحة تحديد الموقع قبل تسجيل الدخول
 import '../features/tasks/presentation/pages/tasks_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/volunteer/presentation/pages/volunteer_leaderboard_page.dart';
 import '../features/donation/presentation/pages/offer_details_page.dart';
 import '../features/charity/presentation/pages/charities_page.dart';
+
+// ⚠️ للتوافق مع الأدوار القديمة (هنشيلها تدريجيًا)
 import '../features/business/restaurant/presentation/pages/business_restaurant_page.dart';
 import '../features/charity/presentation/pages/charity_workspace_page.dart';
+
 import '../features/institutions/presentation/pages/institutions_home_page.dart';
 
 class AppRouter {
+  // ═══════════════════════════════════════════════════════════
+  // 🔗 Routes
+  // ═══════════════════════════════════════════════════════════
   static const String splash = '/';
   static const String onboarding = '/onboarding';
-  static const String selectLocation = '/select-location';
+
+  // ── Auth
+  static const String userTypeSelection = '/user-type-selection';
   static const String login = '/login';
   static const String register = '/register';
+
+  // ── Main
   static const String home = '/home';
+  static const String providerHome = '/provider-home';
+  static const String institutionsHome = '/institutions-home';
+
+  // ── Secondary
   static const String map = '/map';
   static const String tasks = '/tasks';
   static const String profile = '/profile';
   static const String volunteer = '/volunteer';
-  static const String restaurantHome = '/restaurant-home';
-  static const String charityHome = '/charity-home';
-  static const String institutionsHome = '/institutions-home';
   static const String allOffers = '/all-offers';
-
-  static const String offerDetails = '/offer/:id';
   static const String charities = '/charities';
+  static const String offerDetails = '/offer/:id';
   static const String placeholder = '/placeholder';
 
+  // ⚠️ Legacy (توافق للخلف — ممكن نشيلها بعدين)
+  static const String restaurantHome = '/restaurant-home';
+  static const String charityHome = '/charity-home';
+
+  // ═══════════════════════════════════════════════════════════
+  // 🚦 GoRouter
+  // ═══════════════════════════════════════════════════════════
   static final GoRouter router = GoRouter(
-    // ✅ الصفحة الافتتاحية هي Splash
     initialLocation: splash,
     routes: [
+      // ─────────────────────────────────────────────
+      // 1. Splash
+      // ─────────────────────────────────────────────
       GoRoute(
         path: splash,
         name: 'splash',
         builder: (context, state) => const SplashPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 2. Onboarding
+      // ─────────────────────────────────────────────
       GoRoute(
         path: onboarding,
         name: 'onboarding',
         builder: (context, state) => const OnboardingPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 3. User Type Selection
+      // 3 أزرار: مستخدم / مقدم / مؤسسة
+      // ─────────────────────────────────────────────
       GoRoute(
-        path: selectLocation,
-        name: 'select-location',
-        builder: (context, state) => const LocationPickerPage(),
+        path: userTypeSelection,
+        name: 'user-type-selection',
+        builder: (context, state) => const UserTypeSelectionPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 4. Login (للمستخدمين العاديين)
+      // رقم → OTP → CompleteProfile (لو جديد) → Home
+      // ─────────────────────────────────────────────
       GoRoute(
         path: login,
         name: 'login',
         builder: (context, state) => const LoginPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 5. Register (لمقدمي الخدمة والمؤسسات)
+      // register?role=provider
+      // register?role=institution
+      // ─────────────────────────────────────────────
       GoRoute(
         path: register,
         name: 'register',
-        builder: (context, state) => const RegisterPage(),
+        builder: (context, state) {
+          final role = state.uri.queryParameters['role'] ?? 'user';
+          return RegisterPage(role: role);
+        },
       ),
+
+      // ─────────────────────────────────────────────
+      // 6. Home (للمستخدم العادي + مقدم الخدمة)
+      // ─────────────────────────────────────────────
       GoRoute(
         path: home,
         name: 'home',
         builder: (context, state) => const user_home.UserHomePage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 7. Provider Home (مؤقتًا = UserHome)
+      // TODO: صفحة خاصة لمقدمي الخدمة
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerHome,
+        name: 'provider-home',
+        builder: (context, state) => const user_home.UserHomePage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 8. Institutions Home
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: institutionsHome,
+        name: 'institutions-home',
+        builder: (context, state) => const InstitutionsHomePage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 9. All Offers
+      // ─────────────────────────────────────────────
       GoRoute(
         path: allOffers,
         name: 'all-offers',
@@ -87,46 +156,55 @@ class AppRouter {
           return UserAllOffersPage(offers: offers.cast());
         },
       ),
+
+      // ─────────────────────────────────────────────
+      // 10. Map
+      // ─────────────────────────────────────────────
       GoRoute(
         path: map,
         name: 'map',
         builder: (context, state) => const MapPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 11. Tasks
+      // ─────────────────────────────────────────────
       GoRoute(
         path: tasks,
         name: 'tasks',
         builder: (context, state) => const TasksPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 12. Profile
+      // ─────────────────────────────────────────────
       GoRoute(
         path: profile,
         name: 'profile',
         builder: (context, state) => const ProfilePage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 13. Volunteer Leaderboard
+      // ─────────────────────────────────────────────
       GoRoute(
         path: volunteer,
         name: 'volunteer',
         builder: (context, state) => const VolunteerLeaderboardPage(),
       ),
+
+      // ─────────────────────────────────────────────
+      // 14. Charities
+      // ─────────────────────────────────────────────
       GoRoute(
         path: charities,
         name: 'charities',
         builder: (context, state) => const CharitiesPage(),
       ),
-      GoRoute(
-        path: restaurantHome,
-        name: 'restaurant-home',
-        builder: (context, state) => const BusinessRestaurantPage(),
-      ),
-      GoRoute(
-        path: charityHome,
-        name: 'charity-home',
-        builder: (context, state) => const CharityWorkspacePage(),
-      ),
-      GoRoute(
-        path: institutionsHome,
-        name: 'institutions-home',
-        builder: (context, state) => const InstitutionsHomePage(),
-      ),
+
+      // ─────────────────────────────────────────────
+      // 15. Offer Details
+      // ─────────────────────────────────────────────
       GoRoute(
         path: offerDetails,
         name: 'offer-details',
@@ -135,6 +213,10 @@ class AppRouter {
           return OfferDetailsPage(offer: {'id': id});
         },
       ),
+
+      // ─────────────────────────────────────────────
+      // 16. Placeholder (صفحات قيد التطوير)
+      // ─────────────────────────────────────────────
       GoRoute(
         path: placeholder,
         name: 'placeholder',
@@ -144,14 +226,34 @@ class AppRouter {
           return _PlaceholderPage(title: title);
         },
       ),
+
+      // ═══════════════════════════════════════════════════════
+      // ⚠️ Legacy Routes (توافق للخلف)
+      // ممكن نشيلها لما نتأكد إن مفيش حاجة بتستخدمها
+      // ═══════════════════════════════════════════════════════
+
+      // ─────────────────────────────────────────────
+      // Legacy: Restaurant Home
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: restaurantHome,
+        name: 'restaurant-home',
+        builder: (context, state) => const BusinessRestaurantPage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // Legacy: Charity Home
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: charityHome,
+        name: 'charity-home',
+        builder: (context, state) => const CharityWorkspacePage(),
+      ),
     ],
-    // ❌ إزالة الـ Redirect بالكامل
-    // redirect: (context, state) {
-    //   if (state.matchedLocation == splash || state.matchedLocation == '/') {
-    //     return map;
-    //   }
-    //   return null;
-    // },
+
+    // ═══════════════════════════════════════════════════════════
+    // ❌ Error Builder
+    // ═══════════════════════════════════════════════════════════
     errorBuilder: (context, state) => Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -180,8 +282,8 @@ class AppRouter {
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => context.go(login),
-                  child: const Text('العودة لتسجيل الدخول'),
+                  onPressed: () => context.go(splash),
+                  child: const Text('العودة للرئيسية'),
                 ),
               ],
             ),
@@ -192,6 +294,9 @@ class AppRouter {
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// Placeholder Page
+// ═══════════════════════════════════════════════════════════
 class _PlaceholderPage extends StatelessWidget {
   final String title;
 
@@ -225,7 +330,7 @@ class _PlaceholderPage extends StatelessWidget {
                 Icon(
                   Icons.construction,
                   size: 80,
-                  color: colorScheme.outline.withAlpha(128),
+                  color: colorScheme.outline.withValues(alpha: 0.5),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -253,7 +358,7 @@ class _PlaceholderPage extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.primary.withAlpha(25),
+                    color: colorScheme.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Row(

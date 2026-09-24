@@ -122,6 +122,7 @@ class _VolunteerDonationsTrackingPageState
           'donor_pickup_confirmed_at': item['donor_pickup_confirmed_at'],
           'charity_received_at': item['charity_received_at'],
           'completed_at': item['completed_at'],
+          'charity_pickup_code': item['charity_pickup_code'],
           // نمرر الـ map الأصلي كامل زي ما هو عشان صفحة التفاصيل تحتاجه
           'charities': item['charities'],
           'users': item['users'],
@@ -303,6 +304,16 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
       widget.donation['status']?.toString() ?? 'volunteer_assigned';
 
   @override
+  void initState() {
+    super.initState();
+    // ✅ لو الكود موجود أصلاً في الـ donation، استخدمه
+    final existing = widget.donation['charity_pickup_code']?.toString();
+    if (existing != null && existing.isNotEmpty) {
+      _charityCode = existing;
+    }
+  }
+
+  @override
   void dispose() {
     _codeController.dispose();
     super.dispose();
@@ -343,6 +354,10 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
       ),
     ).then((_) => widget.onChanged());
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // 1️⃣ إدخال كود المتبرع
+  // ═══════════════════════════════════════════════════════════
 
   void _showDonorCodeDialog() {
     _codeController.clear();
@@ -460,33 +475,91 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
     }
   }
 
-  Future<void> _generateCharityCode() async {
+  // ═══════════════════════════════════════════════════════════
+  // 2️⃣ "أنا في الطريق للجمعية" (بدل "إنشاء كود الجمعية")
+  // ═══════════════════════════════════════════════════════════
+
+  Future<void> _markInTransit() async {
     if (_isLoading) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.local_shipping_rounded, color: _orange),
+            SizedBox(width: 10),
+            Text(
+              'أنا في الطريق للجمعية',
+              style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+        content: const Text(
+          'هل أنت متأكد أنك بدأت التحرك نحو الجمعية؟\n'
+          'سيتم إخطار الجمعية، وسيتولّد كود التسليم تلقائياً.',
+          style: TextStyle(fontSize: 13, color: _muted, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء', style: TextStyle(color: _muted)),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            icon: const Icon(Icons.local_shipping_rounded, size: 18),
+            label: const Text('نعم، أنا في الطريق'),
+            style: FilledButton.styleFrom(backgroundColor: _orange),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     setState(() => _isLoading = true);
+
     try {
-      final code =
-          await widget.repository.generateCharityPickupCode(_donationId);
+      // 1) تحديث الحالة إلى in_transit
+      await widget.repository.volunteerMarkInTransit(_donationId);
       if (!mounted) return;
-      setState(() {
-        _charityCode = code;
-        _isLoading = false;
-      });
-      _toast('✅ تم إنشاء كود الجمعية');
-      widget.onChanged();
-      _showCharityCodeDialog(code);
-    } catch (e) {
-      if (mounted) {
+
+      // 2) توليد كود الجمعية تلقائياً
+      try {
+        final code =
+            await widget.repository.generateCharityPickupCode(_donationId);
+        if (!mounted) return;
+        setState(() {
+          _charityCode = code;
+          _isLoading = false;
+        });
+        _toast('✅ أنت الآن في الطريق — تم توليد كود التسليم');
+      } catch (_) {
+        // لو فشل توليد الكود، نكمل عادي — ممكن يكون اتولد قبل كده
+        if (!mounted) return;
         setState(() => _isLoading = false);
-        _toast(_friendlyError(e), error: true);
+        _toast('✅ أنت الآن في الطريق للجمعية');
       }
+
+      widget.onChanged();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      _toast(_friendlyError(e), error: true);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // 3️⃣ عرض كود التسليم للجمعية
+  // ═══════════════════════════════════════════════════════════
 
   Future<void> _showCharityCodeFlow() async {
     if (_charityCode != null && _charityCode!.isNotEmpty) {
       _showCharityCodeDialog(_charityCode!);
       return;
     }
+
     setState(() => _isLoading = true);
     try {
       final code = await widget.repository.getCharityPickupCode(_donationId);
@@ -495,7 +568,11 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
         _charityCode = code;
         _isLoading = false;
       });
-      _showCharityCodeDialog(code);
+      if (code.isNotEmpty) {
+        _showCharityCodeDialog(code);
+      } else {
+        _toast('لم يتم توليد كود التسليم بعد', error: true);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -514,7 +591,7 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
             Icon(Icons.business_center_rounded, color: _orange),
             SizedBox(width: 10),
             Text(
-              'كود تسليم الجمعية',
+              'كود التسليم للجمعية',
               style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
             ),
           ],
@@ -523,7 +600,7 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'أعط هذا الكود للجمعية لتأكيد وصول التبرع.',
+              'أعط هذا الكود للجمعية عند وصولك لتأكيد استلام التبرع.',
               style: TextStyle(fontSize: 13, color: _muted),
               textAlign: TextAlign.center,
             ),
@@ -566,6 +643,10 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
       ),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // BUILD
+  // ═══════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -740,6 +821,7 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
     }
 
     switch (_status) {
+      // 1️⃣ لسه محتاج يدخل كود المتبرع
       case 'volunteer_assigned':
         return _actionButton(
           '🔑 إدخال كود المتبرع',
@@ -748,22 +830,87 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
           color: _orange,
         );
 
+      // 2️⃣ استلم من المتبرع → يدوس "أنا في الطريق للجمعية"
       case 'picked_up_from_donor':
-        return _actionButton(
-          '🏢 إنشاء كود الجمعية',
-          Icons.business_center_rounded,
-          _generateCharityCode,
-          color: _blue,
+        return Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: _blue.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _blue.withAlpha(60)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: _blue, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'استلمت التبرع ✅ — دوس الزر لما تبدأ التحرك للجمعية',
+                      style: TextStyle(
+                        color: _blue,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _actionButton(
+              '🚚 أنا في الطريق للجمعية',
+              Icons.local_shipping_rounded,
+              _markInTransit,
+              color: _orange,
+            ),
+          ],
         );
 
+      // 3️⃣ في الطريق → يعرض كود التسليم للجمعية
       case 'in_transit':
-        return _actionButton(
-          '📋 عرض كود الجمعية',
-          Icons.qr_code_rounded,
-          _showCharityCodeFlow,
-          color: _orange,
+        return Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: _orange.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _orange.withAlpha(60)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: _orange, size: 18),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'عند وصولك، اعرض كود التسليم للجمعية لتأكيد الاستلام',
+                      style: TextStyle(
+                        color: _orange,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _actionButton(
+              '📋 عرض كود التسليم للجمعية',
+              Icons.qr_code_rounded,
+              _showCharityCodeFlow,
+              color: _orange,
+            ),
+          ],
         );
 
+      // 4️⃣ تم التوصيل
       case 'completed':
         return Container(
           width: double.infinity,

@@ -1,3 +1,5 @@
+// lib/features/home/presentation/bloc/home_bloc.dart
+
 import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
 import 'package:loqma/core/models/community_stats.dart';
@@ -5,7 +7,7 @@ import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/offers/domain/entities/offer_request_status.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart'; // ✅ أضف الـ import
+import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 
 import 'home_event.dart';
 import 'home_state.dart';
@@ -29,20 +31,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit(const HomeLoading());
 
     try {
+      // ✅ نجيب المستخدم الحالي من auth
       final authUser = await _supabaseService.getCurrentUser();
       if (authUser == null) {
         emit(const HomeUnauthenticated());
         return;
       }
 
-      final email = authUser.email?.trim();
-      if (email == null || email.isEmpty) {
+      // ✅ نجيب بيانات المستخدم من جدول users بالـ id
+      final user = await _supabaseService.getUserById(authUser.id);
+      if (user == null) {
         emit(const HomeUnauthenticated());
         return;
       }
 
-      final user = await _supabaseService.getUserByEmail(email);
-      if (user == null || user.type != UserType.user) {
+      // ✅ الأدوار المدعومة (كل الأدوار الحالية بتستخدم نفس الـ home)
+      final role = user.type.value.toLowerCase();
+      const supportedRoles = {'user', 'provider', 'institution', 'admin'};
+      if (!supportedRoles.contains(role)) {
         emit(const HomeUnauthenticated());
         return;
       }
@@ -51,7 +57,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         _getUserStats(user.id),
         _supabaseService.getCommunityStats(),
         _loadOffers(),
-        _loadInstitutionOffers(), // ✅ أضف ده
+        _loadInstitutionOffers(),
         _getOfferRequestStatuses(user.id),
       ]);
 
@@ -60,10 +66,10 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         stats: results[0] as UserStats,
         communityStats: results[1] as CommunityStats,
         offers: results[2] as List<FoodOffer>,
-        institutionOffers: results[3] as List<InstitutionOffer>, // ✅ أضف ده
+        institutionOffers: results[3] as List<InstitutionOffer>,
         offerRequestStatuses: results[4] as Map<String, OfferRequestStatus>,
       ));
-    } catch (_) {
+    } catch (e) {
       emit(const HomeError('تعذر تحميل بيانات الصفحة الرئيسية حاليًا'));
     }
   }
@@ -83,7 +89,6 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     return offers;
   }
 
-  // ✅ أضف الدالة دي
   Future<List<InstitutionOffer>> _loadInstitutionOffers() async {
     try {
       final response = await _supabaseService.client

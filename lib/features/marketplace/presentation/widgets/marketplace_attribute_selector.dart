@@ -86,7 +86,7 @@ class MarketplaceAttributeSelector extends StatelessWidget {
           )
         else
           DropdownButtonFormField<String>(
-            value: selectedOptionId,
+            initialValue: selectedOptionId,
             isExpanded: true,
             decoration: InputDecoration(
               hintText: 'اختر ${attribute.nameAr}',

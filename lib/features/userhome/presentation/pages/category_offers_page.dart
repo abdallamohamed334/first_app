@@ -1072,19 +1072,19 @@ class _EmptyOffersView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.search_off_rounded,
               color: _primaryRed,
               size: 56,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'مفيش عروض مطابقة',
               style: TextStyle(
                 color: _textPrimary,
@@ -1092,8 +1092,8 @@ class _EmptyOffersView extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8),
+            Text(
               'جرب تغير الفلاتر أو امسحها.',
               textAlign: TextAlign.center,
               style: TextStyle(

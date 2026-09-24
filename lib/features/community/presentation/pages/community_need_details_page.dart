@@ -465,7 +465,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             _buildHero(),
             // ✅ مساحة فاضية محجوزة تحت الهيرو بمقدار نص ارتفاع
             // الكارت الطافي، عشان اللي بعده ميتصدمش بيه
-            SizedBox(height: _overlapAmount),
+            const SizedBox(height: _overlapAmount),
           ],
         ),
         Positioned(
@@ -607,7 +607,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                 ),
                 // ✅ مساحة إضافية تحت البادجز عشان الكارت الطافي
                 // ميغطيش على البادجز نفسها
-                SizedBox(height: _overlapAmount + 6),
+                const SizedBox(height: _overlapAmount + 6),
               ],
             ),
           ],
@@ -678,7 +678,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             width: 50,
             height: 50,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: _primarySoft,
               shape: BoxShape.circle,
             ),
@@ -816,7 +816,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
               padding: const EdgeInsets.symmetric(vertical: 11),
               child: _buildDetailRow(rows[i].$1, rows[i].$2, rows[i].$3),
             ),
-            if (i != rows.length - 1) Divider(height: 1, color: _border),
+            if (i != rows.length - 1) const Divider(height: 1, color: _border),
           ],
         ],
       ),
@@ -1219,7 +1219,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             width: 36,
             height: 36,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: _primarySoft,
               shape: BoxShape.circle,
             ),

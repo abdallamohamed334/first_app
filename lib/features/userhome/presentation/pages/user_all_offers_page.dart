@@ -939,9 +939,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                             border: Border.all(
                                 color: _primaryRed.withValues(alpha: 0.6)),
                           ),
-                          child: Row(
+                          child: const Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: const [
+                            children: [
                               Icon(Icons.block_rounded,
                                   color: _primaryRed, size: 12),
                               SizedBox(width: 4),
@@ -1080,9 +1080,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                               ),
                             )
                           else
-                            Row(
+                            const Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
+                              children: [
                                 Text(
                                   'التفاصيل',
                                   style: TextStyle(
@@ -1165,15 +1165,15 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     final hasOffers = _restaurantOffers.isNotEmpty;
 
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const CircularProgressIndicator(color: _primaryRed),
-              const SizedBox(height: 18),
-              const Text(
+              CircularProgressIndicator(color: _primaryRed),
+              SizedBox(height: 18),
+              Text(
                 'جاري تحميل عروض المطاعم...',
                 textAlign: TextAlign.center,
                 style: TextStyle(

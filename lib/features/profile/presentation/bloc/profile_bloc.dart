@@ -1,3 +1,5 @@
+// lib/features/profile/presentation/bloc/profile_bloc.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,11 +29,14 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         super(const ProfileInitial()) {
     on<ProfileStarted>(_onStarted);
     on<ProfileUpdateUser>(_onUpdateUser);
-    on<ProfileUpdatePassword>(_onUpdatePassword);
     on<ProfileSignOut>(_onSignOut);
     on<ProfileUploadAvatar>(_onUploadAvatar);
+    // ✅ اتشال _onUpdatePassword — مفيش password في النظام الجديد
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Load Profile
+  // ═══════════════════════════════════════════════════════════
   Future<void> _onStarted(
     ProfileStarted event,
     Emitter<ProfileState> emit,
@@ -40,14 +45,15 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     await _crashlytics.setCurrentScreen('profile');
 
     try {
+      // ✅ نجيب المستخدم الحالي من Auth
       final authUser = await _supabaseService.getCurrentUser();
-      final email = authUser?.email?.trim();
-      if (email == null || email.isEmpty) {
+      if (authUser == null) {
         emit(const ProfileError('المستخدم غير موجود'));
         return;
       }
 
-      final user = await _supabaseService.getUserByEmail(email);
+      // ✅ نجيب بيانات المستخدم من جدول users بالـ ID
+      final user = await _supabaseService.getUserById(authUser.id);
       if (user == null) {
         emit(const ProfileError('المستخدم غير موجود في قاعدة البيانات'));
         return;
@@ -87,6 +93,9 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Update User
+  // ═══════════════════════════════════════════════════════════
   Future<void> _onUpdateUser(
     ProfileUpdateUser event,
     Emitter<ProfileState> emit,
@@ -115,33 +124,14 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     }
   }
 
-  Future<void> _onUpdatePassword(
-    ProfileUpdatePassword event,
-    Emitter<ProfileState> emit,
-  ) async {
-    try {
-      final authUser = await _supabaseService.getCurrentUser();
-      final email = authUser?.email?.trim();
-      if (email == null || email.isEmpty) {
-        emit(const ProfileError('المستخدم غير موجود'));
-        return;
-      }
-      await _supabaseService.updatePasswordInAuth(email, event.newPassword);
-      emit(const ProfilePasswordUpdated());
-    } catch (error, stackTrace) {
-      // The error and the password are never sent to Crashlytics.
-      await _log('profile_password_update_failed', error, stackTrace);
-      emit(const ProfileError('تعذر تحديث كلمة المرور حاليًا'));
-    }
-  }
-
+  // ═══════════════════════════════════════════════════════════
+  // Sign Out
+  // ═══════════════════════════════════════════════════════════
   Future<void> _onSignOut(
     ProfileSignOut event,
     Emitter<ProfileState> emit,
   ) async {
     try {
-      // AuthService remains responsible for clearing Supabase and local
-      // identity/business cache values.
       await _authService.signOut();
       if (!isClosed) emit(const ProfileSignedOut());
     } catch (error, stackTrace) {
@@ -152,6 +142,9 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Upload Avatar
+  // ═══════════════════════════════════════════════════════════
   Future<void> _onUploadAvatar(
     ProfileUploadAvatar event,
     Emitter<ProfileState> emit,
@@ -172,8 +165,6 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         return;
       }
 
-      // StorageService already persists avatar_url and verifies the updated row.
-      // Do not issue a second update here; it can race with the first request.
       emit(ProfileUpdated(user: user.copyWith(avatarUrl: avatarUrl)));
     } catch (error, stackTrace) {
       await _log('profile_avatar_upload_failed', error, stackTrace);
@@ -181,11 +172,13 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════════════
   Future<UserModel?> _currentUser() async {
     final authUser = await _supabaseService.getCurrentUser();
-    final email = authUser?.email?.trim();
-    if (email == null || email.isEmpty) return null;
-    return _supabaseService.getUserByEmail(email);
+    if (authUser == null) return null;
+    return _supabaseService.getUserById(authUser.id);
   }
 
   static String? _optional(String? value) {

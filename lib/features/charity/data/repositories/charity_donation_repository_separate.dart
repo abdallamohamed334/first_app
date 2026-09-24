@@ -480,6 +480,31 @@ class SeparateCharityDonationRepository {
   }
 
   // ─────────────────────────────────────────────────────────────
+  // 6.b) ✅ المتبرع يعلن أن التبرع في الطريق للجمعية (fallback)
+  // ─────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> donorMarkInTransit(String requestId) async {
+    try {
+      final result = await _client.rpc(
+        'donor_mark_in_transit',
+        params: {'p_request_id': requestId.trim()},
+      );
+
+      final data = Map<String, dynamic>.from(result as Map);
+
+      if (data['success'] != true) {
+        throw Exception(
+          data['error']?.toString() ?? 'تعذر تحديث حالة التبرع',
+        );
+      }
+
+      return data;
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
   // 7) المندوب يسلّم للجمعية
   // ─────────────────────────────────────────────────────────────
 

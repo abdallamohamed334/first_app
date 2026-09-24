@@ -1,6 +1,10 @@
-﻿import 'package:flutter/material.dart';
+﻿// lib/features/onboarding/presentation/pages/onboarding_page.dart
+
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:loqma/features/auth/presentation/pages/login_page.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:loqma/routes/app_router.dart';
 
 import '../bloc/onboarding_bloc.dart';
 
@@ -55,11 +59,9 @@ class _OnboardingPageState extends State<OnboardingPage>
       textDirection: TextDirection.rtl,
       child: BlocConsumer<OnboardingBloc, OnboardingState>(
         listener: (context, state) {
+          // ✅ بعد ما يخلص onboarding → UserTypeSelection
           if (state is OnboardingCompleted && mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const LoginPage()),
-            );
+            context.go(AppRouter.userTypeSelection);
           }
           if (state is OnboardingLoaded && mounted) {
             _controller
@@ -253,7 +255,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 borderRadius: BorderRadius.circular(18),
               ),
               child: const Text(
-                'loqma',
+                'جُود', // ✅ الاسم الجديد
                 style: TextStyle(
                   color: _ink,
                   fontSize: 16,
@@ -264,7 +266,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           ],
         ),
         TextButton(
-          onPressed: () => _goToLogin(context),
+          onPressed: () => _goToUserTypeSelection(context),
           style: TextButton.styleFrom(
             foregroundColor: _ink,
             backgroundColor: Colors.white.withValues(alpha: 0.88),
@@ -391,11 +393,9 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
-  void _goToLogin(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
+  // ✅ بدل _goToLogin → _goToUserTypeSelection
+  void _goToUserTypeSelection(BuildContext context) {
+    context.go(AppRouter.userTypeSelection);
   }
 }
 

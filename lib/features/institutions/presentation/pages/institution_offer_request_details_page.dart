@@ -1272,7 +1272,7 @@ class _RequestInfoCard extends StatelessWidget {
         _InfoRow(
           icon: Icons.schedule_outlined,
           title: 'تاريخ الطلب',
-          value: _formatDate(request.createdAt!),
+          value: _formatDate(request.createdAt),
         ),
       ],
     );

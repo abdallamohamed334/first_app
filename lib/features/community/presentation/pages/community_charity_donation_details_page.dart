@@ -1,6 +1,7 @@
 // lib/features/community/presentation/pages/community_charity_donation_details_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 
 class CommunityCharityDonationDetailsPage extends StatefulWidget {
@@ -21,6 +22,7 @@ class _CommunityCharityDonationDetailsPageState
   final _repository = SeparateCharityDonationRepository();
   bool _loadingCode = false;
   bool _markingReady = false;
+  bool _updatingStatus = false;
   String? _localStatus;
 
   // ─────────────── الألوان ───────────────
@@ -42,11 +44,19 @@ class _CommunityCharityDonationDetailsPageState
 
   bool get _isIndependentVolunteer => _deliveryType == 'independent_volunteer';
 
+  /// ✅ بيانات المندوب
+  String get _volunteerName =>
+      donation['volunteer_name']?.toString().trim() ?? '';
+  String get _volunteerPhone =>
+      donation['volunteer_phone']?.toString().trim() ?? '';
+  bool get _hasVolunteer =>
+      _volunteerName.isNotEmpty || _volunteerPhone.isNotEmpty;
+
   // ═══════════════════════════════════════════════════════════
   // ACTIONS
   // ═══════════════════════════════════════════════════════════
 
-  /// ✅ المتبرع يعلن جاهزيته
+  /// ✅ المتبرع يعلن جاهزيته (ويعتبر موافقة على المسار)
   Future<void> _markReady() async {
     if (_markingReady) return;
     setState(() => _markingReady = true);
@@ -55,7 +65,7 @@ class _CommunityCharityDonationDetailsPageState
       if (mounted) {
         setState(() => _localStatus = 'donor_ready');
         _message(
-          'تم تسجيل جاهزيتك. سيتم إشعارك عند تعيين مندوب.',
+          'تم تسجيل جاهزيتك وموافقتك على المسار. سيتم إشعارك عند تعيين مندوب.',
           success: true,
         );
       }
@@ -63,6 +73,61 @@ class _CommunityCharityDonationDetailsPageState
       if (mounted) _message('تعذر تسجيل الجاهزية: $error');
     } finally {
       if (mounted) setState(() => _markingReady = false);
+    }
+  }
+
+  /// ✅ المتبرع يقول "أنا في الطريق للجمعية" (fallback)
+  Future<void> _markInTransit() async {
+    if (_updatingStatus) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.local_shipping_rounded, color: _orange),
+            SizedBox(width: 8),
+            Text('أنا في الطريق للجمعية'),
+          ],
+        ),
+        content: const Text(
+          'هل أنت متأكد أن التبرع في طريقه للجمعية الآن؟\n'
+          'هيتم إشعار الجمعية، وهي اللي هتأكد الاستلام بالكود.',
+          style: TextStyle(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _orange),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('نعم، في الطريق'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _updatingStatus = true);
+    try {
+      // ✅ الدالة الجديدة المخصصة للمتبرع
+      await _repository.donorMarkInTransit(donation['id'].toString());
+      if (!mounted) return;
+      setState(() => _localStatus = 'in_transit');
+      _message('🚚 تم تسجيل أن التبرع في الطريق للجمعية', success: true);
+    } catch (error) {
+      if (mounted) {
+        final msg = error.toString().replaceFirst('Exception: ', '');
+        _message(msg.isNotEmpty ? msg : 'تعذر تحديث الحالة');
+      }
+    } finally {
+      if (mounted) setState(() => _updatingStatus = false);
     }
   }
 
@@ -168,6 +233,43 @@ class _CommunityCharityDonationDetailsPageState
     }
   }
 
+  /// ✅ اتصال بالمندوب
+  Future<void> _callVolunteer() async {
+    if (_volunteerPhone.isEmpty) {
+      _message('رقم الهاتف غير متاح');
+      return;
+    }
+    try {
+      final uri = Uri.parse('tel:$_volunteerPhone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        _message('تعذر فتح تطبيق الاتصال');
+      }
+    } catch (_) {
+      _message('تعذر الاتصال بالمندوب');
+    }
+  }
+
+  /// ✅ واتساب
+  Future<void> _whatsappVolunteer() async {
+    if (_volunteerPhone.isEmpty) {
+      _message('رقم الواتساب غير متاح');
+      return;
+    }
+    try {
+      final cleanPhone = _volunteerPhone.replaceAll(RegExp(r'[^0-9]'), '');
+      final uri = Uri.parse('https://wa.me/$cleanPhone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _message('تعذر فتح واتساب');
+      }
+    } catch (_) {
+      _message('تعذر فتح واتساب');
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════
@@ -178,8 +280,6 @@ class _CommunityCharityDonationDetailsPageState
         ? Map<String, dynamic>.from(donation['charities'] as Map)
         : <String, dynamic>{};
     final title = donation['title']?.toString() ?? 'تبرع مباشر';
-    final volunteer = donation['volunteer_name']?.toString();
-    final phone = donation['volunteer_phone']?.toString();
     final address =
         donation['pickup_address']?.toString() ?? 'العنوان غير مضاف';
 
@@ -228,20 +328,10 @@ class _CommunityCharityDonationDetailsPageState
               color: _blue,
             ),
 
-            // ✅ المندوب (لو موجود)
-            if (volunteer != null && volunteer.isNotEmpty) ...[
+            // ✅ بيانات المندوب (بطاقة مميزة مع أزرار)
+            if (_hasVolunteer) ...[
               const SizedBox(height: 10),
-              _buildInfoCard(
-                icon: _isIndependentVolunteer
-                    ? Icons.person_rounded
-                    : Icons.badge_outlined,
-                label: _isIndependentVolunteer
-                    ? 'المتطوع المستقل'
-                    : 'مندوب الجمعية',
-                value: volunteer,
-                sub: phone?.isEmpty == false ? phone! : 'رقم الهاتف غير متاح',
-                color: _isIndependentVolunteer ? _purple : _orange,
-              ),
+              _buildVolunteerCard(),
             ],
 
             const SizedBox(height: 24),
@@ -279,31 +369,154 @@ class _CommunityCharityDonationDetailsPageState
   }
 
   // ═══════════════════════════════════════════════════════════
+  // VOLUNTEER CARD
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildVolunteerCard() {
+    final color = _isIndependentVolunteer ? _purple : _orange;
+    final roleLabel =
+        _isIndependentVolunteer ? 'المتطوع المستقل' : 'مندوب الجمعية';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _isIndependentVolunteer
+                      ? Icons.person_rounded
+                      : Icons.badge_outlined,
+                  color: color,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      roleLabel,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _volunteerName.isNotEmpty
+                          ? _volunteerName
+                          : 'الاسم غير مسجل',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _darkGreen,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _volunteerPhone.isNotEmpty
+                          ? _volunteerPhone
+                          : 'الرقم غير متاح',
+                      style: const TextStyle(
+                        color: Color(0xFF71837C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_volunteerPhone.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _callVolunteer,
+                    icon: const Icon(Icons.phone_rounded, size: 18),
+                    label: const Text(
+                      'اتصال',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _green,
+                      side: const BorderSide(color: _green, width: 1.4),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _whatsappVolunteer,
+                    icon: const Icon(Icons.chat_rounded, size: 18),
+                    label: const Text(
+                      'واتساب',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // ACTIONS
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildActions() {
-    // ✅ accepted أو volunteer_needed → زر "أنا جاهز"
+    // ✅ accepted أو volunteer_needed → بطاقة المسار + زر "أنا جاهز"
     if (status == 'accepted' || status == 'volunteer_needed') {
       return Padding(
         padding: const EdgeInsets.only(top: 20),
         child: Column(
           children: [
-            // تعليمات حسب المسار
-            if (status == 'volunteer_needed' && _isIndependentVolunteer)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildInstructionBox(
-                  'تم فتح تبرعك للمتطوعين المستقلين. في انتظار متطوع يحجز التبرع.',
-                ),
-              ),
-            if (status == 'accepted')
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildInstructionBox(
-                  'وافقت الجمعية على التبرع. اضغط "أنا جاهز" عشان تعرفهم إنك مستعد للتسليم.',
-                ),
-              ),
+            // ✅ بطاقة الموافقة على المسار
+            _buildRouteApprovalCard(),
+            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -317,11 +530,11 @@ class _CommunityCharityDonationDetailsPageState
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.front_hand_rounded, size: 20),
+                    : const Icon(Icons.check_circle_rounded, size: 20),
                 label: Text(
                   _markingReady
-                      ? 'جارٍ تسجيل الجاهزية...'
-                      : 'أنا جاهز لتسليم الحاجة',
+                      ? 'جارٍ تسجيل الموافقة...'
+                      : '✅ أوافق على المسار وأنا جاهز',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
@@ -392,15 +605,54 @@ class _CommunityCharityDonationDetailsPageState
       );
     }
 
-    // ✅ picked_up_from_donor → "تم استلام تبرعك"
+    // ✅ picked_up_from_donor → banner + زر "أنا في الطريق" (fallback)
     if (status == 'picked_up_from_donor') {
       return Padding(
         padding: const EdgeInsets.only(top: 20),
-        child: _buildInfoBanner(
-          icon: Icons.verified_user_rounded,
-          color: _blue,
-          title: 'تم استلام تبرعك',
-          subtitle: 'المندوب استلم تبرعك وهو في طريقه للجمعية.',
+        child: Column(
+          children: [
+            _buildInfoBanner(
+              icon: Icons.verified_user_rounded,
+              color: _blue,
+              title: 'تم استلام تبرعك',
+              subtitle:
+                  'المندوب استلم تبرعك. لو مش قادر يعلّمها من عنده، دوس الزرار ده.',
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _updatingStatus ? null : _markInTransit,
+                icon: _updatingStatus
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.local_shipping_rounded, size: 20),
+                label: Text(
+                  _updatingStatus
+                      ? 'جارٍ التحديث...'
+                      : '🚚 التبرع في الطريق للجمعية',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -413,7 +665,7 @@ class _CommunityCharityDonationDetailsPageState
           icon: Icons.local_shipping_rounded,
           color: _orange,
           title: 'التبرع في الطريق',
-          subtitle: 'المندوب في طريقه للجمعية. شكراً لصبرك!',
+          subtitle: 'التبرع في طريقه للجمعية. شكراً لصبرك!',
         ),
       );
     }
@@ -432,6 +684,137 @@ class _CommunityCharityDonationDetailsPageState
     }
 
     return const SizedBox.shrink();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ROUTE APPROVAL CARD
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildRouteApprovalCard() {
+    final isIndependent = _deliveryType == 'independent_volunteer';
+    final routeLabel = isIndependent
+        ? '🤝 توصيل عبر متطوع مستقل'
+        : '🚚 توصيل عبر مندوب الجمعية';
+    final routeDesc = isIndependent
+        ? 'الجمعية فتحت التبرع للمتطوعين المستقلين. أول متطوع يقبله هيوصله.'
+        : 'الجمعية هتوصّل التبرع مندوبها من عندها.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _green.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _green.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.route_rounded,
+                  color: _green,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'مسار التوصيل',
+                  style: TextStyle(
+                    color: _darkGreen,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _green.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _green.withValues(alpha: 0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  routeLabel,
+                  style: const TextStyle(
+                    color: _darkGreen,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  routeDesc,
+                  style: const TextStyle(
+                    color: Color(0xFF4A6B5C),
+                    fontSize: 12.5,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: _orange.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _orange.withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: _orange,
+                  size: 18,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'بالموافقة، أنت تسمح للجمعية تختار الطريقة الأنسب لتوصيل تبرعك.',
+                    style: TextStyle(
+                      color: Color(0xFF805B1B),
+                      fontSize: 11.5,
+                      height: 1.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -763,7 +1146,6 @@ class _CommunityCharityDonationDetailsPageState
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildTimeline() {
-    // ✅ خطوات حسب المسار
     final steps = <(String, String, IconData)>[
       ('pending', 'أرسلت التبرع', Icons.send_rounded),
       if (_isIndependentVolunteer) ...[
@@ -778,7 +1160,6 @@ class _CommunityCharityDonationDetailsPageState
       ('completed', 'وصل للجمعية', Icons.done_all_rounded),
     ];
 
-    // ✅ تحديد الـ index الحالي
     int current;
     if (_isIndependentVolunteer) {
       current = switch (status) {

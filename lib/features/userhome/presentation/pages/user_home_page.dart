@@ -1,35 +1,47 @@
 // lib/features/userhome/presentation/pages/user_home_page.dart
 
 import 'dart:async';
+import 'dart:math' as math; // ✅ جديد: لحساب المسافة
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 
 import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
+import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_needs_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
+import 'package:loqma/features/home/presentation/widgets/home_leaderboard.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
+// ✅ خدمات
+import 'package:loqma/features/services/data/repositories/service_categories_repository.dart';
+import 'package:loqma/features/services/domain/entities/service_category.dart';
+import 'package:loqma/features/services/presentation/pages/service_category_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
+
+// ✅ وضع الهوم: شراء أو خدمات
+enum _HomeMode { buy, services }
 
 class UserHomePage extends StatefulWidget {
   const UserHomePage({super.key});
@@ -38,17 +50,31 @@ class UserHomePage extends StatefulWidget {
   State<UserHomePage> createState() => _UserHomePageState();
 }
 
-enum _HomeMode { discover, rescue }
-
 class _UserHomePageState extends State<UserHomePage> {
   final TextEditingController _searchController = TextEditingController();
   final InstitutionOffersRepository _institutionOffersRepository =
       InstitutionOffersRepository();
+  final CommunityNeedsRepository _needsRepository = CommunityNeedsRepository();
+  final ServiceCategoriesRepository _serviceCategoriesRepository =
+      ServiceCategoriesRepository();
 
-  _HomeMode _mode = _HomeMode.discover;
   int _currentPage = 0;
   List<InstitutionOffer> _institutionOffers = [];
   bool _loadingInstitutionOffers = false;
+
+  // ✅ الاحتياجات
+  List<Map<String, dynamic>> _communityNeeds = [];
+  bool _loadingNeeds = false;
+
+  // ✅ وضع الهوم + كاتيجوريز الخدمات
+  _HomeMode _homeMode = _HomeMode.buy;
+  List<ServiceCategory> _serviceCategories = [];
+  bool _loadingServiceCategories = false;
+
+  // ✅ جديد: موقع المستخدم الفعلي
+  double? _userLat;
+  double? _userLng;
+  String _userCity = AppConfig.defaultCity;
 
   final PageController _bannerController = PageController(viewportFraction: 1);
   int _bannerIndex = 0;
@@ -62,9 +88,11 @@ class _UserHomePageState extends State<UserHomePage> {
   static const Color _primaryRedDark = Color(0xFF8E0F14);
   static const Color _textPrimary = Colors.white;
   static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _border = Color(0x14FFFFFF); // white 8%
+  static const Color _border = Color(0x14FFFFFF);
   static const Color _orange = Color(0xFFE28B00);
   static const Color _green = Color(0xFF2E9B5C);
+  static const Color _blue = Color(0xFF3679C8);
+  static const Color _purple = Color(0xFF6651B5);
 
   static const Set<String> _hiddenCategoryKeys = {};
 
@@ -73,10 +101,18 @@ class _UserHomePageState extends State<UserHomePage> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // ✅ 1. نجيب موقع المستخدم الأول
+      await _loadUserLocation();
+      if (!mounted) return;
+
+      // ✅ 2. نحمل البيانات بالترتيب
       context.read<UserHomeBloc>().add(const UserHomeStarted());
       _loadInstitutionOffers();
+      _loadCommunityNeeds();
+      _loadServiceCategories();
     });
   }
 
@@ -96,6 +132,93 @@ class _UserHomePageState extends State<UserHomePage> {
     setState(() {});
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ جديد: قراءة موقع المستخدم من Supabase
+  // ═══════════════════════════════════════════════════════════
+  Future<void> _loadUserLocation() async {
+    try {
+      final authUser = SupabaseService().client.auth.currentUser;
+      if (authUser == null) {
+        debugPrint('⚠️ [Location] No authenticated user');
+        return;
+      }
+
+      final data = await SupabaseService()
+          .client
+          .from('users')
+          .select('lat, lng, city')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+      if (data == null || !mounted) return;
+
+      final lat = (data['lat'] as num?)?.toDouble();
+      final lng = (data['lng'] as num?)?.toDouble();
+      final city = (data['city'] as String?)?.trim();
+
+      setState(() {
+        _userLat = lat;
+        _userLng = lng;
+        _userCity =
+            (city != null && city.isNotEmpty) ? city : AppConfig.defaultCity;
+      });
+
+      debugPrint('✅ [Location] Loaded: city=$_userCity, lat=$lat, lng=$lng');
+    } catch (e) {
+      debugPrint('❌ [Location] error: $e');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ جديد: حساب المسافة (Haversine)
+  // ═══════════════════════════════════════════════════════════
+  double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
+    const p = 0.017453292519943295; // pi / 180
+    final a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) *
+            math.cos(lat2 * p) *
+            (1 - math.cos((lng2 - lng1) * p)) /
+            2;
+    return 12742 * math.asin(math.sqrt(a));
+  }
+
+  // ✅ جديد: استخراج lat/lng من InstitutionOffer
+  (double?, double?) _extractLatLng(InstitutionOffer o) {
+    try {
+      final json = o.toJson();
+      final lat = (json['latitude'] as num?)?.toDouble() ??
+          (json['lat'] as num?)?.toDouble() ??
+          (json['business_latitude'] as num?)?.toDouble();
+      final lng = (json['longitude'] as num?)?.toDouble() ??
+          (json['lng'] as num?)?.toDouble() ??
+          (json['business_longitude'] as num?)?.toDouble();
+      return (lat, lng);
+    } catch (_) {
+      return (null, null);
+    }
+  }
+
+  // ✅ جديد: ترتيب العروض حسب المسافة
+  List<InstitutionOffer> _sortByDistance(List<InstitutionOffer> offers) {
+    if (_userLat == null || _userLng == null || offers.isEmpty) {
+      return offers;
+    }
+
+    final withDist = <MapEntry<InstitutionOffer, double>>[];
+    for (final o in offers) {
+      final (lat, lng) = _extractLatLng(o);
+      if (lat == null || lng == null) continue;
+      final d = _distanceKm(_userLat!, _userLng!, lat, lng);
+      withDist.add(MapEntry(o, d));
+    }
+
+    if (withDist.isEmpty) return offers;
+
+    withDist.sort((a, b) => a.value.compareTo(b.value));
+    return withDist.map((e) => e.key).toList(growable: false);
+  }
+
   Future<void> _loadInstitutionOffers() async {
     if (_loadingInstitutionOffers) return;
     if (mounted) setState(() => _loadingInstitutionOffers = true);
@@ -103,8 +226,12 @@ class _UserHomePageState extends State<UserHomePage> {
     try {
       final offers = await _institutionOffersRepository.listAvailableOffers();
       if (!mounted) return;
-      setState(() => _institutionOffers = offers);
-      debugPrint('✅ Loaded institutionOffers: ${offers.length}');
+
+      // ✅ نرتب حسب المسافة
+      final sorted = _sortByDistance(offers);
+
+      setState(() => _institutionOffers = sorted);
+      debugPrint('✅ Loaded institutionOffers: ${sorted.length}');
     } catch (e) {
       debugPrint('❌ loadInstitutionOffers error: $e');
       if (!mounted) return;
@@ -115,9 +242,51 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
+  Future<void> _loadCommunityNeeds() async {
+    if (_loadingNeeds) return;
+    if (mounted) setState(() => _loadingNeeds = true);
+
+    try {
+      final needs = await _needsRepository.listNeeds(limit: 10);
+      if (!mounted) return;
+      setState(() => _communityNeeds = needs);
+      debugPrint('✅ Loaded communityNeeds: ${needs.length}');
+    } catch (e) {
+      debugPrint('❌ loadCommunityNeeds error: $e');
+      if (!mounted) return;
+      setState(() => _communityNeeds = []);
+    } finally {
+      if (!mounted) return;
+      setState(() => _loadingNeeds = false);
+    }
+  }
+
+  Future<void> _loadServiceCategories() async {
+    if (_loadingServiceCategories) return;
+    if (mounted) setState(() => _loadingServiceCategories = true);
+
+    try {
+      final cats = await _serviceCategoriesRepository.listCategories();
+      if (!mounted) return;
+      setState(() => _serviceCategories = cats);
+    } catch (e) {
+      debugPrint('❌ loadServiceCategories error: $e');
+      if (!mounted) return;
+      setState(() => _serviceCategories = []);
+    } finally {
+      if (!mounted) return;
+      setState(() => _loadingServiceCategories = false);
+    }
+  }
+
   Future<void> _refresh() async {
     context.read<UserHomeBloc>().add(const UserHomeRefreshed());
-    await _loadInstitutionOffers();
+    await _loadUserLocation();
+    await Future.wait([
+      _loadInstitutionOffers(),
+      _loadCommunityNeeds(),
+      _loadServiceCategories(),
+    ]);
   }
 
   bool _isHiddenCategory(Map<String, dynamic> category) {
@@ -337,14 +506,313 @@ class _UserHomePageState extends State<UserHomePage> {
         index: _currentPage,
         children: [
           _buildHomeContent(state),
+          _buildCategoriesContent(state),
           const CommunityNeedsPage(),
           const CommunityTrackingPage(),
           const ProfilePage(),
         ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: _currentPage == 0 ? _buildAddButton() : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _currentPage == 0
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: _buildAddButton(),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  Widget _buildCategoriesContent(UserHomeLoaded state) {
+    final bool isServices = _homeMode == _HomeMode.services;
+
+    final buyCategories =
+        state.categories.where((c) => !_isHiddenCategory(c)).toList();
+
+    final serviceCats = _serviceCategories;
+
+    return SafeArea(
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isServices
+                            ? [_blue, _purple]
+                            : [_primaryRed, _primaryRedDark],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isServices ? _blue : _primaryRed)
+                              .withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      isServices
+                          ? Icons.handyman_rounded
+                          : Icons.grid_view_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isServices ? 'خدمات لقمة' : 'أقسام لقمة',
+                          style: const TextStyle(
+                            color: _textPrimary,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          isServices
+                              ? 'محترفين في كل المجالات'
+                              : 'تصفح كل فئات الشراء',
+                          style: const TextStyle(
+                            color: _textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _border, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildCategoriesSwitcherTile(
+                        mode: _HomeMode.buy,
+                        icon: Icons.shopping_bag_rounded,
+                        label: 'أقسام الشراء',
+                        count: buyCategories.length,
+                        color: _primaryRed,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: _buildCategoriesSwitcherTile(
+                        mode: _HomeMode.services,
+                        icon: Icons.handyman_rounded,
+                        label: 'أقسام الخدمات',
+                        count: serviceCats.length,
+                        color: _blue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (isServices)
+            serviceCats.isEmpty
+                ? SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildServiceCategoriesEmpty(),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.92,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return _buildServiceCategoryTile(serviceCats[index]);
+                        },
+                        childCount: serviceCats.length,
+                      ),
+                    ),
+                  )
+          else
+            buyCategories.isEmpty
+                ? SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _buildCategoriesEmpty(),
+                  )
+                : SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+                    sliver: SliverGrid(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.92,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          return _buildCategoryTile(
+                              buyCategories[index], state);
+                        },
+                        childCount: buyCategories.length,
+                      ),
+                    ),
+                  ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoriesSwitcherTile({
+    required _HomeMode mode,
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+  }) {
+    final selected = _homeMode == mode;
+
+    return GestureDetector(
+      onTap: () {
+        if (_homeMode != mode) {
+          setState(() => _homeMode = mode);
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [color, color.withValues(alpha: 0.75)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                )
+              : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? Colors.white : _textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : _textPrimary,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '$count قسم',
+                  style: TextStyle(
+                    color: selected
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : _textSecondary,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoriesEmpty() {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _card,
+              shape: BoxShape.circle,
+              border: Border.all(color: _border, width: 1),
+            ),
+            child: Icon(
+              Icons.grid_view_rounded,
+              color: _textSecondary.withValues(alpha: 0.7),
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'مفيش أقسام متاحة دلوقتي',
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'جرّب تحدّث الصفحة بعد شوية',
+            style: TextStyle(color: _textSecondary, fontSize: 12.5),
+          ),
+        ],
+      ),
     );
   }
 
@@ -354,47 +822,523 @@ class _UserHomePageState extends State<UserHomePage> {
         color: _primaryRed,
         backgroundColor: _card,
         onRefresh: _refresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
+        child: _homeMode == _HomeMode.buy
+            ? _buildBuyContent(state)
+            : _buildServicesContent(),
+      ),
+    );
+  }
+
+  Widget _buildBuyContent(UserHomeLoaded state) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      slivers: [
+        SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildModeSwitcher()),
+        SliverToBoxAdapter(child: _buildSearchBar()),
+        SliverToBoxAdapter(child: _buildLocationRow(state)),
+        SliverToBoxAdapter(child: _buildHeroBanner(state)),
+        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
+        SliverToBoxAdapter(child: _buildUrgentSection(state.restaurantOffers)),
+        SliverToBoxAdapter(
+            child: _buildRestaurantSection(state.restaurantOffers)),
+        SliverToBoxAdapter(child: _buildNeedsSection()),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 26),
+            child: HomeLeaderboard(),
           ),
-          slivers: [
-            SliverToBoxAdapter(child: _buildTopTabs()),
-            SliverToBoxAdapter(child: _buildSearchBar()),
-            SliverToBoxAdapter(child: _buildLocationRow(state)),
-            SliverToBoxAdapter(child: _buildHeroBanner(state)),
-            SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
-            SliverToBoxAdapter(child: _buildModeSwitch()),
-            if (_mode == _HomeMode.discover) ...[
-              SliverToBoxAdapter(
-                  child: _buildUrgentSection(state.restaurantOffers)),
-              SliverToBoxAdapter(
-                  child: _buildRestaurantSection(state.restaurantOffers)),
-              SliverToBoxAdapter(
-                  child: _buildCommunitySection(state.communityOffers)),
-            ],
-            if (_mode == _HomeMode.rescue) ...[
-              SliverToBoxAdapter(child: _buildRescueHero()),
-              SliverToBoxAdapter(child: _buildNeedsSection()),
-              SliverToBoxAdapter(child: _buildDeliveryDonationsSection(state)),
-              SliverToBoxAdapter(child: _buildVolunteerTasksSection(state)),
-            ],
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ),
+        SliverToBoxAdapter(
+            child: _buildCommunitySection(state.communityOffers)),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+
+  Widget _buildServicesContent() {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
+      slivers: [
+        SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildModeSwitcher()),
+        SliverToBoxAdapter(child: _buildServicesSearchBar()),
+        SliverToBoxAdapter(child: _buildServicesHeroBanner()),
+        SliverToBoxAdapter(child: _buildServiceCategoriesGrid()),
+        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+      ],
+    );
+  }
+
+  Widget _buildModeSwitcher() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _border, width: 1),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _buildModeTile(
+                mode: _HomeMode.buy,
+                icon: Icons.shopping_bag_rounded,
+                label: 'شراء',
+                subtitle: 'أكل وعروض',
+                color: _primaryRed,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: _buildModeTile(
+                mode: _HomeMode.services,
+                icon: Icons.handyman_rounded,
+                label: 'خدمات',
+                subtitle: 'سباكة، كهرباء',
+                color: _blue,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Top Tabs — تصميم Pill حديث
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildTopTabs() {
+  Widget _buildModeTile({
+    required _HomeMode mode,
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+  }) {
+    final selected = _homeMode == mode;
+
+    return GestureDetector(
+      onTap: () {
+        if (_homeMode != mode) {
+          setState(() => _homeMode = mode);
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? LinearGradient(
+                  colors: [color, color.withValues(alpha: 0.75)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                )
+              : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.35),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? Colors.white : _textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? Colors.white : _textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: selected
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : _textSecondary,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServicesSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border, width: 1),
+        ),
+        child: TextField(
+          style: const TextStyle(color: _textPrimary, fontSize: 14.5),
+          decoration: InputDecoration(
+            hintText: 'دور على سباك، كهربائي، نجار...',
+            hintStyle: TextStyle(
+              color: _textSecondary.withValues(alpha: 0.7),
+              fontSize: 13.5,
+            ),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: _textSecondary,
+              size: 22,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServicesHeroBanner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+      child: Container(
+        height: 150,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3679C8).withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned(
+              left: -30,
+              bottom: -40,
+              child: Container(
+                width: 130,
+                height: 130,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+            ),
+            Positioned(
+              right: -20,
+              top: -40,
+              child: Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.handyman_rounded,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'خدمات لقمة',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'محترفين قريبين منك 🔧',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                    ),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    'سباكة، كهرباء، نجارة، وأكتر',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11.5,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCategoriesGrid() {
+    if (_loadingServiceCategories && _serviceCategories.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: CircularProgressIndicator(color: _primaryRed),
+        ),
+      );
+    }
+
+    if (_serviceCategories.isEmpty) {
+      return _buildServiceCategoriesEmpty();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 22,
+                margin: const EdgeInsets.only(left: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [_primaryRed, _primaryRedDark],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const Expanded(
+                child: Text(
+                  'كل الخدمات',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 17.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: 0.92,
+            ),
+            itemCount: _serviceCategories.length,
+            itemBuilder: (context, index) {
+              return _buildServiceCategoryTile(_serviceCategories[index]);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceCategoryTile(ServiceCategory cat) {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _openServiceCategory(cat),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _border, width: 1),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _blue.withValues(alpha: 0.18),
+                      _blue.withValues(alpha: 0.06),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _serviceIconFromName(cat.icon ?? ''),
+                  color: _blue,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(height: 9),
+              Flexible(
+                child: Text(
+                  cat.nameAr,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceCategoriesEmpty() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 60),
+      child: Column(
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _card,
+              shape: BoxShape.circle,
+              border: Border.all(color: _border, width: 1),
+            ),
+            child: Icon(
+              Icons.handyman_rounded,
+              color: _textSecondary.withValues(alpha: 0.7),
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'مفيش خدمات متاحة دلوقتي',
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'جرّب تحدّث الصفحة بعد شوية',
+            style: TextStyle(color: _textSecondary, fontSize: 12.5),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openServiceCategory(ServiceCategory cat) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ServiceCategoryPage(category: cat),
+      ),
+    );
+  }
+
+  IconData _serviceIconFromName(String name) {
+    switch (name) {
+      case 'plumbing':
+        return Icons.plumbing_rounded;
+      case 'electrical':
+        return Icons.electrical_services_rounded;
+      case 'carpentry':
+        return Icons.handyman_rounded;
+      case 'painting':
+        return Icons.format_paint_rounded;
+      case 'ac':
+        return Icons.ac_unit_rounded;
+      case 'appliances':
+        return Icons.kitchen_rounded;
+      case 'car':
+        return Icons.directions_car_rounded;
+      case 'maintenance':
+        return Icons.build_rounded;
+      case 'cleaning':
+        return Icons.cleaning_services_rounded;
+      case 'tutoring':
+        return Icons.menu_book_rounded;
+      case 'barber':
+        return Icons.content_cut_rounded;
+      case 'beauty':
+        return Icons.spa_rounded;
+      case 'it':
+        return Icons.computer_rounded;
+      case 'lock':
+        return Icons.lock_rounded;
+      case 'garden':
+        return Icons.grass_rounded;
+      case 'moving':
+        return Icons.local_shipping_rounded;
+      case 'construction':
+        return Icons.construction_rounded;
+      case 'other':
+      default:
+        return Icons.handyman_rounded;
+    }
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Row(
         children: [
-          // Logo Pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
@@ -429,24 +1373,30 @@ class _UserHomePageState extends State<UserHomePage> {
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          // Discover Tab
-          Expanded(
-            child: _TopTabPill(
-              label: 'اكتشف',
-              icon: Icons.explore_rounded,
-              selected: _mode == _HomeMode.discover,
-              onTap: () => setState(() => _mode = _HomeMode.discover),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Rescue Tab
-          Expanded(
-            child: _TopTabPill(
-              label: 'إنقاذ',
-              icon: Icons.favorite_rounded,
-              selected: _mode == _HomeMode.rescue,
-              onTap: () => setState(() => _mode = _HomeMode.rescue),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'اكتشف اللي حواليك',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'عروض مطاعم، بقالة، وحاجات الناس',
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -454,9 +1404,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Search Bar — تصميم أنعم
-  // ═══════════════════════════════════════════════════════════
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
@@ -523,9 +1470,11 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ Location — Chip style
+  // ✅ Location Row — بتعرض مدينة المستخدم الفعلية
   // ═══════════════════════════════════════════════════════════
   Widget _buildLocationRow(UserHomeLoaded state) {
+    final hasLocation = _userLat != null && _userLng != null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       child: Row(
@@ -544,18 +1493,42 @@ class _UserHomePageState extends State<UserHomePage> {
                     color: _primaryRed, size: 15),
                 const SizedBox(width: 6),
                 Text(
-                  state.userCity?.isNotEmpty == true
-                      ? state.userCity!
-                      : 'اختر موقعك',
+                  _userCity, // ✅ مدينة المستخدم الفعلية
                   style: const TextStyle(
                     color: _textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded,
-                    color: _textSecondary, size: 16),
+                if (hasLocation) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(
+                        color: _green.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.near_me_rounded, color: _green, size: 10),
+                        SizedBox(width: 3),
+                        Text(
+                          'قريب منك',
+                          style: TextStyle(
+                            color: _green,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -564,9 +1537,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Hero Banner — تصميم أعمق
-  // ═══════════════════════════════════════════════════════════
   Widget _buildHeroBanner(UserHomeLoaded state) {
     final banners = state.banners;
     final hasBanners = banners.isNotEmpty;
@@ -651,7 +1621,6 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           ),
         ),
-        // Decorative circles
         Positioned(
           left: -40,
           bottom: -50,
@@ -673,18 +1642,6 @@ class _UserHomePageState extends State<UserHomePage> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withValues(alpha: 0.05),
-            ),
-          ),
-        ),
-        Positioned(
-          right: 90,
-          top: 30,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.08),
             ),
           ),
         ),
@@ -735,9 +1692,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Categories Grid
-  // ═══════════════════════════════════════════════════════════
   Widget _buildCategoriesGrid(UserHomeLoaded state) {
     if (state.categoriesLoading && state.categories.isEmpty) {
       return const Padding(
@@ -871,9 +1825,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Open Category — التوجيه حسب التصنيف
-  // ═══════════════════════════════════════════════════════════
   void _openCategory(
     Map<String, dynamic> category,
     UserHomeLoaded state,
@@ -894,19 +1845,10 @@ class _UserHomePageState extends State<UserHomePage> {
         name.contains('بقال') ||
         name.contains('سوبرماركت');
 
-    debugPrint('═══════════════════════════════════');
-    debugPrint('📂 _openCategory: $name');
-    debugPrint('   slug: $slug | id: $id');
-    debugPrint('   isRestaurant: $isRestaurant | isGrocery: $isGrocery');
-    debugPrint('   _institutionOffers count: ${_institutionOffers.length}');
-    debugPrint('═══════════════════════════════════');
-
     if (isRestaurant) {
       final filtered = _institutionOffers
           .where((o) => (o.marketplaceCategoryId ?? '').trim() == id)
           .toList(growable: false);
-
-      debugPrint('🍽️ Restaurant filtered: ${filtered.length}');
 
       final foodOffers = filtered
           .map((o) => _institutionToFoodOffer(o, businessType: 'restaurant'))
@@ -937,14 +1879,10 @@ class _UserHomePageState extends State<UserHomePage> {
           .where((cid) => cid.isNotEmpty)
           .toSet();
 
-      debugPrint('🍽️ Restaurant IDs to exclude: $restaurantIds');
-
       final filtered = _institutionOffers.where((o) {
         final catId = (o.marketplaceCategoryId ?? '').trim();
         return catId.isNotEmpty && !restaurantIds.contains(catId);
       }).toList(growable: false);
-
-      debugPrint('🛒 Grocery filtered: ${filtered.length}');
 
       final foodOffers = filtered
           .map((o) => _institutionToFoodOffer(o, businessType: 'grocery'))
@@ -969,10 +1907,19 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ معدّل: نستخدم إحداثيات المؤسسة الحقيقية
+  // ═══════════════════════════════════════════════════════════
   FoodOffer _institutionToFoodOffer(
     InstitutionOffer o, {
     String businessType = 'restaurant',
   }) {
+    final (offerLat, offerLng) = _extractLatLng(o);
+
+    // ✅ fallback لإحداثيات المستخدم لو المؤسسة ملهاش إحداثيات
+    final lat = offerLat ?? _userLat ?? 30.7865;
+    final lng = offerLng ?? _userLng ?? 31.0004;
+
     return FoodOffer(
       id: o.id,
       title: o.title,
@@ -982,8 +1929,8 @@ class _UserHomePageState extends State<UserHomePage> {
       expiryTime: o.expiresAt,
       pickupBefore: o.pickupBefore ?? o.expiresAt,
       pickupLocation: o.pickupLocation ?? 'موقع غير محدد',
-      latitude: 30.0444,
-      longitude: 31.2357,
+      latitude: lat, // ✅ من المؤسسة الحقيقية
+      longitude: lng, // ✅
       image: o.firstImage,
       status: FoodOfferStatus.fromString(o.status),
       businessId: o.institutionId,
@@ -1084,46 +2031,6 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Mode Switch — Segmented Control
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildModeSwitch() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      child: Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _border, width: 1),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: _ModeButton(
-                label: 'اكتشف العروض',
-                icon: Icons.storefront_rounded,
-                selected: _mode == _HomeMode.discover,
-                onTap: () => setState(() => _mode = _HomeMode.discover),
-              ),
-            ),
-            Expanded(
-              child: _ModeButton(
-                label: 'إنقاذ ومساعدة',
-                icon: Icons.volunteer_activism_rounded,
-                selected: _mode == _HomeMode.rescue,
-                onTap: () => setState(() => _mode = _HomeMode.rescue),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // Sections
-  // ═══════════════════════════════════════════════════════════
   Widget _buildUrgentSection(List<FoodOffer> offers) {
     final urgent = offers
         .where((o) => o.isAvailable && !o.isExpired && o.isUrgent)
@@ -1203,6 +2110,181 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  Widget _buildNeedsSection() {
+    final visible = _communityNeeds.take(10).toList(growable: false);
+
+    return _section(
+      title: 'الناس محتاجة 🙏',
+      trailing: GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const CommunityNeedsPage(),
+            ),
+          );
+        },
+        child: const Text(
+          'عرض الكل',
+          style: TextStyle(
+            color: _primaryRed,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+      child: _loadingNeeds && visible.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: _primaryRed,
+                  ),
+                ),
+              ),
+            )
+          : visible.isEmpty
+              ? _buildNeedsEmptyCard()
+              : SizedBox(
+                  height: 230,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: visible.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final need = visible[index];
+                      return _NeedCard(
+                        need: need,
+                        onTap: () {
+                          final id = need['id']?.toString() ?? '';
+                          if (id.isEmpty) return;
+                          Navigator.of(context)
+                              .push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      CommunityNeedDetailsPage(needId: id),
+                                ),
+                              )
+                              .then((_) => _loadCommunityNeeds());
+                        },
+                      );
+                    },
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildNeedsEmptyCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF3679C8).withValues(alpha: 0.3),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.volunteer_activism_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'شوف الناس محتاجة إيه',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'ممكن تكون عندك الحاجة اللي بتدور عليها',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: _NeedsActionPill(
+                    icon: Icons.search_rounded,
+                    label: 'تصفح الاحتياجات',
+                    filled: true,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CommunityNeedsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _NeedsActionPill(
+                    icon: Icons.assignment_outlined,
+                    label: 'احتياجاتي',
+                    filled: false,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MyCommunityNeedsPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCommunitySection(List<Map<String, dynamic>> offers) {
     final visible = offers
         .where((o) => o['status']?.toString() == 'available')
@@ -1254,259 +2336,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildNeedsSection() {
-    return _section(
-      title: 'الناس محتاجه ؟',
-      trailing: GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const CommunityNeedsPage(),
-            ),
-          );
-        },
-        child: const Text(
-          'عرض الكل',
-          style: TextStyle(
-            color: _primaryRed,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF3679C8).withValues(alpha: 0.3),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.volunteer_activism_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'شوف الناس محتاجة إيه',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'ممكن تكون عندك الحاجة اللي بتدور عليها',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _NeedsActionPill(
-                      icon: Icons.search_rounded,
-                      label: 'تصفح الاحتياجات',
-                      filled: true,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CommunityNeedsPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _NeedsActionPill(
-                      icon: Icons.assignment_outlined,
-                      label: 'احتياجاتي',
-                      filled: false,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const MyCommunityNeedsPage(),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRescueHero() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              _primaryRed.withValues(alpha: 0.15),
-              _primaryRed.withValues(alpha: 0.05),
-            ],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _primaryRed.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: const BoxDecoration(
-                color: _primaryRed,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.volunteer_activism_rounded,
-                  color: Colors.white, size: 26),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'خلينا ننقذ أكتر ❤️',
-                    style: TextStyle(
-                      color: _textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'ساهم في توصيل التبرعات أو ساعد حد قريب منك.',
-                    style: TextStyle(
-                      color: _textSecondary,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDeliveryDonationsSection(UserHomeLoaded state) {
-    final donations = state.deliveryDonations.take(5).toList(growable: false);
-
-    return _section(
-      title: 'تبرعات محتاجة توصيل 🚚',
-      trailing: GestureDetector(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (_) => const AllOpenVolunteerDonationsPage()),
-          );
-        },
-        child: const Text(
-          'عرض الكل',
-          style: TextStyle(
-            color: _primaryRed,
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-      child: donations.isEmpty
-          ? _emptyMini(Icons.volunteer_activism_outlined,
-              'مفيش تبرعات محتاجة متطوعين دلوقتي')
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  for (int i = 0; i < donations.length; i++) ...[
-                    _DonationMiniCard(
-                      title: donations[i].title,
-                      subtitle: donations[i].description,
-                    ),
-                    if (i != donations.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              ),
-            ),
-    );
-  }
-
-  Widget _buildVolunteerTasksSection(UserHomeLoaded state) {
-    final tasks = state.deliveryTasks.take(5).toList();
-
-    return _section(
-      title: 'مهام تطوع 🤲',
-      trailing: null,
-      child: tasks.isEmpty
-          ? _emptyMini(
-              Icons.handshake_outlined, 'لا توجد مهام تطوع متاحة حاليًا')
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  for (int i = 0; i < tasks.length; i++) ...[
-                    _VolunteerTaskCard(task: tasks[i]),
-                    if (i != tasks.length - 1) const SizedBox(height: 10),
-                  ],
-                ],
-              ),
-            ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Section — تصميم أحدث
-  // ═══════════════════════════════════════════════════════════
   Widget _section({
     required String title,
     required Widget child,
@@ -1571,7 +2400,7 @@ class _UserHomePageState extends State<UserHomePage> {
             Container(
               width: 54,
               height: 54,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: _cardSoft,
                 shape: BoxShape.circle,
               ),
@@ -1756,49 +2585,63 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return BottomAppBar(
-      color: _card,
-      elevation: 0,
-      shape: const CircularNotchedRectangle(),
-      notchMargin: 10,
-      height: 72,
-      padding: EdgeInsets.zero,
-      child: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: _border, width: 1),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: _card,
+        border: const Border(
+          top: BorderSide(color: _border, width: 1),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 24,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: SizedBox(
-          height: 72,
+          height: 64,
           child: Row(
             children: [
               _BottomNavItem(
                 index: 0,
                 currentIndex: _currentPage,
                 icon: Icons.home_rounded,
+                outlinedIcon: Icons.home_outlined,
                 label: 'الرئيسية',
                 onTap: _selectPage,
               ),
               _BottomNavItem(
                 index: 1,
                 currentIndex: _currentPage,
-                icon: Icons.back_hand_rounded,
-                label: 'الاحتياجات',
+                icon: Icons.grid_view_rounded,
+                outlinedIcon: Icons.grid_view_rounded,
+                label: 'الأقسام',
                 onTap: _selectPage,
               ),
-              const SizedBox(width: 68),
               _BottomNavItem(
                 index: 2,
                 currentIndex: _currentPage,
-                icon: Icons.add_chart,
-                label: 'الطلبات',
+                icon: Icons.volunteer_activism_rounded,
+                outlinedIcon: Icons.volunteer_activism_outlined,
+                label: 'الاحتياجات',
                 onTap: _selectPage,
               ),
               _BottomNavItem(
                 index: 3,
                 currentIndex: _currentPage,
-                icon: Icons.person_outline_rounded,
+                icon: Icons.receipt_long_rounded,
+                outlinedIcon: Icons.receipt_long_rounded,
+                label: 'الطلبات',
+                onTap: _selectPage,
+              ),
+              _BottomNavItem(
+                index: 4,
+                currentIndex: _currentPage,
+                icon: Icons.person_rounded,
+                outlinedIcon: Icons.person_outline_rounded,
                 label: 'حسابي',
                 onTap: _selectPage,
               ),
@@ -1816,72 +2659,7 @@ class _UserHomePageState extends State<UserHomePage> {
 }
 
 // ============================================================
-// ✅ Top Tab Pill
-// ============================================================
-class _TopTabPill extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _TopTabPill({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? _UserHomePageState._primaryRed
-              : _UserHomePageState._cardSoft,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color:
-                        _UserHomePageState._primaryRed.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color:
-                  selected ? Colors.white : _UserHomePageState._textSecondary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                color:
-                    selected ? Colors.white : _UserHomePageState._textPrimary,
-                fontSize: 13.5,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// NEEDS ACTION PILL
+// ✅ NEEDS ACTION PILL
 // ============================================================
 class _NeedsActionPill extends StatelessWidget {
   final IconData icon;
@@ -1941,50 +2719,208 @@ class _NeedsActionPill extends StatelessWidget {
 }
 
 // ============================================================
-// SEGMENT BUTTON (مش مستخدم حاليًا — محتفظين بيها للتوافق)
+// ✅ NEED CARD
 // ============================================================
-class _SegmentButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
+class _NeedCard extends StatelessWidget {
+  final Map<String, dynamic> need;
   final VoidCallback onTap;
 
-  const _SegmentButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
+  const _NeedCard({
+    required this.need,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final title = need['title']?.toString() ?? 'احتياج';
+    final category = need['category_name_ar']?.toString() ?? 'عام';
+    final city = need['city']?.toString() ?? '';
+    final urgency = need['urgency']?.toString() ?? 'normal';
+    final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
+
+    final urgencyData = _urgencyData(urgency);
+
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Container(
+        width: 200,
         decoration: BoxDecoration(
-          color: selected ? _UserHomePageState._primaryRed : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color:
-                  selected ? Colors.white : _UserHomePageState._textSecondary,
+          color: _UserHomePageState._card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _UserHomePageState._border, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.22),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color:
-                    selected ? Colors.white : _UserHomePageState._textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 80,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: -20,
+                    bottom: -20,
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    right: -10,
+                    top: -15,
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                    ),
+                  ),
+                  const Center(
+                    child: Icon(
+                      Icons.volunteer_activism_rounded,
+                      color: Colors.white,
+                      size: 34,
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: urgencyData.$3,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(urgencyData.$1, color: Colors.white, size: 10),
+                          const SizedBox(width: 3),
+                          Text(
+                            urgencyData.$2,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _UserHomePageState._textPrimary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w900,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _UserHomePageState._cardSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.local_offer_rounded,
+                            size: 10, color: _UserHomePageState._textSecondary),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            category,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _UserHomePageState._textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (city.isNotEmpty) ...[
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: 11,
+                          color: _UserHomePageState._textSecondary
+                              .withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            city,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _UserHomePageState._textSecondary,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF3679C8).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'الكمية: $quantity',
+                          style: const TextStyle(
+                            color: Color(0xFF3679C8),
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -1992,79 +2928,31 @@ class _SegmentButton extends StatelessWidget {
       ),
     );
   }
-}
 
-// ============================================================
-// ✅ MODE BUTTON — تصميم أحدث
-// ============================================================
-class _ModeButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ModeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? const LinearGradient(
-                  colors: [
-                    _UserHomePageState._primaryRed,
-                    _UserHomePageState._primaryRedDark,
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                )
-              : null,
-          color: selected ? null : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color:
-                        _UserHomePageState._primaryRed.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color:
-                  selected ? Colors.white : _UserHomePageState._textSecondary,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color:
-                    selected ? Colors.white : _UserHomePageState._textSecondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  (IconData, String, Color) _urgencyData(String urgency) {
+    switch (urgency) {
+      case 'urgent':
+        return (
+          Icons.warning_amber_rounded,
+          'عاجل جدًا',
+          const Color(0xFFB54747)
+        );
+      case 'high':
+        return (Icons.priority_high_rounded, 'مهم', const Color(0xFFE28B00));
+      case 'low':
+        return (
+          Icons.sentiment_satisfied_rounded,
+          'عادي',
+          const Color(0xFF2E9B5C)
+        );
+      case 'normal':
+      default:
+        return (
+          Icons.sentiment_neutral_rounded,
+          'متوسط',
+          const Color(0xFF3679C8)
+        );
+    }
   }
 }
 
@@ -2361,8 +3249,7 @@ class _CommunityOfferCard extends StatelessWidget {
   const _CommunityOfferCard({
     required this.offer,
     required this.onTap,
-    this.fullWidth = false,
-  });
+  }) : fullWidth = false;
 
   @override
   Widget build(BuildContext context) {
@@ -2720,145 +3607,6 @@ class _CommunityEmptyCard extends StatelessWidget {
 }
 
 // ============================================================
-// ✅ DONATION CARD
-// ============================================================
-class _DonationMiniCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _DonationMiniCard({
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _UserHomePageState._border, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  _UserHomePageState._primaryRed.withValues(alpha: 0.18),
-                  _UserHomePageState._primaryRed.withValues(alpha: 0.06),
-                ],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.volunteer_activism_rounded,
-                color: _UserHomePageState._primaryRed, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _UserHomePageState._textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _UserHomePageState._textSecondary,
-                    fontSize: 12,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// ✅ VOLUNTEER TASK
-// ============================================================
-class _VolunteerTaskCard extends StatelessWidget {
-  final Map<String, dynamic> task;
-
-  const _VolunteerTaskCard({required this.task});
-
-  @override
-  Widget build(BuildContext context) {
-    final title = task['title']?.toString() ?? 'مهمة توصيل';
-    final status = task['status']?.toString() ?? 'pending';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _UserHomePageState._border, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _UserHomePageState._cardSoft,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.local_shipping_rounded,
-                color: _UserHomePageState._primaryRed, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _UserHomePageState._textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  status,
-                  style: const TextStyle(
-                    color: _UserHomePageState._textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
 // BANNER IMAGE
 // ============================================================
 class _BannerImage extends StatelessWidget {
@@ -2899,7 +3647,7 @@ class _BannerImage extends StatelessWidget {
 }
 
 // ============================================================
-// ✅ ADD ACTION TILE — بألوان مخصصة
+// ✅ ADD ACTION TILE
 // ============================================================
 class _AddActionTile extends StatelessWidget {
   final IconData icon;
@@ -2978,6 +3726,7 @@ class _BottomNavItem extends StatelessWidget {
   final int index;
   final int currentIndex;
   final IconData icon;
+  final IconData outlinedIcon;
   final String label;
   final ValueChanged<int> onTap;
 
@@ -2985,6 +3734,7 @@ class _BottomNavItem extends StatelessWidget {
     required this.index,
     required this.currentIndex,
     required this.icon,
+    required this.outlinedIcon,
     required this.label,
     required this.onTap,
   });
@@ -2997,39 +3747,65 @@ class _BottomNavItem extends StatelessWidget {
       child: GestureDetector(
         onTap: () => onTap(index),
         behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: selected
-                    ? _UserHomePageState._primaryRed.withValues(alpha: 0.15)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(100),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? _UserHomePageState._primaryRed.withValues(alpha: 0.14)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(100),
+                  border: selected
+                      ? Border.all(
+                          color: _UserHomePageState._primaryRed
+                              .withValues(alpha: 0.4),
+                          width: 1,
+                        )
+                      : null,
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: _UserHomePageState._primaryRed
+                                .withValues(alpha: 0.28),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  selected ? icon : outlinedIcon,
+                  size: 20,
+                  color: selected
+                      ? _UserHomePageState._primaryRed
+                      : _UserHomePageState._textSecondary,
+                ),
               ),
-              child: Icon(
-                icon,
-                size: 22,
-                color: selected
-                    ? _UserHomePageState._primaryRed
-                    : _UserHomePageState._textSecondary,
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                style: TextStyle(
+                  color: selected
+                      ? _UserHomePageState._primaryRed
+                      : _UserHomePageState._textSecondary,
+                  fontSize: 9.5,
+                  fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
+                ),
+                child: Text(label),
               ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected
-                    ? _UserHomePageState._primaryRed
-                    : _UserHomePageState._textSecondary,
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -282,7 +282,6 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       data: Theme.of(context).copyWith(
         colorScheme: colors,
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
-        useMaterial3: true,
       ),
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F8FA),
@@ -533,8 +532,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                     Border.all(color: const Color(0xFFEDEEF1)),
                               ),
                               alignment: Alignment.center,
-                              child: Column(
-                                children: const [
+                              child: const Column(
+                                children: [
                                   Icon(Icons.star_border_rounded,
                                       color: Colors.grey, size: 30),
                                   SizedBox(height: 8),

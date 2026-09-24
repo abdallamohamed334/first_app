@@ -8,7 +8,14 @@ import 'package:loqma/features/community/presentation/pages/add_community_need_p
 enum _NeedSort { newest, oldest, urgent }
 
 class MyCommunityNeedsPage extends StatefulWidget {
-  const MyCommunityNeedsPage({super.key});
+  /// ✅ لما تتحط جوه CommunityTrackingPage → خليها `true`
+  ///    عشان ميبقاش فيه AppBar مكرر
+  final bool embedded;
+
+  const MyCommunityNeedsPage({
+    super.key,
+    this.embedded = false,
+  });
 
   @override
   State<MyCommunityNeedsPage> createState() => _MyCommunityNeedsPageState();
@@ -34,8 +41,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   bool _loading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _needs = [];
-
-  // ✅ الترتيب
   _NeedSort _sort = _NeedSort.newest;
 
   @override
@@ -54,7 +59,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   // ═══════════════════════════════════════════════════════════
   // LOAD
   // ═══════════════════════════════════════════════════════════
-
   Future<void> _loadNeeds() async {
     setState(() {
       _loading = true;
@@ -80,9 +84,8 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ EDIT NEED
+  // EDIT
   // ═══════════════════════════════════════════════════════════
-
   Future<void> _editNeed(Map<String, dynamic> need) async {
     final result = await Navigator.push<bool>(
       context,
@@ -112,9 +115,8 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ CANCEL NEED
+  // CANCEL
   // ═══════════════════════════════════════════════════════════
-
   Future<void> _cancelNeed(Map<String, dynamic> need) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -183,11 +185,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ DISMISS NEED (إخفاء من عند اليوزر بس)
-  // ═══════════════════════════════════════════════════════════
-  //
-  // ⚠️ الاحتياج **مش بيتحذف** من الـ DB — بس بيتخفي من عند اليوزر
-  //    البيانات تفضل محفوظة للأدلة والمراجعة.
+  // DISMISS
   // ═══════════════════════════════════════════════════════════
   Future<void> _dismissNeed(Map<String, dynamic> need) async {
     final confirmed = await showDialog<bool>(
@@ -229,7 +227,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       await _repository.dismissNeed(need['id'].toString());
       if (!mounted) return;
 
-      // ✅ إزالة من القائمة مباشرة (تجربة أسرع)
       setState(() {
         _needs
             .removeWhere((n) => n['id']?.toString() == need['id']?.toString());
@@ -266,9 +263,8 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ SORT
+  // SORT
   // ═══════════════════════════════════════════════════════════
-
   List<Map<String, dynamic>> _sortedNeeds(List<Map<String, dynamic>> items) {
     final list = List<Map<String, dynamic>>.from(items);
 
@@ -280,7 +276,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           return bDate.compareTo(aDate);
         });
         break;
-
       case _NeedSort.oldest:
         list.sort((a, b) {
           final aDate = _parseDate(a['created_at']) ?? DateTime(2000);
@@ -288,7 +283,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           return aDate.compareTo(bDate);
         });
         break;
-
       case _NeedSort.urgent:
         list.sort((a, b) {
           return _urgencyWeight(b['urgency'])
@@ -318,13 +312,11 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   // ═══════════════════════════════════════════════════════════
   // FILTERS
   // ═══════════════════════════════════════════════════════════
-
   List<Map<String, dynamic>> get _activeNeeds {
     final filtered = _needs.where((n) {
       final status = n['status']?.toString() ?? 'active';
       return status == 'active' || status == 'matched';
     }).toList();
-
     return _sortedNeeds(filtered);
   }
 
@@ -335,84 +327,151 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           status == 'cancelled' ||
           status == 'expired';
     }).toList();
-
     return _sortedNeeds(filtered);
   }
 
   // ═══════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: _background,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: _darkGreen,
-          elevation: 0,
-          scrolledUnderElevation: 0.5,
-          centerTitle: true,
-          title: const Text(
-            'احتياجاتي',
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 17,
-            ),
-          ),
-          // ✅ قائمة الترتيب
-          actions: [
-            PopupMenuButton<_NeedSort>(
-              icon: const Icon(Icons.sort_rounded),
-              tooltip: 'ترتيب',
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              onSelected: (value) => setState(() => _sort = value),
-              itemBuilder: (_) => [
-                _buildSortItem(
-                  value: _NeedSort.newest,
-                  icon: Icons.access_time_rounded,
-                  label: 'الأحدث',
-                ),
-                _buildSortItem(
-                  value: _NeedSort.oldest,
-                  icon: Icons.history_rounded,
-                  label: 'الأقدم',
-                ),
-                _buildSortItem(
-                  value: _NeedSort.urgent,
-                  icon: Icons.priority_high_rounded,
-                  label: 'الأولوية',
-                ),
-              ],
-            ),
-          ],
-        ),
-        body: _buildBody(),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AddCommunityNeedPage(),
-              ),
-            );
-            if (result == true && mounted) {
-              _loadNeeds();
-            }
-          },
-          backgroundColor: _green,
-          foregroundColor: Colors.white,
-          elevation: 3,
-          icon: const Icon(Icons.add_rounded),
-          label: const Text(
-            'احتياج جديد',
-            style: TextStyle(fontWeight: FontWeight.w800),
+      child:
+          widget.embedded ? _buildEmbeddedContent() : _buildStandaloneContent(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ STANDALONE (بـ AppBar + FAB)
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildStandaloneContent() {
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: _darkGreen,
+        elevation: 0,
+        scrolledUnderElevation: 0.5,
+        centerTitle: true,
+        title: const Text(
+          'احتياجاتي',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 17,
           ),
         ),
+        actions: [_buildSortButton()],
+      ),
+      body: _buildBody(),
+      floatingActionButton: _buildAddFab(),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ EMBEDDED (بدون AppBar — جوه Tracking)
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildEmbeddedContent() {
+    return Stack(
+      children: [
+        Container(
+          color: _background,
+          child: Column(
+            children: [
+              // ── سطر علوي: عنوان + ترتيب ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: _green,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'احتياجاتي',
+                      style: TextStyle(
+                        color: _darkGreen,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const Spacer(),
+                    _buildSortButton(),
+                  ],
+                ),
+              ),
+              // ── المحتوى ──
+              Expanded(child: _buildBody()),
+            ],
+          ),
+        ),
+        // ── FAB عايم ──
+        Positioned(
+          bottom: 16,
+          left: 16,
+          child: _buildAddFab(),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Shared Widgets
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildSortButton() {
+    return PopupMenuButton<_NeedSort>(
+      icon: const Icon(Icons.sort_rounded),
+      tooltip: 'ترتيب',
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      onSelected: (value) => setState(() => _sort = value),
+      itemBuilder: (_) => [
+        _buildSortItem(
+          value: _NeedSort.newest,
+          icon: Icons.access_time_rounded,
+          label: 'الأحدث',
+        ),
+        _buildSortItem(
+          value: _NeedSort.oldest,
+          icon: Icons.history_rounded,
+          label: 'الأقدم',
+        ),
+        _buildSortItem(
+          value: _NeedSort.urgent,
+          icon: Icons.priority_high_rounded,
+          label: 'الأولوية',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddFab() {
+    return FloatingActionButton.extended(
+      heroTag: 'my_needs_fab',
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const AddCommunityNeedPage(),
+          ),
+        );
+        if (result == true && mounted) {
+          _loadNeeds();
+        }
+      },
+      backgroundColor: _green,
+      foregroundColor: Colors.white,
+      elevation: 3,
+      icon: const Icon(Icons.add_rounded),
+      label: const Text(
+        'احتياج جديد',
+        style: TextStyle(fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -588,7 +647,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   // ═══════════════════════════════════════════════════════════
   // NEED CARD
   // ═══════════════════════════════════════════════════════════
-
   Widget _buildNeedCard(
     Map<String, dynamic> need, {
     required bool isActive,
@@ -694,8 +752,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                           ],
                         ),
                       ),
-
-                      // ✅ أزرار (تعديل + إلغاء) للاحتياج النشط
                       if (isActive) ...[
                         const SizedBox(width: 6),
                         GestureDetector(
@@ -735,9 +791,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                             ),
                           ),
                         ),
-                      ]
-                      // ✅ زر الإخفاء للاحتياج المنتهي
-                      else ...[
+                      ] else ...[
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: () => _dismissNeed(need),
@@ -974,7 +1028,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   // ═══════════════════════════════════════════════════════════
   // EMPTY / ERROR
   // ═══════════════════════════════════════════════════════════
-
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -986,7 +1039,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
               width: 90,
               height: 90,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: _greenSoft,
                 shape: BoxShape.circle,
               ),
@@ -1075,7 +1128,6 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   // ═══════════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════════
-
   DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     final text = value.toString().trim();

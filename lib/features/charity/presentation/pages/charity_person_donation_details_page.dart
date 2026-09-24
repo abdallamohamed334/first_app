@@ -82,7 +82,6 @@ class _CharityPersonDonationDetailsPageState
   // ACTIONS
   // ═══════════════════════════════════════════════════════════
 
-  /// ✅ قبول التبرع (مسار الجمعية)
   Future<void> _acceptWithCharityVolunteer() async {
     if (_loading || donationId.isEmpty) return;
     setState(() => _loading = true);
@@ -106,32 +105,6 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  /// ✅ قبول التبرع (مسار المتطوعين)
-  Future<void> _acceptOpenForVolunteers() async {
-    if (_loading || donationId.isEmpty) return;
-    setState(() => _loading = true);
-    try {
-      final result = await _repository.charityAcceptDonation(
-        requestId: donationId,
-        openToVolunteers: true,
-      );
-      if (!mounted) return;
-      setState(
-          () => _status = result['status']?.toString() ?? 'volunteer_needed');
-      CharityActionFeedback.showSuccess(
-        context,
-        '✅ تم قبول التبرع وإتاحته للمتطوعين المستقلين',
-      );
-    } catch (error) {
-      if (mounted) {
-        CharityActionFeedback.showError(context, _friendlyError(error));
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  /// ✅ رفض التبرع
   Future<void> _rejectDonation() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -180,7 +153,6 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  /// ✅ تعيين مندوب
   Future<void> _assignVolunteer() async {
     if (_assignmentDialogOpen || _loading || donationId.isEmpty || !mounted) {
       return;
@@ -236,7 +208,6 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  /// ✅ التحقق من كود المتبرع
   Future<void> _verifyPickup() async {
     if (_loading || donationId.isEmpty) return;
     final controller = TextEditingController();
@@ -313,7 +284,89 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  /// ✅ تحديث الحالة (in_transit / completed)
+  /// ✅ الجمعية بتأكد وصول التبرع بكود المتطوع (للمسار المستقل)
+  Future<void> _verifyVolunteerCode() async {
+    if (_loading || donationId.isEmpty) return;
+    final controller = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.person_pin_rounded, color: _green),
+            SizedBox(width: 8),
+            Text('تأكيد وصول التبرع'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'أدخل كود المتطوع (6 أرقام) لتأكيد وصول التبرع',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: const InputDecoration(
+                labelText: 'كود المتطوع',
+                hintText: '000000',
+                prefixIcon: Icon(Icons.password_rounded),
+                counterText: '',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _green),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('تأكيد الوصول'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (code == null || code.trim().isEmpty || !mounted) return;
+
+    setState(() => _loading = true);
+    try {
+      final charityId = donation['charity_id']?.toString() ?? '';
+      await _repository.confirmCharityDeliveryWithCode(
+        donationId,
+        code.trim(),
+        charityId: charityId,
+      );
+      if (!mounted) return;
+      setState(() => _status = 'completed');
+      CharityActionFeedback.showSuccess(
+        context,
+        '✅ تم تأكيد وصول التبرع للجمعية بنجاح',
+      );
+    } catch (error) {
+      if (mounted) {
+        CharityActionFeedback.showError(context, _friendlyError(error));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// ✅ تحديث الحالة يدوياً (للجمعية)
   Future<void> _updateStatus(String nextStatus) async {
     if (_loading || donationId.isEmpty) return;
     setState(() => _loading = true);
@@ -325,7 +378,10 @@ class _CharityPersonDonationDetailsPageState
       );
       if (!mounted) return;
       setState(() => _status = nextStatus);
-      CharityActionFeedback.showSuccess(context, _statusMessage(nextStatus));
+      CharityActionFeedback.showSuccess(
+        context,
+        _statusUpdateMessage(nextStatus),
+      );
     } catch (error) {
       if (mounted) {
         CharityActionFeedback.showError(context, _friendlyError(error));
@@ -335,12 +391,12 @@ class _CharityPersonDonationDetailsPageState
     }
   }
 
-  String _statusMessage(String value) {
+  String _statusUpdateMessage(String value) {
     switch (value) {
       case 'in_transit':
-        return 'تم تسجيل أن التبرع في الطريق';
+        return '🚚 تم تسجيل أن التبرع في الطريق للجمعية';
       case 'completed':
-        return 'تم تأكيد وصول التبرع بنجاح';
+        return '✅ تم تأكيد وصول التبرع للجمعية';
       default:
         return 'تم تحديث حالة التبرع';
     }
@@ -412,10 +468,6 @@ class _CharityPersonDonationDetailsPageState
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // HERO
-  // ═══════════════════════════════════════════════════════════
 
   Widget _buildHero() {
     final images = _images;
@@ -490,19 +542,16 @@ class _CharityPersonDonationDetailsPageState
               ),
             ),
           ),
-          // Status Badge
           Positioned(
             top: 14,
             right: 14,
             child: _buildStatusBadge(),
           ),
-          // Delivery Badge
           Positioned(
             top: 14,
             left: 14,
             child: _buildDeliveryBadge(),
           ),
-          // Title + Donor
           Positioned(
             left: 18,
             right: 18,
@@ -637,10 +686,6 @@ class _CharityPersonDonationDetailsPageState
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STATUS CARD
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildStatusCard() {
     final color = _statusColor(_status);
     final icon = _statusIcon(_status);
@@ -695,10 +740,6 @@ class _CharityPersonDonationDetailsPageState
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // DETAILS CARD
-  // ═══════════════════════════════════════════════════════════
 
   Widget _buildDetailsCard() {
     return Container(
@@ -757,7 +798,6 @@ class _CharityPersonDonationDetailsPageState
           if (donation['pickup_city']?.toString().isNotEmpty == true)
             _buildDetailRow(Icons.location_city_outlined, 'المدينة',
                 donation['pickup_city'].toString()),
-          // Volunteer info
           if (donation['volunteer_name']?.toString().isNotEmpty == true)
             _buildDetailRow(
               isIndependent ? Icons.person_rounded : Icons.badge_outlined,
@@ -803,10 +843,6 @@ class _CharityPersonDonationDetailsPageState
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // IMAGES CARD
-  // ═══════════════════════════════════════════════════════════
 
   Widget _buildImagesCard() {
     return Container(
@@ -894,12 +930,7 @@ class _CharityPersonDonationDetailsPageState
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // TIMELINE
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildTimeline() {
-    // ✅ خطوات حسب المسار
     final steps = <(String, String, IconData)>[
       ('pending', 'أرسل التبرع', Icons.send_rounded),
       if (isIndependent) ...[
@@ -914,13 +945,12 @@ class _CharityPersonDonationDetailsPageState
       ('completed', 'وصل للجمعية', Icons.done_all_rounded),
     ];
 
-    // ✅ تحديد الـ index الحالي
     int current;
     if (isIndependent) {
       current = switch (_status) {
         'pending' => 0,
         'volunteer_needed' => 1,
-        'accepted' => 1, // احتياطي
+        'accepted' => 1,
         'donor_ready' => 2,
         'volunteer_assigned' => 3,
         'picked_up_from_donor' => 4,
@@ -932,7 +962,7 @@ class _CharityPersonDonationDetailsPageState
       current = switch (_status) {
         'pending' => 0,
         'accepted' => 1,
-        'volunteer_needed' => 1, // احتياطي
+        'volunteer_needed' => 1,
         'donor_ready' => 2,
         'volunteer_assigned' => 3,
         'picked_up_from_donor' => 4,
@@ -1056,7 +1086,6 @@ class _CharityPersonDonationDetailsPageState
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildActions() {
-    // ✅ رفض أو ملغي
     if (_status == 'rejected') {
       return _buildInfoBanner(
         icon: Icons.cancel_rounded,
@@ -1075,7 +1104,6 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ completed
     if (_status == 'completed') {
       return _buildInfoBanner(
         icon: Icons.verified_rounded,
@@ -1085,7 +1113,6 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ pending → أزرار القبول
     if (_status == 'pending') {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1094,13 +1121,6 @@ class _CharityPersonDonationDetailsPageState
             label: '✅ اقبل وعيّن مندوبي',
             icon: Icons.badge_outlined,
             onTap: _acceptWithCharityVolunteer,
-          ),
-          const SizedBox(height: 10),
-          _buildActionButton(
-            label: '🤝 اقبل واسيبه للمتطوعين',
-            icon: Icons.groups_outlined,
-            onTap: _acceptOpenForVolunteers,
-            outlined: true,
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -1122,7 +1142,6 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ accepted
     if (_status == 'accepted') {
       return Column(
         children: [
@@ -1143,28 +1162,16 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ volunteer_needed
+    // ⚠️ حالة قديمة (موجودة في تبرعات سابقة فقط)
     if (_status == 'volunteer_needed') {
-      return Column(
-        children: [
-          _buildInfoBanner(
-            icon: Icons.people_alt_rounded,
-            color: _purple,
-            title: 'مفتوح للمتطوعين المستقلين',
-            subtitle: 'التبرع معروض للمتطوعين. في انتظار حد يحجزه.',
-          ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            label: 'إرسال مندوب الجمعية',
-            icon: Icons.badge_outlined,
-            onTap: _assignVolunteer,
-            outlined: true,
-          ),
-        ],
+      return _buildInfoBanner(
+        icon: Icons.people_alt_rounded,
+        color: _purple,
+        title: 'مفتوح للمتطوعين المستقلين',
+        subtitle: 'التبرع معروض على المتطوعين المستقلين. (مسار قديم)',
       );
     }
 
-    // ✅ donor_ready → إرسال مندوب
     if (_status == 'donor_ready') {
       return _buildActionButton(
         label: 'إرسال مندوب الجمعية',
@@ -1173,7 +1180,6 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ volunteer_assigned → التحقق من الكود
     if (_status == 'volunteer_assigned') {
       return Column(
         children: [
@@ -1193,21 +1199,65 @@ class _CharityPersonDonationDetailsPageState
       );
     }
 
-    // ✅ picked_up_from_donor → في الطريق
     if (_status == 'picked_up_from_donor') {
-      return _buildActionButton(
-        label: 'التبرع في الطريق للجمعية',
-        icon: Icons.local_shipping_rounded,
-        onTap: () => _updateStatus('in_transit'),
+      return Column(
+        children: [
+          _buildInfoBanner(
+            icon: Icons.local_shipping_rounded,
+            color: _orange,
+            title: 'المندوب استلم التبرع',
+            subtitle:
+                'التبرع في الطريق للجمعية. لو المتطوع مش قادر يعلّمها من عنده، تقدر تعلّمها هنا.',
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            label: '🚚 تحديد التبرع في الطريق للجمعية',
+            icon: Icons.local_shipping_rounded,
+            onTap: () => _updateStatus('in_transit'),
+          ),
+        ],
       );
     }
 
-    // ✅ in_transit → تأكيد الوصول
+    // ✅ حالة in_transit — بتفرق حسب المسار
     if (_status == 'in_transit') {
-      return _buildActionButton(
-        label: 'تأكيد وصول التبرع للجمعية',
-        icon: Icons.done_all_rounded,
-        onTap: () => _updateStatus('completed'),
+      // 🅱️ متطوع مستقل → الجمعية تدخل كود المتطوع
+      if (isIndependent) {
+        return Column(
+          children: [
+            _buildInfoBanner(
+              icon: Icons.delivery_dining_rounded,
+              color: _blue,
+              title: 'التبرع في الطريق إليك',
+              subtitle:
+                  'عند وصول المتطوع، اطلب منه كود التسليم (6 أرقام) وأدخله هنا.',
+            ),
+            const SizedBox(height: 12),
+            _buildActionButton(
+              label: 'إدخال كود المتطوع والتحقق',
+              icon: Icons.person_pin_rounded,
+              onTap: _verifyVolunteerCode,
+            ),
+          ],
+        );
+      }
+
+      // 🅰️ مندوب الجمعية → زر تأكيد وصول بسيط
+      return Column(
+        children: [
+          _buildInfoBanner(
+            icon: Icons.local_shipping_rounded,
+            color: _blue,
+            title: 'التبرع في الطريق إليك',
+            subtitle: 'عند وصول المندوب، اضغط الزر لتأكيد وصول التبرع للجمعية.',
+          ),
+          const SizedBox(height: 12),
+          _buildActionButton(
+            label: '✅ تم وصول التبرع للجمعية',
+            icon: Icons.done_all_rounded,
+            onTap: () => _updateStatus('completed'),
+          ),
+        ],
       );
     }
 
@@ -1330,10 +1380,6 @@ class _CharityPersonDonationDetailsPageState
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════════════════════
-
   String _statusLabel(String value) =>
       <String, String>{
         'pending': 'في انتظار المراجعة',
@@ -1354,11 +1400,11 @@ class _CharityPersonDonationDetailsPageState
       <String, String>{
         'pending': 'التبرع في انتظار قرار الجمعية.',
         'accepted': 'الجمعية قبلت التبرع. في انتظار جاهزية المتبرع.',
-        'volunteer_needed':
-            'التبرع مفتوح للمتطوعين المستقلين. في انتظار حد يحجزه.',
+        'volunteer_needed': 'التبرع مفتوح للمتطوعين المستقلين. (مسار قديم)',
         'donor_ready': 'المتبرع أعلن جاهزيته. يمكنك إرسال مندوب الآن.',
         'volunteer_assigned': 'تم تعيين المندوب. في انتظاره يستلم التبرع.',
-        'picked_up_from_donor': 'المندوب استلم التبرع من المتبرع.',
+        'picked_up_from_donor':
+            'المندوب استلم التبرع من المتبرع، في الطريق للجمعية.',
         'in_transit': 'التبرع في الطريق للجمعية.',
         'completed': 'وصل التبرع للجمعية بنجاح. 🎉',
         'rejected': 'تم رفض التبرع.',
@@ -1483,7 +1529,6 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Handle
                 Center(
                   child: Container(
                     width: 40,
@@ -1495,8 +1540,6 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Title
                 Row(
                   children: [
                     Container(
@@ -1527,8 +1570,6 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                   ],
                 ),
                 const SizedBox(height: 20),
-
-                // Segmented Button
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment<bool>(
@@ -1561,8 +1602,6 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Charity Volunteer Dropdown
                 if (_fromCharity)
                   widget.volunteers.isEmpty
                       ? Container(
@@ -1667,8 +1706,6 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                   ),
                 ],
                 const SizedBox(height: 20),
-
-                // Actions
                 Row(
                   children: [
                     Expanded(

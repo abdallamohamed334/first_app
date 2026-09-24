@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:go_router/go_router.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';

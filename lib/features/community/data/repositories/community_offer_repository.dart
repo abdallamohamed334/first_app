@@ -15,7 +15,6 @@ class CommunityOfferRepository {
   // CHARITIES
   // ============================================================
 
-  /// ✅ استخدام `status` بدل `is_active`
   Future<List<Map<String, dynamic>>> getActiveCharities() async {
     try {
       final response = await _client
@@ -70,6 +69,12 @@ class CommunityOfferRepository {
     required double price,
     required String pickupLocation,
     required List<XFile> images,
+    // ✅ إحداثيات مكان الاستلام
+    required double latitude,
+    required double longitude,
+    // ✅ رقم الهاتف والواتساب
+    required String contactPhone,
+    String? whatsapp,
     DateTime? expiresAt,
     String? charityId,
     String? marketplaceCategoryId,
@@ -86,6 +91,8 @@ class CommunityOfferRepository {
     final cleanCategoryId = categoryId.trim();
     final cleanCategorySlug = categorySlug.trim();
     final cleanLocation = pickupLocation.trim();
+    final cleanPhone = contactPhone.trim();
+    final cleanWhatsapp = whatsapp?.trim();
 
     final cleanMarketplaceCategoryId = marketplaceCategoryId?.trim();
 
@@ -132,7 +139,6 @@ class CommunityOfferRepository {
       );
     }
 
-    // ✅ القيم المسموحة للـ condition
     const allowedConditions = {
       'new',
       'used',
@@ -165,6 +171,31 @@ class CommunityOfferRepository {
       );
     }
 
+    // ✅ التحقق من الإحداثيات
+    if (latitude.isNaN || longitude.isNaN) {
+      throw Exception('إحداثيات الموقع غير صحيحة');
+    }
+
+    if (latitude.abs() > 90 || longitude.abs() > 180) {
+      throw Exception('إحداثيات الموقع غير صحيحة');
+    }
+
+    // ✅ التحقق من رقم الهاتف
+    if (cleanPhone.isEmpty) {
+      throw Exception('يجب إدخال رقم الهاتف للتواصل');
+    }
+
+    if (!_isValidEgyptianPhone(cleanPhone)) {
+      throw Exception('رقم الهاتف غير صحيح (مثال: 01012345678)');
+    }
+
+    // ✅ التحقق من رقم الواتساب (اختياري)
+    if (cleanWhatsapp != null && cleanWhatsapp.isNotEmpty) {
+      if (!_isValidEgyptianPhone(cleanWhatsapp)) {
+        throw Exception('رقم الواتساب غير صحيح (مثال: 01012345678)');
+      }
+    }
+
     if (charityId != null && charityId.trim().isNotEmpty) {
       throw Exception(
         'العرض الرمزي لا يمكن ربطه بجمعية',
@@ -189,7 +220,6 @@ class CommunityOfferRepository {
 
     for (final attribute in marketplaceAttributes) {
       final attributeId = attribute['attribute_id']?.toString().trim();
-
       final optionId = attribute['option_id']?.toString().trim();
 
       if (attributeId == null ||
@@ -203,7 +233,6 @@ class CommunityOfferRepository {
             'option_id="$optionId"',
           );
         }
-
         continue;
       }
 
@@ -218,7 +247,6 @@ class CommunityOfferRepository {
     // ==========================================================
 
     final uniqueMarketplaceAttributes = <Map<String, dynamic>>[];
-
     final usedAttributeIds = <String>{};
 
     for (final attribute in cleanMarketplaceAttributes) {
@@ -231,11 +259,9 @@ class CommunityOfferRepository {
       if (usedAttributeIds.contains(attributeId)) {
         if (kDebugMode) {
           debugPrint(
-            '⚠️ Duplicate marketplace attribute skipped: '
-            '$attributeId',
+            '⚠️ Duplicate marketplace attribute skipped: $attributeId',
           );
         }
-
         continue;
       }
 
@@ -266,7 +292,6 @@ class CommunityOfferRepository {
         uploadedPaths.add(path);
       }
 
-      // SIGN UPLOADED IMAGES
       final uploadedUrls = <String>[];
 
       for (final path in uploadedPaths) {
@@ -296,6 +321,10 @@ class CommunityOfferRepository {
         'image': uploadedUrls.isEmpty ? null : uploadedUrls.first,
         'images': uploadedUrls,
         'pickup_location': cleanLocation,
+        'latitude': latitude, // ✅
+        'longitude': longitude, // ✅
+        'phone': cleanPhone, // ✅ جديد
+        'whatsapp': cleanWhatsapp, // ✅ جديد (nullable)
         'status': 'available',
         'expires_at': expiresAt?.toUtc().toIso8601String(),
       };
@@ -333,8 +362,7 @@ class CommunityOfferRepository {
 
       if (kDebugMode) {
         debugPrint(
-          '✅ Community offer created: '
-          '$communityOfferId',
+          '✅ Community offer created: $communityOfferId',
         );
       }
 
@@ -356,8 +384,7 @@ class CommunityOfferRepository {
 
           if (kDebugMode) {
             debugPrint(
-              '⏳ Marketplace offer not ready, '
-              'retrying... '
+              '⏳ Marketplace offer not ready, retrying... '
               '(attempt ${attempt + 1}/3)',
             );
           }
@@ -380,20 +407,16 @@ class CommunityOfferRepository {
           }
 
           throw Exception(
-            'تعذر تجهيز العرض للـ Marketplace. '
-            'حاول مرة أخرى.',
+            'تعذر تجهيز العرض للـ Marketplace. حاول مرة أخرى.',
           );
         }
 
         if (kDebugMode) {
           debugPrint(
-            '✅ Marketplace offer found: '
-            '$marketplaceOfferId',
+            '✅ Marketplace offer found: $marketplaceOfferId',
           );
-
           debugPrint(
-            '📤 Saving '
-            '${uniqueMarketplaceAttributes.length} '
+            '📤 Saving ${uniqueMarketplaceAttributes.length} '
             'marketplace attributes...',
           );
         }
@@ -413,14 +436,12 @@ class CommunityOfferRepository {
         } catch (rpcError) {
           if (kDebugMode) {
             debugPrint(
-              '❌ Failed to save marketplace attributes: '
-              '$rpcError',
+              '❌ Failed to save marketplace attributes: $rpcError',
             );
           }
 
           throw Exception(
-            'تعذر حفظ مواصفات المنتج. '
-            'لم يتم إنشاء العرض بشكل كامل.',
+            'تعذر حفظ مواصفات المنتج. لم يتم إنشاء العرض بشكل كامل.',
           );
         }
       }
@@ -433,10 +454,6 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
-      // ========================================================
-      // CLEANUP UPLOADED FILES
-      // ========================================================
-
       if (uploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(uploadedPaths);
       }
@@ -455,17 +472,6 @@ class CommunityOfferRepository {
   // UPDATE OFFER
   // ============================================================
 
-  /// تعديل عرض موجود
-  ///
-  /// - [offerId] → رقم العرض
-  /// - [newImages] → صور جديدة (XFile)
-  /// - [keptImagePaths] → مسارات الصور القديمة اللي هتفضل
-  /// - [removedImagePaths] → مسارات الصور القديمة اللي هتتشال
-  ///
-  /// ملاحظات:
-  /// - الصور القديمة اللي مش في `keptImagePaths` هتتشال من الـ storage
-  /// - الصور الجديدة هتترفع
-  /// - الترتيب النهائي: kept + new
   Future<Map<String, dynamic>> updateOffer({
     required String offerId,
     required String title,
@@ -476,6 +482,12 @@ class CommunityOfferRepository {
     required int quantity,
     required double price,
     required String pickupLocation,
+    // ✅ إحداثيات مكان الاستلام
+    required double latitude,
+    required double longitude,
+    // ✅ رقم الهاتف والواتساب
+    required String contactPhone,
+    String? whatsapp,
     // الصور:
     List<XFile> newImages = const [],
     List<String> keptImagePaths = const [],
@@ -500,6 +512,8 @@ class CommunityOfferRepository {
     final cleanCategoryId = categoryId.trim();
     final cleanCategorySlug = categorySlug.trim();
     final cleanLocation = pickupLocation.trim();
+    final cleanPhone = contactPhone.trim();
+    final cleanWhatsapp = whatsapp?.trim();
 
     final cleanMarketplaceCategoryId = marketplaceCategoryId?.trim();
 
@@ -564,6 +578,30 @@ class CommunityOfferRepository {
       );
     }
 
+    if (latitude.isNaN || longitude.isNaN) {
+      throw Exception('إحداثيات الموقع غير صحيحة');
+    }
+
+    if (latitude.abs() > 90 || longitude.abs() > 180) {
+      throw Exception('إحداثيات الموقع غير صحيحة');
+    }
+
+    // ✅ التحقق من رقم الهاتف
+    if (cleanPhone.isEmpty) {
+      throw Exception('يجب إدخال رقم الهاتف للتواصل');
+    }
+
+    if (!_isValidEgyptianPhone(cleanPhone)) {
+      throw Exception('رقم الهاتف غير صحيح (مثال: 01012345678)');
+    }
+
+    // ✅ التحقق من رقم الواتساب (اختياري)
+    if (cleanWhatsapp != null && cleanWhatsapp.isNotEmpty) {
+      if (!_isValidEgyptianPhone(cleanWhatsapp)) {
+        throw Exception('رقم الواتساب غير صحيح (مثال: 01012345678)');
+      }
+    }
+
     if (expiresAt != null && !expiresAt.isAfter(DateTime.now())) {
       throw Exception(
         'تاريخ انتهاء العرض يجب أن يكون في المستقبل',
@@ -591,14 +629,13 @@ class CommunityOfferRepository {
     }
 
     // ==========================================================
-    // CLEAN MARKETPLACE ATTRIBUTES (نفس منطق create)
+    // CLEAN MARKETPLACE ATTRIBUTES
     // ==========================================================
 
     final cleanMarketplaceAttributes = <Map<String, dynamic>>[];
 
     for (final attribute in marketplaceAttributes) {
       final attributeId = attribute['attribute_id']?.toString().trim();
-
       final optionId = attribute['option_id']?.toString().trim();
 
       if (attributeId == null ||
@@ -615,7 +652,6 @@ class CommunityOfferRepository {
     }
 
     final uniqueMarketplaceAttributes = <Map<String, dynamic>>[];
-
     final usedAttributeIds = <String>{};
 
     for (final attribute in cleanMarketplaceAttributes) {
@@ -650,7 +686,7 @@ class CommunityOfferRepository {
       }
 
       // ========================================================
-      // 2) BUILD FINAL IMAGES LIST (kept + newly uploaded)
+      // 2) BUILD FINAL IMAGES LIST
       // ========================================================
 
       final cleanKeptPaths =
@@ -691,8 +727,11 @@ class CommunityOfferRepository {
         'image': finalSignedUrls.isEmpty ? null : finalSignedUrls.first,
         'images': finalSignedUrls,
         'pickup_location': cleanLocation,
+        'latitude': latitude, // ✅
+        'longitude': longitude, // ✅
+        'phone': cleanPhone, // ✅ جديد
+        'whatsapp': cleanWhatsapp, // ✅ جديد
         'expires_at': expiresAt?.toUtc().toIso8601String(),
-        // ⚠️ لا نغير status هنا
       };
 
       if (kDebugMode) {
@@ -714,7 +753,7 @@ class CommunityOfferRepository {
           .from('community_offers')
           .update(payload)
           .eq('id', cleanOfferId)
-          .eq('owner_id', authUser.id) // حماية إضافية
+          .eq('owner_id', authUser.id)
           .select()
           .single();
 
@@ -722,8 +761,7 @@ class CommunityOfferRepository {
 
       if (kDebugMode) {
         debugPrint(
-          '✅ Community offer updated: '
-          '$cleanOfferId',
+          '✅ Community offer updated: $cleanOfferId',
         );
       }
 
@@ -768,24 +806,21 @@ class CommunityOfferRepository {
           } catch (rpcError) {
             if (kDebugMode) {
               debugPrint(
-                '❌ Failed to update marketplace attributes: '
-                '$rpcError',
+                '❌ Failed to update marketplace attributes: $rpcError',
               );
             }
 
             throw Exception(
-              'تعذر حفظ مواصفات المنتج. '
-              'لم يتم تعديل العرض بشكل كامل.',
+              'تعذر حفظ مواصفات المنتج. لم يتم تعديل العرض بشكل كامل.',
             );
           }
         }
       }
 
       // ========================================================
-      // 7) CLEANUP REMOVED IMAGES (من storage)
+      // 7) CLEANUP REMOVED IMAGES
       // ========================================================
 
-      // احسب الصور اللي اتشالت
       final oldStoragePaths = <String>[];
 
       final rawImages = existing['images'];
@@ -821,10 +856,6 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
-      // ========================================================
-      // CLEANUP NEWLY UPLOADED FILES (في حالة الفشل)
-      // ========================================================
-
       if (newlyUploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(newlyUploadedPaths);
       }
@@ -840,10 +871,19 @@ class CommunityOfferRepository {
   }
 
   // ============================================================
+  // ✅ HELPER: التحقق من رقم الهاتف المصري
+  // ============================================================
+  bool _isValidEgyptianPhone(String phone) {
+    final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.length != 11) return false;
+    if (!cleaned.startsWith('01')) return false;
+    return true;
+  }
+
+  // ============================================================
   // GET OFFER BY ID
   // ============================================================
 
-  /// جلب عرض واحد بالكامل (بالصور الموقعة)
   Future<Map<String, dynamic>?> getOfferById(String offerId) async {
     if (offerId.trim().isEmpty) {
       return null;
@@ -926,8 +966,7 @@ class CommunityOfferRepository {
     if (response is! List) {
       if (kDebugMode) {
         debugPrint(
-          '⚠️ get_nearby_community_offers '
-          'returned unexpected response',
+          '⚠️ get_nearby_community_offers returned unexpected response',
         );
       }
 
@@ -951,8 +990,7 @@ class CommunityOfferRepository {
       } catch (error) {
         if (kDebugMode) {
           debugPrint(
-            'Community offer normalization error: '
-            '$error',
+            'Community offer normalization error: $error',
           );
         }
       }
@@ -1353,12 +1391,9 @@ class CommunityOfferRepository {
   }
 
   // ============================================================
-  // ✅ NEW: MARK AS COMPLETED (تم البيع)
+  // ✅ MARK AS COMPLETED (تم البيع)
   // ============================================================
 
-  /// يحوّل حالة العرض إلى `completed` (تم البيع)
-  /// - يستخدم RPC `mark_community_offer_completed` للأمان
-  /// - بيرجع true لو نجح
   Future<bool> markOfferAsCompleted(String offerId) async {
     final authUser = _client.auth.currentUser;
 
@@ -1381,7 +1416,6 @@ class CommunityOfferRepository {
         debugPrint('❌ markOfferAsCompleted error: $e');
       }
 
-      // ✅ Fallback: لو RPC مش موجود → update مباشر
       final text = e.toString().toLowerCase();
 
       if (text.contains('function') && text.contains('does not exist')) {
@@ -1402,12 +1436,9 @@ class CommunityOfferRepository {
   }
 
   // ============================================================
-  // ✅ NEW: RENEW OFFER (تجديد العرض)
+  // ✅ RENEW OFFER
   // ============================================================
 
-  /// يجدّد عرض منتهي أو ملغي
-  /// - [days] عدد الأيام الجديدة (افتراضي: 7)
-  /// - يرجع تاريخ الانتهاء الجديد
   Future<DateTime?> renewOffer(
     String offerId, {
     int days = 7,

@@ -12,7 +12,6 @@ import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donati
 import 'package:loqma/features/home/presentation/pages/symbolic_purchase_page.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
-import 'package:loqma/features/institutions/presentation/pages/institutions_home_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';

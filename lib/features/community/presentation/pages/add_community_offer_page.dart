@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/marketplace/data/repositories/marketplace_repository_impl.dart';
 import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute.dart';
@@ -14,7 +15,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AddCommunityOfferPage extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic> draft)? onSubmit;
 
-  // ✅ NEW: للوضع "تعديل"
   final String? offerId;
   final Map<String, dynamic>? initialData;
 
@@ -25,7 +25,6 @@ class AddCommunityOfferPage extends StatefulWidget {
     this.initialData,
   });
 
-  /// ✅ هل إحنا في وضع تعديل؟
   bool get isEditMode => offerId != null && offerId!.trim().isNotEmpty;
 
   @override
@@ -40,91 +39,52 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final _quantityController = TextEditingController(text: '1');
   final _priceController = TextEditingController();
   final _locationController = TextEditingController();
+  final _phoneController = TextEditingController(); // ✅
+  final _whatsappController = TextEditingController(); // ✅
 
   final _picker = ImagePicker();
 
   final _repository = CommunityOfferRepository();
   final _marketplaceRepository = MarketplaceRepositoryImpl();
 
-  // ============================================================
-  // Community
-  // ============================================================
-
   static const String _listingType = 'symbolic_sale';
 
-  // ============================================================
   // Category
-  // ============================================================
-
   String? _categoryId;
   String? _categorySlug;
   String? _marketplaceCategoryId;
 
-  // ============================================================
+  // ✅ إحداثيات مكان الاستلام
+  double? _lat;
+  double? _lng;
+
   // Marketplace Dynamic Attributes
-  // ============================================================
-
   List<MarketplaceAttribute> _marketplaceAttributes = [];
-
   final Map<String, List<MarketplaceAttributeOption>> _marketplaceOptions = {};
-
   final Map<String, String> _selectedMarketplaceOptionIds = {};
-
   final Map<String, String> _selectedMarketplaceValues = {};
-
   final Map<String, String> _selectedMarketplaceValueTypes = {};
 
   bool _isLoadingMarketplaceAttributes = false;
   bool _isLoadingMarketplaceOptions = false;
 
-  // ============================================================
-  // Request protection
-  // ============================================================
-
   int _categoryRequestId = 0;
   int _optionsRequestId = 0;
 
-  // ============================================================
-  // Images (إنشاء + تعديل)
-  // ============================================================
-
-  /// صور جديدة (XFile) - هتترفع
+  // Images
   final List<XFile> _newImages = [];
-
-  /// مسارات الصور القديمة اللي هتفضل (storage paths)
   final List<String> _keptImagePaths = [];
-
-  /// مسارات الصور القديمة اللي هتتشال (storage paths)
   final List<String> _removedImagePaths = [];
-
-  /// صور قديمة موقّعة للعرض في الواجهة (URLs)
   final List<String> _existingImageUrls = [];
 
-  // ============================================================
-  // Expiry
-  // ============================================================
-
   String _expiryOption = '7_days';
-
-  // ============================================================
-  // Confirmation
-  // ============================================================
-
   bool _termsAccepted = false;
-
-  // ============================================================
-  // Loading
-  // ============================================================
 
   bool _isSubmitting = false;
   bool _isLoadingCategories = false;
   bool _isInitializing = false;
 
   List<Map<String, dynamic>> _categories = const [];
-
-  // ============================================================
-  // Init
-  // ============================================================
 
   @override
   void initState() {
@@ -139,9 +99,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   // ============================================================
-  // Prefill from initialData (وضع التعديل)
+  // Prefill from initialData
   // ============================================================
-
   void _prefillFromInitialData() {
     final data = widget.initialData;
     if (data == null) {
@@ -149,10 +108,17 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
-    // ─── الحقول النصية
     _titleController.text = data['title']?.toString() ?? '';
     _descriptionController.text = data['description']?.toString() ?? '';
     _locationController.text = data['pickup_location']?.toString() ?? '';
+
+    // ✅ نقرأ الإحداثيات
+    _lat = (data['latitude'] as num?)?.toDouble();
+    _lng = (data['longitude'] as num?)?.toDouble();
+
+    // ✅ نقرأ رقم الهاتف والواتساب (phone مش contact_phone)
+    _phoneController.text = data['phone']?.toString() ?? '';
+    _whatsappController.text = data['whatsapp']?.toString() ?? '';
 
     final price = data['price'];
     if (price != null) {
@@ -172,15 +138,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       _quantityController.text = q.toString();
     }
 
-    // ─── التصنيف
     _categoryId = data['category_id']?.toString();
     _categorySlug = data['category']?.toString();
     _marketplaceCategoryId = data['marketplace_category_id']?.toString();
 
-    // ─── مدة العرض
     _expiryOption = _deriveExpiryOption(data['expires_at']);
 
-    // ─── الصور
     final rawImages = data['images'];
     final rawImage = data['image']?.toString();
 
@@ -198,71 +161,43 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       imageUrls.add(rawImage);
     }
 
-    // ✅ نحتفظ بالـ URLs كاملة (signed) للعرض
-    // ✅ ونحتفظ بالـ storage paths للـ kept
     _existingImageUrls.addAll(imageUrls);
 
     for (final url in imageUrls) {
       _keptImagePaths.add(_extractStoragePath(url));
     }
 
-    // ─── الشروط (تفعيل تلقائي)
     _termsAccepted = true;
   }
 
-  /// استخراج الـ expiryOption من expires_at
   String _deriveExpiryOption(dynamic expiresAt) {
     if (expiresAt == null) return 'never';
-
     final text = expiresAt.toString().trim();
     if (text.isEmpty || text == 'null') return 'never';
-
     final date = DateTime.tryParse(text);
     if (date == null) return '7_days';
-
     final diff = date.difference(DateTime.now());
-
     if (diff.inDays <= 7) return '7_days';
     if (diff.inDays <= 14) return '14_days';
     if (diff.inDays <= 30) return '30_days';
-
     return '30_days';
   }
 
-  /// استخراج storage path من URL
   String _extractStoragePath(String url) {
     if (url.isEmpty) return '';
-
-    // لو URL موقّع: https://.../community-offers/<path>?token=...
-    // أو public:  https://.../object/public/community-offers/<path>
-
     try {
       final uri = Uri.parse(url);
-
-      // ابحث عن community-offers في الـ path
       final segments = uri.pathSegments;
-
       final index = segments.indexOf('community-offers');
-
       if (index != -1 && index < segments.length - 1) {
-        // رجع كل حاجة بعد community-offers
         return segments.sublist(index + 1).join('/');
       }
-    } catch (_) {
-      // مش URL → ممكن يكون path مباشر
-    }
-
-    // لو مش URL، رجعه زي ما هو (ممكن يكون path أصلاً)
+    } catch (_) {}
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       return url;
     }
-
     return '';
   }
-
-  // ============================================================
-  // Dispose
-  // ============================================================
 
   @override
   void dispose() {
@@ -271,45 +206,73 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     _quantityController.dispose();
     _priceController.dispose();
     _locationController.dispose();
-
+    _phoneController.dispose(); // ✅
+    _whatsappController.dispose(); // ✅
     super.dispose();
   }
 
   // ============================================================
   // Helpers
   // ============================================================
-
   bool get _isCars => _categorySlug == 'cars';
-
   bool get _isOther => _categorySlug == 'other';
-
   bool get _isEditMode => widget.isEditMode;
-
-  /// إجمالي عدد الصور الحالية (قديمة + جديدة)
   int get _totalImages => _keptImagePaths.length + _newImages.length;
 
+  // ✅ التحقق من رقم مصري
+  bool _isValidEgyptianPhone(String phone) {
+    final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.length != 11) return false;
+    if (!cleaned.startsWith('01')) return false;
+    return true;
+  }
+
   // ============================================================
-  // Has unsaved data?
+  // فتح خريطة تحديد الموقع
   // ============================================================
+  Future<void> _openLocationPicker() async {
+    FocusScope.of(context).unfocus();
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerPage(
+          initialLat: _lat,
+          initialLng: _lng,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _lat = (result['lat'] as num?)?.toDouble();
+      _lng = (result['lng'] as num?)?.toDouble();
+    });
+  }
 
   bool _hasUnsavedData() {
-    // في وضع التعديل: دايماً محتاجين نأكد لو المستخدم عدّل حاجة
-    // (لأن في بيانات pre-filled أصلاً)
     if (_isEditMode) {
-      // لو لسه بيحمّل → مفيش
       if (_isInitializing) return false;
-
-      // قارن مع البيانات الأصلية
       final data = widget.initialData;
       if (data == null) return false;
 
       final origTitle = data['title']?.toString().trim() ?? '';
       final origDesc = data['description']?.toString().trim() ?? '';
       final origLoc = data['pickup_location']?.toString().trim() ?? '';
+      final origPhone = data['phone']?.toString().trim() ?? '';
+      final origWhatsapp = data['whatsapp']?.toString().trim() ?? '';
 
       if (_titleController.text.trim() != origTitle) return true;
       if (_descriptionController.text.trim() != origDesc) return true;
       if (_locationController.text.trim() != origLoc) return true;
+      if (_phoneController.text.trim() != origPhone) return true;
+      if (_whatsappController.text.trim() != origWhatsapp) return true;
+
+      final origLat = (data['latitude'] as num?)?.toDouble();
+      final origLng = (data['longitude'] as num?)?.toDouble();
+      if (_lat != origLat) return true;
+      if (_lng != origLng) return true;
 
       if (_newImages.isNotEmpty) return true;
       if (_removedImagePaths.isNotEmpty) return true;
@@ -317,11 +280,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return false;
     }
 
-    // في وضع الإنشاء: زي ما كان
     if (_titleController.text.trim().isNotEmpty) return true;
     if (_descriptionController.text.trim().isNotEmpty) return true;
     if (_priceController.text.trim().isNotEmpty) return true;
     if (_locationController.text.trim().isNotEmpty) return true;
+    if (_phoneController.text.trim().isNotEmpty) return true;
+    if (_whatsappController.text.trim().isNotEmpty) return true;
 
     final qty = _quantityController.text.trim();
     if (qty.isNotEmpty && qty != '1') return true;
@@ -335,10 +299,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     return false;
   }
-
-  // ============================================================
-  // Confirm exit
-  // ============================================================
 
   Future<bool> _confirmExit() async {
     final colors = Theme.of(context).colorScheme;
@@ -366,55 +326,39 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         title: const Text(
           'هل أنت متأكد؟',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
         ),
         content: Text(
           _isEditMode
               ? 'لو خرجت دلوقتي، كل التعديلات اللي عملتها هتضيع ومش هتقدر ترجعها تاني.'
               : 'لو خرجت دلوقتي، كل البيانات اللي كتبتها هتضيع ومش هتقدر ترجعها تاني.',
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 13,
-            height: 1.5,
-          ),
+          style: const TextStyle(fontSize: 13, height: 1.5),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
             style: TextButton.styleFrom(
               foregroundColor: colors.primary,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
             child: const Text(
               'كمّل التعديل',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: FilledButton.styleFrom(
               backgroundColor: colors.error,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
               'اخرج',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -427,34 +371,22 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   // ============================================================
   // Load categories
   // ============================================================
-
   Future<void> _loadCategories() async {
-    if (mounted) {
-      setState(() {
-        _isLoadingCategories = true;
-      });
-    }
+    if (mounted) setState(() => _isLoadingCategories = true);
 
     try {
       final rows = await _repository.getCategories();
-
       if (!mounted) return;
 
-      setState(() {
-        _categories = rows;
-      });
+      setState(() => _categories = rows);
 
-      // ✅ في وضع التعديل: بعد تحميل التصنيفات → نحمّل الـ marketplace attributes
       if (_isEditMode && _marketplaceCategoryId != null) {
         await _loadMarketplaceAttributes(_marketplaceCategoryId!);
       }
     } catch (error) {
       debugPrint('❌ Failed to load categories: $error');
-
       if (mounted) {
-        _showMessage(
-          'تعذر تحميل التصنيفات. حاول مرة أخرى.',
-        );
+        _showMessage('تعذر تحميل التصنيفات. حاول مرة أخرى.');
       }
     } finally {
       if (mounted) {
@@ -466,13 +398,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
   }
 
-  // ============================================================
-  // Get marketplace category by slug
-  // ============================================================
-
-  Future<String?> _getMarketplaceCategoryIdBySlug(
-    String slug,
-  ) async {
+  Future<String?> _getMarketplaceCategoryIdBySlug(String slug) async {
     if (slug.isEmpty) return null;
 
     try {
@@ -484,29 +410,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           .maybeSingle();
 
       if (response == null) {
-        debugPrint(
-          '⚠️ No active marketplace category with slug: $slug',
-        );
+        debugPrint('⚠️ No active marketplace category with slug: $slug');
         return null;
       }
 
       return response['id']?.toString();
     } catch (error) {
-      debugPrint(
-        '⚠️ Failed to load marketplace category: $error',
-      );
-
+      debugPrint('⚠️ Failed to load marketplace category: $error');
       return null;
     }
   }
 
-  // ============================================================
-  // Load category flow
-  // ============================================================
-
-  Future<void> _loadMarketplaceAttributes(
-    String categoryId,
-  ) async {
+  Future<void> _loadMarketplaceAttributes(String categoryId) async {
     if (!mounted) return;
 
     final requestId = ++_categoryRequestId;
@@ -523,50 +438,35 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     });
 
     try {
-      final attributes = await _marketplaceRepository.getCategoryFlow(
-        categoryId,
-      );
+      final attributes =
+          await _marketplaceRepository.getCategoryFlow(categoryId);
 
       if (!mounted) return;
-
       if (requestId != _categoryRequestId) return;
       if (_marketplaceCategoryId != categoryId) return;
 
       setState(() {
-        _marketplaceAttributes = attributes.where(
-          (attribute) {
-            if (_isCars) {
-              return true;
-            }
-
-            if (_isOther) {
-              return attribute.slug == 'condition' ||
-                  attribute.slug == 'item_type';
-            }
-
-            return attribute.slug == 'condition';
-          },
-        ).toList()
-          ..sort(
-            (a, b) => a.sortOrder.compareTo(b.sortOrder),
-          );
+        _marketplaceAttributes = attributes.where((attribute) {
+          if (_isCars) return true;
+          if (_isOther) {
+            return attribute.slug == 'condition' ||
+                attribute.slug == 'item_type';
+          }
+          return attribute.slug == 'condition';
+        }).toList()
+          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
         _isLoadingMarketplaceAttributes = false;
       });
 
       if (_marketplaceAttributes.isNotEmpty) {
-        await _loadMarketplaceAttribute(
-          _marketplaceAttributes.first,
-        );
+        await _loadMarketplaceAttribute(_marketplaceAttributes.first);
       }
     } catch (error, stackTrace) {
-      debugPrint(
-        '❌ Failed to load marketplace attributes: $error',
-      );
+      debugPrint('❌ Failed to load marketplace attributes: $error');
       debugPrint('$stackTrace');
 
       if (!mounted) return;
-
       if (requestId != _categoryRequestId) return;
 
       setState(() {
@@ -578,52 +478,37 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         _selectedMarketplaceValueTypes.clear();
       });
 
-      _showMessage(
-        'تعذر تحميل خصائص التصنيف. حاول مرة أخرى.',
-      );
+      _showMessage('تعذر تحميل خصائص التصنيف. حاول مرة أخرى.');
     }
   }
-
-  // ============================================================
-  // Load attribute
-  // ============================================================
 
   Future<void> _loadMarketplaceAttribute(
     MarketplaceAttribute attribute, {
     String? parentOptionId,
   }) async {
     final categoryId = _marketplaceCategoryId;
-
     if (categoryId == null || categoryId.isEmpty) return;
 
     if (attribute.inputType != 'select') {
       if (!mounted) return;
-
       setState(() {
         _marketplaceOptions[attribute.slug] =
             const <MarketplaceAttributeOption>[];
         _isLoadingMarketplaceOptions = false;
       });
-
       return;
     }
 
     final requestCategoryId = categoryId;
     final requestAttributeId = attribute.attributeId;
-
     final requestId = ++_optionsRequestId;
 
-    if (mounted) {
-      setState(() {
-        _isLoadingMarketplaceOptions = true;
-      });
-    }
+    if (mounted) setState(() => _isLoadingMarketplaceOptions = true);
 
     try {
       final response = await Supabase.instance.client
           .from('marketplace_category_attribute_options')
-          .select(
-            '''
+          .select('''
             option_id,
             marketplace_attribute_options!inner(
               id,
@@ -637,15 +522,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               is_active,
               metadata
             )
-            ''',
-          )
+            ''')
           .eq('category_id', requestCategoryId)
           .eq('attribute_id', requestAttributeId)
           .eq('marketplace_attribute_options.is_active', true)
-          .order(
-            'sort_order',
-            referencedTable: 'marketplace_attribute_options',
-          );
+          .order('sort_order',
+              referencedTable: 'marketplace_attribute_options');
 
       if (!mounted) return;
       if (requestId != _optionsRequestId) return;
@@ -655,31 +537,25 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       var options = rows
           .whereType<Map>()
-          .map(
-            (row) {
-              final raw = row['marketplace_attribute_options'];
-
-              if (raw is! Map) return null;
-
-              final item = Map<String, dynamic>.from(raw);
-
-              return MarketplaceAttributeOption(
-                id: item['id']?.toString() ?? '',
-                attributeId: item['attribute_id']?.toString() ?? '',
-                value: item['value']?.toString() ?? '',
-                labelAr: item['label_ar']?.toString() ?? '',
-                labelEn: item['label_en']?.toString() ?? '',
-                icon: item['icon']?.toString(),
-                sortOrder: (item['sort_order'] as num?)?.toInt() ?? 0,
-                parentOptionId: item['parent_option_id']?.toString(),
-              );
-            },
-          )
+          .map((row) {
+            final raw = row['marketplace_attribute_options'];
+            if (raw is! Map) return null;
+            final item = Map<String, dynamic>.from(raw);
+            return MarketplaceAttributeOption(
+              id: item['id']?.toString() ?? '',
+              attributeId: item['attribute_id']?.toString() ?? '',
+              value: item['value']?.toString() ?? '',
+              labelAr: item['label_ar']?.toString() ?? '',
+              labelEn: item['label_en']?.toString() ?? '',
+              icon: item['icon']?.toString(),
+              sortOrder: (item['sort_order'] as num?)?.toInt() ?? 0,
+              parentOptionId: item['parent_option_id']?.toString(),
+            );
+          })
           .whereType<MarketplaceAttributeOption>()
           .where((option) => option.id.isNotEmpty)
           .toList();
 
-      // Remove duplicates
       final seen = <String>{};
       options = options.where((option) {
         if (seen.contains(option.id)) return false;
@@ -687,7 +563,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         return true;
       }).toList();
 
-      // Parent filtering
       if (parentOptionId != null && parentOptionId.isNotEmpty) {
         final children = options
             .where((option) => option.parentOptionId == parentOptionId)
@@ -700,19 +575,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               options.where((option) => option.parentOptionId == null).toList();
         }
       } else {
-        final hasChildren = options.any(
-          (option) => option.parentOptionId != null,
-        );
-
+        final hasChildren =
+            options.any((option) => option.parentOptionId != null);
         if (hasChildren) {
           options =
               options.where((option) => option.parentOptionId == null).toList();
         }
       }
 
-      options.sort(
-        (a, b) => a.sortOrder.compareTo(b.sortOrder),
-      );
+      options.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
       if (!mounted) return;
       if (requestId != _optionsRequestId) return;
@@ -735,27 +606,19 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         _isLoadingMarketplaceOptions = false;
       });
 
-      _showMessage(
-        'تعذر تحميل خيارات ${attribute.nameAr}.',
-      );
+      _showMessage('تعذر تحميل خيارات ${attribute.nameAr}.');
     }
   }
-
-  // ============================================================
-  // Select option
-  // ============================================================
 
   Future<void> _selectMarketplaceOption({
     required MarketplaceAttribute attribute,
     required MarketplaceAttributeOption option,
   }) async {
     final categoryId = _marketplaceCategoryId;
-
     if (categoryId == null || categoryId.isEmpty) return;
 
-    final attributeIndex = _marketplaceAttributes.indexWhere(
-      (item) => item.attributeId == attribute.attributeId,
-    );
+    final attributeIndex = _marketplaceAttributes
+        .indexWhere((item) => item.attributeId == attribute.attributeId);
 
     if (attributeIndex == -1) return;
 
@@ -766,7 +629,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       for (var i = attributeIndex + 1; i < _marketplaceAttributes.length; i++) {
         final next = _marketplaceAttributes[i];
-
         _selectedMarketplaceOptionIds.remove(next.slug);
         _selectedMarketplaceValues.remove(next.slug);
         _selectedMarketplaceValueTypes.remove(next.slug);
@@ -789,25 +651,19 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (_marketplaceCategoryId != categoryId) return;
 
       if (nextAttribute == null) {
-        setState(() {
-          _isLoadingMarketplaceOptions = false;
-        });
+        setState(() => _isLoadingMarketplaceOptions = false);
         return;
       }
 
-      final isAllowed = _marketplaceAttributes.any(
-        (item) => item.attributeId == nextAttribute.attributeId,
-      );
+      final isAllowed = _marketplaceAttributes
+          .any((item) => item.attributeId == nextAttribute.attributeId);
 
       if (!isAllowed) {
-        setState(() {
-          _isLoadingMarketplaceOptions = false;
-        });
+        setState(() => _isLoadingMarketplaceOptions = false);
         return;
       }
 
       String? parentOptionId;
-
       if (nextAttribute.inputType == 'select') {
         parentOptionId = option.id;
       }
@@ -823,35 +679,23 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (!mounted) return;
       if (requestId != _optionsRequestId) return;
 
-      setState(() {
-        _isLoadingMarketplaceOptions = false;
-      });
-
-      _showMessage(
-        'تعذر تحميل الخطوة التالية. حاول مرة أخرى.',
-      );
+      setState(() => _isLoadingMarketplaceOptions = false);
+      _showMessage('تعذر تحميل الخطوة التالية. حاول مرة أخرى.');
     }
   }
-
-  // ============================================================
-  // Save number/text value
-  // ============================================================
 
   Future<void> _saveMarketplaceValue({
     required MarketplaceAttribute attribute,
     required String value,
   }) async {
     final cleanValue = value.trim();
-
     if (cleanValue.isEmpty) return;
 
     final categoryId = _marketplaceCategoryId;
-
     if (categoryId == null || categoryId.isEmpty) return;
 
-    final attributeIndex = _marketplaceAttributes.indexWhere(
-      (item) => item.attributeId == attribute.attributeId,
-    );
+    final attributeIndex = _marketplaceAttributes
+        .indexWhere((item) => item.attributeId == attribute.attributeId);
 
     if (attributeIndex == -1) return;
 
@@ -862,7 +706,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       for (var i = attributeIndex + 1; i < _marketplaceAttributes.length; i++) {
         final next = _marketplaceAttributes[i];
-
         _selectedMarketplaceOptionIds.remove(next.slug);
         _selectedMarketplaceValues.remove(next.slug);
         _selectedMarketplaceValueTypes.remove(next.slug);
@@ -873,24 +716,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     final nextIndex = attributeIndex + 1;
 
     if (nextIndex >= _marketplaceAttributes.length) {
-      if (mounted) {
-        setState(() {
-          _isLoadingMarketplaceOptions = false;
-        });
-      }
+      if (mounted) setState(() => _isLoadingMarketplaceOptions = false);
       return;
     }
 
     final nextAttribute = _marketplaceAttributes[nextIndex];
-
     if (!mounted) return;
-
     await _loadMarketplaceAttribute(nextAttribute);
   }
-
-  // ============================================================
-  // Build marketplace payload
-  // ============================================================
 
   List<Map<String, dynamic>> _buildMarketplaceAttributesPayload() {
     final payload = <Map<String, dynamic>>[];
@@ -914,7 +747,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (selectedValue != null && selectedValue.trim().isNotEmpty) {
         if (attribute.inputType == 'number') {
           final number = num.tryParse(selectedValue.trim());
-
           if (number != null && number.isFinite) {
             payload.add({
               'attribute_id': attribute.attributeId,
@@ -937,10 +769,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return payload;
   }
 
-  // ============================================================
-  // Validate marketplace flow
-  // ============================================================
-
   String? _validateMarketplaceAttributes() {
     for (final attribute in _marketplaceAttributes) {
       if (!attribute.isRequired) continue;
@@ -956,23 +784,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         if (value == null || value.trim().isEmpty) {
           return 'أدخل ${attribute.nameAr}';
         }
-
         if (attribute.inputType == 'number') {
           final number = num.tryParse(value.trim());
-
           if (number == null || !number.isFinite || number <= 0) {
             return 'أدخل ${attribute.nameAr} بشكل صحيح';
           }
         }
       }
     }
-
     return null;
   }
-
-  // ============================================================
-  // Images
-  // ============================================================
 
   Future<void> _pickImages() async {
     if (_totalImages >= 6) {
@@ -985,33 +806,21 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         imageQuality: 82,
         maxWidth: 1600,
       );
-
       if (!mounted || picked.isEmpty) return;
-
       setState(() {
-        _newImages.addAll(
-          picked.take(6 - _totalImages),
-        );
+        _newImages.addAll(picked.take(6 - _totalImages));
       });
     } catch (error) {
       debugPrint('❌ Failed to pick images: $error');
-
-      if (mounted) {
-        _showMessage('تعذر اختيار الصور، حاول مرة أخرى');
-      }
+      if (mounted) _showMessage('تعذر اختيار الصور، حاول مرة أخرى');
     }
   }
 
-  /// حذف صورة جديدة
   void _removeNewImage(int index) {
     if (!mounted || index < 0 || index >= _newImages.length) return;
-
-    setState(() {
-      _newImages.removeAt(index);
-    });
+    setState(() => _newImages.removeAt(index));
   }
 
-  /// حذف صورة قديمة
   void _removeExistingImage(int index) {
     if (!mounted || index < 0 || index >= _existingImageUrls.length) return;
 
@@ -1022,20 +831,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     setState(() {
       _existingImageUrls.removeAt(index);
-
       if (index < _keptImagePaths.length) {
         _keptImagePaths.removeAt(index);
       }
-
       if (path.isNotEmpty && !_removedImagePaths.contains(path)) {
         _removedImagePaths.add(path);
       }
     });
   }
-
-  // ============================================================
-  // Expiry
-  // ============================================================
 
   DateTime? _getExpiresAt() {
     final now = DateTime.now();
@@ -1054,16 +857,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
   }
 
-  // ============================================================
-  // Submit
-  // ============================================================
-
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) return;
 
-    // Category
     if (_categoryId == null ||
         _categorySlug == null ||
         _categorySlug!.isEmpty) {
@@ -1071,42 +869,63 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
-    // Marketplace
     if (_marketplaceAttributes.isNotEmpty) {
       final marketplaceError = _validateMarketplaceAttributes();
-
       if (marketplaceError != null) {
         _showMessage(marketplaceError);
         return;
       }
     }
 
-    // Images
     if (_totalImages == 0) {
       _showMessage('أضف صورة واحدة على الأقل للعرض');
       return;
     }
 
-    // Terms
     if (!_termsAccepted) {
       _showMessage('يجب تأكيد صحة بيانات العرض قبل النشر');
       return;
     }
 
-    // Quantity
-    final quantity = int.tryParse(
-          _quantityController.text.trim(),
-        ) ??
-        0;
+    // ✅ التحقق من تحديد الموقع
+    if (_lat == null || _lng == null) {
+      _showMessage('حدّد مكان الاستلام على الخريطة');
+      return;
+    }
 
+    final lat = _lat!;
+    final lng = _lng!;
+
+    // ✅ التحقق من رقم الهاتف
+    final contactPhone = _phoneController.text.trim();
+    if (contactPhone.isEmpty) {
+      _showMessage('اكتب رقم هاتفك للتواصل');
+      return;
+    }
+
+    if (!_isValidEgyptianPhone(contactPhone)) {
+      _showMessage('رقم الهاتف غير صحيح (مثال: 01012345678)');
+      return;
+    }
+
+    // ✅ رقم الواتساب (اختياري)
+    final whatsappInput = _whatsappController.text.trim();
+    String? whatsapp;
+    if (whatsappInput.isNotEmpty) {
+      if (!_isValidEgyptianPhone(whatsappInput)) {
+        _showMessage('رقم الواتساب غير صحيح (مثال: 01012345678)');
+        return;
+      }
+      whatsapp = whatsappInput;
+    }
+
+    final quantity = int.tryParse(_quantityController.text.trim()) ?? 0;
     if (quantity <= 0) {
       _showMessage('أدخل كمية أكبر من صفر');
       return;
     }
 
-    // Price
     final price = double.tryParse(_priceController.text.trim()) ?? 0;
-
     if (price <= 0) {
       _showMessage('أدخل سعرًا أكبر من صفر');
       return;
@@ -1117,23 +936,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
-    // Location
     final pickupLocation = _locationController.text.trim();
-
     if (pickupLocation.isEmpty) {
       _showMessage('اكتب مكان الاستلام');
       return;
     }
 
-    // Expiry
     final expiresAt = _getExpiresAt();
-
-    // Marketplace attributes
     final marketplaceAttributes = _buildMarketplaceAttributesPayload();
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
       // ======================================================
@@ -1141,7 +953,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       // ======================================================
       if (_isEditMode) {
         if (widget.onSubmit != null) {
-          // لو في onSubmit مخصص
           final draft = <String, dynamic>{
             'id': widget.offerId,
             'title': _titleController.text.trim(),
@@ -1154,6 +965,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             'quantity': quantity,
             'price': price,
             'pickup_location': pickupLocation,
+            'latitude': lat,
+            'longitude': lng,
+            'phone': contactPhone, // ✅ تم التعديل
+            'whatsapp': whatsapp, // ✅
             'expires_at': expiresAt?.toUtc().toIso8601String(),
             'marketplace_attributes': marketplaceAttributes,
             'kept_image_paths': _keptImagePaths,
@@ -1163,7 +978,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
           await widget.onSubmit!(draft);
         } else {
-          // ✅ استخدام updateOffer
           await _repository.updateOffer(
             offerId: widget.offerId!,
             title: _titleController.text.trim(),
@@ -1174,6 +988,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             quantity: quantity,
             price: price,
             pickupLocation: pickupLocation,
+            latitude: lat,
+            longitude: lng,
+            contactPhone: contactPhone, // ✅
+            whatsapp: whatsapp, // ✅
             newImages: _newImages,
             keptImagePaths: _keptImagePaths,
             expiresAt: expiresAt,
@@ -1184,19 +1002,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
         if (!mounted) return;
 
-        _showMessage(
-          'تم تحديث العرض بنجاح',
-          success: true,
-        );
+        _showMessage('تم تحديث العرض بنجاح', success: true);
 
-        // ✅ نرجع offer ID (أو أي قيمة) عشان الصفحة الأم تعمل reload
-        Navigator.pop(
-          context,
-          {
-            'id': widget.offerId,
-            'updated': true,
-          },
-        );
+        Navigator.pop(context, {
+          'id': widget.offerId,
+          'updated': true,
+        });
 
         return;
       }
@@ -1204,7 +1015,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       // ======================================================
       // CREATE MODE
       // ======================================================
-
       final draft = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -1216,6 +1026,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         'quantity': quantity,
         'price': price,
         'pickup_location': pickupLocation,
+        'latitude': lat,
+        'longitude': lng,
+        'phone': contactPhone, // ✅ تم التعديل
+        'whatsapp': whatsapp, // ✅
         'expires_at': expiresAt?.toUtc().toIso8601String(),
         'marketplace_attributes': marketplaceAttributes,
         'local_images': _newImages.map((i) => i.path).toList(),
@@ -1235,6 +1049,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           quantity: quantity,
           price: price,
           pickupLocation: pickupLocation,
+          latitude: lat,
+          longitude: lng,
+          contactPhone: contactPhone, // ✅
+          whatsapp: whatsapp, // ✅
           images: _newImages,
           expiresAt: expiresAt,
           marketplaceAttributes: marketplaceAttributes,
@@ -1243,63 +1061,36 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       if (!mounted) return;
 
-      _showMessage(
-        'تم إنشاء العرض بنجاح',
-        success: true,
-      );
-
+      _showMessage('تم إنشاء العرض بنجاح', success: true);
       Navigator.pop(context, draft);
     } catch (error) {
       debugPrint('❌ Failed to submit community offer: $error');
-
-      if (mounted) {
-        _showMessage(_friendlyError(error));
-      }
+      if (mounted) _showMessage(_friendlyError(error));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // ============================================================
-  // Legacy condition
-  // ============================================================
-
   String _getLegacyCondition() {
-    final conditionAttribute = _marketplaceAttributes.where(
-      (attribute) => attribute.slug == 'condition',
-    );
+    final conditionAttribute = _marketplaceAttributes
+        .where((attribute) => attribute.slug == 'condition');
 
-    if (conditionAttribute.isEmpty) {
-      return 'good';
-    }
+    if (conditionAttribute.isEmpty) return 'good';
 
     final selectedOptionId = _selectedMarketplaceOptionIds['condition'];
-
-    if (selectedOptionId == null || selectedOptionId.isEmpty) {
-      return 'good';
-    }
+    if (selectedOptionId == null || selectedOptionId.isEmpty) return 'good';
 
     final options = _marketplaceOptions['condition'] ??
         const <MarketplaceAttributeOption>[];
 
     final selected = options.where((option) => option.id == selectedOptionId);
-
     if (selected.isEmpty) return 'good';
 
     final value = selected.first.value.trim();
-
     if (value.isEmpty) return 'good';
 
     return value;
   }
-
-  // ============================================================
-  // Friendly errors
-  // ============================================================
 
   String _friendlyError(Object error) {
     final text = error.toString().toLowerCase();
@@ -1308,51 +1099,39 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         text.contains('location is required')) {
       return 'يجب تفعيل موقعك أولًا حتى تتمكن من نشر العرض.';
     }
-
     if (text.contains('permission') || text.contains('row-level security')) {
       return 'لا تملك صلاحية حفظ هذا العرض. تأكد من تسجيل الدخول وحاول مرة أخرى.';
     }
-
     if (text.contains('network') ||
         text.contains('socket') ||
         text.contains('connection')) {
       return 'تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى.';
     }
-
     if (text.contains('category')) {
       return 'تصنيف العرض غير صحيح. اختر تصنيفًا آخر وحاول مرة أخرى.';
     }
-
     if (text.contains('attribute') || text.contains('option')) {
       return 'خصائص العرض غير صحيحة. أعد اختيار الخصائص وحاول مرة أخرى.';
     }
-
     if (text.contains('expires') || text.contains('expiry')) {
       return 'تاريخ انتهاء العرض غير صحيح.';
     }
-
     if (text.contains('listing_type') || text.contains('symbolic_sale')) {
       return 'نوع العرض غير صحيح. يجب أن يكون العرض بيعًا بسعر رمزي.';
     }
-
     if (text.contains('charity')) {
       return 'هذا النوع من العروض لا يدعم الجمعيات الخيرية.';
     }
-
-    if (text.contains('price')) {
-      return 'السعر يجب أن يكون أكبر من صفر.';
-    }
-
+    if (text.contains('price')) return 'السعر يجب أن يكون أكبر من صفر.';
     if (text.contains('quantity')) {
       return 'الكمية يجب أن تكون أكبر من صفر.';
+    }
+    if (text.contains('phone') || text.contains('contact')) {
+      return 'رقم الهاتف غير صحيح.';
     }
 
     return 'تعذر حفظ العرض. راجع البيانات وحاول مرة أخرى.';
   }
-
-  // ============================================================
-  // Message
-  // ============================================================
 
   void _showMessage(String message, {bool success = false}) {
     final colors = Theme.of(context).colorScheme;
@@ -1361,10 +1140,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            textDirection: TextDirection.rtl,
-          ),
+          content: Text(message, textDirection: TextDirection.rtl),
           backgroundColor: success ? colors.primary : colors.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -1373,10 +1149,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         ),
       );
   }
-
-  // ============================================================
-  // Build
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -1389,19 +1161,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         canPop: !_hasUnsavedData(),
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
-
           final shouldPop = await _confirmExit();
-
-          if (shouldPop && mounted) {
-            Navigator.of(context).pop();
-          }
+          if (shouldPop && mounted) Navigator.of(context).pop();
         },
         child: Scaffold(
           backgroundColor: colors.surface,
           appBar: AppBar(
-            title: Text(
-              _isEditMode ? 'تعديل العرض' : 'أضف عرضًا جديدًا',
-            ),
+            title: Text(_isEditMode ? 'تعديل العرض' : 'أضف عرضًا جديدًا'),
             centerTitle: true,
             backgroundColor: isDark ? const Color(0xFF1F1F1F) : colors.surface,
             foregroundColor: colors.onSurface,
@@ -1413,19 +1179,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                   Navigator.of(context).pop();
                   return;
                 }
-
                 final shouldPop = await _confirmExit();
-
-                if (shouldPop && mounted) {
-                  Navigator.of(context).pop();
-                }
+                if (shouldPop && mounted) Navigator.of(context).pop();
               },
             ),
           ),
           body: _isInitializing
-              ? Center(
-                  child: CircularProgressIndicator(color: colors.primary),
-                )
+              ? Center(child: CircularProgressIndicator(color: colors.primary))
               : Form(
                   key: _formKey,
                   child: ListView(
@@ -1452,19 +1212,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Intro
-  // ============================================================
-
   Widget _buildIntro(ColorScheme colors) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            colors.primary,
-            colors.primary.withValues(alpha: 0.7),
-          ],
+          colors: [colors.primary, colors.primary.withValues(alpha: 0.7)],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -1503,10 +1256,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Images (قديمة + جديدة)
-  // ============================================================
-
   Widget _buildImages(ColorScheme colors) {
     return _sectionCard(
       title: 'صور العرض',
@@ -1527,12 +1276,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               itemCount: _totalImages + 1,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (_, index) {
-                // زر الإضافة
-                if (index == _totalImages) {
-                  return _addImageButton(colors);
-                }
+                if (index == _totalImages) return _addImageButton(colors);
 
-                // صور قديمة
                 if (index < _existingImageUrls.length) {
                   return _existingImageTile(
                     _existingImageUrls[index],
@@ -1541,14 +1286,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                   );
                 }
 
-                // صور جديدة
                 final newIndex = index - _existingImageUrls.length;
-
-                return _newImageTile(
-                  _newImages[newIndex],
-                  newIndex,
-                  colors,
-                );
+                return _newImageTile(_newImages[newIndex], newIndex, colors);
               },
             ),
           ),
@@ -1577,9 +1316,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         decoration: BoxDecoration(
           color: colors.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: colors.primary.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1604,7 +1341,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  /// صورة موجودة (قديمة)
   Widget _existingImageTile(String url, int index, ColorScheme colors) {
     return Stack(
       children: [
@@ -1654,11 +1390,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 color: Colors.black54,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 15,
-              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 15),
             ),
           ),
         ),
@@ -1666,7 +1398,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  /// صورة جديدة
   Widget _newImageTile(XFile image, int index, ColorScheme colors) {
     return Stack(
       children: [
@@ -1717,21 +1448,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 color: Colors.black54,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 15,
-              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 15),
             ),
           ),
         ),
       ],
     );
   }
-
-  // ============================================================
-  // Details
-  // ============================================================
 
   Widget _buildDetailsCard(ColorScheme colors) {
     return _sectionCard(
@@ -1848,32 +1571,26 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Marketplace attribute widgets
-  // ============================================================
-
   List<Widget> _buildMarketplaceAttributeWidgets() {
     final visibleAttributes = _getVisibleMarketplaceAttributes();
 
-    return visibleAttributes.map(
-      (attribute) {
-        final options = _marketplaceOptions[attribute.slug] ??
-            const <MarketplaceAttributeOption>[];
+    return visibleAttributes.map((attribute) {
+      final options = _marketplaceOptions[attribute.slug] ??
+          const <MarketplaceAttributeOption>[];
 
-        final selectedId = _selectedMarketplaceOptionIds[attribute.slug];
-        final selectedValue = _selectedMarketplaceValues[attribute.slug];
+      final selectedId = _selectedMarketplaceOptionIds[attribute.slug];
+      final selectedValue = _selectedMarketplaceValues[attribute.slug];
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _buildMarketplaceAttribute(
-            attribute: attribute,
-            options: options,
-            selectedId: selectedId,
-            selectedValue: selectedValue,
-          ),
-        );
-      },
-    ).toList();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _buildMarketplaceAttribute(
+          attribute: attribute,
+          options: options,
+          selectedId: selectedId,
+          selectedValue: selectedValue,
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildMarketplaceAttribute({
@@ -1886,7 +1603,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     if (attribute.inputType == 'select') {
       final uniqueOptions = <String, MarketplaceAttributeOption>{};
-
       for (final option in options) {
         final id = option.id.trim();
         if (id.isEmpty) continue;
@@ -1894,23 +1610,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       }
 
       final safeOptions = uniqueOptions.values.toList();
-
-      final safeSelectedId = safeOptions.any(
-        (option) => option.id == selectedId,
-      )
-          ? selectedId
-          : null;
+      final safeSelectedId =
+          safeOptions.any((option) => option.id == selectedId)
+              ? selectedId
+              : null;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<String>(
-            value: safeSelectedId,
+            initialValue: safeSelectedId,
             isExpanded: true,
-            decoration: _decoration(
-              attribute.nameAr,
-              Icons.tune_rounded,
-            ),
+            decoration: _decoration(attribute.nameAr, Icons.tune_rounded),
             hint: Text(
               safeOptions.isEmpty
                   ? 'لا توجد خيارات'
@@ -1920,14 +1631,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 fontSize: 13,
               ),
             ),
-            items: safeOptions.map(
-              (option) {
-                return DropdownMenuItem<String>(
-                  value: option.id,
-                  child: Text(option.labelAr),
-                );
-              },
-            ).toList(),
+            items: safeOptions.map((option) {
+              return DropdownMenuItem<String>(
+                value: option.id,
+                child: Text(option.labelAr),
+              );
+            }).toList(),
             validator: attribute.isRequired
                 ? (value) {
                     if (value == null || value.isEmpty) {
@@ -1940,11 +1649,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 ? null
                 : (value) {
                     if (value == null) return;
-
-                    final selected = safeOptions.firstWhere(
-                      (option) => option.id == value,
-                    );
-
+                    final selected =
+                        safeOptions.firstWhere((option) => option.id == value);
                     _selectMarketplaceOption(
                       attribute: attribute,
                       option: selected,
@@ -1970,9 +1676,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           attribute.nameAr,
           Icons.numbers_rounded,
           hint: _numberHint(attribute.slug),
-        ).copyWith(
-          suffixText: _numberSuffix(attribute.slug),
-        ),
+        ).copyWith(suffixText: _numberSuffix(attribute.slug)),
         onSubmitted: (value) {
           _saveMarketplaceValue(attribute: attribute, value: value);
         },
@@ -1997,10 +1701,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       },
     );
   }
-
-  // ============================================================
-  // Number helpers
-  // ============================================================
 
   String _numberHint(String slug) {
     switch (slug) {
@@ -2039,18 +1739,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         alignment: Alignment.centerRight,
         child: Text(
           'اختياري',
-          style: TextStyle(
-            color: colors.onSurfaceVariant,
-            fontSize: 10,
-          ),
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10),
         ),
       ),
     );
   }
-
-  // ============================================================
-  // Visible attributes
-  // ============================================================
 
   List<MarketplaceAttribute> _getVisibleMarketplaceAttributes() {
     if (_marketplaceAttributes.isEmpty) return const [];
@@ -2060,9 +1753,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     for (final attribute in _marketplaceAttributes) {
       final isFirst =
           attribute.attributeId == _marketplaceAttributes.first.attributeId;
-
       final hasLoadedOptions = _marketplaceOptions.containsKey(attribute.slug);
-
       final hasSelection =
           _selectedMarketplaceOptionIds.containsKey(attribute.slug) ||
               _selectedMarketplaceValues.containsKey(attribute.slug);
@@ -2080,17 +1771,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return !_marketplaceOptions.containsKey(attribute.slug);
   }
 
-  // ============================================================
-  // Category dropdown
-  // ============================================================
-
   Widget _buildCategoryDropdown(ColorScheme colors) {
     if (_isLoadingCategories) {
       return InputDecorator(
-        decoration: _decoration(
-          'نوع الشيء',
-          Icons.category_outlined,
-        ),
+        decoration: _decoration('نوع الشيء', Icons.category_outlined),
         child: const SizedBox(
           height: 24,
           child: Align(
@@ -2107,10 +1791,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     if (_categories.isEmpty) {
       return InputDecorator(
-        decoration: _decoration(
-          'نوع الشيء',
-          Icons.category_outlined,
-        ),
+        decoration: _decoration('نوع الشيء', Icons.category_outlined),
         child: Text(
           'لا توجد تصنيفات متاحة',
           style: TextStyle(color: colors.onSurfaceVariant),
@@ -2119,7 +1800,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
 
     final uniqueCategories = <String, Map<String, dynamic>>{};
-
     for (final category in _categories) {
       final id = category['id']?.toString().trim();
       if (id == null || id.isEmpty) continue;
@@ -2127,20 +1807,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
 
     final items = uniqueCategories.values
-        .map(
-          (category) {
-            final id = category['id']?.toString();
-            final nameAr = category['name_ar']?.toString() ?? '';
-            final slug = category['slug']?.toString() ?? '';
+        .map((category) {
+          final id = category['id']?.toString();
+          final nameAr = category['name_ar']?.toString() ?? '';
+          final slug = category['slug']?.toString() ?? '';
 
-            if (id == null || id.isEmpty) return null;
+          if (id == null || id.isEmpty) return null;
 
-            return DropdownMenuItem<String>(
-              value: id,
-              child: Text(nameAr.isEmpty ? slug : nameAr),
-            );
-          },
-        )
+          return DropdownMenuItem<String>(
+            value: id,
+            child: Text(nameAr.isEmpty ? slug : nameAr),
+          );
+        })
         .whereType<DropdownMenuItem<String>>()
         .toList();
 
@@ -2148,12 +1826,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         items.any((item) => item.value == _categoryId) ? _categoryId : null;
 
     return DropdownButtonFormField<String>(
-      value: safeCategoryId,
+      initialValue: safeCategoryId,
       isExpanded: true,
-      decoration: _decoration(
-        'نوع الشيء',
-        Icons.category_outlined,
-      ),
+      decoration: _decoration('نوع الشيء', Icons.category_outlined),
       items: items,
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -2194,9 +1869,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           _isLoadingMarketplaceOptions = false;
         });
 
-        final marketplaceCategoryId = await _getMarketplaceCategoryIdBySlug(
-          slug,
-        );
+        final marketplaceCategoryId =
+            await _getMarketplaceCategoryIdBySlug(slug);
 
         if (!mounted) return;
         if (requestId != _categoryRequestId) return;
@@ -2218,24 +1892,127 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   // ============================================================
-  // Location
+  // ✅ Location Card (مع خريطة + هاتف + واتساب)
   // ============================================================
-
   Widget _buildLocationCard(ColorScheme colors) {
+    final hasLocation = _lat != null && _lng != null;
+
     return _sectionCard(
-      title: 'مكان الاستلام',
+      title: 'مكان الاستلام والتواصل',
       icon: Icons.location_on_outlined,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // زر تحديد الموقع
+          InkWell(
+            onTap: _openLocationPicker,
+            borderRadius: BorderRadius.circular(15),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: hasLocation
+                      ? colors.primary.withValues(alpha: 0.5)
+                      : colors.outlineVariant,
+                  width: hasLocation ? 1.5 : 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.map_rounded,
+                      color: colors.primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hasLocation
+                              ? 'تم تحديد الموقع ✅'
+                              : 'اختار موقعك على الخريطة',
+                          style: TextStyle(
+                            color:
+                                hasLocation ? colors.primary : colors.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          hasLocation
+                              ? '${_lat!.toStringAsFixed(4)}, ${_lng!.toStringAsFixed(4)}'
+                              : 'علشان نعرض العرض للناس القريبة منك',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    hasLocation
+                        ? Icons.edit_location_alt_rounded
+                        : Icons.arrow_back_ios_new_rounded,
+                    color: colors.primary,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // وصف المكان
           _field(
             _locationController,
-            'العنوان أو وصف المكان',
-            'مثال: شارع البحر',
+            'وصف المكان (اختياري)',
+            'مثال: شارع البحر، قرب مسجد...',
             Icons.place_outlined,
-            requiredField: true,
           ),
+
+          const SizedBox(height: 14),
+
+          // ✅ رقم الهاتف
+          _field(
+            _phoneController,
+            'رقم الهاتف للتواصل *',
+            'مثال: 01012345678',
+            Icons.phone_rounded,
+            requiredField: true,
+            numeric: true,
+            integerOnly: true,
+          ),
+
           const SizedBox(height: 10),
+
+          // ✅ رقم الواتساب (اختياري)
+          _field(
+            _whatsappController,
+            'رقم الواتساب (اختياري)',
+            'مثال: 01012345678',
+            Icons.chat_rounded,
+            numeric: true,
+            integerOnly: true,
+          ),
+
+          const SizedBox(height: 10),
+
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -2246,14 +2023,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
-                  Icons.my_location_rounded,
+                  Icons.info_outline_rounded,
                   color: colors.primary,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'سيتم استخدام موقعك الحالي تلقائيًا لتحديد قرب العرض منك. يمكنك كتابة مكان الاستلام هنا إذا كان مختلفًا.',
+                    'حدّد مكان الاستلام على الخريطة واكتب رقم هاتفك للتواصل. لو ضفت رقم واتساب، المشتري هيقدر يتواصل معاك عليه.',
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
                       fontSize: 11,
@@ -2269,10 +2046,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Expiry
-  // ============================================================
-
   Widget _buildExpiryCard(ColorScheme colors) {
     return _sectionCard(
       title: 'مدة توفر العرض',
@@ -2281,7 +2054,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
-            value: _expiryOption,
+            initialValue: _expiryOption,
             decoration: _decoration(
               'العرض متاح حتى',
               Icons.event_available_outlined,
@@ -2297,9 +2070,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ],
             onChanged: (value) {
               if (value == null) return;
-              setState(() {
-                _expiryOption = value;
-              });
+              setState(() => _expiryOption = value);
             },
           ),
           const SizedBox(height: 8),
@@ -2316,29 +2087,22 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Confirmation
-  // ============================================================
-
   Widget _buildConfirmation(ColorScheme colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colors.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colors.primary.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
       ),
       child: CheckboxListTile(
         value: _termsAccepted,
         onChanged: (value) {
-          setState(() {
-            _termsAccepted = value ?? false;
-          });
+          setState(() => _termsAccepted = value ?? false);
         },
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
+        tileColor: Colors.transparent, // ✅ يمنع تحذير ListTile
         title: Text(
           'أؤكد أن البيانات والصور التي أضفتها صحيحة، وأنني أوضحت حالة المنتج وأي عيوب موجودة به.',
           style: TextStyle(
@@ -2351,10 +2115,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       ),
     );
   }
-
-  // ============================================================
-  // Submit button
-  // ============================================================
 
   Widget _buildSubmitButton(ColorScheme colors) {
     final label = _isSubmitting
@@ -2370,9 +2130,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               color: Colors.white,
             ),
           )
-        : Icon(
-            _isEditMode ? Icons.check_rounded : Icons.sell_rounded,
-          );
+        : Icon(_isEditMode ? Icons.check_rounded : Icons.sell_rounded);
 
     return SizedBox(
       height: 56,
@@ -2387,17 +2145,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.w900,
-          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
     );
   }
-
-  // ============================================================
-  // Section card
-  // ============================================================
 
   Widget _sectionCard({
     required String title,
@@ -2460,10 +2212,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  // ============================================================
-  // Field
-  // ============================================================
-
   Widget _field(
     TextEditingController controller,
     String label,
@@ -2491,7 +2239,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               if (value == null || value.trim().isEmpty) {
                 return 'هذا الحقل مطلوب';
               }
-
               if (numeric) {
                 if (integerOnly) {
                   final parsed = int.tryParse(value.trim());
@@ -2505,16 +2252,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                   }
                 }
               }
-
               return null;
             }
           : null,
     );
   }
-
-  // ============================================================
-  // Decoration
-  // ============================================================
 
   InputDecoration _decoration(
     String label,
@@ -2542,10 +2284,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide(color: colors.primary, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 15,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
     );
   }
 }
@@ -2553,7 +2292,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 // ================================================================
 // Marketplace Number Field
 // ================================================================
-
 class _MarketplaceNumberField extends StatefulWidget {
   final MarketplaceAttribute attribute;
   final String? initialValue;
@@ -2585,12 +2323,9 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   @override
   void didUpdateWidget(covariant _MarketplaceNumberField oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.initialValue != widget.initialValue) {
       final value = widget.initialValue ?? '';
-      if (_controller.text != value) {
-        _controller.text = value;
-      }
+      if (_controller.text != value) _controller.text = value;
     }
   }
 
@@ -2600,9 +2335,7 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
       controller: _controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       textInputAction: TextInputAction.next,
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-      ],
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
       decoration: widget.decoration,
       validator: widget.attribute.isRequired
           ? (value) {
@@ -2619,9 +2352,7 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
       onFieldSubmitted: widget.onSubmitted,
       onEditingComplete: () {
         final value = _controller.text.trim();
-        if (value.isNotEmpty) {
-          widget.onSubmitted(value);
-        }
+        if (value.isNotEmpty) widget.onSubmitted(value);
         FocusScope.of(context).nextFocus();
       },
     );
@@ -2637,7 +2368,6 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
 // ================================================================
 // Marketplace Text Field
 // ================================================================
-
 class _MarketplaceTextField extends StatefulWidget {
   final MarketplaceAttribute attribute;
   final String? initialValue;
@@ -2668,12 +2398,9 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
   @override
   void didUpdateWidget(covariant _MarketplaceTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-
     if (oldWidget.initialValue != widget.initialValue) {
       final value = widget.initialValue ?? '';
-      if (_controller.text != value) {
-        _controller.text = value;
-      }
+      if (_controller.text != value) _controller.text = value;
     }
   }
 
@@ -2696,9 +2423,7 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
       onFieldSubmitted: widget.onSubmitted,
       onEditingComplete: () {
         final value = _controller.text.trim();
-        if (value.isNotEmpty) {
-          widget.onSubmitted(value);
-        }
+        if (value.isNotEmpty) widget.onSubmitted(value);
         FocusScope.of(context).nextFocus();
       },
     );

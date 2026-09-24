@@ -9,21 +9,10 @@ import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/routes/app_router.dart';
 
 import 'package:loqma/core/services/firebase_messaging_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
-import 'register_page.dart';
-import 'reset_password_page.dart';
-
-const Set<String> _businessUserTypes = {
-  'restaurant',
-  'business',
-  'hotel',
-  'supermarket',
-  'bakery',
-  'cafe',
-};
+import 'otp_verify_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -34,19 +23,26 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   final AuthRepository _authRepo = AuthRepository(SupabaseService());
 
   final FirebaseMessagingService _fcmService =
       FirebaseMessagingService.instance;
   late final AnimationController _animationController;
   late final Animation<double> _fadeAnimation;
+  // ✅ أنيميشن دخول إضافي للوجو (Scale) — بيستخدم نفس الـ controller
+  late final Animation<double> _logoScaleAnimation;
 
   bool _isLoading = false;
   bool _isCheckingAutoLogin = true;
-  bool _obscurePassword = true;
-  bool _rememberMe = false;
+
+  // ── ألوان (هوية "جُود" الخضراء)
+  static const _bg = Color(0xFFF4F8F6);
+  static const _primary = Color(0xFF0B7650);
+  static const _primaryLight = Color(0xFF25B77C);
+  static const _darkGreen = Color(0xFF123F31);
+  static const _red = Color(0xFFD64545);
+  static const _cardBorder = Color(0xFFE1ECE7);
 
   @override
   void initState() {
@@ -62,14 +58,20 @@ class _LoginPageState extends State<LoginPage>
       curve: Curves.easeOut,
     );
 
+    _logoScaleAnimation = Tween<double>(begin: 0.85, end: 1).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+
     _animationController.forward();
     _checkAutoLogin();
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _phoneController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -81,7 +83,7 @@ class _LoginPageState extends State<LoginPage>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F8F6),
+        backgroundColor: _bg,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle.dark,
           child: Stack(
@@ -96,12 +98,12 @@ class _LoginPageState extends State<LoginPage>
                     child: Column(
                       children: [
                         _buildTopBar(),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 32),
                         _buildBrand(),
-                        const SizedBox(height: 26),
+                        const SizedBox(height: 30),
                         _buildLoginCard(),
-                        const SizedBox(height: 20),
-                        _buildRegisterLink(),
+                        const SizedBox(height: 22),
+                        _buildBackLink(),
                       ],
                     ),
                   ),
@@ -114,31 +116,68 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Checking Screen
+  // ═══════════════════════════════════════════════════════════
   Widget _buildCheckingScreen() {
-    return const Directionality(
+    return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Color(0xFFF4F8F6),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _LoginLogo(size: 86),
-              SizedBox(height: 24),
-              CircularProgressIndicator(color: Color(0xFF0B7650)),
-              SizedBox(height: 16),
-              Text('جاري التحقق من الجلسة...'),
-            ],
-          ),
+        backgroundColor: _bg,
+        body: Stack(
+          children: [
+            _buildBackground(),
+            const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _LoginLogo(size: 88),
+                  SizedBox(height: 26),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      color: _primary,
+                      strokeWidth: 2.6,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'جاري التحقق من الجلسة...',
+                    style: TextStyle(
+                      color: _darkGreen,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Background — تدرج + دوائر توهج + نقش خفيف (نفس روح السبلاش)
+  // ═══════════════════════════════════════════════════════════
   Widget _buildBackground() {
     return IgnorePointer(
       child: Stack(
         children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF4F8F6), Color(0xFFE9F5EF)],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: CustomPaint(painter: _DotPatternPainter()),
+          ),
           Positioned(
             top: -90,
             right: -70,
@@ -159,11 +198,11 @@ class _LoginPageState extends State<LoginPage>
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: color.withAlpha(75),
+        color: color.withValues(alpha: 0.3),
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: color.withAlpha(55),
+            color: color.withValues(alpha: 0.22),
             blurRadius: 80,
             spreadRadius: 20,
           ),
@@ -172,176 +211,278 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Top Bar
+  // ═══════════════════════════════════════════════════════════
   Widget _buildTopBar() {
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'loqma',
-          style: TextStyle(
-            color: Color(0xFF0B7650),
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
+        IconButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_forward_rounded),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: _darkGreen,
+            padding: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            elevation: 0,
+          ).copyWith(
+            shadowColor: WidgetStateProperty.all(Colors.transparent),
           ),
         ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(color: _cardBorder),
+          ),
+          child: const Text(
+            'جُود',
+            style: TextStyle(
+              color: _primary,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(width: 46),
       ],
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Brand
+  // ═══════════════════════════════════════════════════════════
   Widget _buildBrand() {
-    return const Column(
+    return Column(
       children: [
-        _LoginLogo(size: 82),
-        SizedBox(height: 16),
-        Text(
-          'مرحبًا بعودتك',
+        ScaleTransition(
+          scale: _logoScaleAnimation,
+          child: const _LoginLogo(size: 92),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'مرحبًا بعودتك 👋',
           style: TextStyle(
-            color: Color(0xFF123F31),
-            fontSize: 28,
+            color: _darkGreen,
+            fontSize: 29,
             fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
           ),
         ),
-        SizedBox(height: 7),
+        const SizedBox(height: 8),
         Text(
-          'سجّل دخولك واستكمل رحلتك مع جُود',
-          style: TextStyle(color: Colors.black54, fontSize: 14),
+          'سجّل دخولك برقم هاتفك عشان تكمّل رحلتك معانا',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.black.withValues(alpha: 0.5),
+            fontSize: 13.5,
+            height: 1.5,
+          ),
         ),
       ],
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Login Card
+  // ═══════════════════════════════════════════════════════════
   Widget _buildLoginCard() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(19, 21, 19, 21),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFE1ECE7)),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _cardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(11),
-            blurRadius: 25,
-            offset: const Offset(0, 10),
+            color: _primary.withValues(alpha: 0.08),
+            blurRadius: 34,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'تسجيل الدخول',
-            style: TextStyle(
-              color: Color(0xFF153F31),
-              fontSize: 19,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'أدخل بياناتك للوصول إلى حسابك',
-            style: TextStyle(color: Colors.black54, fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          AuthTextField(
-            controller: _emailController,
-            label: 'البريد الإلكتروني',
-            hint: 'example@domain.com',
-            prefixIcon: Icons.alternate_email_rounded,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 14),
-          AuthTextField(
-            controller: _passwordController,
-            label: 'كلمة المرور',
-            hint: 'أدخل كلمة المرور',
-            prefixIcon: Icons.lock_outline_rounded,
-            obscureText: _obscurePassword,
-            suffixIcon: IconButton(
-              onPressed: () => setState(
-                () => _obscurePassword = !_obscurePassword,
-              ),
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: _rememberMe,
-                    activeColor: const Color(0xFF159666),
-                    onChanged: (value) => setState(
-                      () => _rememberMe = value ?? false,
-                    ),
-                  ),
-                  const Text(
-                    'تذكرني',
-                    style: TextStyle(color: Colors.black54, fontSize: 13),
-                  ),
-                ],
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: _primary,
+                  size: 21,
+                ),
               ),
-              TextButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ResetPasswordPage(),
-                          ),
-                        ),
-                child: const Text('نسيت كلمة المرور؟'),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'تسجيل الدخول',
+                      style: TextStyle(
+                        color: Color(0xFF153F31),
+                        fontSize: 18.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'هيوصلك كود تحقق على واتساب',
+                      style: TextStyle(color: Colors.black45, fontSize: 12.5),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+          _buildWhatsAppNotice(),
+          const SizedBox(height: 20),
+          AuthTextField(
+            controller: _phoneController,
+            label: 'رقم الهاتف',
+            hint: '01012345678',
+            prefixIcon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩+ ]')),
+              LengthLimitingTextInputFormatter(16),
+            ],
+          ),
+          const SizedBox(height: 20),
           AuthButton(
-            text: 'تسجيل الدخول',
+            text: 'إرسال كود التحقق',
             isLoading: _isLoading,
             onPressed: _handleLogin,
-            icon: Icons.login_rounded,
+            icon: Icons.send_rounded,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRegisterLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text(
-          'ليس لديك حساب؟',
-          style: TextStyle(color: Colors.black54, fontSize: 13),
+  Widget _buildWhatsAppNotice() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF0F8F3), Color(0xFFE7F5EE)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
-        TextButton(
-          onPressed: _isLoading
-              ? null
-              : () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const RegisterPage(),
-                    ),
-                  ),
-          child: const Text(
-            'إنشاء حساب جديد',
-            style: TextStyle(fontWeight: FontWeight.w800),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFD7EADF)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child:
+                const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'هنبعتلك كود تحقق على واتساب 📲',
+              style: TextStyle(
+                color: Color(0xFF315A49),
+                fontSize: 12.5,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Back Link (بدل Register Link)
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildBackLink() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.storefront_outlined,
+            size: 15,
+            color: Colors.black45,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'عايز تسجل كمقدم خدمة أو مؤسسة؟',
+            style: TextStyle(color: Colors.black54, fontSize: 12.5),
+          ),
+          TextButton(
+            onPressed: _isLoading
+                ? null
+                : () => context.push(AppRouter.userTypeSelection),
+            style: TextButton.styleFrom(
+              foregroundColor: _primary,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'اختار نوع تاني',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Auto Login Check
+  // ═══════════════════════════════════════════════════════════
   Future<void> _checkAutoLogin() async {
     try {
       final result = await _authRepo.getSessionWithUserType();
-      result.fold(
-        (error) {
+      await result.fold(
+        (error) async {
           debugPrint('ℹ️ No auto-login: $error');
           if (mounted) setState(() => _isCheckingAutoLogin = false);
         },
@@ -358,151 +499,170 @@ class _LoginPageState extends State<LoginPage>
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Handle Login — Send OTP
+  // ═══════════════════════════════════════════════════════════
   Future<void> _handleLogin() async {
-    final email = _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text;
+    final phone = _normalizeEgyptianPhone(_phoneController.text);
 
-    if (email.isEmpty) {
-      _showError('يرجى إدخال البريد الإلكتروني');
-      return;
-    }
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      _showError('يرجى إدخال بريد إلكتروني صحيح');
-      return;
-    }
-    if (password.isEmpty) {
-      _showError('يرجى إدخال كلمة المرور');
+    if (!RegExp(r'^01[0125]\d{8}$').hasMatch(phone)) {
+      _showError('أدخل رقم هاتف مصري صحيح (11 رقم يبدأ بـ 010/011/012/015)');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final result = await _authRepo.login(
-        email: email,
-        password: password,
-      );
+      debugPrint('📌 [Login] sending OTP to $phone');
+
+      final result = await _authRepo.sendOtp(phone: phone);
 
       if (!mounted) return;
 
-      result.fold(
-        (error) => _showError(error),
-        (user) async {
-          try {
-            await _fcmService.initialize();
-          } catch (e) {
-            debugPrint('⚠️ FCM initialization failed: ${e.runtimeType}');
-          }
+      await result.fold(
+        (error) async {
+          setState(() => _isLoading = false);
+          _showError(error);
+        },
+        (returnedPhone) async {
+          // ✅ نروح لصفحة OTP
+          final verified = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OtpVerifyPage(
+                phone: returnedPhone,
+                profile: {
+                  'role': 'user',
+                  'isLogin': true,
+                },
+              ),
+            ),
+          );
 
-          await _registerDevice();
+          if (!mounted) return;
+          setState(() => _isLoading = false);
 
-          if (mounted) {
-            print('🔴 [LoginPage] User type: ${user.type.value}');
-            await _navigateToHome(user);
+          // ✅ لو رجع true (مستخدم قديم) → نروح Home
+          // ⚠️ لو مستخدم جديد → OtpVerifyPage راحت CompleteProfile مباشرة
+          if (verified == true) {
+            final userResult = await _authRepo.getCurrentUserFromDb();
+            await userResult.fold(
+              (error) async {
+                _showError(error);
+              },
+              (user) async {
+                try {
+                  await _fcmService.initialize();
+                } catch (e) {
+                  debugPrint('⚠️ FCM init skipped: ${e.runtimeType}');
+                }
+
+                await _registerDevice();
+                if (mounted) await _navigateToHome(user);
+              },
+            );
           }
         },
       );
-    } catch (e) {
-      if (mounted) _showError('تعذر تسجيل الدخول: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e, stackTrace) {
+      debugPrint('❌ [Login] type=${e.runtimeType}');
+      debugPrint('❌ [Login] error=$e');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError('تعذر تسجيل الدخول، حاول تاني');
+      }
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Register Device
+  // ═══════════════════════════════════════════════════════════
   Future<void> _registerDevice() async {
     try {
       final supabase = SupabaseService();
       await supabase.registerCurrentDevice();
-      debugPrint('✅ Device registered successfully');
+      debugPrint('✅ Device registered');
     } catch (e) {
       debugPrint('❌ Error registering device: $e');
     }
   }
 
-  // ✅ التوجيه حسب نوع المستخدم
+  // ═══════════════════════════════════════════════════════════
+  // Navigation — 3 roles
+  // ═══════════════════════════════════════════════════════════
   Future<void> _navigateToHome(UserModel user) async {
     if (!mounted) return;
 
     final type = user.type.value.trim().toLowerCase();
-    print('🔴 [LoginPage] _navigateToHome - type: "$type"');
+    debugPrint('🔴 [Login] navigating for role: $type');
 
     if (type.isEmpty) {
-      _showError('نوع الحساب غير معروف. تواصل مع الإدارة للتحقق من الحساب.');
+      _showError('نوع الحساب غير معروف');
       return;
     }
 
-    // ✅ المستخدم العادي → الخريطة
     if (type == 'user') {
-      print('🔴 [LoginPage] Going to Map (user)');
-      context.go(AppRouter.map);
+      context.go(AppRouter.home);
       return;
     }
 
-    // ✅ جمعية → صفحة الجمعية
-    if (type == 'charity') {
-      print('🔴 [LoginPage] Going to CharityHome');
-      context.go(AppRouter.charityHome);
+    if (type == 'provider') {
+      context.go(AppRouter.home);
       return;
     }
 
-    // ✅ مؤسسة → صفحة المؤسسة
     if (type == 'institution') {
-      print('🔴 [LoginPage] Going to InstitutionsHome');
       context.go(AppRouter.institutionsHome);
       return;
     }
 
-    // ✅ مطعم/بقالة → صفحة المطعم
-    if (_businessUserTypes.contains(type)) {
-      final businessId = await _authoritativeBusinessId();
-      if (!mounted) return;
-      if (businessId == null || businessId.isEmpty) {
-        _showError('حساب المؤسسة غير مرتبط بنشاط تجاري فعال');
-        return;
-      }
-      print('🔴 [LoginPage] Going to RestaurantHome');
-      context.go('${AppRouter.restaurantHome}?businessId=$businessId');
+    if (type == 'charity') {
+      context.go(AppRouter.charityHome);
       return;
     }
 
-    print('🔴 [LoginPage] Unknown type, going to login');
-    _showError('نوع الحساب غير معروف. تواصل مع الإدارة للتحقق من الحساب.');
+    if (type == 'admin') {
+      context.go(AppRouter.home);
+      return;
+    }
+
+    debugPrint('❌ Unknown role: $type');
+    _showError('نوع الحساب غير معروف');
   }
 
-  Future<String?> _authoritativeBusinessId() async {
-    final authUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (authUserId == null || authUserId.trim().isEmpty) return null;
+  // ═══════════════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════════════
+  String _normalizeEgyptianPhone(String value) {
+    var phone = value
+        .trim()
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9')
+        .replaceAll(RegExp(r'[\s().-]'), '');
 
-    final row = await Supabase.instance.client
-        .from('users')
-        .select('user_type')
-        .eq('id', authUserId)
-        .maybeSingle();
-    final role = (row?['user_type']?.toString() ?? '').trim().toLowerCase();
-    if (!_businessUserTypes.contains(role)) return null;
-
-    final business = await Supabase.instance.client
-        .from('businesses')
-        .select('id')
-        .eq('user_id', authUserId)
-        .maybeSingle();
-    final businessId = business?['id']?.toString().trim();
-    if (businessId != null && businessId.isNotEmpty) return businessId;
-
-    final restaurant = await Supabase.instance.client
-        .from('restaurants')
-        .select('id')
-        .eq('user_id', authUserId)
-        .maybeSingle();
-    final restaurantId = restaurant?['id']?.toString().trim();
-    return restaurantId == null || restaurantId.isEmpty ? null : restaurantId;
+    if (phone.startsWith('+20')) phone = phone.substring(3);
+    if (phone.startsWith('0020')) phone = phone.substring(4);
+    if (phone.startsWith('20') && phone.length == 12) {
+      phone = phone.substring(2);
+    }
+    if (phone.length == 10) phone = '0$phone';
+    return phone;
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xFFD64545),
+        backgroundColor: _red,
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(
@@ -513,6 +673,9 @@ class _LoginPageState extends State<LoginPage>
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// Logo
+// ═══════════════════════════════════════════════════════════
 class _LoginLogo extends StatelessWidget {
   final double size;
 
@@ -529,10 +692,10 @@ class _LoginLogo extends StatelessWidget {
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        borderRadius: BorderRadius.circular(size * .32),
+        borderRadius: BorderRadius.circular(size * 0.32),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0B7650).withAlpha(55),
+            color: const Color(0xFF0B7650).withValues(alpha: 0.35),
             blurRadius: 22,
             offset: const Offset(0, 10),
           ),
@@ -540,9 +703,33 @@ class _LoginLogo extends StatelessWidget {
       ),
       child: Icon(
         Icons.volunteer_activism_rounded,
-        size: size * .48,
+        size: size * 0.48,
         color: Colors.white,
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ✅ Dot Pattern Painter — نقش خلفية خفيف يضيف عمق من غير ما يزاحم
+// ═══════════════════════════════════════════════════════════
+class _DotPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF0B7650).withValues(alpha: 0.045)
+      ..style = PaintingStyle.fill;
+
+    const spacing = 46.0;
+    const dotSize = 3.0;
+
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), dotSize / 2, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

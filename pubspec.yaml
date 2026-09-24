@@ -52,7 +52,6 @@ dependencies:
   carousel_slider: ^5.0.0
   flutter_svg: ^2.0.10+1
   image_picker: ^1.1.2
-  google_maps_flutter: ^2.5.0
   geolocator: ^10.1.0
   universal_html: ^2.2.4
   url_launcher: ^6.2.1

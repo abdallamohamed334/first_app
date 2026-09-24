@@ -614,14 +614,14 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _green.withValues(alpha: 0.15)),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.info_outline_rounded,
                   color: _green,
                   size: 16,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'الأرقام دي هتظهر للناس اللي عايزة تساعدك. تأكد إنها صحيحة.',
