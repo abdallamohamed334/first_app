@@ -3,11 +3,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/services/auth_state_notifier.dart';
 import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
 import '../features/auth/presentation/pages/user_type_selection_page.dart';
+import '../features/auth/presentation/pages/institution_login_page.dart';
+
+// ✅ Provider (مزود الخدمة)
+import '../features/provider/presentation/pages/provider_auth_page.dart';
+import '../features/provider/presentation/pages/provider_pending_page.dart';
+import '../features/provider/presentation/pages/provider_main_shell.dart';
+import '../features/provider/presentation/pages/provider_otp_verify_page.dart';
+import '../features/provider/presentation/pages/provider_reviews_page.dart';
+import '../features/provider/presentation/pages/provider_edit_profile_page.dart';
+import '../features/provider/presentation/pages/provider_public_profile_page.dart';
 
 // ✅ UserHome
 import '../features/userhome/presentation/pages/user_home_page.dart'
@@ -22,7 +33,7 @@ import '../features/volunteer/presentation/pages/volunteer_leaderboard_page.dart
 import '../features/donation/presentation/pages/offer_details_page.dart';
 import '../features/charity/presentation/pages/charities_page.dart';
 
-// ⚠️ للتوافق مع الأدوار القديمة (هنشيلها تدريجيًا)
+// ⚠️ للتوافق مع الأدوار القديمة
 import '../features/business/restaurant/presentation/pages/business_restaurant_page.dart';
 import '../features/charity/presentation/pages/charity_workspace_page.dart';
 
@@ -39,6 +50,15 @@ class AppRouter {
   static const String userTypeSelection = '/user-type-selection';
   static const String login = '/login';
   static const String register = '/register';
+  static const String institutionLogin = '/institution-login';
+
+  // ✅ Provider (مزود الخدمة)
+  static const String providerAuth = '/provider/auth';
+  static const String providerOtpVerify = '/provider/otp-verify';
+  static const String providerPending = '/provider/pending';
+  static const String providerReviews = '/provider/reviews';
+  static const String providerEditProfile = '/provider/edit-profile';
+  static const String providerPublicProfile = '/provider/public-profile';
 
   // ── Main
   static const String home = '/home';
@@ -55,7 +75,7 @@ class AppRouter {
   static const String offerDetails = '/offer/:id';
   static const String placeholder = '/placeholder';
 
-  // ⚠️ Legacy (توافق للخلف — ممكن نشيلها بعدين)
+  // ⚠️ Legacy
   static const String restaurantHome = '/restaurant-home';
   static const String charityHome = '/charity-home';
 
@@ -64,6 +84,88 @@ class AppRouter {
   // ═══════════════════════════════════════════════════════════
   static final GoRouter router = GoRouter(
     initialLocation: splash,
+
+    // ✅ يسمع لتغيّر حالة الـ Auth ويعيد التوجيه تلقائياً
+    refreshListenable: AuthStateNotifier.instance,
+
+    // ✅ Redirect ذكي
+    redirect: (context, state) {
+      final auth = AuthStateNotifier.instance;
+      final loc = state.matchedLocation;
+
+      // ── الصفحات العامة (مش محتاجة login)
+      const publicRoutes = {
+        '/',
+        '/onboarding',
+        '/user-type-selection',
+        '/login',
+        '/register',
+        '/institution-login',
+        '/provider/auth',
+        '/provider/otp-verify',
+      };
+
+      final isPublic = publicRoutes.contains(loc);
+
+      // ❌ مش مسجل دخول
+      if (!auth.isLoggedIn) {
+        if (isPublic) return null;
+        return userTypeSelection;
+      }
+
+      // ══════════════════════════════════════════════════════════
+      // ✅ Provider restrictions — منع المزود الموقوف من الوصول
+      // ══════════════════════════════════════════════════════════
+      if (auth.role == 'provider') {
+        final status = auth.providerStatus ?? 'pending';
+        final isActive = auth.isActive;
+
+        final isBlocked = !isActive ||
+            status == 'suspended' ||
+            status == 'rejected' ||
+            status == 'pending';
+
+        // المسارات المسموح بيها للمزود المحظور
+        const allowedForBlocked = {
+          '/provider/pending',
+          '/provider/auth',
+          '/provider/otp-verify',
+        };
+
+        // ✅ لو محظور، نمنعه من أي مسار provider غير المسموح
+        if (isBlocked) {
+          final isProviderRoute =
+              loc == '/provider-home' || loc.startsWith('/provider/');
+
+          if (isProviderRoute && !allowedForBlocked.contains(loc)) {
+            return providerPending;
+          }
+
+          // ✅ نمنع كذلك أي محاولة للوصول لـ Home العادي
+          if (loc == '/home') {
+            return providerPending;
+          }
+        }
+      }
+
+      // ✅ مسجل دخول → لو على صفحة auth/شاشة ترحيب → نروح للـ home
+      const authPagesToRedirect = {
+        '/',
+        '/user-type-selection',
+        '/login',
+        '/register',
+        '/institution-login',
+        '/provider/auth',
+        '/provider/otp-verify',
+      };
+
+      if (authPagesToRedirect.contains(loc)) {
+        return auth.homeRoute ?? home;
+      }
+
+      return null;
+    },
+
     routes: [
       // ─────────────────────────────────────────────
       // 1. Splash
@@ -85,7 +187,6 @@ class AppRouter {
 
       // ─────────────────────────────────────────────
       // 3. User Type Selection
-      // 3 أزرار: مستخدم / مقدم / مؤسسة
       // ─────────────────────────────────────────────
       GoRoute(
         path: userTypeSelection,
@@ -94,8 +195,7 @@ class AppRouter {
       ),
 
       // ─────────────────────────────────────────────
-      // 4. Login (للمستخدمين العاديين)
-      // رقم → OTP → CompleteProfile (لو جديد) → Home
+      // 4. Login
       // ─────────────────────────────────────────────
       GoRoute(
         path: login,
@@ -104,9 +204,84 @@ class AppRouter {
       ),
 
       // ─────────────────────────────────────────────
-      // 5. Register (لمقدمي الخدمة والمؤسسات)
-      // register?role=provider
-      // register?role=institution
+      // 4.b Institution Login
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: institutionLogin,
+        name: 'institution-login',
+        builder: (context, state) => const InstitutionLoginPage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.c Provider Auth
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerAuth,
+        name: 'provider-auth',
+        builder: (context, state) => const ProviderAuthPage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.d Provider OTP Verify
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerOtpVerify,
+        name: 'provider-otp-verify',
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return ProviderOtpVerifyPage(
+            phone: q['phone'] ?? '',
+            displayName: q['name'] ?? '',
+            categoryId: q['categoryId'] ?? '',
+            providerType: q['providerType'] ?? 'individual',
+            email: q['email'],
+          );
+        },
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.e Provider Pending
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerPending,
+        name: 'provider-pending',
+        builder: (context, state) {
+          final provider = state.extra is Map
+              ? Map<String, dynamic>.from(state.extra as Map)
+              : null;
+          return ProviderPendingPage(provider: provider);
+        },
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.f Provider Reviews
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerReviews,
+        name: 'provider-reviews',
+        builder: (context, state) => const ProviderReviewsPage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.g Provider Edit Profile
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerEditProfile,
+        name: 'provider-edit-profile',
+        builder: (context, state) => const ProviderEditProfilePage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 4.h Provider Public Profile
+      // ─────────────────────────────────────────────
+      GoRoute(
+        path: providerPublicProfile,
+        name: 'provider-public-profile',
+        builder: (context, state) => const ProviderPublicProfilePage(),
+      ),
+
+      // ─────────────────────────────────────────────
+      // 5. Register
       // ─────────────────────────────────────────────
       GoRoute(
         path: register,
@@ -118,7 +293,7 @@ class AppRouter {
       ),
 
       // ─────────────────────────────────────────────
-      // 6. Home (للمستخدم العادي + مقدم الخدمة)
+      // 6. Home
       // ─────────────────────────────────────────────
       GoRoute(
         path: home,
@@ -127,13 +302,12 @@ class AppRouter {
       ),
 
       // ─────────────────────────────────────────────
-      // 7. Provider Home (مؤقتًا = UserHome)
-      // TODO: صفحة خاصة لمقدمي الخدمة
+      // 7. Provider Home (Dashboard)
       // ─────────────────────────────────────────────
       GoRoute(
         path: providerHome,
         name: 'provider-home',
-        builder: (context, state) => const user_home.UserHomePage(),
+        builder: (context, state) => const ProviderMainShell(),
       ),
 
       // ─────────────────────────────────────────────
@@ -215,7 +389,7 @@ class AppRouter {
       ),
 
       // ─────────────────────────────────────────────
-      // 16. Placeholder (صفحات قيد التطوير)
+      // 16. Placeholder
       // ─────────────────────────────────────────────
       GoRoute(
         path: placeholder,
@@ -228,22 +402,13 @@ class AppRouter {
       ),
 
       // ═══════════════════════════════════════════════════════
-      // ⚠️ Legacy Routes (توافق للخلف)
-      // ممكن نشيلها لما نتأكد إن مفيش حاجة بتستخدمها
+      // ⚠️ Legacy Routes
       // ═══════════════════════════════════════════════════════
-
-      // ─────────────────────────────────────────────
-      // Legacy: Restaurant Home
-      // ─────────────────────────────────────────────
       GoRoute(
         path: restaurantHome,
         name: 'restaurant-home',
         builder: (context, state) => const BusinessRestaurantPage(),
       ),
-
-      // ─────────────────────────────────────────────
-      // Legacy: Charity Home
-      // ─────────────────────────────────────────────
       GoRoute(
         path: charityHome,
         name: 'charity-home',

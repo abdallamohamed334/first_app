@@ -5,7 +5,7 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>ar</string>
 	<key>CFBundleDisplayName</key>
 	<string>جُود</string>
 	<key>CFBundleExecutable</key>
@@ -27,12 +27,99 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
-	<!-- Allow FCM to deliver remote notifications while the app is in background. -->
+	<!-- ═══════════════════════════════════════════════════════
+	     🌍 اللغة العربية
+	     ═══════════════════════════════════════════════════════ -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ar</string>
+		<string>en</string>
+	</array>
+
+	<!-- ═══════════════════════════════════════════════════════
+	     📍 صلاحيات الموقع
+	     ═══════════════════════════════════════════════════════ -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
+
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
+
+	<!-- ═══════════════════════════════════════════════════════
+	     📸 صلاحيات الكاميرا والصور
+	     ═══════════════════════════════════════════════════════ -->
+	<key>NSCameraUsageDescription</key>
+	<string>نحتاج الكاميرا علشان ترفع صور لمزود الخدمة أو للعروض</string>
+
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>نحتاج معرض الصور علشان تختار صور للعرض</string>
+
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>نحتاج نحفظ الصور في معرضك</string>
+
+	<!-- ═══════════════════════════════════════════════════════
+	     📞 Schemes (واتساب + اتصال + إيميل)
+	     ═══════════════════════════════════════════════════════ -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>telprompt</string>
+		<string>whatsapp</string>
+		<string>https</string>
+		<string>http</string>
+		<string>mailto</string>
+	</array>
+
+	<!-- ═══════════════════════════════════════════════════════
+	     🔔 FCM
+	     ═══════════════════════════════════════════════════════ -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
 
+	<!-- ═══════════════════════════════════════════════════════
+	     🌐 ATS (للسماح بالطلبات لـ Supabase)
+	     ═══════════════════════════════════════════════════════ -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>supabase.co</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+			</dict>
+			<key>gsrhoqdtcyfdmvgahqvl.supabase.co</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+			</dict>
+			<key>api.wapilot.net</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<false/>
+				<key>NSExceptionRequiresForwardSecrecy</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+
+	<!-- ═══════════════════════════════════════════════════════
+	     🖼️ UI
+	     ═══════════════════════════════════════════════════════ -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -26,6 +26,9 @@ class _ServiceProviderDetailsPageState
     extends State<ServiceProviderDetailsPage> {
   final _repository = ServiceProvidersRepository();
 
+  // ✅ نحتفظ بالـ provider في state عشان نقدر نحدّثه
+  late ServiceProvider _provider;
+
   List<ServiceReview> _reviews = [];
   bool _loadingReviews = true;
 
@@ -55,18 +58,40 @@ class _ServiceProviderDetailsPageState
   @override
   void initState() {
     super.initState();
+    _provider = widget.provider;
     _loadReviews();
     _checkMyReview();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ إعادة تحميل شاملة (بعد التقييم)
+  // ═══════════════════════════════════════════════════════════
+  Future<void> _reloadAll() async {
+    // 1) جيب بيانات المزود المحدّثة
+    try {
+      final fresh = await _repository.getById(_provider.id);
+      if (!mounted) return;
+      if (fresh != null) {
+        setState(() => _provider = fresh);
+      }
+    } catch (e) {
+      debugPrint('❌ _reloadAll provider error: $e');
+    }
+
+    // 2) أعد تحميل التقييمات
+    await _loadReviews();
   }
 
   // ═══════════════════════════════════════════════════════════
   // Reviews
   // ═══════════════════════════════════════════════════════════
   Future<void> _loadReviews() async {
-    if (mounted) setState(() => _loadingReviews = true);
+    if (!mounted) return;
+    setState(() => _loadingReviews = true);
+
     try {
       final list = await _repository.listReviews(
-        providerId: widget.provider.id,
+        providerId: _provider.id,
       );
       if (!mounted) return;
       setState(() {
@@ -93,7 +118,7 @@ class _ServiceProviderDetailsPageState
 
     try {
       final review = await _repository.getUserReviewForProvider(
-        providerId: widget.provider.id,
+        providerId: _provider.id,
         userId: user.id,
       );
       if (!mounted) return;
@@ -115,19 +140,7 @@ class _ServiceProviderDetailsPageState
     final user = SupabaseService().client.auth.currentUser;
     if (user == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'سجّل دخولك الأول',
-              textDirection: TextDirection.rtl,
-            ),
-            backgroundColor: _card,
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.all(16),
-          ),
-        );
+      _snack('سجّل دخولك الأول');
       return;
     }
 
@@ -136,28 +149,38 @@ class _ServiceProviderDetailsPageState
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => RatingSheet(
-        providerId: widget.provider.id,
-        providerName: widget.provider.displayName,
+        providerId: _provider.id,
+        providerName: _provider.displayName,
         userId: user.id,
       ),
     );
 
     if (result == true && mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              '✅ تم إرسال تقييمك، شكرًا لك',
-              textDirection: TextDirection.rtl,
-            ),
-            backgroundColor: _green,
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.all(16),
-          ),
-        );
-      await _loadReviews();
+      _snack('✅ تم إرسال تقييمك، شكرًا لك', isSuccess: true);
+
+      // ✅ إعادة تحميل كاملة — البيانات + التقييمات
+      await _reloadAll();
     }
+  }
+
+  void _snack(String msg, {bool isSuccess = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            msg,
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: isSuccess ? _green : _cardSoft,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -165,7 +188,7 @@ class _ServiceProviderDetailsPageState
   // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final p = widget.provider;
+    final p = _provider;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -183,7 +206,7 @@ class _ServiceProviderDetailsPageState
           body: RefreshIndicator(
             color: _primaryRed,
             backgroundColor: _card,
-            onRefresh: _loadReviews,
+            onRefresh: _reloadAll,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
@@ -1453,6 +1476,9 @@ class _ServiceProviderDetailsPageState
   // Detailed Stats
   // ═══════════════════════════════════════════════════════════
   Widget _buildDetailedStats(ServiceProvider p) {
+    // ✅ المتاح لسه (الفرق بين الإجمالي والمكتمل)
+    final available = p.totalJobs - p.completedJobs;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1489,10 +1515,11 @@ class _ServiceProviderDetailsPageState
           const SizedBox(height: 10),
           Divider(height: 1, color: _border),
           const SizedBox(height: 10),
+          // ✅ قيد التنفيذ (بدل "ملغية")
           _detailedStatRow(
-            icon: Icons.cancel_rounded,
-            label: 'طلبات ملغية',
-            value: '${p.totalJobs - p.completedJobs}',
+            icon: Icons.hourglass_top_rounded,
+            label: 'قيد التنفيذ',
+            value: '$available',
             color: _orange,
           ),
         ],
@@ -1727,7 +1754,7 @@ class _ServiceProviderDetailsPageState
 
     return Column(
       children: [
-        _buildRatingSummary(widget.provider),
+        _buildRatingSummary(_provider),
         const SizedBox(height: 12),
         ..._reviews.map(_buildReviewCard),
       ],

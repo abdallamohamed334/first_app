@@ -591,7 +591,11 @@ class _HomePageState extends State<HomePage> {
   Widget _buildCategories() {
     const items = [
       (_HomeCategory.restaurants, Icons.restaurant_rounded, 'المطاعم'),
-      (_HomeCategory.grocery, Icons.shopping_basket_rounded, 'البقالة'),
+      (
+        _HomeCategory.grocery,
+        Icons.shopping_basket_rounded,
+        'البقاله والمحلات'
+      ),
       (_HomeCategory.symbolicBuy, Icons.sell_rounded, 'شراء رمزي'),
       (
         _HomeCategory.rescueDonations,

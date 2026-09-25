@@ -16,6 +16,7 @@ class ServiceProvidersRepository {
     required String categoryId,
     String? providerType,
     String? pricingType,
+    String? area, // ✅ جديد — فلتر المنطقة
     int limit = 50,
   }) async {
     try {
@@ -33,6 +34,11 @@ class ServiceProvidersRepository {
         query = query.eq('pricing_type', pricingType);
       }
 
+      // ✅ فلتر المنطقة — يتحقق إن المزود بيخدم المنطقة دي
+      if (area != null && area.isNotEmpty) {
+        query = query.contains('service_areas', [area]);
+      }
+
       final rows = await query
           .order('rating_avg', ascending: false)
           .order('total_reviews', ascending: false)
@@ -48,6 +54,39 @@ class ServiceProvidersRepository {
     } catch (e) {
       debugPrint('❌ listByCategory error: $e');
       rethrow;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ جلب المناطق المتاحة في تصنيف معين
+  // ═══════════════════════════════════════════════════════════
+  Future<List<String>> getAvailableAreas({
+    required String categoryId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('published_service_providers')
+          .select('service_areas')
+          .eq('category_id', categoryId)
+          .eq('city', AppConfig.defaultCity);
+
+      final Set<String> areas = {};
+      for (final row in rows) {
+        final raw = row['service_areas'];
+        if (raw is List) {
+          for (final a in raw) {
+            final t = a?.toString().trim() ?? '';
+            if (t.isNotEmpty) areas.add(t);
+          }
+        }
+      }
+
+      final list = areas.toList()..sort();
+      debugPrint('✅ Available areas: ${list.length} → $list');
+      return list;
+    } catch (e) {
+      debugPrint('❌ getAvailableAreas error: $e');
+      return [];
     }
   }
 

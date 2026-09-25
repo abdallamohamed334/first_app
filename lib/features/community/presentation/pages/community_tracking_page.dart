@@ -41,7 +41,7 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
       outlinedIcon: Icons.favorite_outline_rounded,
     ),
     _TrackingTab(
-      label: 'طلبات البقالة',
+      label: 'طلبات البقاله والفنادق ',
       icon: Icons.storefront_rounded,
       outlinedIcon: Icons.storefront_outlined,
     ),

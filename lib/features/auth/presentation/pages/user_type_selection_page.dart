@@ -9,7 +9,7 @@ import 'package:loqma/routes/app_router.dart';
 class UserTypeSelectionPage extends StatelessWidget {
   const UserTypeSelectionPage({super.key});
 
-  // ── ألوان جديدة (هوية جُود)
+  // ── ألوان جُود
   static const _bg = Color(0xFFF4F8F6);
   static const _bgDark = Color(0xFFE6F0EA);
   static const _primary = Color(0xFF0B7650);
@@ -125,30 +125,26 @@ class UserTypeSelectionPage extends StatelessWidget {
                     const SizedBox(height: 14),
 
                     // ═══════════════════════════════════════════
-                    // 🔧 مقدم خدمة → REGISTER
+                    // 🔧 مقدم خدمة → ProviderAuthPage ✅ جديد
                     // ═══════════════════════════════════════════
                     _TypeCard(
                       icon: Icons.handyman_rounded,
                       title: 'مقدم خدمة',
                       subtitle: 'سباك، كهربائي، نجار، أو أي حرفة تانية',
                       color: const Color(0xFF3679C8),
-                      onTap: () => context.push(
-                        '${AppRouter.register}?role=provider',
-                      ),
+                      onTap: () => context.push(AppRouter.providerAuth),
                     ),
                     const SizedBox(height: 14),
 
                     // ═══════════════════════════════════════════
-                    // 🏢 مؤسسة / جمعية → REGISTER
+                    // 🏢 مؤسسة / جمعية → LOGIN PAGE
                     // ═══════════════════════════════════════════
                     _TypeCard(
                       icon: Icons.business_rounded,
                       title: 'مؤسسة / جمعية',
                       subtitle: 'مطعم، جمعية، أو مؤسسة شريكة مع جُود',
                       color: const Color(0xFFE28B00),
-                      onTap: () => context.push(
-                        '${AppRouter.register}?role=institution',
-                      ),
+                      onTap: () => context.push(AppRouter.institutionLogin),
                     ),
                     const SizedBox(height: 36),
 
@@ -233,7 +229,6 @@ class _TypeCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // ── Icon Circle
               Container(
                 width: 56,
                 height: 56,
@@ -249,8 +244,6 @@ class _TypeCard extends StatelessWidget {
                 child: Icon(icon, color: color, size: 26),
               ),
               const SizedBox(width: 14),
-
-              // ── Text
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,8 +268,6 @@ class _TypeCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // ── Arrow
               Icon(
                 Icons.chevron_left_rounded,
                 color: color.withValues(alpha: 0.6),

@@ -45,6 +45,8 @@ class _RatingSheetState extends State<RatingSheet> {
     'محترف',
     'سعر معقول',
     'متطوع',
+    'التزام بالمواعيد',
+    'شغل ممتاز',
   ];
 
   @override
@@ -53,12 +55,16 @@ class _RatingSheetState extends State<RatingSheet> {
     super.dispose();
   }
 
+  // ══════════════════════════════════════════════════════════
+  // Submit
+  // ══════════════════════════════════════════════════════════
   Future<void> _submit() async {
     if (_rating == 0) {
-      _showSnack('اختار عدد النجوم الأول');
+      _showSnack('اختار عدد النجوم الأول', isError: true);
       return;
     }
 
+    FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
 
     try {
@@ -72,22 +78,39 @@ class _RatingSheetState extends State<RatingSheet> {
       );
 
       if (!mounted) return;
+
+      // ✅ نجاح — نرجع true
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
+
       final msg = e.toString().replaceFirst('Exception: ', '');
-      _showSnack(msg.isEmpty ? 'تعذر إرسال التقييم' : msg);
+
+      // ✅ رسالة مخصصة للتقييم المكرر
+      if (msg.contains('قيّمت') || msg.contains('already')) {
+        _showSnack('أنت قيّمت المزود ده بالفعل ✅', isError: false);
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) Navigator.pop(context, true);
+        });
+        return;
+      }
+
+      _showSnack(msg.isEmpty ? 'تعذر إرسال التقييم' : msg, isError: true);
     }
   }
 
-  void _showSnack(String msg) {
+  void _showSnack(String msg, {bool isError = true}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(msg, textDirection: TextDirection.rtl),
-          backgroundColor: _cardSoft,
+          content: Text(
+            msg,
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: isError ? _primaryRed : _green,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -97,6 +120,9 @@ class _RatingSheetState extends State<RatingSheet> {
       );
   }
 
+  // ══════════════════════════════════════════════════════════
+  // Build
+  // ══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
@@ -117,18 +143,41 @@ class _RatingSheetState extends State<RatingSheet> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Handle
-                  Center(
-                    child: Container(
-                      width: 44,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: _textSecondary.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(2),
+                  // ── Handle + زر الإغلاق
+                  Row(
+                    children: [
+                      const SizedBox(width: 40),
+                      Expanded(
+                        child: Center(
+                          child: Container(
+                            width: 44,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: _textSecondary.withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      // ✅ زر إغلاق
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: _cardSoft,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: _textSecondary, size: 18),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
 
                   // ── العنوان
                   const Text(

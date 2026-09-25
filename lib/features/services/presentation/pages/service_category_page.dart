@@ -26,8 +26,10 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   // ── Filters
   String? _providerType; // null = all | individual | company
   String? _pricingType; // null = all | free | symbolic | market
+  String? _area; // ✅ جديد — المنطقة المختارة
 
   List<ServiceProvider> _providers = [];
+  List<String> _availableAreas = []; // ✅ المناطق المتاحة
   bool _loading = true;
   String? _error;
 
@@ -48,10 +50,50 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadAreasAndProviders();
   }
 
-  Future<void> _load() async {
+  /// ✅ نجيب المناطق + المزودين مع بعض (أول مرة)
+  Future<void> _loadAreasAndProviders() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      // 1) نجيب المناطق المتاحة
+      final areas = await _repository.getAvailableAreas(
+        categoryId: widget.category.id,
+      );
+
+      // 2) نجيب المزودين
+      final list = await _repository.listByCategory(
+        categoryId: widget.category.id,
+        providerType: _providerType,
+        pricingType: _pricingType,
+        area: _area,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _availableAreas = areas;
+        _providers = list;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('❌ load error: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'تعذر تحميل مقدمي الخدمة';
+      });
+    }
+  }
+
+  /// ✅ لما نغيّر فلتر (مش محتاج نعيد جلب المناطق)
+  Future<void> _reloadProviders() async {
     if (mounted) {
       setState(() {
         _loading = true;
@@ -64,6 +106,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         categoryId: widget.category.id,
         providerType: _providerType,
         pricingType: _pricingType,
+        area: _area,
       );
       if (!mounted) return;
       setState(() {
@@ -71,13 +114,23 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         _loading = false;
       });
     } catch (e) {
-      debugPrint('❌ load providers error: $e');
+      debugPrint('❌ reload error: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = 'تعذر تحميل مقدمي الخدمة';
       });
     }
+  }
+
+  /// ✅ زر "مسح الفلاتر"
+  void _clearFilters() {
+    setState(() {
+      _providerType = null;
+      _pricingType = null;
+      _area = null;
+    });
+    _reloadProviders();
   }
 
   @override
@@ -184,6 +237,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   // Filters
   // ═══════════════════════════════════════════════════════════
   Widget _buildFilters() {
+    final hasActiveFilter =
+        _providerType != null || _pricingType != null || _area != null;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
@@ -202,7 +258,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _providerType == null,
                   onTap: () {
                     setState(() => _providerType = null);
-                    _load();
+                    _reloadProviders();
                   },
                 ),
                 const SizedBox(width: 8),
@@ -212,7 +268,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _providerType == 'individual',
                   onTap: () {
                     setState(() => _providerType = 'individual');
-                    _load();
+                    _reloadProviders();
                   },
                 ),
                 const SizedBox(width: 8),
@@ -222,13 +278,14 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _providerType == 'company',
                   onTap: () {
                     setState(() => _providerType = 'company');
-                    _load();
+                    _reloadProviders();
                   },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
+
           // ── نوع التسعير ──
           SizedBox(
             height: 34,
@@ -242,7 +299,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _pricingType == null,
                   onTap: () {
                     setState(() => _pricingType = null);
-                    _load();
+                    _reloadProviders();
                   },
                 ),
                 const SizedBox(width: 8),
@@ -253,7 +310,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _pricingType == 'free',
                   onTap: () {
                     setState(() => _pricingType = 'free');
-                    _load();
+                    _reloadProviders();
                   },
                 ),
                 const SizedBox(width: 8),
@@ -264,7 +321,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _pricingType == 'symbolic',
                   onTap: () {
                     setState(() => _pricingType = 'symbolic');
-                    _load();
+                    _reloadProviders();
                   },
                 ),
                 const SizedBox(width: 8),
@@ -274,12 +331,75 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   selected: _pricingType == 'market',
                   onTap: () {
                     setState(() => _pricingType = 'market');
-                    _load();
+                    _reloadProviders();
                   },
                 ),
               ],
             ),
           ),
+
+          // ✅ ── فلتر المنطقة (يظهر بس لما يكون فيه مناطق)
+          if (_availableAreas.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 34,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                children: [
+                  _filterChip(
+                    label: 'كل المناطق',
+                    icon: Icons.location_city_rounded,
+                    selected: _area == null,
+                    color: _blue,
+                    onTap: () {
+                      setState(() => _area = null);
+                      _reloadProviders();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ..._availableAreas.map((area) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _filterChip(
+                        label: area,
+                        icon: Icons.location_on_rounded,
+                        selected: _area == area,
+                        color: _blue,
+                        onTap: () {
+                          setState(() => _area = area);
+                          _reloadProviders();
+                        },
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ],
+
+          // ✅ زر "مسح الفلاتر" (يظهر بس لما فيه فلتر شغال)
+          if (hasActiveFilter) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _clearFilters,
+                icon: const Icon(Icons.refresh_rounded, size: 14),
+                label: const Text(
+                  'مسح الفلاتر',
+                  style: TextStyle(fontSize: 11.5),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: _primaryRed,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -365,7 +485,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     return RefreshIndicator(
       color: _primaryRed,
       backgroundColor: _card,
-      onRefresh: _load,
+      onRefresh: _reloadProviders,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
@@ -607,6 +727,15 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                         label: p.city!,
                         color: _blue,
                       ),
+                    // ✅ لو المزود بيخدم المنطقة المختارة
+                    if (_area != null) ...[
+                      const SizedBox(width: 6),
+                      _pill(
+                        icon: Icons.check_circle_rounded,
+                        label: 'بيخدم $_area',
+                        color: _green,
+                      ),
+                    ],
                     if (p.isAvailable)
                       _pill(
                         icon: Icons.check_circle_rounded,
@@ -779,7 +908,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ Call & WhatsApp Helpers
+  // Call & WhatsApp Helpers
   // ═══════════════════════════════════════════════════════════
   Future<void> _makeCall(String phone) async {
     final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
@@ -797,10 +926,8 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   }
 
   Future<void> _openWhatsapp(String phone) async {
-    // نشيل كل حاجة غير الأرقام
     var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
 
-    // لو الرقم مصري بيبدأ بـ 0 → نحوله لـ 20
     if (cleaned.startsWith('0')) {
       cleaned = '20${cleaned.substring(1)}';
     } else if (!cleaned.startsWith('20') && cleaned.length == 10) {
@@ -841,6 +968,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   // Empty / Error
   // ═══════════════════════════════════════════════════════════
   Widget _buildEmpty() {
+    final hasFilter =
+        _providerType != null || _pricingType != null || _area != null;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -863,7 +993,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              'مفيش ${widget.category.nameAr} متاحين دلوقتي',
+              _area != null
+                  ? 'مفيش ${widget.category.nameAr} متاحين في $_area'
+                  : 'مفيش ${widget.category.nameAr} متاحين دلوقتي',
               style: const TextStyle(
                 color: _textPrimary,
                 fontSize: 16,
@@ -880,15 +1012,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
               ),
             ),
             const SizedBox(height: 20),
-            if (_providerType != null || _pricingType != null)
+            if (hasFilter)
               TextButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _providerType = null;
-                    _pricingType = null;
-                  });
-                  _load();
-                },
+                onPressed: _clearFilters,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('مسح الفلاتر'),
                 style: TextButton.styleFrom(
@@ -934,7 +1060,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _load,
+              onPressed: _loadAreasAndProviders,
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('إعادة المحاولة'),
               style: FilledButton.styleFrom(

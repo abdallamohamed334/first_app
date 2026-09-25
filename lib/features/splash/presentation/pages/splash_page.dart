@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class SplashPage extends StatefulWidget {
@@ -96,7 +97,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ Navigation — النظام الجديد (مع انتظار قوي للجلسة)
+  // ✅ Navigation — يحفظ الحالة في AuthStateNotifier
   // ═══════════════════════════════════════════════════════════
   Future<void> _navigateToNext() async {
     if (_isNavigating || !mounted) return;
@@ -105,12 +106,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     String nextLocation = AppRouter.userTypeSelection;
     final client = Supabase.instance.client;
 
-    // ═══════════════════════════════════════════════════════════
-    // ✅ 1. نستنى استعادة الجلسة — بقوة أكبر
-    // ═══════════════════════════════════════════════════════════
+    // 1) نستنى استعادة الجلسة (5 محاولات × 300ms)
     Session? session = client.auth.currentSession;
 
-    // لو مش موجودة، نستنى شوية ونجرب تاني (5 محاولات × 300ms = 1.5s)
     if (session == null) {
       for (int i = 0; i < 5; i++) {
         await Future.delayed(const Duration(milliseconds: 300));
@@ -122,9 +120,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
 
     debugPrint('🔴 [Splash] session=${session != null ? "found" : "null"}');
 
-    // ═══════════════════════════════════════════════════════════
-    // ✅ 2. لو فيه جلسة → نروح حسب الـ role
-    // ═══════════════════════════════════════════════════════════
+    // 2) فيه جلسة → نحدد الـ role + provider status
     if (session != null) {
       try {
         final userData = await client
@@ -133,38 +129,64 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             .eq('id', session.user.id)
             .maybeSingle();
 
-        final role = userData?['role']?.toString().toLowerCase() ?? '';
-        final name = userData?['name']?.toString().trim() ?? '';
-        final city = userData?['city']?.toString().trim() ?? '';
+        final role =
+            userData?['role']?.toString().toLowerCase().trim() ?? 'user';
 
-        debugPrint('🔴 [Splash] role=$role, name=$name, city=$city');
+        debugPrint('🔴 [Splash] role=$role');
 
-        switch (role) {
-          case 'user':
-            nextLocation = AppRouter.home;
-            break;
-          case 'provider':
-            nextLocation = AppRouter.providerHome;
-            break;
-          case 'institution':
-          case 'charity': // توافق للخلف
-            nextLocation = AppRouter.institutionsHome;
-            break;
-          case 'admin':
-            nextLocation = AppRouter.home;
-            break;
-          default:
-            // ✅ role فاضي (المستخدم لسه مكملش البيانات) — لكن الجلسة موجودة
-            // فنروح Home بدل ما نرجع UserTypeSelection
-            nextLocation = AppRouter.home;
+        String? providerStatus;
+        bool isActive = true;
+
+        // ✅ لو provider → نجيب حالته
+        if (role == 'provider') {
+          try {
+            final providerRow = await client
+                .from('service_providers')
+                .select('verification_status, is_active')
+                .eq('user_id', session.user.id)
+                .maybeSingle();
+
+            if (providerRow != null) {
+              providerStatus =
+                  providerRow['verification_status']?.toString() ?? 'pending';
+              isActive = providerRow['is_active'] as bool? ?? true;
+            } else {
+              providerStatus = 'pending';
+            }
+
+            debugPrint(
+              '🔴 [Splash] provider status=$providerStatus, active=$isActive',
+            );
+          } catch (e) {
+            debugPrint('⚠️ [Splash] provider fetch error: $e');
+            providerStatus = 'pending';
+          }
         }
+
+        // ✅ نحدّث الـ notifier
+        AuthStateNotifier.instance.setLoggedIn(
+          isLoggedIn: true,
+          role: role,
+          providerStatus: providerStatus,
+          isActive: isActive,
+        );
+
+        // ✅ التوجيه حسب الحالة
+        nextLocation =
+            AuthStateNotifier.instance.homeRoute ?? AppRouter.userTypeSelection;
       } catch (error) {
-        debugPrint('⚠️ Could not resolve user role: $error');
-        // ✅ لو الجلسة موجودة بس الـ query فشل → نروح Home برضه
+        debugPrint('⚠️ [Splash] could not resolve role: $error');
+        // لو الجلسة موجودة بس الـ query فشل → نروح Home
+        AuthStateNotifier.instance.setLoggedIn(
+          isLoggedIn: true,
+          role: 'user',
+        );
         nextLocation = AppRouter.home;
       }
     } else {
-      // ✅ 3. مفيش جلسة → نفحص الـ onboarding
+      // 3) مفيش جلسة → نفحص الـ onboarding
+      AuthStateNotifier.instance.clear();
+
       final prefs = await SharedPreferences.getInstance();
       final onboardingSeen = prefs.getBool('onboarding_seen') ??
           prefs.getBool('onboarding_completed') ??

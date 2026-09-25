@@ -46,7 +46,7 @@ class _CommunityMyGroceryOrdersPageState
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          'طلبات البقالة',
+          ' طلبات البقاله والمحلات ',
           style: TextStyle(
             color: colors.onSurface,
             fontWeight: FontWeight.w900,
