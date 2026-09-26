@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loqma/features/provider/presentation/pages/widgets/provider_status_guard.dart';
 
 import '../core/services/auth_state_notifier.dart';
 import '../features/splash/presentation/pages/splash_page.dart';
@@ -113,6 +114,13 @@ class AppRouter {
         return userTypeSelection;
       }
 
+      // ⏳ جلسة Supabase وصلت، لكن profile/provider لم يكتمل تحميله.
+      // لا نرجع إلى /home اعتمادًا على role=user المؤقت.
+      if (auth.isSyncing || !auth.isResolved) {
+        if (isPublic) return null;
+        return splash;
+      }
+
       // ══════════════════════════════════════════════════════════
       // ✅ Provider restrictions — منع المزود الموقوف من الوصول
       // ══════════════════════════════════════════════════════════
@@ -120,46 +128,41 @@ class AppRouter {
         final status = auth.providerStatus ?? 'pending';
         final isActive = auth.isActive;
 
+        // مزود الخدمة المعتمد لا يدخل Home المستخدم حتى لو استدعاه كود قديم.
+        if (status == 'approved' && isActive && loc == home) {
+          return providerHome;
+        }
+
         final isBlocked = !isActive ||
             status == 'suspended' ||
             status == 'rejected' ||
             status == 'pending';
 
-        // المسارات المسموح بيها للمزود المحظور
-        const allowedForBlocked = {
-          '/provider/pending',
-          '/provider/auth',
-          '/provider/otp-verify',
-        };
-
-        // ✅ لو محظور، نمنعه من أي مسار provider غير المسموح
-        if (isBlocked) {
-          final isProviderRoute =
-              loc == '/provider-home' || loc.startsWith('/provider/');
-
-          if (isProviderRoute && !allowedForBlocked.contains(loc)) {
-            return providerPending;
-          }
-
-          // ✅ نمنع كذلك أي محاولة للوصول لـ Home العادي
-          if (loc == '/home') {
-            return providerPending;
-          }
+        // ✅ الحساب المرفوض/الموقوف لا يدخل أي صفحة ولا مسار مزود.
+        // نرسله دائمًا لاختيار نوع الحساب، حتى من splash أو صفحة الخطأ.
+        if (isBlocked && loc != userTypeSelection) {
+          return userTypeSelection;
         }
       }
 
-      // ✅ مسجل دخول → لو على صفحة auth/شاشة ترحيب → نروح للـ home
+      // ══════════════════════════════════════════════════════════
+      // ✅ مسجل دخول → لو على صفحة auth/ترحيب → نروح للـ home
+      // ⚠️ ماعدا /institution-login: سيبها تتحكم بنفسها عشان
+      // تقدر توجه حسب user_type قبل ما الـ redirect يسبقها.
+      // ══════════════════════════════════════════════════════════
       const authPagesToRedirect = {
         '/',
         '/user-type-selection',
         '/login',
         '/register',
         '/institution-login',
-        '/provider/auth',
-        '/provider/otp-verify',
+        // لا نضع provider auth/OTP هنا؛ هذه صفحات تدفق الدخول نفسها.
       };
 
       if (authPagesToRedirect.contains(loc)) {
+        // ✅ لا تعيد التوجيه من صفحة دخول المؤسسات
+        if (loc == '/institution-login') return null;
+
         return auth.homeRoute ?? home;
       }
 
@@ -307,7 +310,9 @@ class AppRouter {
       GoRoute(
         path: providerHome,
         name: 'provider-home',
-        builder: (context, state) => const ProviderMainShell(),
+        builder: (context, state) => const ProviderStatusGuard(
+          child: ProviderMainShell(),
+        ),
       ),
 
       // ─────────────────────────────────────────────
@@ -416,9 +421,9 @@ class AppRouter {
       ),
     ],
 
-    // ═══════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     // ❌ Error Builder
-    // ═══════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════
     errorBuilder: (context, state) => Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -446,9 +451,10 @@ class AppRouter {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => context.go(splash),
-                  child: const Text('العودة للرئيسية'),
+                ElevatedButton.icon(
+                  onPressed: () => context.go(userTypeSelection),
+                  icon: const Icon(Icons.home_rounded),
+                  label: const Text('العودة لاختيار نوع الحساب'),
                 ),
               ],
             ),

@@ -49,8 +49,16 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   bool _isVegetarian = false;
   bool _requiresRefrigeration = false;
 
-  // ✅ تاريخ الانتهاء هو اللي يحدد كل حاجة
-  DateTime _expiresAt = DateTime.now().add(const Duration(days: 7));
+  // ═══════════════════════════════════════════════════════════
+  // ✅ جديد: اختيار نوع المنتج
+  // true  → قريب ينتهي (له تاريخ)
+  // false → منتج جديد/عادي (بدون تاريخ)
+  // ═══════════════════════════════════════════════════════════
+  bool _isExpiringSoon = false;
+
+  /// التاريخ الافتراضي لما يختار "قريب ينتهي"
+  DateTime _expiresAt = DateTime.now().add(const Duration(days: 3));
+
   bool _saving = false;
 
   // ✅ قائمة التصنيفات
@@ -247,7 +255,6 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
-    // ✅ التحقق من أن السعر الرمزي لا يتجاوز السعر الأصلي
     if (originalPrice != null && symbolicPrice > originalPrice) {
       _showMessage(
         '⚠️ السعر الرمزي ($symbolicPrice ج.م) لا يمكن أن يكون أكبر من السعر الأصلي ($originalPrice ج.م)',
@@ -256,8 +263,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
-    // ✅ التأكد من أن التاريخ مش منتهي
-    if (_expiresAt.isBefore(DateTime.now())) {
+    // ✅ لو "قريب ينتهي" → نتأكد إن التاريخ مش في الماضي
+    if (_isExpiringSoon && _expiresAt.isBefore(DateTime.now())) {
       _showMessage('تاريخ الانتهاء لا يمكن أن يكون في الماضي', error: true);
       return;
     }
@@ -274,6 +281,14 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
       final location = _pickupLocationController.text.trim();
 
+      // ═══════════════════════════════════════════════════════
+      // ✅ لو "منتج جديد/عادي" → نبعت تاريخ بعيد (سنة من الآن)
+      //    لو "قريب ينتهي" → نبعت التاريخ المختار
+      // ═══════════════════════════════════════════════════════
+      final expiresAtToSend = _isExpiringSoon
+          ? _expiresAt.toUtc()
+          : DateTime.now().add(const Duration(days: 365)).toUtc();
+
       await _repository.createOffer(
         institutionId: widget.institutionId,
         title: _titleController.text,
@@ -284,7 +299,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         originalPrice: originalPrice,
         images: imageUrls,
         pickupLocation: location.isNotEmpty ? location : null,
-        expiresAt: _expiresAt.toUtc(),
+        expiresAt: expiresAtToSend,
         foodType: _getCategoryLabel(),
         isHalal: _isHalal,
         isVegetarian: _isVegetarian,
@@ -323,7 +338,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return '⚠️ السعر الرمزي لا يمكن أن يكون أكبر من السعر الأصلي';
     }
     if (text.contains('expires_at') || text.contains('صلاحية')) {
-      return '⏰ صلاحية العرض لا تتجاوز 12 ساعة من الآن';
+      return '⏰ صلاحية العرض لا تتجاوز المدة المسموح بها من الآن';
     }
     if (text.contains('institution not found') ||
         text.contains('المؤسسة غير موجودة')) {
@@ -413,7 +428,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                       const Divider(color: Color(0xFFE2EEE8)),
                       const SizedBox(height: 24),
 
-                      // ✅ قسم تاريخ الانتهاء وطبيعة المنتج
+                      // ✅ قسم نوع المنتج + تاريخ الانتهاء
                       _buildExpirySection(nature),
                       const SizedBox(height: 24),
                       const Divider(color: Color(0xFFE2EEE8)),
@@ -449,22 +464,20 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     );
   }
 
-  // ============================================================
-  // ✅ قسم تاريخ الانتهاء وطبيعة المنتج
-  // ============================================================
+  // ═══════════════════════════════════════════════════════════
+  // ✅ قسم نوع المنتج + تاريخ الانتهاء
+  // ═══════════════════════════════════════════════════════════
   Widget _buildExpirySection(Map<String, dynamic> nature) {
-    final daysLeft = nature['days'] as int;
-    final color = nature['color'] as Color;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── العنوان
         Row(
           children: [
             const Icon(Icons.event_note_rounded, color: _primary, size: 20),
             const SizedBox(width: 8),
             const Text(
-              'تاريخ الانتهاء',
+              'نوع المنتج',
               style: TextStyle(
                 color: _primaryDark,
                 fontSize: 17,
@@ -472,125 +485,345 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               ),
             ),
             const Spacer(),
-            // ✅ عرض طبيعة المنتج حسب التاريخ
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(nature['icon'], color: color, size: 14),
-                  const SizedBox(width: 4),
-                  Text(
-                    nature['label'],
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
+            // ── عرض طبيعة المنتج لو "قريب ينتهي"
+            if (_isExpiringSoon)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (nature['color'] as Color).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (nature['color'] as Color).withValues(alpha: 0.2),
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      nature['icon'] as IconData,
+                      color: nature['color'] as Color,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      nature['label'] as String,
+                      style: TextStyle(
+                        color: nature['color'] as Color,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ أزرار الاختيار (منتج جديد عادي / قريب ينتهي)
+        // ═══════════════════════════════════════════════════════
+        Row(
+          children: [
+            Expanded(
+              child: _buildTypeCard(
+                title: 'منتج جديد / عادي',
+                subtitle: 'مفيش تاريخ انتهاء',
+                icon: Icons.inventory_2_rounded,
+                selected: !_isExpiringSoon,
+                color: _primary,
+                onTap: () {
+                  if (_saving) return;
+                  setState(() => _isExpiringSoon = false);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildTypeCard(
+                title: 'قريب ينتهي',
+                subtitle: 'حدد تاريخ الانتهاء',
+                icon: Icons.timer_outlined,
+                selected: _isExpiringSoon,
+                color: _accent,
+                onTap: () {
+                  if (_saving) return;
+                  setState(() => _isExpiringSoon = true);
+                },
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        _buildExpiryField(),
-        const SizedBox(height: 8),
-        // ✅ وصف طبيعة المنتج
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            children: [
-              Icon(nature['icon'], color: color, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  nature['description'],
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+        const SizedBox(height: 14),
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ لو "قريب ينتهي" → نظهر حقل التاريخ + وصف الطبيعة
+        // ═══════════════════════════════════════════════════════
+        if (_isExpiringSoon) ...[
+          _buildExpiryField(),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: (nature['color'] as Color).withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: (nature['color'] as Color).withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  nature['icon'] as IconData,
+                  color: nature['color'] as Color,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    nature['description'] as String,
+                    style: TextStyle(
+                      color: nature['color'] as Color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        if (daysLeft <= 3 && daysLeft >= 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _accent.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.timer_outlined,
-                    color: _accent,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '⚠️ هذا العرض سينتهي خلال $daysLeft أيام - مناسب للاستخدام الفوري',
-                      style: const TextStyle(
-                        color: _accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
-        if (daysLeft < 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _error.withValues(alpha: 0.2)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.warning_amber_rounded,
-                    color: _error,
-                    size: 16,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '⚠️ هذا التاريخ منتهي، يرجى اختيار تاريخ مستقبلي',
-                      style: TextStyle(
-                        color: _error,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+          if ((nature['days'] as int) <= 3 && (nature['days'] as int) >= 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _accent.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _accent.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.timer_outlined,
+                      color: _accent,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '⚠️ هذا العرض سينتهي خلال ${nature['days']} أيام - مناسب للاستخدام الفوري',
+                        style: const TextStyle(
+                          color: _accent,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
+          if ((nature['days'] as int) < 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _error.withValues(alpha: 0.2)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: _error,
+                      size: 16,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '⚠️ هذا التاريخ منتهي، يرجى اختيار تاريخ مستقبلي',
+                        style: TextStyle(
+                          color: _error,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ] else ...[
+          // ═══════════════════════════════════════════════════════
+          // ✅ لو "منتج جديد عادي" → نظهر رسالة توضيحية
+          // ═══════════════════════════════════════════════════════
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _primary.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: _primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'منتج جديد / عادي',
+                        style: TextStyle(
+                          color: _primaryDark,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 3),
+                      Text(
+                        'هذا المنتج مش محتاج تاريخ انتهاء، العرض هيفضل متاح لحد ما توقفه بنفسك.',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 11.5,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
+        ],
       ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ كارت اختيار نوع المنتج
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildTypeCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.08) : _surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? color : const Color(0xFFDCEBE3),
+            width: selected ? 1.8 : 1,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color:
+                        selected ? color.withValues(alpha: 0.15) : Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: selected ? color : _muted,
+                    size: 20,
+                  ),
+                ),
+                const Spacer(),
+                if (selected)
+                  Container(
+                    width: 22,
+                    height: 22,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFC4D5CC),
+                        width: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                color: selected ? color : _primaryDark,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: selected ? color.withValues(alpha: 0.8) : _muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1142,7 +1375,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   }
 
   // ============================================================
-  // ✅ تاريخ الانتهاء
+  // ✅ حقل تاريخ الانتهاء (يظهر بس لما "قريب ينتهي")
   // ============================================================
   Widget _buildExpiryField() {
     return InkWell(
@@ -1152,6 +1385,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         decoration: InputDecoration(
           labelText: 'تاريخ الانتهاء',
           prefixIcon: const Icon(Icons.event_outlined, color: _muted),
+          suffixIcon: const Icon(
+            Icons.arrow_drop_down_rounded,
+            color: _muted,
+          ),
           filled: true,
           fillColor: _surfaceVariant,
           contentPadding:

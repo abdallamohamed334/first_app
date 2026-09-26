@@ -1,6 +1,7 @@
 // lib/features/community/presentation/pages/community_my_grocery_orders_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer_request.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
@@ -25,13 +26,35 @@ class _CommunityMyGroceryOrdersPageState
   @override
   void initState() {
     super.initState();
-    _future = _repository.listMyRequests();
+    _future = _safeLoadRequests();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ تحميل آمن — بيمنع أي exception يوصل للـ FutureBuilder
+  // ═══════════════════════════════════════════════════════════
+  Future<List<InstitutionOfferRequest>> _safeLoadRequests() async {
+    try {
+      return await _repository.listMyRequests();
+    } catch (e) {
+      debugPrint('⚠️ listMyRequests failed: $e');
+      return const <InstitutionOfferRequest>[];
+    }
   }
 
   Future<void> _refresh() async {
-    final next = _repository.listMyRequests();
-    setState(() => _future = next);
-    await next;
+    if (!mounted) return;
+
+    final next = _safeLoadRequests();
+
+    setState(() {
+      _future = next;
+    });
+
+    try {
+      await next;
+    } catch (e) {
+      debugPrint('⚠️ refresh failed: $e');
+    }
   }
 
   @override
@@ -65,11 +88,11 @@ class _CommunityMyGroceryOrdersPageState
             );
           }
 
-          if (snapshot.hasError) {
-            return _ErrorState(onRetry: _refresh);
-          }
-
-          final requests = snapshot.data ?? [];
+          // ✅ حتى لو حصل error، بنتعامل معاه كأنه فاضي
+          // (مش بنعرض شاشة خطأ مقلقة)
+          final requests = snapshot.hasError
+              ? const <InstitutionOfferRequest>[]
+              : (snapshot.data ?? const <InstitutionOfferRequest>[]);
 
           if (requests.isEmpty) {
             return _EmptyState(onRefresh: _refresh);
@@ -141,6 +164,9 @@ class _CommunityMyGroceryOrdersPageState
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // فتح تفاصيل العرض
+  // ═══════════════════════════════════════════════════════════
   void _openOfferDetails(
     BuildContext context,
     InstitutionOfferRequest request,
@@ -148,8 +174,9 @@ class _CommunityMyGroceryOrdersPageState
     final offerMap = request.offer;
 
     if (offerMap == null || offerMap.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر عرض تفاصيل هذا العرض حاليًا')),
+      _showFriendlyMessage(
+        context,
+        'تعذر عرض تفاصيل هذا العرض حاليًا',
       );
       return;
     }
@@ -158,8 +185,9 @@ class _CommunityMyGroceryOrdersPageState
     try {
       offer = InstitutionOffer.fromJson(offerMap);
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر عرض تفاصيل هذا العرض حاليًا')),
+      _showFriendlyMessage(
+        context,
+        'تعذر عرض تفاصيل هذا العرض حاليًا',
       );
       return;
     }
@@ -172,19 +200,42 @@ class _CommunityMyGroceryOrdersPageState
     );
   }
 
-  // ✅ المستخدم يطلب كود الاستلام
+  // ═══════════════════════════════════════════════════════════
+  // ✅ عرض كود الاستلام — كل الأخطاء بتتحول لرسائل عربية
+  // ═══════════════════════════════════════════════════════════
   Future<void> _handleShowCode(
     BuildContext context,
     InstitutionOfferRequest request,
   ) async {
+    // ✅ نعرض loading مؤقت عشان اليوزر يحس إن فيه حاجة بتحصل
+    _showLoadingDialog(context);
+
     try {
       final result = await _repository.generatePickupCodeForUser(request.id);
-      if (!context.mounted) return;
 
-      final code = result['pickup_code']?.toString() ?? '';
-      if (code.isEmpty) {
-        throw Exception('لم يتم إرجاع كود');
+      // ✅ نقفل الـ loading الأول
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
       }
+
+      if (!mounted) return;
+
+      final code = result['pickup_code']?.toString().trim() ?? '';
+      if (code.isEmpty) {
+        _showFriendlyMessage(
+          context,
+          'تعذر إنشاء كود الاستلام، حاول مرة أخرى',
+        );
+        return;
+      }
+
+      final isNew = result['is_new'] == true;
+      final expiresIn = result['expires_in_seconds'] as int?;
+
+      debugPrint(
+        '✅ pickup code: $code '
+        '(isNew=$isNew, expiresIn=${expiresIn}s)',
+      );
 
       final offer = request.offer ?? {};
       final institutions = offer['institutions'] as Map<String, dynamic>?;
@@ -198,15 +249,123 @@ class _CommunityMyGroceryOrdersPageState
           address: (address?.isNotEmpty ?? false)
               ? address!
               : (fallbackAddress ?? ''),
+          isNew: isNew,
+          expiresInSeconds: expiresIn,
         ),
       );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر إنشاء كود الاستلام: $e')),
-        );
+
+      // ✅ نعمل refresh بس لو الكود اتولّد جديد فعلًا
+      if (isNew && mounted) {
+        await _refresh();
       }
+    } catch (e) {
+      // ✅ نقفل الـ loading الأول
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      debugPrint('⚠️ generatePickupCodeForUser failed: $e');
+
+      if (!mounted) return;
+
+      _showFriendlyMessage(
+        context,
+        _friendlyError(e),
+      );
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ دالة تحويل أي error لرسالة عربية واضحة
+  // ═══════════════════════════════════════════════════════════
+  String _friendlyError(Object error) {
+    // Postgrest errors
+    if (error is PostgrestException) {
+      final msg = error.message.toLowerCase();
+
+      if (msg.contains('not authorized') ||
+          msg.contains('permission') ||
+          msg.contains('rls') ||
+          error.code == '42501') {
+        return 'غير مصرح لك بهذا الإجراء';
+      }
+
+      if (msg.contains('not found') || error.code == 'PGRST116') {
+        return 'الطلب غير موجود';
+      }
+
+      if (msg.contains('institution_offer_request') && msg.contains('not')) {
+        return 'لا يمكن إنشاء كود استلام في هذه الحالة';
+      }
+
+      if (msg.contains('expired')) {
+        return 'انتهت صلاحية الطلب';
+      }
+
+      return 'تعذر إنشاء كود الاستلام، حاول مرة أخرى';
+    }
+
+    // Auth errors
+    if (error is AuthException) {
+      return 'يجب تسجيل الدخول أولًا';
+    }
+
+    // FormatException (من الـ repository)
+    if (error is FormatException) {
+      final msg = error.message.trim();
+      if (msg.isNotEmpty && !msg.contains('Exception')) {
+        return msg;
+      }
+      return 'تعذر إنشاء كود الاستلام، حاول مرة أخرى';
+    }
+
+    // أي error تاني
+    return 'تعذر إنشاء كود الاستلام، حاول مرة أخرى';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Dialog بسيط للتحميل
+  // ═══════════════════════════════════════════════════════════
+  void _showLoadingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: SizedBox(
+          width: 60,
+          height: 60,
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ Snackbar أنيقة
+  // ═══════════════════════════════════════════════════════════
+  void _showFriendlyMessage(BuildContext context, String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            textDirection: TextDirection.rtl,
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
   }
 }
 
@@ -1066,7 +1225,15 @@ class _TurnBanner extends StatelessWidget {
 class _PickupCodeDialog extends StatelessWidget {
   final String code;
   final String address;
-  const _PickupCodeDialog({required this.code, required this.address});
+  final bool isNew;
+  final int? expiresInSeconds;
+
+  const _PickupCodeDialog({
+    required this.code,
+    required this.address,
+    this.isNew = false,
+    this.expiresInSeconds,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1080,8 +1247,13 @@ class _PickupCodeDialog extends StatelessWidget {
           children: [
             Icon(Icons.lock_outline, size: 48, color: colors.primary),
             const SizedBox(height: 12),
-            const Text('🔐 كود الاستلام',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+            Text(
+              isNew ? '🔐 كود استلام جديد' : '🔐 كود الاستلام',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -1100,6 +1272,54 @@ class _PickupCodeDialog extends StatelessWidget {
                 ),
               ),
             ),
+            // ✅ شارة "جديد" لو الكود اتولّد دلوقتي
+            if (isNew) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_outline,
+                        size: 14, color: Colors.green.shade700),
+                    const SizedBox(width: 6),
+                    Text(
+                      'تم إنشاء كود جديد',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // ✅ الوقت المتبقي
+            if (expiresInSeconds != null && expiresInSeconds! > 0) ...[
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.timer_outlined,
+                      size: 14, color: colors.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(
+                    'صالح لمدة ${(expiresInSeconds! / 60).ceil()} دقيقة',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (address.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
@@ -1122,67 +1342,7 @@ class _PickupCodeDialog extends StatelessWidget {
 }
 
 // ============================================================
-// حالة الخطأ
-// ============================================================
-
-class _ErrorState extends StatelessWidget {
-  final Future<void> Function() onRetry;
-  const _ErrorState({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.cloud_off_rounded,
-                  color: colors.primary, size: 40),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'تعذر تحميل الطلبات',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: colors.onSurface,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'تأكد من اتصال الإنترنت وحاول مرة أخرى',
-              style: TextStyle(fontSize: 12.5, color: colors.onSurfaceVariant),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('إعادة المحاولة'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colors.primary,
-                side: BorderSide(color: colors.primary),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// حالة فارغة
+// حالة فارغة (بتُستخدم للحالتين: لا توجد بيانات / خطأ)
 // ============================================================
 
 class _EmptyState extends StatelessWidget {

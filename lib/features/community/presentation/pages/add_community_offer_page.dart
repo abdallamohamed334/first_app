@@ -12,9 +12,15 @@ import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute
 import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute_option.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T) test) {
+  for (final item in items) {
+    if (test(item)) return item;
+  }
+  return null;
+}
+
 class AddCommunityOfferPage extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic> draft)? onSubmit;
-
   final String? offerId;
   final Map<String, dynamic>? initialData;
 
@@ -39,8 +45,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final _quantityController = TextEditingController(text: '1');
   final _priceController = TextEditingController();
   final _locationController = TextEditingController();
-  final _phoneController = TextEditingController(); // ✅
-  final _whatsappController = TextEditingController(); // ✅
+  final _phoneController = TextEditingController();
+  final _whatsappController = TextEditingController();
 
   final _picker = ImagePicker();
 
@@ -49,16 +55,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   static const String _listingType = 'symbolic_sale';
 
-  // Category
   String? _categoryId;
   String? _categorySlug;
+  String? _categoryNameAr;
   String? _marketplaceCategoryId;
 
-  // ✅ إحداثيات مكان الاستلام
+  String _attributesStatus = 'idle';
+
   double? _lat;
   double? _lng;
 
-  // Marketplace Dynamic Attributes
   List<MarketplaceAttribute> _marketplaceAttributes = [];
   final Map<String, List<MarketplaceAttributeOption>> _marketplaceOptions = {};
   final Map<String, String> _selectedMarketplaceOptionIds = {};
@@ -66,12 +72,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final Map<String, String> _selectedMarketplaceValueTypes = {};
 
   bool _isLoadingMarketplaceAttributes = false;
-  bool _isLoadingMarketplaceOptions = false;
+  final Set<String> _optionsLoading = {};
 
   int _categoryRequestId = 0;
-  int _optionsRequestId = 0;
 
-  // Images
+  List<Map<String, dynamic>> _prefilledAttributeData = [];
+  bool _prefillApplied = false;
+
   final List<XFile> _newImages = [];
   final List<String> _keptImagePaths = [];
   final List<String> _removedImagePaths = [];
@@ -89,18 +96,54 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   @override
   void initState() {
     super.initState();
-
     if (widget.isEditMode) {
       _isInitializing = true;
       _prefillFromInitialData();
     }
-
     _loadCategories();
   }
 
-  // ============================================================
-  // Prefill from initialData
-  // ============================================================
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _quantityController.dispose();
+    _priceController.dispose();
+    _locationController.dispose();
+    _phoneController.dispose();
+    _whatsappController.dispose();
+    super.dispose();
+  }
+
+  bool get _isCars =>
+      _categorySlug == 'cars' ||
+      _categorySlug == 'cars-parts' ||
+      _categorySlug == 'passenger-cars' ||
+      _categorySlug == 'trucks';
+  bool get _isEditMode => widget.isEditMode;
+  int get _totalImages => _keptImagePaths.length + _newImages.length;
+
+  String get _currentCategoryName {
+    if (_categoryNameAr != null && _categoryNameAr!.isNotEmpty) {
+      return _categoryNameAr!;
+    }
+    if (_categoryId == null) return '';
+    for (final c in _categories) {
+      if (c['id']?.toString() == _categoryId) {
+        return c['name_ar']?.toString() ?? '';
+      }
+    }
+    return '';
+  }
+
+  int get _requiredAttributesCount =>
+      _marketplaceAttributes.where((a) => a.isRequired).length;
+  int get _optionalAttributesCount =>
+      _marketplaceAttributes.where((a) => !a.isRequired).length;
+
+  // ═══════════════════════════════════════════════════════════
+  // Prefill
+  // ═══════════════════════════════════════════════════════════
   void _prefillFromInitialData() {
     final data = widget.initialData;
     if (data == null) {
@@ -112,11 +155,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     _descriptionController.text = data['description']?.toString() ?? '';
     _locationController.text = data['pickup_location']?.toString() ?? '';
 
-    // ✅ نقرأ الإحداثيات
     _lat = (data['latitude'] as num?)?.toDouble();
     _lng = (data['longitude'] as num?)?.toDouble();
 
-    // ✅ نقرأ رقم الهاتف والواتساب (phone مش contact_phone)
     _phoneController.text = data['phone']?.toString() ?? '';
     _whatsappController.text = data['whatsapp']?.toString() ?? '';
 
@@ -125,9 +166,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final p = price is num
           ? price.toDouble()
           : double.tryParse(price.toString()) ?? 0;
-      if (p > 0) {
-        _priceController.text = p.toStringAsFixed(0);
-      }
+      if (p > 0) _priceController.text = p.toStringAsFixed(0);
     }
 
     final quantity = data['quantity'];
@@ -140,9 +179,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     _categoryId = data['category_id']?.toString();
     _categorySlug = data['category']?.toString();
+    _categoryNameAr = data['category_name']?.toString();
     _marketplaceCategoryId = data['marketplace_category_id']?.toString();
 
     _expiryOption = _deriveExpiryOption(data['expires_at']);
+
+    final rawAttrs = data['marketplace_attributes'];
+    if (rawAttrs is List) {
+      _prefilledAttributeData = rawAttrs
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
 
     final rawImages = data['images'];
     final rawImage = data['image']?.toString();
@@ -162,7 +210,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
 
     _existingImageUrls.addAll(imageUrls);
-
     for (final url in imageUrls) {
       _keptImagePaths.add(_extractStoragePath(url));
     }
@@ -199,56 +246,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return '';
   }
 
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    _quantityController.dispose();
-    _priceController.dispose();
-    _locationController.dispose();
-    _phoneController.dispose(); // ✅
-    _whatsappController.dispose(); // ✅
-    super.dispose();
-  }
-
-  // ============================================================
-  // Helpers
-  // ============================================================
-  bool get _isCars => _categorySlug == 'cars';
-  bool get _isOther => _categorySlug == 'other';
-  bool get _isEditMode => widget.isEditMode;
-  int get _totalImages => _keptImagePaths.length + _newImages.length;
-
-  // ✅ التحقق من رقم مصري
   bool _isValidEgyptianPhone(String phone) {
     final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
     if (cleaned.length != 11) return false;
     if (!cleaned.startsWith('01')) return false;
     return true;
-  }
-
-  // ============================================================
-  // فتح خريطة تحديد الموقع
-  // ============================================================
-  Future<void> _openLocationPicker() async {
-    FocusScope.of(context).unfocus();
-
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LocationPickerPage(
-          initialLat: _lat,
-          initialLng: _lng,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
-    setState(() {
-      _lat = (result['lat'] as num?)?.toDouble();
-      _lng = (result['lng'] as num?)?.toDouble();
-    });
   }
 
   bool _hasUnsavedData() {
@@ -276,7 +278,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       if (_newImages.isNotEmpty) return true;
       if (_removedImagePaths.isNotEmpty) return true;
-
       return false;
     }
 
@@ -296,7 +297,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     if (_selectedMarketplaceValues.isNotEmpty) return true;
     if (_expiryOption != '7_days') return true;
     if (_termsAccepted) return true;
-
     return false;
   }
 
@@ -368,9 +368,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return result ?? false;
   }
 
-  // ============================================================
-  // Load categories
-  // ============================================================
+  // ═══════════════════════════════════════════════════════════
+  // Categories
+  // ═══════════════════════════════════════════════════════════
   Future<void> _loadCategories() async {
     if (mounted) setState(() => _isLoadingCategories = true);
 
@@ -381,13 +381,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       setState(() => _categories = rows);
 
       if (_isEditMode && _marketplaceCategoryId != null) {
-        await _loadMarketplaceAttributes(_marketplaceCategoryId!);
+        final rid = ++_categoryRequestId;
+        await _loadMarketplaceAttributes(
+          _marketplaceCategoryId!,
+          requestId: rid,
+        );
       }
     } catch (error) {
       debugPrint('❌ Failed to load categories: $error');
-      if (mounted) {
-        _showMessage('تعذر تحميل التصنيفات. حاول مرة أخرى.');
-      }
+      if (mounted) _showMessage('تعذر تحميل التصنيفات. حاول مرة أخرى.');
     } finally {
       if (mounted) {
         setState(() {
@@ -400,7 +402,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   Future<String?> _getMarketplaceCategoryIdBySlug(String slug) async {
     if (slug.isEmpty) return null;
-
     try {
       final response = await Supabase.instance.client
           .from('marketplace_categories')
@@ -408,12 +409,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           .eq('slug', slug)
           .eq('is_active', true)
           .maybeSingle();
-
-      if (response == null) {
-        debugPrint('⚠️ No active marketplace category with slug: $slug');
-        return null;
-      }
-
+      if (response == null) return null;
       return response['id']?.toString();
     } catch (error) {
       debugPrint('⚠️ Failed to load marketplace category: $error');
@@ -421,308 +417,362 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
   }
 
-  Future<void> _loadMarketplaceAttributes(String categoryId) async {
-    if (!mounted) return;
+  Future<void> _showCategoryPicker() async {
+    FocusScope.of(context).unfocus();
+
+    final selected = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CategoryPickerSheet(
+        categories: _categories,
+        selectedId: _categoryId,
+      ),
+    );
+
+    if (selected == null || !mounted) return;
+    await _onCategorySelected(selected);
+  }
+
+  Future<void> _onCategorySelected(Map<String, dynamic> category) async {
+    final value = category['id']?.toString().trim() ?? '';
+    final slug = category['slug']?.toString().trim() ?? '';
+    final nameAr = category['name_ar']?.toString().trim() ?? '';
+
+    if (value.isEmpty || slug.isEmpty) {
+      _showMessage('التصنيف غير صحيح.');
+      return;
+    }
 
     final requestId = ++_categoryRequestId;
 
     setState(() {
-      _isLoadingMarketplaceAttributes = true;
-      _isLoadingMarketplaceOptions = false;
-
+      _categoryId = value;
+      _categorySlug = slug;
+      _categoryNameAr = nameAr;
+      _marketplaceCategoryId = null;
       _marketplaceAttributes = [];
       _marketplaceOptions.clear();
+      _optionsLoading.clear();
       _selectedMarketplaceOptionIds.clear();
       _selectedMarketplaceValues.clear();
       _selectedMarketplaceValueTypes.clear();
+      _isLoadingMarketplaceAttributes = true;
+      _attributesStatus = 'loading';
+      _prefillApplied = false;
     });
 
-    try {
-      final attributes =
-          await _marketplaceRepository.getCategoryFlow(categoryId);
+    final marketplaceCategoryId = await _getMarketplaceCategoryIdBySlug(slug);
 
-      if (!mounted) return;
-      if (requestId != _categoryRequestId) return;
-      if (_marketplaceCategoryId != categoryId) return;
+    if (!mounted || requestId != _categoryRequestId) return;
 
+    if (marketplaceCategoryId == null || marketplaceCategoryId.isEmpty) {
       setState(() {
-        _marketplaceAttributes = attributes.where((attribute) {
-          if (_isCars) return true;
-          if (_isOther) {
-            return attribute.slug == 'condition' ||
-                attribute.slug == 'item_type';
-          }
-          return attribute.slug == 'condition';
-        }).toList()
-          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
-        _isLoadingMarketplaceAttributes = false;
-      });
-
-      if (_marketplaceAttributes.isNotEmpty) {
-        await _loadMarketplaceAttribute(_marketplaceAttributes.first);
-      }
-    } catch (error, stackTrace) {
-      debugPrint('❌ Failed to load marketplace attributes: $error');
-      debugPrint('$stackTrace');
-
-      if (!mounted) return;
-      if (requestId != _categoryRequestId) return;
-
-      setState(() {
-        _isLoadingMarketplaceAttributes = false;
+        _marketplaceCategoryId = null;
         _marketplaceAttributes = [];
         _marketplaceOptions.clear();
-        _selectedMarketplaceOptionIds.clear();
-        _selectedMarketplaceValues.clear();
-        _selectedMarketplaceValueTypes.clear();
-      });
-
-      _showMessage('تعذر تحميل خصائص التصنيف. حاول مرة أخرى.');
-    }
-  }
-
-  Future<void> _loadMarketplaceAttribute(
-    MarketplaceAttribute attribute, {
-    String? parentOptionId,
-  }) async {
-    final categoryId = _marketplaceCategoryId;
-    if (categoryId == null || categoryId.isEmpty) return;
-
-    if (attribute.inputType != 'select') {
-      if (!mounted) return;
-      setState(() {
-        _marketplaceOptions[attribute.slug] =
-            const <MarketplaceAttributeOption>[];
-        _isLoadingMarketplaceOptions = false;
+        _optionsLoading.clear();
+        _isLoadingMarketplaceAttributes = false;
+        _attributesStatus = 'missingCategory';
       });
       return;
     }
 
-    final requestCategoryId = categoryId;
-    final requestAttributeId = attribute.attributeId;
-    final requestId = ++_optionsRequestId;
+    setState(() {
+      _marketplaceCategoryId = marketplaceCategoryId;
+    });
 
-    if (mounted) setState(() => _isLoadingMarketplaceOptions = true);
+    await _loadMarketplaceAttributes(
+      marketplaceCategoryId,
+      requestId: requestId,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ الخصائص — من marketplace_category_attributes
+  // ═══════════════════════════════════════════════════════════
+  Future<void> _loadMarketplaceAttributes(
+    String categoryId, {
+    required int requestId,
+  }) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingMarketplaceAttributes = true;
+      _marketplaceAttributes = [];
+      _marketplaceOptions.clear();
+      _optionsLoading.clear();
+      _attributesStatus = 'loading';
+    });
 
     try {
-      final response = await Supabase.instance.client
-          .from('marketplace_category_attribute_options')
-          .select('''
-            option_id,
-            marketplace_attribute_options!inner(
-              id,
-              attribute_id,
-              parent_option_id,
-              value,
-              label_ar,
-              label_en,
-              icon,
-              sort_order,
-              is_active,
-              metadata
-            )
-            ''')
-          .eq('category_id', requestCategoryId)
-          .eq('attribute_id', requestAttributeId)
-          .eq('marketplace_attribute_options.is_active', true)
-          .order('sort_order',
-              referencedTable: 'marketplace_attribute_options');
+      final client = Supabase.instance.client;
 
-      if (!mounted) return;
-      if (requestId != _optionsRequestId) return;
-      if (_marketplaceCategoryId != requestCategoryId) return;
+      // 1) links من الجدول الصح
+      final linksRaw = await client
+          .from('marketplace_category_attributes')
+          .select('attribute_id, sort_order, is_required, is_filterable')
+          .eq('category_id', categoryId);
 
-      final rows = response as List;
+      if (!mounted || requestId != _categoryRequestId) return;
+      if (_marketplaceCategoryId != categoryId) return;
 
-      var options = rows
+      final Map<String, Map<String, dynamic>> linksById = {};
+      for (final row in (linksRaw as List)) {
+        if (row is Map) {
+          final id = row['attribute_id']?.toString() ?? '';
+          if (id.isEmpty) continue;
+          linksById[id] = {
+            'sort_order': (row['sort_order'] as num?)?.toInt() ?? 0,
+            'is_required': row['is_required'] == true,
+            'is_filterable': row['is_filterable'] == true,
+          };
+        }
+      }
+
+      debugPrint('🟢 [Attrs] linked=${linksById.length}');
+
+      if (linksById.isEmpty) {
+        setState(() {
+          _isLoadingMarketplaceAttributes = false;
+          _attributesStatus = 'empty';
+        });
+        return;
+      }
+
+      // 2) attributes — بنجيب name_en كمان
+      final attributesRaw = await client
+          .from('marketplace_attributes')
+          .select('id, slug, name_ar, name_en, input_type')
+          .inFilter('id', linksById.keys.toList())
+          .eq('is_active', true);
+
+      if (!mounted || requestId != _categoryRequestId) return;
+      if (_marketplaceCategoryId != categoryId) return;
+
+      // 3) نبني القائمة
+      final List<Map<String, dynamic>> rows = [];
+      for (final a in (attributesRaw as List)) {
+        if (a is! Map) continue;
+        final id = a['id']?.toString() ?? '';
+        final link = linksById[id];
+        if (link == null) continue;
+
+        rows.add({
+          'id': id,
+          'slug': a['slug']?.toString() ?? '',
+          'name_ar': a['name_ar']?.toString() ?? '',
+          'name_en': a['name_en']?.toString() ?? '',
+          'input_type': a['input_type']?.toString() ?? 'text',
+          'sort_order': link['sort_order'] as int,
+          'is_required': link['is_required'] as bool,
+          'is_filterable': link['is_filterable'] as bool,
+        });
+      }
+
+      rows.sort(
+        (a, b) => (a['sort_order'] as int).compareTo(b['sort_order'] as int),
+      );
+
+      final filtered = rows
+          .map((r) => MarketplaceAttribute(
+                attributeId: r['id'] as String,
+                slug: r['slug'] as String,
+                nameAr: r['name_ar'] as String,
+                nameEn: r['name_en'] as String,
+                inputType: r['input_type'] as String,
+                sortOrder: r['sort_order'] as int,
+                isRequired: r['is_required'] as bool,
+                isFilterable: r['is_filterable'] as bool,
+              ))
+          .toList();
+
+      debugPrint(
+        '🟢 [Attrs] filtered=${filtered.length} '
+        'slugs=${filtered.map((a) => a.slug).toList()}',
+      );
+
+      if (filtered.isEmpty) {
+        setState(() {
+          _isLoadingMarketplaceAttributes = false;
+          _attributesStatus = 'empty';
+        });
+        return;
+      }
+
+      setState(() {
+        _marketplaceAttributes = filtered;
+        _isLoadingMarketplaceAttributes = false;
+        _attributesStatus = 'loaded';
+      });
+
+      // 4) options
+      final selectAttrs =
+          filtered.where((a) => a.inputType == 'select').toList();
+
+      if (selectAttrs.isNotEmpty) {
+        setState(() {
+          _optionsLoading
+            ..clear()
+            ..addAll(selectAttrs.map((a) => a.slug));
+        });
+
+        await Future.wait(
+          selectAttrs.map((attr) => _loadOptionsFor(attr, requestId)),
+        );
+
+        if (!mounted || requestId != _categoryRequestId) return;
+        setState(() => _optionsLoading.clear());
+      }
+
+      if (!mounted || requestId != _categoryRequestId) return;
+
+      if (!_prefillApplied && _prefilledAttributeData.isNotEmpty) {
+        _applyPrefilledAttributes(filtered);
+        _prefillApplied = true;
+      }
+    } catch (e, st) {
+      debugPrint('❌ [Attrs] load error: $e');
+      debugPrint('$st');
+      if (!mounted || requestId != _categoryRequestId) return;
+      setState(() {
+        _isLoadingMarketplaceAttributes = false;
+        _attributesStatus = 'error';
+      });
+    }
+  }
+
+  // ✅ options عالمية على الـ attribute
+  Future<void> _loadOptionsFor(
+    MarketplaceAttribute attribute,
+    int requestId,
+  ) async {
+    try {
+      final client = Supabase.instance.client;
+
+      final optionsRaw = await client
+          .from('marketplace_attribute_options')
+          .select(
+            'id, attribute_id, parent_option_id, value, label_ar, label_en, sort_order',
+          )
+          .eq('attribute_id', attribute.attributeId)
+          .eq('is_active', true)
+          .order('sort_order');
+
+      if (!mounted || requestId != _categoryRequestId) return;
+
+      var options = (optionsRaw as List)
           .whereType<Map>()
-          .map((row) {
-            final raw = row['marketplace_attribute_options'];
-            if (raw is! Map) return null;
-            final item = Map<String, dynamic>.from(raw);
-            return MarketplaceAttributeOption(
-              id: item['id']?.toString() ?? '',
-              attributeId: item['attribute_id']?.toString() ?? '',
-              value: item['value']?.toString() ?? '',
-              labelAr: item['label_ar']?.toString() ?? '',
-              labelEn: item['label_en']?.toString() ?? '',
-              icon: item['icon']?.toString(),
-              sortOrder: (item['sort_order'] as num?)?.toInt() ?? 0,
-              parentOptionId: item['parent_option_id']?.toString(),
-            );
-          })
-          .whereType<MarketplaceAttributeOption>()
-          .where((option) => option.id.isNotEmpty)
+          .map((row) => MarketplaceAttributeOption(
+                id: row['id']?.toString() ?? '',
+                attributeId: row['attribute_id']?.toString() ?? '',
+                value: row['value']?.toString() ?? '',
+                labelAr: row['label_ar']?.toString() ?? '',
+                labelEn: row['label_en']?.toString() ?? '',
+                sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
+                parentOptionId: row['parent_option_id']?.toString(),
+              ))
+          .where((o) => o.id.isNotEmpty)
           .toList();
 
       final seen = <String>{};
-      options = options.where((option) {
-        if (seen.contains(option.id)) return false;
-        seen.add(option.id);
+      options = options.where((o) {
+        if (seen.contains(o.id)) return false;
+        seen.add(o.id);
         return true;
       }).toList();
 
-      if (parentOptionId != null && parentOptionId.isNotEmpty) {
-        final children = options
-            .where((option) => option.parentOptionId == parentOptionId)
-            .toList();
-
-        if (children.isNotEmpty) {
-          options = children;
-        } else {
-          options =
-              options.where((option) => option.parentOptionId == null).toList();
-        }
-      } else {
-        final hasChildren =
-            options.any((option) => option.parentOptionId != null);
-        if (hasChildren) {
-          options =
-              options.where((option) => option.parentOptionId == null).toList();
-        }
+      final hasChildren = options.any((o) => o.parentOptionId != null);
+      if (hasChildren) {
+        options = options.where((o) => o.parentOptionId == null).toList();
       }
 
       options.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
-      if (!mounted) return;
-      if (requestId != _optionsRequestId) return;
-      if (_marketplaceCategoryId != requestCategoryId) return;
+      debugPrint('🟢 [Options] ${attribute.slug}: ${options.length}');
 
       setState(() {
         _marketplaceOptions[attribute.slug] = options;
-        _isLoadingMarketplaceOptions = false;
+        _optionsLoading.remove(attribute.slug);
       });
-    } catch (error, stackTrace) {
-      debugPrint('❌ Error loading options for ${attribute.slug}: $error');
-      debugPrint('$stackTrace');
-
+    } catch (e, st) {
+      debugPrint('❌ [Options] ${attribute.slug}: $e');
+      debugPrint('$st');
       if (!mounted) return;
-      if (requestId != _optionsRequestId) return;
-
       setState(() {
-        _marketplaceOptions[attribute.slug] =
-            const <MarketplaceAttributeOption>[];
-        _isLoadingMarketplaceOptions = false;
+        _marketplaceOptions[attribute.slug] = const [];
+        _optionsLoading.remove(attribute.slug);
       });
-
-      _showMessage('تعذر تحميل خيارات ${attribute.nameAr}.');
     }
   }
 
-  Future<void> _selectMarketplaceOption({
+  void _applyPrefilledAttributes(List<MarketplaceAttribute> attributes) {
+    if (!mounted) return;
+
+    for (final row in _prefilledAttributeData) {
+      final attrId = row['attribute_id']?.toString();
+      if (attrId == null || attrId.isEmpty) continue;
+
+      final attr = _firstWhereOrNull(
+        attributes,
+        (a) => a.attributeId == attrId,
+      );
+      if (attr == null) continue;
+
+      final optionId = row['option_id']?.toString();
+      if (optionId != null && optionId.isNotEmpty) {
+        final options = _marketplaceOptions[attr.slug] ?? const [];
+        final opt = _firstWhereOrNull(options, (o) => o.id == optionId);
+        _selectedMarketplaceOptionIds[attr.slug] = optionId;
+        _selectedMarketplaceValues[attr.slug] = opt?.value ?? '';
+        _selectedMarketplaceValueTypes[attr.slug] = 'option';
+        continue;
+      }
+
+      final valueText = row['value_text']?.toString();
+      if (valueText != null && valueText.isNotEmpty) {
+        _selectedMarketplaceValues[attr.slug] = valueText;
+        _selectedMarketplaceValueTypes[attr.slug] = attr.inputType;
+        continue;
+      }
+
+      final valueNumber = row['value_number'];
+      if (valueNumber != null) {
+        _selectedMarketplaceValues[attr.slug] = valueNumber.toString();
+        _selectedMarketplaceValueTypes[attr.slug] = attr.inputType;
+      }
+    }
+
+    setState(() {});
+  }
+
+  void _selectMarketplaceOption({
     required MarketplaceAttribute attribute,
     required MarketplaceAttributeOption option,
-  }) async {
-    final categoryId = _marketplaceCategoryId;
-    if (categoryId == null || categoryId.isEmpty) return;
-
-    final attributeIndex = _marketplaceAttributes
-        .indexWhere((item) => item.attributeId == attribute.attributeId);
-
-    if (attributeIndex == -1) return;
-
+  }) {
     setState(() {
       _selectedMarketplaceOptionIds[attribute.slug] = option.id;
       _selectedMarketplaceValues[attribute.slug] = option.value;
       _selectedMarketplaceValueTypes[attribute.slug] = 'option';
-
-      for (var i = attributeIndex + 1; i < _marketplaceAttributes.length; i++) {
-        final next = _marketplaceAttributes[i];
-        _selectedMarketplaceOptionIds.remove(next.slug);
-        _selectedMarketplaceValues.remove(next.slug);
-        _selectedMarketplaceValueTypes.remove(next.slug);
-        _marketplaceOptions.remove(next.slug);
-      }
-
-      _isLoadingMarketplaceOptions = true;
     });
-
-    final requestId = ++_optionsRequestId;
-
-    try {
-      final nextAttribute = await _marketplaceRepository.getNextAttribute(
-        categoryId: categoryId,
-        optionId: option.id,
-      );
-
-      if (!mounted) return;
-      if (requestId != _optionsRequestId) return;
-      if (_marketplaceCategoryId != categoryId) return;
-
-      if (nextAttribute == null) {
-        setState(() => _isLoadingMarketplaceOptions = false);
-        return;
-      }
-
-      final isAllowed = _marketplaceAttributes
-          .any((item) => item.attributeId == nextAttribute.attributeId);
-
-      if (!isAllowed) {
-        setState(() => _isLoadingMarketplaceOptions = false);
-        return;
-      }
-
-      String? parentOptionId;
-      if (nextAttribute.inputType == 'select') {
-        parentOptionId = option.id;
-      }
-
-      await _loadMarketplaceAttribute(
-        nextAttribute,
-        parentOptionId: parentOptionId,
-      );
-    } catch (error, stackTrace) {
-      debugPrint('❌ Failed to determine next attribute: $error');
-      debugPrint('$stackTrace');
-
-      if (!mounted) return;
-      if (requestId != _optionsRequestId) return;
-
-      setState(() => _isLoadingMarketplaceOptions = false);
-      _showMessage('تعذر تحميل الخطوة التالية. حاول مرة أخرى.');
-    }
   }
 
-  Future<void> _saveMarketplaceValue({
+  void _saveMarketplaceValue({
     required MarketplaceAttribute attribute,
     required String value,
-  }) async {
-    final cleanValue = value.trim();
-    if (cleanValue.isEmpty) return;
-
-    final categoryId = _marketplaceCategoryId;
-    if (categoryId == null || categoryId.isEmpty) return;
-
-    final attributeIndex = _marketplaceAttributes
-        .indexWhere((item) => item.attributeId == attribute.attributeId);
-
-    if (attributeIndex == -1) return;
-
+  }) {
+    final clean = value.trim();
     setState(() {
-      _selectedMarketplaceValues[attribute.slug] = cleanValue;
-      _selectedMarketplaceValueTypes[attribute.slug] = attribute.inputType;
-      _selectedMarketplaceOptionIds.remove(attribute.slug);
-
-      for (var i = attributeIndex + 1; i < _marketplaceAttributes.length; i++) {
-        final next = _marketplaceAttributes[i];
-        _selectedMarketplaceOptionIds.remove(next.slug);
-        _selectedMarketplaceValues.remove(next.slug);
-        _selectedMarketplaceValueTypes.remove(next.slug);
-        _marketplaceOptions.remove(next.slug);
+      if (clean.isEmpty) {
+        _selectedMarketplaceValues.remove(attribute.slug);
+        _selectedMarketplaceValueTypes.remove(attribute.slug);
+      } else {
+        _selectedMarketplaceValues[attribute.slug] = clean;
+        _selectedMarketplaceValueTypes[attribute.slug] = attribute.inputType;
       }
+      _selectedMarketplaceOptionIds.remove(attribute.slug);
     });
-
-    final nextIndex = attributeIndex + 1;
-
-    if (nextIndex >= _marketplaceAttributes.length) {
-      if (mounted) setState(() => _isLoadingMarketplaceOptions = false);
-      return;
-    }
-
-    final nextAttribute = _marketplaceAttributes[nextIndex];
-    if (!mounted) return;
-    await _loadMarketplaceAttribute(nextAttribute);
   }
 
   List<Map<String, dynamic>> _buildMarketplaceAttributesPayload() {
@@ -745,7 +795,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       }
 
       if (selectedValue != null && selectedValue.trim().isNotEmpty) {
-        if (attribute.inputType == 'number') {
+        if (attribute.inputType == 'number' ||
+            attribute.inputType == 'decimal') {
           final number = num.tryParse(selectedValue.trim());
           if (number != null && number.isFinite) {
             payload.add({
@@ -784,7 +835,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         if (value == null || value.trim().isEmpty) {
           return 'أدخل ${attribute.nameAr}';
         }
-        if (attribute.inputType == 'number') {
+        if (attribute.inputType == 'number' ||
+            attribute.inputType == 'decimal') {
           final number = num.tryParse(value.trim());
           if (number == null || !number.isFinite || number <= 0) {
             return 'أدخل ${attribute.nameAr} بشكل صحيح';
@@ -795,6 +847,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return null;
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Images
+  // ═══════════════════════════════════════════════════════════
   Future<void> _pickImages() async {
     if (_totalImages >= 6) {
       _showMessage('يمكنك إضافة 6 صور كحد أقصى');
@@ -825,7 +880,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     if (!mounted || index < 0 || index >= _existingImageUrls.length) return;
 
     final url = _existingImageUrls[index];
-    final path = _keptImagePaths.length > index
+    final path = index < _keptImagePaths.length
         ? _keptImagePaths[index]
         : _extractStoragePath(url);
 
@@ -842,7 +897,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   DateTime? _getExpiresAt() {
     final now = DateTime.now();
-
     switch (_expiryOption) {
       case '7_days':
         return now.add(const Duration(days: 7));
@@ -857,6 +911,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // Submit
+  // ═══════════════════════════════════════════════════════════
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -887,7 +944,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
-    // ✅ التحقق من تحديد الموقع
     if (_lat == null || _lng == null) {
       _showMessage('حدّد مكان الاستلام على الخريطة');
       return;
@@ -896,7 +952,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     final lat = _lat!;
     final lng = _lng!;
 
-    // ✅ التحقق من رقم الهاتف
     final contactPhone = _phoneController.text.trim();
     if (contactPhone.isEmpty) {
       _showMessage('اكتب رقم هاتفك للتواصل');
@@ -908,7 +963,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
-    // ✅ رقم الواتساب (اختياري)
     final whatsappInput = _whatsappController.text.trim();
     String? whatsapp;
     if (whatsappInput.isNotEmpty) {
@@ -948,9 +1002,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      // ======================================================
-      // EDIT MODE
-      // ======================================================
       if (_isEditMode) {
         if (widget.onSubmit != null) {
           final draft = <String, dynamic>{
@@ -967,8 +1018,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             'pickup_location': pickupLocation,
             'latitude': lat,
             'longitude': lng,
-            'phone': contactPhone, // ✅ تم التعديل
-            'whatsapp': whatsapp, // ✅
+            'phone': contactPhone,
+            'whatsapp': whatsapp,
             'expires_at': expiresAt?.toUtc().toIso8601String(),
             'marketplace_attributes': marketplaceAttributes,
             'kept_image_paths': _keptImagePaths,
@@ -990,8 +1041,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             pickupLocation: pickupLocation,
             latitude: lat,
             longitude: lng,
-            contactPhone: contactPhone, // ✅
-            whatsapp: whatsapp, // ✅
+            contactPhone: contactPhone,
+            whatsapp: whatsapp,
             newImages: _newImages,
             keptImagePaths: _keptImagePaths,
             expiresAt: expiresAt,
@@ -1012,9 +1063,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         return;
       }
 
-      // ======================================================
-      // CREATE MODE
-      // ======================================================
       final draft = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -1028,8 +1076,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         'pickup_location': pickupLocation,
         'latitude': lat,
         'longitude': lng,
-        'phone': contactPhone, // ✅ تم التعديل
-        'whatsapp': whatsapp, // ✅
+        'phone': contactPhone,
+        'whatsapp': whatsapp,
         'expires_at': expiresAt?.toUtc().toIso8601String(),
         'marketplace_attributes': marketplaceAttributes,
         'local_images': _newImages.map((i) => i.path).toList(),
@@ -1051,8 +1099,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           pickupLocation: pickupLocation,
           latitude: lat,
           longitude: lng,
-          contactPhone: contactPhone, // ✅
-          whatsapp: whatsapp, // ✅
+          contactPhone: contactPhone,
+          whatsapp: whatsapp,
           images: _newImages,
           expiresAt: expiresAt,
           marketplaceAttributes: marketplaceAttributes,
@@ -1072,24 +1120,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   String _getLegacyCondition() {
-    final conditionAttribute = _marketplaceAttributes
-        .where((attribute) => attribute.slug == 'condition');
-
-    if (conditionAttribute.isEmpty) return 'good';
-
-    final selectedOptionId = _selectedMarketplaceOptionIds['condition'];
-    if (selectedOptionId == null || selectedOptionId.isEmpty) return 'good';
-
-    final options = _marketplaceOptions['condition'] ??
-        const <MarketplaceAttributeOption>[];
-
-    final selected = options.where((option) => option.id == selectedOptionId);
-    if (selected.isEmpty) return 'good';
-
-    final value = selected.first.value.trim();
-    if (value.isEmpty) return 'good';
-
-    return value;
+    final optionId = _selectedMarketplaceOptionIds['condition'];
+    if (optionId != null && optionId.isNotEmpty) {
+      final options = _marketplaceOptions['condition'] ?? const [];
+      final opt = _firstWhereOrNull(options, (o) => o.id == optionId);
+      if (opt != null && opt.value.isNotEmpty) return opt.value;
+    }
+    final value = _selectedMarketplaceValues['condition'];
+    if (value != null && value.trim().isNotEmpty) return value.trim();
+    return 'good';
   }
 
   String _friendlyError(Object error) {
@@ -1150,6 +1189,30 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       );
   }
 
+  Future<void> _openLocationPicker() async {
+    FocusScope.of(context).unfocus();
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerPage(
+          initialLat: _lat,
+          initialLng: _lng,
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _lat = (result['lat'] as num?)?.toDouble();
+      _lng = (result['lng'] as num?)?.toDouble();
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Build
+  // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -1165,13 +1228,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           if (shouldPop && mounted) Navigator.of(context).pop();
         },
         child: Scaffold(
-          backgroundColor: colors.surface,
+          backgroundColor:
+              isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
           appBar: AppBar(
-            title: Text(_isEditMode ? 'تعديل العرض' : 'أضف عرضًا جديدًا'),
+            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة عرض'),
             centerTitle: true,
-            backgroundColor: isDark ? const Color(0xFF1F1F1F) : colors.surface,
-            foregroundColor: colors.onSurface,
             elevation: 0,
+            backgroundColor:
+                isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
+            foregroundColor: colors.onSurface,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               onPressed: () async {
@@ -1189,20 +1254,23 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               : Form(
                   key: _formKey,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
                     children: [
+                      _buildProgressHeader(colors),
+                      const SizedBox(height: 14),
                       _buildIntro(colors),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _buildImages(colors),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _buildDetailsCard(colors),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _buildLocationCard(colors),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _buildExpiryCard(colors),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       _buildConfirmation(colors),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 18),
                       _buildSubmitButton(colors),
                     ],
                   ),
@@ -1210,6 +1278,74 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildProgressHeader(ColorScheme colors) {
+    final hasCategory =
+        _marketplaceCategoryId != null && _marketplaceCategoryId!.isNotEmpty;
+    final hasDetails = _titleController.text.trim().isNotEmpty &&
+        _descriptionController.text.trim().isNotEmpty;
+    final hasLocation = _lat != null && _lng != null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: .55)),
+        boxShadow: [
+          BoxShadow(
+              color: colors.shadow.withValues(alpha: .05),
+              blurRadius: 16,
+              offset: const Offset(0, 5)),
+        ],
+      ),
+      child: Row(
+        children: [
+          _progressDot(colors, true, Icons.check_rounded),
+          _progressLine(colors),
+          _progressDot(colors, hasCategory, Icons.category_outlined),
+          _progressLine(colors),
+          _progressDot(colors, hasDetails, Icons.edit_note_rounded),
+          _progressLine(colors),
+          _progressDot(colors, hasLocation, Icons.location_on_outlined),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              hasCategory ? 'بيانات مناسبة لاختيارك' : 'ابدأ باختيار نوع العرض',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: colors.onSurface),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _progressDot(ColorScheme colors, bool active, IconData icon) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: active ? colors.primary : colors.surfaceContainerHighest,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon,
+          size: 16, color: active ? colors.onPrimary : colors.onSurfaceVariant),
+    );
+  }
+
+  Widget _progressLine(ColorScheme colors) {
+    return Expanded(
+        child: Container(
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            color: colors.outlineVariant));
   }
 
   Widget _buildIntro(ColorScheme colors) {
@@ -1459,111 +1595,244 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   Widget _buildDetailsCard(ColorScheme colors) {
     return _sectionCard(
       title: 'بيانات العرض',
-      icon: Icons.edit_note_rounded,
-      child: Column(
-        children: [
-          _field(
-            _titleController,
-            'عنوان العرض',
-            'مثال: جاكت شتوي بحالة ممتازة',
-            Icons.title_rounded,
-            requiredField: true,
-          ),
-          const SizedBox(height: 12),
-          _buildCategoryDropdown(colors),
-          if (_isLoadingMarketplaceAttributes) ...[
-            const SizedBox(height: 12),
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: CircularProgressIndicator(strokeWidth: 2),
+      icon: Icons.assignment_outlined,
+      trailing: _categoryId == null
+          ? null
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(20),
               ),
+              child: Text('مخصص حسب الاختيار',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: colors.primary)),
             ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _field(_titleController, 'عنوان العرض',
+              'مثال: جاكت شتوي بحالة ممتازة', Icons.title_rounded,
+              requiredField: true),
+          const SizedBox(height: 12),
+          _buildCategorySelector(colors),
+          if (_categoryId == null) ...[
+            const SizedBox(height: 10),
+            _helperBanner(
+                colors,
+                Icons.touch_app_rounded,
+                'اختار نوع المنتج أولًا',
+                'بعد الاختيار ستظهر لك الحقول المناسبة تلقائيًا مثل الماركة، الحالة، المقاس أو المساحة.'),
           ],
-          if (!_isLoadingMarketplaceAttributes &&
-              _marketplaceAttributes.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            ..._buildMarketplaceAttributeWidgets(),
-          ],
+          ..._buildDynamicAttributesSection(colors),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _field(
-                  _quantityController,
-                  'الكمية',
-                  '1',
-                  Icons.inventory_2_outlined,
-                  requiredField: true,
-                  numeric: true,
-                  integerOnly: true,
-                ),
-              ),
+                  child: _field(_quantityController, 'الكمية', '1',
+                      Icons.inventory_2_outlined,
+                      requiredField: true, numeric: true, integerOnly: true)),
               const SizedBox(width: 10),
               Expanded(
-                child: _field(
-                  _priceController,
-                  _isCars ? 'سعر السيارة' : 'السعر الرمزي بالجنيه',
-                  _isCars ? 'مثال: 100000' : 'مثال: 100',
-                  Icons.payments_outlined,
-                  requiredField: true,
-                  numeric: true,
-                ),
-              ),
+                  child: _field(
+                      _priceController,
+                      _isCars ? 'السعر' : 'السعر الرمزي بالجنيه',
+                      _isCars ? 'مثال: 100000' : 'مثال: 100',
+                      Icons.payments_outlined,
+                      requiredField: true,
+                      numeric: true)),
             ],
           ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _descriptionController,
             minLines: 4,
-            maxLines: 6,
+            maxLines: 7,
             textInputAction: TextInputAction.newline,
             decoration: _decoration(
-              'الوصف والتفاصيل',
-              Icons.description_outlined,
-            ),
-            validator: (value) {
-              if (value == null || value.trim().length < 10) {
-                return 'اكتب وصفًا مختصرًا وواضحًا';
-              }
-              return null;
-            },
+                'الوصف والتفاصيل', Icons.description_outlined,
+                hint:
+                    'اكتب الحالة بالتفصيل، العيوب، المقاس أو أي ملاحظات مهمة...'),
+            validator: (value) => value == null || value.trim().length < 10
+                ? 'اكتب وصفًا مختصرًا وواضحًا'
+                : null,
           ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
+          const SizedBox(height: 9),
+          _helperBanner(
+              colors,
+              Icons.lightbulb_outline_rounded,
+              'نصيحة لعرض أفضل',
+              'البيانات الواضحة والصور الجيدة تساعد الناس على فهم العرض والتواصل معك أسرع.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _helperBanner(
+      ColorScheme colors, IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: colors.primary.withValues(alpha: .055),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.primary.withValues(alpha: .14))),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: colors.primary, size: 19),
+          const SizedBox(width: 9),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text(title,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: colors.onSurface)),
+                const SizedBox(height: 3),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 11,
+                        height: 1.45,
+                        color: colors.onSurfaceVariant))
+              ])),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildDynamicAttributesSection(ColorScheme colors) {
+    if (_categoryId == null || _categoryId!.isEmpty) {
+      return const [];
+    }
+
+    if (_isLoadingMarketplaceAttributes || _attributesStatus == 'loading') {
+      return [
+        const SizedBox(height: 18),
+        _attributesStateCard(
+          colors: colors,
+          icon: Icons.hourglass_top_rounded,
+          iconColor: colors.primary,
+          title: 'جاري تحميل خصائص التصنيف...',
+          subtitle: 'بيتم جلب الحقول المناسبة لـ "$_currentCategoryName"',
+          showLoader: true,
+        ),
+      ];
+    }
+
+    if (_attributesStatus == 'error') {
+      return [
+        const SizedBox(height: 18),
+        _attributesStateCard(
+          colors: colors,
+          icon: Icons.error_outline_rounded,
+          iconColor: colors.error,
+          title: 'تعذر تحميل الخصائص',
+          subtitle: 'حاول تختار التصنيف تاني',
+        ),
+      ];
+    }
+
+    if (_attributesStatus == 'missingCategory') {
+      return [
+        const SizedBox(height: 18),
+        _attributesStateCard(
+          colors: colors,
+          icon: Icons.info_outline_rounded,
+          iconColor: colors.onSurfaceVariant,
+          title: 'التصنيف ده لسه مش مفعّل',
+          subtitle:
+              '"$_currentCategoryName" مش موجود ضمن التصنيفات المدعومة حاليًا. اختار تصنيف تاني.',
+        ),
+      ];
+    }
+
+    if (_attributesStatus == 'empty') {
+      return [
+        const SizedBox(height: 18),
+        _attributesStateCard(
+          colors: colors,
+          icon: Icons.check_circle_outline_rounded,
+          iconColor: Colors.green,
+          title: 'مفيش خصائص إضافية',
+          subtitle:
+              '"$_currentCategoryName" مش محتاج تفاصيل إضافية. كمّل بيانات العرض.',
+        ),
+      ];
+    }
+
+    if (_attributesStatus == 'loaded' && _marketplaceAttributes.isNotEmpty) {
+      return [
+        const SizedBox(height: 18),
+        _buildMarketplaceAttributesHeader(colors),
+        const SizedBox(height: 12),
+        ..._buildMarketplaceAttributeWidgets(),
+      ];
+    }
+
+    return const [];
+  }
+
+  Widget _attributesStateCard({
+    required ColorScheme colors,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    bool showLoader = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark
+            ? iconColor.withValues(alpha: 0.08)
+            : iconColor.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showLoader)
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                color: iconColor,
+              ),
+            )
+          else
+            Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: colors.primary,
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'وضح أي خدوش أو تلف أو عيوب موجودة في المنتج حتى يعرف المشتري حالته قبل الاستلام.',
-                    style: TextStyle(
-                      color: colors.onSurfaceVariant,
-                      fontSize: 11,
-                      height: 1.5,
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11.5,
+                    height: 1.5,
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'السعر المعروض هو السعر الذي سيظهر للمشتري.',
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 11,
-                height: 1.4,
-              ),
             ),
           ),
         ],
@@ -1571,10 +1840,73 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  List<Widget> _buildMarketplaceAttributeWidgets() {
-    final visibleAttributes = _getVisibleMarketplaceAttributes();
+  Widget _buildMarketplaceAttributesHeader(ColorScheme colors) {
+    final requiredCount = _requiredAttributesCount;
+    final optionalCount = _optionalAttributesCount;
 
-    return visibleAttributes.map((attribute) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              size: 17,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'خصائص $_currentCategoryName',
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _buildAttributesCountLabel(requiredCount, optionalCount),
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _buildAttributesCountLabel(int required, int optional) {
+    final parts = <String>[];
+    if (required > 0) parts.add('$required مطلوبة');
+    if (optional > 0) parts.add('$optional اختيارية');
+    if (parts.isEmpty) return 'لا توجد حقول';
+    return parts.join(' • ');
+  }
+
+  List<Widget> _buildMarketplaceAttributeWidgets() {
+    return _marketplaceAttributes.map((attribute) {
       final options = _marketplaceOptions[attribute.slug] ??
           const <MarketplaceAttributeOption>[];
 
@@ -1615,17 +1947,28 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               ? selectedId
               : null;
 
+      final isLoadingOptions = _optionsLoading.contains(attribute.slug);
+      final hasOptions = safeOptions.isNotEmpty;
+      final isDisabled = isLoadingOptions || !hasOptions;
+
+      final hintText = isLoadingOptions
+          ? 'جاري تحميل الخيارات...'
+          : hasOptions
+              ? 'اختر ${attribute.nameAr}'
+              : 'لا توجد خيارات متاحة';
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<String>(
+            key: ValueKey(
+              '${attribute.slug}:$safeSelectedId:${safeOptions.length}:$isLoadingOptions',
+            ),
             initialValue: safeSelectedId,
             isExpanded: true,
             decoration: _decoration(attribute.nameAr, Icons.tune_rounded),
             hint: Text(
-              safeOptions.isEmpty
-                  ? 'لا توجد خيارات'
-                  : 'اختر ${attribute.nameAr}',
+              hintText,
               style: TextStyle(
                 color: colors.onSurfaceVariant,
                 fontSize: 13,
@@ -1637,7 +1980,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 child: Text(option.labelAr),
               );
             }).toList(),
-            validator: attribute.isRequired
+            validator: attribute.isRequired && !isDisabled
                 ? (value) {
                     if (value == null || value.isEmpty) {
                       return 'اختر ${attribute.nameAr}';
@@ -1645,7 +1988,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                     return null;
                   }
                 : null,
-            onChanged: safeOptions.isEmpty
+            onChanged: isDisabled
                 ? null
                 : (value) {
                     if (value == null) return;
@@ -1658,33 +2001,28 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                   },
           ),
           if (!attribute.isRequired) _optionalLabel(colors),
-          if (_isCurrentLoadingAttribute(attribute))
-            const Padding(
-              padding: EdgeInsets.only(top: 6),
-              child: LinearProgressIndicator(),
-            ),
         ],
       );
     }
 
-    if (attribute.inputType == 'number') {
+    if (attribute.inputType == 'number' || attribute.inputType == 'decimal') {
       return _MarketplaceNumberField(
         key: ValueKey('${attribute.slug}:$selectedValue'),
         attribute: attribute,
         initialValue: selectedValue,
+        isDecimal: attribute.inputType == 'decimal',
         decoration: _decoration(
           attribute.nameAr,
           Icons.numbers_rounded,
           hint: _numberHint(attribute.slug),
         ).copyWith(suffixText: _numberSuffix(attribute.slug)),
-        onSubmitted: (value) {
+        onChanged: (value) {
           _saveMarketplaceValue(attribute: attribute, value: value);
         },
       );
     }
 
     final isItemType = attribute.slug == 'item_type';
-
     return _MarketplaceTextField(
       key: ValueKey('${attribute.slug}:$selectedValue'),
       attribute: attribute,
@@ -1696,7 +2034,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ? 'مثال: مزهرية، لوحة، جهاز...'
             : 'أدخل ${attribute.nameAr}',
       ),
-      onSubmitted: (value) {
+      onChanged: (value) {
         _saveMarketplaceValue(attribute: attribute, value: value);
       },
     );
@@ -1706,12 +2044,20 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     switch (slug) {
       case 'year':
         return 'مثال: 2022';
-      case 'kilometers':
+      case 'mileage':
         return 'مثال: 80000';
-      case 'down_payment':
-        return 'مثال: 100000';
-      case 'engine_capacity':
-        return 'مثال: 1600';
+      case 'area':
+        return 'مثال: 150';
+      case 'rooms':
+        return 'مثال: 3';
+      case 'bathrooms':
+        return 'مثال: 2';
+      case 'pieces':
+        return 'مثال: 12';
+      case 'quantity':
+        return 'مثال: 5';
+      case 'weight':
+        return 'مثال: 2.5';
       default:
         return 'أدخل الرقم';
     }
@@ -1721,12 +2067,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     switch (slug) {
       case 'year':
         return 'سنة';
-      case 'kilometers':
+      case 'mileage':
         return 'كم';
-      case 'down_payment':
-        return 'جنيه';
-      case 'engine_capacity':
-        return 'cc';
+      case 'area':
+        return 'م²';
+      case 'rooms':
+        return 'غرفة';
+      case 'bathrooms':
+        return 'حمام';
+      case 'pieces':
+        return 'قطعة';
+      case 'weight':
+        return 'كجم';
       default:
         return null;
     }
@@ -1745,33 +2097,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  List<MarketplaceAttribute> _getVisibleMarketplaceAttributes() {
-    if (_marketplaceAttributes.isEmpty) return const [];
-
-    final visible = <MarketplaceAttribute>[];
-
-    for (final attribute in _marketplaceAttributes) {
-      final isFirst =
-          attribute.attributeId == _marketplaceAttributes.first.attributeId;
-      final hasLoadedOptions = _marketplaceOptions.containsKey(attribute.slug);
-      final hasSelection =
-          _selectedMarketplaceOptionIds.containsKey(attribute.slug) ||
-              _selectedMarketplaceValues.containsKey(attribute.slug);
-
-      if (isFirst || hasLoadedOptions || hasSelection) {
-        visible.add(attribute);
-      }
-    }
-
-    return visible;
-  }
-
-  bool _isCurrentLoadingAttribute(MarketplaceAttribute attribute) {
-    if (!_isLoadingMarketplaceOptions) return false;
-    return !_marketplaceOptions.containsKey(attribute.slug);
-  }
-
-  Widget _buildCategoryDropdown(ColorScheme colors) {
+  Widget _buildCategorySelector(ColorScheme colors) {
     if (_isLoadingCategories) {
       return InputDecorator(
         decoration: _decoration('نوع الشيء', Icons.category_outlined),
@@ -1799,101 +2125,83 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       );
     }
 
-    final uniqueCategories = <String, Map<String, dynamic>>{};
-    for (final category in _categories) {
-      final id = category['id']?.toString().trim();
-      if (id == null || id.isEmpty) continue;
-      uniqueCategories[id] = category;
+    Map<String, dynamic>? selected;
+    for (final c in _categories) {
+      if (c['id']?.toString() == _categoryId) {
+        selected = c;
+        break;
+      }
     }
 
-    final items = uniqueCategories.values
-        .map((category) {
-          final id = category['id']?.toString();
-          final nameAr = category['name_ar']?.toString() ?? '';
-          final slug = category['slug']?.toString() ?? '';
-
-          if (id == null || id.isEmpty) return null;
-
-          return DropdownMenuItem<String>(
-            value: id,
-            child: Text(nameAr.isEmpty ? slug : nameAr),
-          );
-        })
-        .whereType<DropdownMenuItem<String>>()
-        .toList();
-
-    final safeCategoryId =
-        items.any((item) => item.value == _categoryId) ? _categoryId : null;
-
-    return DropdownButtonFormField<String>(
-      initialValue: safeCategoryId,
-      isExpanded: true,
-      decoration: _decoration('نوع الشيء', Icons.category_outlined),
-      items: items,
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'اختر تصنيف العرض';
+    String? parentName;
+    if (selected != null) {
+      final pid = selected['parent_id']?.toString();
+      if (pid != null && pid.isNotEmpty) {
+        for (final c in _categories) {
+          if (c['id']?.toString() == pid) {
+            parentName = c['name_ar']?.toString();
+            break;
+          }
         }
-        return null;
-      },
-      onChanged: (value) async {
-        if (value == null) return;
+      }
+    }
 
-        final selected = uniqueCategories[value];
+    final hasSelection = selected != null;
+    final nameAr = selected?['name_ar']?.toString() ?? '';
 
-        if (selected == null) {
-          _showMessage('التصنيف غير صحيح.');
-          return;
-        }
-
-        final slug = selected['slug']?.toString().trim() ?? '';
-
-        if (slug.isEmpty) {
-          _showMessage('التصنيف غير صحيح.');
-          return;
-        }
-
-        final requestId = ++_categoryRequestId;
-        ++_optionsRequestId;
-
-        setState(() {
-          _categoryId = value;
-          _categorySlug = slug;
-          _marketplaceCategoryId = null;
-          _marketplaceAttributes = [];
-          _marketplaceOptions.clear();
-          _selectedMarketplaceOptionIds.clear();
-          _selectedMarketplaceValues.clear();
-          _selectedMarketplaceValueTypes.clear();
-          _isLoadingMarketplaceAttributes = true;
-          _isLoadingMarketplaceOptions = false;
-        });
-
-        final marketplaceCategoryId =
-            await _getMarketplaceCategoryIdBySlug(slug);
-
-        if (!mounted) return;
-        if (requestId != _categoryRequestId) return;
-        if (_categoryId != value) return;
-
-        setState(() {
-          _marketplaceCategoryId = marketplaceCategoryId;
-          _isLoadingMarketplaceAttributes = false;
-        });
-
-        if (marketplaceCategoryId == null) {
-          debugPrint('⚠️ No marketplace category for slug=$slug');
-          return;
-        }
-
-        await _loadMarketplaceAttributes(marketplaceCategoryId);
-      },
+    return InkWell(
+      onTap: _showCategoryPicker,
+      borderRadius: BorderRadius.circular(15),
+      child: InputDecorator(
+        decoration: _decoration('نوع الشيء', Icons.category_outlined),
+        child: Row(
+          children: [
+            Expanded(
+              child: hasSelection
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (parentName != null) ...[
+                          Text(
+                            parentName,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                        ],
+                        Text(
+                          nameAr,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: colors.onSurface,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      'اختر نوع الشيء',
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+            ),
+            Icon(
+              Icons.search_rounded,
+              color: colors.primary,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // ============================================================
-  // ✅ Location Card (مع خريطة + هاتف + واتساب)
-  // ============================================================
   Widget _buildLocationCard(ColorScheme colors) {
     final hasLocation = _lat != null && _lng != null;
 
@@ -1903,7 +2211,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // زر تحديد الموقع
           InkWell(
             onTap: _openLocationPicker,
             borderRadius: BorderRadius.circular(15),
@@ -1977,18 +2284,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ),
           ),
           const SizedBox(height: 14),
-
-          // وصف المكان
           _field(
             _locationController,
             'وصف المكان (اختياري)',
             'مثال: شارع البحر، قرب مسجد...',
             Icons.place_outlined,
           ),
-
           const SizedBox(height: 14),
-
-          // ✅ رقم الهاتف
           _field(
             _phoneController,
             'رقم الهاتف للتواصل *',
@@ -1998,10 +2300,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             numeric: true,
             integerOnly: true,
           ),
-
           const SizedBox(height: 10),
-
-          // ✅ رقم الواتساب (اختياري)
           _field(
             _whatsappController,
             'رقم الواتساب (اختياري)',
@@ -2010,9 +2309,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             numeric: true,
             integerOnly: true,
           ),
-
           const SizedBox(height: 10),
-
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -2102,7 +2399,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         },
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
-        tileColor: Colors.transparent, // ✅ يمنع تحذير ListTile
+        tileColor: Colors.transparent,
         title: Text(
           'أؤكد أن البيانات والصور التي أضفتها صحيحة، وأنني أوضحت حالة المنتج وأي عيوب موجودة به.',
           style: TextStyle(
@@ -2289,21 +2586,23 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 }
 
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
 // Marketplace Number Field
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
 class _MarketplaceNumberField extends StatefulWidget {
   final MarketplaceAttribute attribute;
   final String? initialValue;
   final InputDecoration decoration;
-  final ValueChanged<String> onSubmitted;
+  final ValueChanged<String> onChanged;
+  final bool isDecimal;
 
   const _MarketplaceNumberField({
     super.key,
     required this.attribute,
     required this.initialValue,
     required this.decoration,
-    required this.onSubmitted,
+    required this.onChanged,
+    this.isDecimal = false,
   });
 
   @override
@@ -2333,10 +2632,17 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      keyboardType: TextInputType.numberWithOptions(
+        decimal: widget.isDecimal,
+      ),
       textInputAction: TextInputAction.next,
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(
+          widget.isDecimal ? RegExp(r'[0-9.]') : RegExp(r'[0-9]'),
+        ),
+      ],
       decoration: widget.decoration,
+      onChanged: widget.onChanged,
       validator: widget.attribute.isRequired
           ? (value) {
               if (value == null || value.trim().isEmpty) {
@@ -2349,12 +2655,6 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
               return null;
             }
           : null,
-      onFieldSubmitted: widget.onSubmitted,
-      onEditingComplete: () {
-        final value = _controller.text.trim();
-        if (value.isNotEmpty) widget.onSubmitted(value);
-        FocusScope.of(context).nextFocus();
-      },
     );
   }
 
@@ -2365,21 +2665,21 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   }
 }
 
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
 // Marketplace Text Field
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
 class _MarketplaceTextField extends StatefulWidget {
   final MarketplaceAttribute attribute;
   final String? initialValue;
   final InputDecoration decoration;
-  final ValueChanged<String> onSubmitted;
+  final ValueChanged<String> onChanged;
 
   const _MarketplaceTextField({
     super.key,
     required this.attribute,
     required this.initialValue,
     required this.decoration,
-    required this.onSubmitted,
+    required this.onChanged,
   });
 
   @override
@@ -2409,9 +2709,8 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
     return TextFormField(
       controller: _controller,
       textInputAction: TextInputAction.next,
-      minLines: widget.attribute.inputType == 'textarea' ? 3 : 1,
-      maxLines: widget.attribute.inputType == 'textarea' ? 5 : 1,
       decoration: widget.decoration,
+      onChanged: widget.onChanged,
       validator: widget.attribute.isRequired
           ? (value) {
               if (value == null || value.trim().isEmpty) {
@@ -2420,12 +2719,6 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
               return null;
             }
           : null,
-      onFieldSubmitted: widget.onSubmitted,
-      onEditingComplete: () {
-        final value = _controller.text.trim();
-        if (value.isNotEmpty) widget.onSubmitted(value);
-        FocusScope.of(context).nextFocus();
-      },
     );
   }
 
@@ -2433,5 +2726,488 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Category Picker Sheet
+// ═══════════════════════════════════════════════════════════════
+class _CategoryPickerSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> categories;
+  final String? selectedId;
+
+  const _CategoryPickerSheet({
+    required this.categories,
+    this.selectedId,
+  });
+
+  @override
+  State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
+}
+
+class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_PickerItem> _buildFlatList() {
+    final items = <_PickerItem>[];
+
+    final childrenByParent = <String, List<Map<String, dynamic>>>{};
+    final roots = <Map<String, dynamic>>[];
+
+    for (final c in widget.categories) {
+      final pid = c['parent_id']?.toString();
+      if (pid == null || pid.isEmpty) {
+        roots.add(c);
+      } else {
+        childrenByParent.putIfAbsent(pid, () => []).add(c);
+      }
+    }
+
+    void sortByOrder(List<Map<String, dynamic>> list) {
+      list.sort((a, b) {
+        final sa = (a['sort_order'] as num?)?.toInt() ?? 0;
+        final sb = (b['sort_order'] as num?)?.toInt() ?? 0;
+        return sa.compareTo(sb);
+      });
+    }
+
+    sortByOrder(roots);
+
+    void addItem(
+      Map<String, dynamic> c, {
+      String? parentName,
+      String? parentPath,
+      int depth = 0,
+    }) {
+      final id = c['id']?.toString() ?? '';
+      if (id.isEmpty) return;
+
+      final name = c['name_ar']?.toString() ?? '';
+      final slug = c['slug']?.toString() ?? '';
+      final fullPath = parentPath == null ? name : '$parentPath › $name';
+
+      items.add(_PickerItem(
+        id: id,
+        slug: slug,
+        name: name,
+        parentName: parentName,
+        fullPath: fullPath,
+        isRoot: depth == 0,
+        depth: depth,
+      ));
+
+      final children = childrenByParent[id] ?? [];
+      sortByOrder(children);
+      for (final child in children) {
+        addItem(
+          child,
+          parentName: name,
+          parentPath: fullPath,
+          depth: depth + 1,
+        );
+      }
+    }
+
+    for (final root in roots) {
+      addItem(root);
+    }
+
+    return items;
+  }
+
+  List<_PickerItem> _filtered(List<_PickerItem> all) {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return all;
+
+    final matchingIds = <String>{};
+
+    for (final item in all) {
+      final matches = item.name.toLowerCase().contains(q) ||
+          item.slug.toLowerCase().contains(q) ||
+          (item.parentName?.toLowerCase().contains(q) ?? false) ||
+          item.fullPath.toLowerCase().contains(q);
+
+      if (matches) {
+        matchingIds.add(item.id);
+        if (item.isRoot) {
+          for (final child in all) {
+            if (child.parentName == item.name) {
+              matchingIds.add(child.id);
+            }
+          }
+        }
+      }
+    }
+
+    return all.where((item) => matchingIds.contains(item.id)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final all = _buildFlatList();
+    final filtered = _filtered(all);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(28),
+            ),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: colors.onSurface.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.category_rounded,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'اختر تصنيف العرض',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${all.length} تصنيف متاح',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _query = v),
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'ابحث... (مثال: موبايل، حذاء، أرز)',
+                    hintStyle: TextStyle(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: colors.primary,
+                      size: 22,
+                    ),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                          ),
+                    filled: true,
+                    fillColor: isDark
+                        ? const Color(0xFF252525)
+                        : const Color(0xFFF5F8F6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: colors.outlineVariant,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(
+                        color: colors.primary,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: filtered.isEmpty
+                    ? _buildEmpty(colors)
+                    : ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 6),
+                        itemBuilder: (_, index) {
+                          final item = filtered[index];
+                          final isSelected = item.id == widget.selectedId;
+
+                          return _CategoryTile(
+                            item: item,
+                            isSelected: isSelected,
+                            onTap: () {
+                              Navigator.pop(context, {
+                                'id': item.id,
+                                'slug': item.slug,
+                                'name_ar': item.name,
+                              });
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEmpty(ColorScheme colors) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.search_off_rounded,
+                color: colors.primary,
+                size: 36,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'لا توجد نتائج',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: colors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'جرب كلمة بحث مختلفة',
+              style: TextStyle(
+                fontSize: 13,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Helper Classes
+// ═══════════════════════════════════════════════════════════════
+class _PickerItem {
+  final String id;
+  final String slug;
+  final String name;
+  final String? parentName;
+  final String fullPath;
+  final bool isRoot;
+  final int depth;
+
+  _PickerItem({
+    required this.id,
+    required this.slug,
+    required this.name,
+    required this.parentName,
+    required this.fullPath,
+    required this.isRoot,
+    required this.depth,
+  });
+}
+
+class _CategoryTile extends StatelessWidget {
+  final _PickerItem item;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryTile({
+    required this.item,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final indent = (item.depth * 14.0).clamp(0.0, 42.0);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: EdgeInsetsDirectional.only(start: indent),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? colors.primary.withValues(alpha: 0.1)
+                : (isDark ? const Color(0xFF252525) : const Color(0xFFF9FBFA)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isSelected
+                  ? colors.primary.withValues(alpha: 0.5)
+                  : colors.outlineVariant,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: item.isRoot
+                      ? colors.primary.withValues(alpha: 0.12)
+                      : colors.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  item.isRoot
+                      ? Icons.folder_rounded
+                      : Icons.label_outline_rounded,
+                  color: colors.primary,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (item.parentName != null) ...[
+                      Text(
+                        item.parentName!,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                    ],
+                    Text(
+                      item.name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight:
+                            item.isRoot ? FontWeight.w900 : FontWeight.w700,
+                        color: isSelected ? colors.primary : colors.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                )
+              else
+                Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 14,
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

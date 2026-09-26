@@ -1,7 +1,7 @@
 // lib/features/userhome/presentation/pages/user_home_page.dart
 
 import 'dart:async';
-import 'dart:math' as math; // ✅ جديد: لحساب المسافة
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -37,10 +37,21 @@ import 'package:loqma/features/services/presentation/pages/service_category_page
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
+import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
 
-// ✅ وضع الهوم: شراء أو خدمات
+// ═══════════════════════════════════════════════════════════
+// ✅ FEATURE FLAGS — تحكم في إظهار الميزات
+// ═══════════════════════════════════════════════════════════
+class _AppFeatures {
+  static const bool showRestaurants = false;
+  static const bool showUrgentSection = false;
+
+  /// ✅ أقصى مسافة (كم) لعرض العروض القريبة في قسم "شراء بسعر رمزي"
+  static const double nearbyRadiusKm = 30.0;
+}
+
 enum _HomeMode { buy, services }
 
 class UserHomePage extends StatefulWidget {
@@ -71,7 +82,7 @@ class _UserHomePageState extends State<UserHomePage> {
   List<ServiceCategory> _serviceCategories = [];
   bool _loadingServiceCategories = false;
 
-  // ✅ جديد: موقع المستخدم الفعلي
+  // ✅ موقع المستخدم
   double? _userLat;
   double? _userLng;
   String _userCity = AppConfig.defaultCity;
@@ -96,6 +107,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
   static const Set<String> _hiddenCategoryKeys = {};
 
+  static bool get restaurantsEnabled => _AppFeatures.showRestaurants;
+
   @override
   void initState() {
     super.initState();
@@ -104,11 +117,9 @@ class _UserHomePageState extends State<UserHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      // ✅ 1. نجيب موقع المستخدم الأول
       await _loadUserLocation();
       if (!mounted) return;
 
-      // ✅ 2. نحمل البيانات بالترتيب
       context.read<UserHomeBloc>().add(const UserHomeStarted());
       _loadInstitutionOffers();
       _loadCommunityNeeds();
@@ -133,7 +144,7 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ جديد: قراءة موقع المستخدم من Supabase
+  // قراءة موقع المستخدم
   // ═══════════════════════════════════════════════════════════
   Future<void> _loadUserLocation() async {
     try {
@@ -170,10 +181,10 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ جديد: حساب المسافة (Haversine)
+  // حساب المسافة (Haversine)
   // ═══════════════════════════════════════════════════════════
   double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
-    const p = 0.017453292519943295; // pi / 180
+    const p = 0.017453292519943295;
     final a = 0.5 -
         math.cos((lat2 - lat1) * p) / 2 +
         math.cos(lat1 * p) *
@@ -183,7 +194,6 @@ class _UserHomePageState extends State<UserHomePage> {
     return 12742 * math.asin(math.sqrt(a));
   }
 
-  // ✅ جديد: استخراج lat/lng من InstitutionOffer
   (double?, double?) _extractLatLng(InstitutionOffer o) {
     try {
       final json = o.toJson();
@@ -199,7 +209,13 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
-  // ✅ جديد: ترتيب العروض حسب المسافة
+  // ✅ استخراج lat/lng من عرض community
+  (double?, double?) _extractCommunityLatLng(Map<String, dynamic> offer) {
+    final lat = (offer['latitude'] as num?)?.toDouble();
+    final lng = (offer['longitude'] as num?)?.toDouble();
+    return (lat, lng);
+  }
+
   List<InstitutionOffer> _sortByDistance(List<InstitutionOffer> offers) {
     if (_userLat == null || _userLng == null || offers.isEmpty) {
       return offers;
@@ -219,6 +235,48 @@ class _UserHomePageState extends State<UserHomePage> {
     return withDist.map((e) => e.key).toList(growable: false);
   }
 
+  // ✅ ترتيب وفلترة عروض community حسب القرب
+  List<Map<String, dynamic>> _filterCommunityByProximity(
+    List<Map<String, dynamic>> offers,
+  ) {
+    // لو مفيش موقع → نرجع الكل
+    if (_userLat == null || _userLng == null || offers.isEmpty) {
+      return offers;
+    }
+
+    final withDist = <MapEntry<Map<String, dynamic>, double>>[];
+
+    for (final offer in offers) {
+      final (lat, lng) = _extractCommunityLatLng(offer);
+
+      // لو العرض مالوش إحداثيات → نسيبه (بس نحدده للمسافة)
+      if (lat == null || lng == null) {
+        // نسيبه بدون ترتيب (هنستخدم عدد كبير)
+        withDist.add(MapEntry(offer, double.infinity));
+        continue;
+      }
+
+      final d = _distanceKm(_userLat!, _userLng!, lat, lng);
+
+      // ✅ فلترة: بس العروض اللي جوه النطاق
+      if (d <= _AppFeatures.nearbyRadiusKm) {
+        withDist.add(MapEntry(offer, d));
+      }
+    }
+
+    withDist.sort((a, b) => a.value.compareTo(b.value));
+
+    // ✅ حد أقصى 10 عروض
+    final result = withDist.take(10).map((e) => e.key).toList(growable: false);
+
+    debugPrint(
+      '📍 [Proximity] Filtered ${offers.length} → ${result.length} offers '
+      '(radius=${_AppFeatures.nearbyRadiusKm}km)',
+    );
+
+    return result;
+  }
+
   Future<void> _loadInstitutionOffers() async {
     if (_loadingInstitutionOffers) return;
     if (mounted) setState(() => _loadingInstitutionOffers = true);
@@ -227,7 +285,6 @@ class _UserHomePageState extends State<UserHomePage> {
       final offers = await _institutionOffersRepository.listAvailableOffers();
       if (!mounted) return;
 
-      // ✅ نرتب حسب المسافة
       final sorted = _sortByDistance(offers);
 
       setState(() => _institutionOffers = sorted);
@@ -294,6 +351,18 @@ class _UserHomePageState extends State<UserHomePage> {
     final name = (category['name_ar'] ?? '').toString().trim().toLowerCase();
     return _hiddenCategoryKeys.contains(slug) ||
         _hiddenCategoryKeys.contains(name);
+  }
+
+  bool _isRestaurantCategory(Map<String, dynamic> category) {
+    final slug = (category['slug'] ?? '').toString().trim().toLowerCase();
+    final name = (category['name_ar'] ?? '').toString().trim();
+    return slug == 'food' ||
+        name.contains('مطعم') ||
+        name.contains('مطاعم') ||
+        name.contains('أطعمة') ||
+        name.contains('مأكولات') ||
+        name.contains('اكل') ||
+        name.contains('أكل');
   }
 
   void _startBannerAutoPlay(int count) {
@@ -526,8 +595,13 @@ class _UserHomePageState extends State<UserHomePage> {
   Widget _buildCategoriesContent(UserHomeLoaded state) {
     final bool isServices = _homeMode == _HomeMode.services;
 
-    final buyCategories =
-        state.categories.where((c) => !_isHiddenCategory(c)).toList();
+    final buyCategories = state.categories.where((c) {
+      if (_isHiddenCategory(c)) return false;
+      if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
+        return false;
+      }
+      return true;
+    }).toList();
 
     final serviceCats = _serviceCategories;
 
@@ -841,9 +915,12 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
         SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
-        SliverToBoxAdapter(child: _buildUrgentSection(state.restaurantOffers)),
-        SliverToBoxAdapter(
-            child: _buildRestaurantSection(state.restaurantOffers)),
+        if (_AppFeatures.showUrgentSection && _AppFeatures.showRestaurants)
+          SliverToBoxAdapter(
+              child: _buildUrgentSection(state.restaurantOffers)),
+        if (_AppFeatures.showRestaurants)
+          SliverToBoxAdapter(
+              child: _buildRestaurantSection(state.restaurantOffers)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
         const SliverToBoxAdapter(
           child: Padding(
@@ -1389,7 +1466,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'عروض مطاعم، بقالة، وحاجات الناس',
+                  'بقالة، عروض، واحتياجات الناس',
                   style: TextStyle(
                     color: _textSecondary,
                     fontSize: 11.5,
@@ -1421,7 +1498,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 controller: _searchController,
                 style: const TextStyle(color: _textPrimary, fontSize: 14.5),
                 decoration: InputDecoration(
-                  hintText: 'دور على وجبة، محل، أو حاجة...',
+                  hintText: 'دور على محل، أو حاجة...',
                   hintStyle: TextStyle(
                     color: _textSecondary.withValues(alpha: 0.7),
                     fontSize: 13.5,
@@ -1469,9 +1546,6 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Location Row — بتعرض مدينة المستخدم الفعلية
-  // ═══════════════════════════════════════════════════════════
   Widget _buildLocationRow(UserHomeLoaded state) {
     final hasLocation = _userLat != null && _userLng != null;
 
@@ -1493,7 +1567,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     color: _primaryRed, size: 15),
                 const SizedBox(width: 6),
                 Text(
-                  _userCity, // ✅ مدينة المستخدم الفعلية
+                  _userCity,
                   style: const TextStyle(
                     color: _textPrimary,
                     fontSize: 13,
@@ -1702,8 +1776,13 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
-    final categories =
-        state.categories.where((c) => !_isHiddenCategory(c)).toList();
+    final categories = state.categories.where((c) {
+      if (_isHiddenCategory(c)) return false;
+      if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
+        return false;
+      }
+      return true;
+    }).toList();
 
     if (categories.isEmpty) {
       return const SizedBox.shrink();
@@ -1825,6 +1904,9 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ فتح تصنيف
+  // ═══════════════════════════════════════════════════════════
   void _openCategory(
     Map<String, dynamic> category,
     UserHomeLoaded state,
@@ -1833,19 +1915,16 @@ class _UserHomePageState extends State<UserHomePage> {
     final name = category['name_ar']?.toString() ?? '';
     final slug = (category['slug']?.toString() ?? '').trim();
 
-    final isRestaurant = slug == 'food' ||
-        name.contains('مطعم') ||
-        name.contains('مطاعم') ||
-        name.contains('أطعمة') ||
-        name.contains('مأكولات') ||
-        name.contains('اكل') ||
-        name.contains('أكل');
+    final isRestaurant = _isRestaurantCategory(category);
 
     final isGrocery = slug.startsWith('grocery') ||
         name.contains('بقال') ||
         name.contains('سوبرماركت');
 
+    // ─── مطعم ───
     if (isRestaurant) {
+      if (!_AppFeatures.showRestaurants) return;
+
       final filtered = _institutionOffers
           .where((o) => (o.marketplaceCategoryId ?? '').trim() == id)
           .toList(growable: false);
@@ -1862,25 +1941,19 @@ class _UserHomePageState extends State<UserHomePage> {
       return;
     }
 
+    // ─── بقالة ───
     if (isGrocery) {
       final restaurantIds = state.categories
-          .where((c) {
-            final cSlug = (c['slug'] ?? '').toString().trim();
-            final cName = (c['name_ar'] ?? '').toString();
-            return cSlug == 'food' ||
-                cName.contains('مطعم') ||
-                cName.contains('مطاعم') ||
-                cName.contains('أطعمة') ||
-                cName.contains('مأكولات') ||
-                cName.contains('اكل') ||
-                cName.contains('أكل');
-          })
+          .where(_isRestaurantCategory)
           .map((c) => (c['id']?.toString() ?? '').trim())
           .where((cid) => cid.isNotEmpty)
           .toSet();
 
       final filtered = _institutionOffers.where((o) {
         final catId = (o.marketplaceCategoryId ?? '').trim();
+        if (!_AppFeatures.showRestaurants && restaurantIds.contains(catId)) {
+          return false;
+        }
         return catId.isNotEmpty && !restaurantIds.contains(catId);
       }).toList(growable: false);
 
@@ -1891,6 +1964,47 @@ class _UserHomePageState extends State<UserHomePage> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => UserInstitutionOffersPage(offers: foodOffers),
+        ),
+      );
+      return;
+    }
+
+    // ─── تصنيف عادي → فحص الفروع أول ───
+    _openSmartCategory(id, name, slug);
+  }
+
+  // ✅ دالة ذكية: تتحقق من وجود فروع
+  Future<void> _openSmartCategory(
+    String id,
+    String name,
+    String slug,
+  ) async {
+    bool hasChildren = false;
+    try {
+      final response = await SupabaseService()
+          .client
+          .from('marketplace_categories')
+          .select('id')
+          .eq('parent_id', id)
+          .eq('is_active', true)
+          .limit(1);
+
+      hasChildren = (response as List).isNotEmpty;
+    } catch (e) {
+      debugPrint('❌ [openSmartCategory] error: $e');
+      hasChildren = false;
+    }
+
+    if (!mounted) return;
+
+    if (hasChildren) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SubCategoriesPage(
+            parentId: id,
+            parentName: name,
+            parentSlug: slug,
+          ),
         ),
       );
       return;
@@ -1907,16 +2021,12 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ معدّل: نستخدم إحداثيات المؤسسة الحقيقية
-  // ═══════════════════════════════════════════════════════════
   FoodOffer _institutionToFoodOffer(
     InstitutionOffer o, {
     String businessType = 'restaurant',
   }) {
     final (offerLat, offerLng) = _extractLatLng(o);
 
-    // ✅ fallback لإحداثيات المستخدم لو المؤسسة ملهاش إحداثيات
     final lat = offerLat ?? _userLat ?? 30.7865;
     final lng = offerLng ?? _userLng ?? 31.0004;
 
@@ -1929,8 +2039,8 @@ class _UserHomePageState extends State<UserHomePage> {
       expiryTime: o.expiresAt,
       pickupBefore: o.pickupBefore ?? o.expiresAt,
       pickupLocation: o.pickupLocation ?? 'موقع غير محدد',
-      latitude: lat, // ✅ من المؤسسة الحقيقية
-      longitude: lng, // ✅
+      latitude: lat,
+      longitude: lng,
       image: o.firstImage,
       status: FoodOfferStatus.fromString(o.status),
       businessId: o.institutionId,
@@ -2285,11 +2395,17 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ قسم "شراء بسعر رمزي" — بيعرض العروض القريبة بس
+  // ═══════════════════════════════════════════════════════════
   Widget _buildCommunitySection(List<Map<String, dynamic>> offers) {
-    final visible = offers
+    // ✅ فلترة: available + قريبة
+    final available = offers
         .where((o) => o['status']?.toString() == 'available')
-        .take(10)
         .toList(growable: false);
+
+    // ✅ نفلتر حسب القرب من المستخدم
+    final nearby = _filterCommunityByProximity(available);
 
     return _section(
       title: 'شراء بسعر رمزي 💰',
@@ -2308,7 +2424,7 @@ class _UserHomePageState extends State<UserHomePage> {
           ),
         ),
       ),
-      child: visible.isEmpty
+      child: nearby.isEmpty
           ? _CommunityEmptyCard(
               onAdd: () {
                 Navigator.of(context).push(
@@ -2322,10 +2438,10 @@ class _UserHomePageState extends State<UserHomePage> {
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
-                itemCount: visible.length,
+                itemCount: nearby.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (context, index) {
-                  final offer = visible[index];
+                  final offer = nearby[index];
                   return _CommunityOfferCard(
                     offer: offer,
                     onTap: () => _openCommunityOffer(offer),
@@ -2957,7 +3073,7 @@ class _NeedCard extends StatelessWidget {
 }
 
 // ============================================================
-// ✅ LARGE FOOD CARD
+// ✅ LARGE FOOD CARD — (للأرشيف)
 // ============================================================
 class _FoodOfferLargeCard extends StatelessWidget {
   final FoodOffer offer;
@@ -3083,7 +3199,7 @@ class _FoodOfferLargeCard extends StatelessWidget {
 }
 
 // ============================================================
-// ✅ FOOD CARD
+// ✅ FOOD CARD — (للأرشيف)
 // ============================================================
 class _FoodOfferCard extends StatelessWidget {
   final FoodOffer offer;

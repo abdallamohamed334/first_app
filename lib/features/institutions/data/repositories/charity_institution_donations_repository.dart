@@ -1,3 +1,6 @@
+// lib/features/institutions/data/repositories/charity_institution_donations_repository.dart
+
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 
@@ -111,20 +114,76 @@ class CharityInstitutionDonationsRepository {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ RPC Helpers — بيكشفوا الرسالة الحقيقية
+  // ═══════════════════════════════════════════════════════════
   Future<void> _rpc(String name, Map<String, dynamic> params) async {
-    final result = await _client.rpc(name, params: params);
-    if (result is Map && result['success'] == true) return;
-    throw const FormatException('تعذر تنفيذ العملية حاليًا');
+    try {
+      final result = await _client.rpc(name, params: params);
+
+      debugPrint('📥 RPC [$name] response=$result');
+
+      if (result is Map) {
+        final map = Map<String, dynamic>.from(result);
+        if (map['success'] == true) return;
+
+        // ✅ نرمي الرسالة الحقيقية من الـ backend
+        final msg = map['message']?.toString().trim() ?? '';
+        if (msg.isNotEmpty) {
+          throw FormatException(msg);
+        }
+        throw const FormatException('تعذر تنفيذ العملية حاليًا');
+      }
+
+      // لو الـ RPC رجع void، نعتبره نجاح
+      return;
+    } on PostgrestException catch (e) {
+      debugPrint('❌ RPC [$name] Postgrest: ${e.code} - ${e.message}');
+      // ✅ نمرر الرسالة الحقيقية من Postgrest
+      final msg = e.message.trim();
+      if (msg.isNotEmpty && RegExp(r'[\u0600-\u06FF]').hasMatch(msg)) {
+        throw FormatException(msg);
+      }
+      throw FormatException(msg.isNotEmpty ? msg : 'تعذر تنفيذ العملية حاليًا');
+    } catch (e) {
+      debugPrint('❌ RPC [$name] error: $e');
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> _rpcMap(
     String name,
     Map<String, dynamic> params,
   ) async {
-    final result = await _client.rpc(name, params: params);
-    if (result is Map && result['success'] == true) {
-      return Map<String, dynamic>.from(result);
+    try {
+      final result = await _client.rpc(name, params: params);
+
+      debugPrint('📥 RPC [$name] response=$result');
+
+      if (result is Map) {
+        final map = Map<String, dynamic>.from(result);
+        if (map['success'] == true) {
+          return map;
+        }
+
+        final msg = map['message']?.toString().trim() ?? '';
+        if (msg.isNotEmpty) {
+          throw FormatException(msg);
+        }
+        throw const FormatException('تعذر تنفيذ العملية حاليًا');
+      }
+
+      throw const FormatException('استجابة غير صالحة من الخادم');
+    } on PostgrestException catch (e) {
+      debugPrint('❌ RPC [$name] Postgrest: ${e.code} - ${e.message}');
+      final msg = e.message.trim();
+      if (msg.isNotEmpty && RegExp(r'[\u0600-\u06FF]').hasMatch(msg)) {
+        throw FormatException(msg);
+      }
+      throw FormatException(msg.isNotEmpty ? msg : 'تعذر تنفيذ العملية حاليًا');
+    } catch (e) {
+      debugPrint('❌ RPC [$name] error: $e');
+      rethrow;
     }
-    throw const FormatException('تعذر تنفيذ العملية حاليًا');
   }
 }

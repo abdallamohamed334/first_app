@@ -1,4 +1,7 @@
+// lib/features/institutions/presentation/pages/charity_institution_donations_page.dart
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/charity_institution_donations_repository.dart';
 
@@ -24,16 +27,6 @@ class _CharityInstitutionDonationsPageState
   static const _mint = Color(0xFFE9F7F0);
   static const _background = Color(0xFFF5F8F6);
 
-  static const _stages = [
-    'pending',
-    'accepted',
-    'volunteer_assigned',
-    'institution_ready',
-    'volunteer_departed',
-    'picked_up',
-    'completed',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -44,90 +37,187 @@ class _CharityInstitutionDonationsPageState
   Future<void> _reload() async {
     final future = _repository.listMyDonations();
     if (!mounted) return;
-    setState(() => _future = future);
+    setState(() {
+      _future = future;
+    });
     try {
       await future;
-    } catch (_) {
-      // Surfaced by the FutureBuilder itself.
-    }
+    } catch (_) {}
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ استخراج رسالة الخطأ الحقيقية من الـ backend
+  // ═══════════════════════════════════════════════════════════
+  String _errorText(Object error, {String? fallback}) {
+    String raw = error.toString();
+
+    // ── PostgrestException: نستخرج حقل "message"
+    if (error is PostgrestException) {
+      final msg = error.message.trim();
+      if (msg.isNotEmpty) {
+        // لو الرسالة عربية → رجّعها كما هي
+        if (RegExp(r'[\u0600-\u06FF]').hasMatch(msg)) {
+          return msg;
+        }
+        // لو إنجليزية → نحاول نحولها
+        return _translatePgError(msg, fallback);
+      }
+    }
+
+    // ── PostgrestException مكتوبة كنص (احتياطي)
+    final pgMatch = RegExp(
+      r'PostgrestException\(message:\s*(.+?),\s*code:',
+      dotAll: true,
+    ).firstMatch(raw);
+    if (pgMatch != null) {
+      final msg = (pgMatch.group(1) ?? '').trim();
+      if (msg.isNotEmpty && RegExp(r'[\u0600-\u06FF]').hasMatch(msg)) {
+        return msg;
+      }
+    }
+
+    // ── نشيل prefix "Exception: "
+    raw = raw.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+
+    // ── لو الرسالة فيها عربي → رجّعها
+    if (RegExp(r'[\u0600-\u06FF]').hasMatch(raw) && raw.length < 200) {
+      return raw;
+    }
+
+    // ── fallback
+    return fallback ?? 'تعذر إتمام العملية، حاول مرة أخرى';
+  }
+
+  String _translatePgError(String msg, String? fallback) {
+    final m = msg.toLowerCase();
+    if (m.contains('not authorized') || m.contains('permission')) {
+      return 'غير مصرح لك بتنفيذ هذه العملية';
+    }
+    if (m.contains('not found')) return 'التبرع غير موجود';
+    if (m.contains('expired')) return 'انتهت صلاحية هذا التبرع';
+    return fallback ?? 'تعذر إتمام العملية، حاول مرة أخرى';
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // قبول / رفض
+  // ═══════════════════════════════════════════════════════════
   Future<void> _accept(String id, bool accept) async {
-    setState(() => _busyId = id);
+    if (!mounted) return;
+    setState(() {
+      _busyId = id;
+    });
     try {
       await _repository.acceptDonation(id, accept);
       if (!mounted) return;
       _toast(accept ? 'تم قبول التبرع' : 'تم رفض التبرع');
       await _reload();
-    } catch (_) {
-      if (mounted) _toast('تعذر تحديث حالة التبرع', error: true);
+    } catch (e) {
+      if (mounted) {
+        _toast(
+          _errorText(e, fallback: 'تعذر تحديث حالة التبرع'),
+          error: true,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _busyId = null);
+      if (mounted) {
+        setState(() {
+          _busyId = null;
+        });
+      }
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // ✅ تعيين مندوب — Bottom Sheet من تحت
+  // ═══════════════════════════════════════════════════════════
   Future<void> _assignVolunteer(String id) async {
     List<Map<String, dynamic>> volunteers;
     try {
       volunteers = await _repository.listCharityVolunteers();
-    } catch (_) {
-      if (mounted) _toast('تعذر تحميل متطوعي الجمعية', error: true);
+    } catch (e) {
+      if (mounted) {
+        _toast(
+          _errorText(e, fallback: 'تعذر تحميل متطوعي الجمعية'),
+          error: true,
+        );
+      }
       return;
     }
     if (!mounted) return;
 
-    final name = TextEditingController();
-    final phone = TextEditingController();
-    final assignment = await showDialog<_VolunteerAssignment>(
+    final assignment = await showModalBottomSheet<_VolunteerAssignment>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => _VolunteerAssignmentDialog(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (context) => _VolunteerAssignmentSheet(
         volunteers: volunteers,
-        nameController: name,
-        phoneController: phone,
       ),
     );
-    final volunteerName = name.text.trim();
-    final volunteerPhone = phone.text.trim();
-    name.dispose();
-    phone.dispose();
 
-    if (assignment == null) return;
-    setState(() => _busyId = id);
+    if (assignment == null || !mounted) return;
+
+    setState(() {
+      _busyId = id;
+    });
     try {
       await _repository.assignVolunteer(
         donationId: id,
         volunteerId: assignment.id,
-        volunteerName: volunteerName.isEmpty ? assignment.name : volunteerName,
-        volunteerPhone:
-            volunteerPhone.isEmpty ? assignment.phone : volunteerPhone,
+        volunteerName: assignment.name,
+        volunteerPhone: assignment.phone,
       );
       if (!mounted) return;
       _toast('تم تعيين المتطوع بنجاح');
       await _reload();
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        _toast('تعذر تعيين المتطوع. راجع بيانات الاختيار', error: true);
+        _toast(
+          _errorText(e, fallback: 'تعذر تعيين المتطوع'),
+          error: true,
+        );
       }
     } finally {
-      if (mounted) setState(() => _busyId = null);
+      if (mounted) {
+        setState(() {
+          _busyId = null;
+        });
+      }
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // تحرك المتطوع
+  // ═══════════════════════════════════════════════════════════
   Future<void> _departed(String id) async {
-    setState(() => _busyId = id);
+    if (!mounted) return;
+    setState(() {
+      _busyId = id;
+    });
     try {
       await _repository.markVolunteerDeparted(id);
       if (!mounted) return;
       _toast('تم تسجيل أن المتطوع في الطريق');
       await _reload();
-    } catch (_) {
-      if (mounted) _toast('تعذر تحديث حالة المتطوع', error: true);
+    } catch (e) {
+      if (mounted) {
+        _toast(
+          _errorText(e, fallback: 'تعذر تحديث حالة المتطوع'),
+          error: true,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _busyId = null);
+      if (mounted) {
+        setState(() {
+          _busyId = null;
+        });
+      }
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // إنشاء كود الاستلام (الجمعية)
+  // ═══════════════════════════════════════════════════════════
   Future<void> _generateCode(String id) async {
     try {
       final result = await _repository.generatePickupCode(id);
@@ -137,25 +227,44 @@ class _CharityInstitutionDonationsPageState
         builder: (_) => Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-            title: const Text('كود استلام التبرع',
-                style: TextStyle(fontWeight: FontWeight.w900)),
-            content: Container(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              decoration: BoxDecoration(
-                color: _mint,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                result['pickup_code']?.toString() ?? 'تم إنشاء الكود',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 7,
-                    color: _green),
-              ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            title: const Text(
+              'كود استلام التبرع',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'سلّم هذا الكود للمندوب، وهو هيوريه للمؤسسة عند الاستلام.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF71837C),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  decoration: BoxDecoration(
+                    color: _mint,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    result['pickup_code']?.toString() ?? '---',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 7,
+                      color: _green,
+                    ),
+                  ),
+                ),
+              ],
             ),
             actions: [
               SizedBox(
@@ -164,7 +273,8 @@ class _CharityInstitutionDonationsPageState
                   style: FilledButton.styleFrom(
                     backgroundColor: _green,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(context),
                   child: const Text('تم'),
@@ -174,91 +284,61 @@ class _CharityInstitutionDonationsPageState
           ),
         ),
       );
-    } catch (_) {
-      if (mounted) _toast('تعذر إنشاء كود الاستلام', error: true);
+    } catch (e) {
+      if (mounted) {
+        _toast(
+          _errorText(e, fallback: 'تعذر إنشاء كود الاستلام'),
+          error: true,
+        );
+      }
     }
   }
 
-  Future<void> _verifyCode(String id) async {
-    final controller = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          title: const Text('التحقق من كود الاستلام',
-              style: TextStyle(fontWeight: FontWeight.w900)),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 6),
-            decoration: const InputDecoration(
-              hintText: '000000',
-              counterText: '',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('إلغاء')),
-            FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: _green),
-                onPressed: () => Navigator.pop(context, controller.text.trim()),
-                child: const Text('تحقق')),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-    if (code == null) return;
-    if (code.length != 6) {
-      if (mounted) _toast('اكتب كودًا مكونًا من 6 أرقام', error: true);
-      return;
-    }
-    setState(() => _busyId = id);
-    try {
-      await _repository.verifyPickupCode(donationId: id, code: code);
-      if (!mounted) return;
-      _toast('تم التحقق واستلام التبرع');
-      await _reload();
-    } catch (_) {
-      if (mounted) _toast('كود الاستلام غير صحيح أو منتهي', error: true);
-    } finally {
-      if (mounted) setState(() => _busyId = null);
-    }
-  }
-
+  // ═══════════════════════════════════════════════════════════
+  // تأكيد وصول التبرع
+  // ═══════════════════════════════════════════════════════════
   Future<void> _complete(String id) async {
-    setState(() => _busyId = id);
+    if (!mounted) return;
+    setState(() {
+      _busyId = id;
+    });
     try {
       await _repository.confirmArrival(id);
       if (!mounted) return;
       _toast('تم تأكيد وصول التبرع');
       await _reload();
-    } catch (_) {
-      if (mounted) _toast('تعذر تأكيد وصول التبرع', error: true);
+    } catch (e) {
+      if (mounted) {
+        _toast(
+          _errorText(e, fallback: 'تعذر تأكيد وصول التبرع'),
+          error: true,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _busyId = null);
+      if (mounted) {
+        setState(() {
+          _busyId = null;
+        });
+      }
     }
   }
 
   void _toast(String text, {bool error = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text),
-        backgroundColor: error ? const Color(0xFFD64545) : _deepGreen,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text, textAlign: TextAlign.right),
+          backgroundColor: error ? const Color(0xFFD64545) : _deepGreen,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          duration: Duration(seconds: error ? 4 : 3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
   }
 
   bool _matches(Map<String, dynamic> row) {
@@ -293,8 +373,10 @@ class _CharityInstitutionDonationsPageState
           backgroundColor: _background,
           foregroundColor: _deepGreen,
           elevation: 0,
-          title: const Text('تبرعات المؤسسات',
-              style: TextStyle(fontWeight: FontWeight.w900)),
+          title: const Text(
+            'تبرعات المؤسسات',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
           actions: [
             IconButton(
               onPressed: _reload,
@@ -308,7 +390,8 @@ class _CharityInstitutionDonationsPageState
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                  child: CircularProgressIndicator(color: _green));
+                child: CircularProgressIndicator(color: _green),
+              );
             }
             if (snapshot.hasError) {
               return _emptyState(
@@ -325,7 +408,8 @@ class _CharityInstitutionDonationsPageState
               onRefresh: _reload,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics()),
+                  parent: BouncingScrollPhysics(),
+                ),
                 padding: const EdgeInsets.fromLTRB(18, 6, 18, 32),
                 children: [
                   _hero(all),
@@ -337,22 +421,24 @@ class _CharityInstitutionDonationsPageState
                   _filters(),
                   const SizedBox(height: 14),
                   if (rows.isEmpty)
-                    _emptyState('لا توجد تبرعات مؤسسات في هذا القسم',
-                        Icons.inbox_rounded)
+                    _emptyState(
+                      'لا توجد تبرعات مؤسسات في هذا القسم',
+                      Icons.inbox_rounded,
+                    )
                   else
-                    ...rows.map((row) => _DonationCard(
-                          row: row,
-                          busy: _busyId == row['id']?.toString(),
-                          onAccept: () => _accept(row['id'].toString(), true),
-                          onReject: () => _accept(row['id'].toString(), false),
-                          onAssign: () =>
-                              _assignVolunteer(row['id'].toString()),
-                          onDeparted: () => _departed(row['id'].toString()),
-                          onGenerateCode: () =>
-                              _generateCode(row['id'].toString()),
-                          onVerifyCode: () => _verifyCode(row['id'].toString()),
-                          onComplete: () => _complete(row['id'].toString()),
-                        )),
+                    ...rows.map(
+                      (row) => _DonationCard(
+                        row: row,
+                        busy: _busyId == row['id']?.toString(),
+                        onAccept: () => _accept(row['id'].toString(), true),
+                        onReject: () => _accept(row['id'].toString(), false),
+                        onAssign: () => _assignVolunteer(row['id'].toString()),
+                        onDeparted: () => _departed(row['id'].toString()),
+                        onGenerateCode: () =>
+                            _generateCode(row['id'].toString()),
+                        onComplete: () => _complete(row['id'].toString()),
+                      ),
+                    ),
                 ],
               ),
             );
@@ -369,123 +455,178 @@ class _CharityInstitutionDonationsPageState
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [Color(0xFF087A52), Color(0xFF27B47E)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft),
+          colors: [Color(0xFF087A52), Color(0xFF27B47E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-              color: _green.withAlpha(45),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
+            color: _green.withAlpha(45),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
-      child: Row(children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('تبرعات المؤسسات والمطاعم',
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'تبرعات المؤسسات والمطاعم',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900)),
-              const SizedBox(height: 8),
-              Text(
-                pending > 0
-                    ? '$pending تبرع بانتظار ردك'
-                    : '${rows.length} تبرع قيد المتابعة',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                decoration: BoxDecoration(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  pending > 0
+                      ? '$pending تبرع بانتظار ردك'
+                      : '${rows.length} تبرع قيد المتابعة',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
                     color: Colors.white.withAlpha(35),
-                    borderRadius: BorderRadius.circular(30)),
-                child: const Text('تابع كل خطوة من القبول للاستلام',
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: const Text(
+                    'تابع كل خطوة من القبول للاستلام',
                     style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12)),
-              ),
-            ],
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-              color: Colors.white.withAlpha(35), shape: BoxShape.circle),
-          child: const Icon(Icons.storefront_rounded,
-              color: Colors.white, size: 32),
-        ),
-      ]),
+          const SizedBox(width: 12),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(35),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.storefront_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _stats(List<Map<String, dynamic>> rows) {
     int count(bool Function(String) test) =>
         rows.where((r) => test(r['status']?.toString() ?? 'pending')).length;
-    return Row(children: [
-      Expanded(
-          child: _statCard('الجديدة', count((s) => s == 'pending').toString(),
-              Icons.mark_email_unread_rounded, const Color(0xFFFFA62B))),
-      const SizedBox(width: 10),
-      Expanded(
+    return Row(
+      children: [
+        Expanded(
           child: _statCard(
-              'قيد التنفيذ',
-              count((s) => [
-                    'accepted',
-                    'volunteer_assigned',
-                    'institution_ready',
-                    'volunteer_departed',
-                    'picked_up',
-                  ].contains(s)).toString(),
-              Icons.route_rounded,
-              const Color(0xFF3E83C5))),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _statCard('مكتملة', count((s) => s == 'completed').toString(),
-              Icons.check_circle_rounded, _green)),
-    ]);
+            'الجديدة',
+            count((s) => s == 'pending').toString(),
+            Icons.mark_email_unread_rounded,
+            const Color(0xFFFFA62B),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
+            'قيد التنفيذ',
+            count((s) => [
+                  'accepted',
+                  'volunteer_assigned',
+                  'institution_ready',
+                  'volunteer_departed',
+                  'picked_up',
+                ].contains(s)).toString(),
+            Icons.route_rounded,
+            const Color(0xFF3E83C5),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
+            'مكتملة',
+            count((s) => s == 'completed').toString(),
+            Icons.check_circle_rounded,
+            _green,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _statCard(String label, String value, IconData icon, Color color) =>
       Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE1ECE6))),
-          child: Column(children: [
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE1ECE6)),
+        ),
+        child: Column(
+          children: [
             Icon(icon, color: color, size: 23),
             const SizedBox(height: 8),
-            Text(value,
-                style: const TextStyle(
-                    color: _deepGreen,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900)),
+            Text(
+              value,
+              style: const TextStyle(
+                color: _deepGreen,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700))
-          ]));
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
 
-  Widget _sectionTitle(String title, String count) =>
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(title,
+  Widget _sectionTitle(String title, String count) => Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
             style: const TextStyle(
-                color: _deepGreen, fontSize: 20, fontWeight: FontWeight.w900)),
-        Text(count,
+              color: _deepGreen,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            count,
             style: const TextStyle(
-                color: _green, fontSize: 12, fontWeight: FontWeight.w800))
-      ]);
+              color: _green,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      );
 
   Widget _filters() {
     const filters = {
@@ -511,38 +652,59 @@ class _CharityInstitutionDonationsPageState
             backgroundColor: Colors.white,
             checkmarkColor: _green,
             labelStyle: TextStyle(
-                color: selected ? _green : _deepGreen,
-                fontSize: 11,
-                fontWeight: FontWeight.w800),
-            side:
-                BorderSide(color: selected ? _green : const Color(0xFFE1ECE6)),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              color: selected ? _green : _deepGreen,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+            side: BorderSide(
+              color: selected ? _green : const Color(0xFFE1ECE6),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _emptyState(String text, IconData icon,
-      {String? actionLabel, VoidCallback? onAction}) {
+  Widget _emptyState(
+    String text,
+    IconData icon, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 70),
-      child: Column(children: [
-        Icon(icon, color: _green, size: 54),
-        const SizedBox(height: 15),
-        Text(text,
+      child: Column(
+        children: [
+          Icon(icon, color: _green, size: 54),
+          const SizedBox(height: 15),
+          Text(
+            text,
             textAlign: TextAlign.center,
             style: const TextStyle(
-                color: _deepGreen, fontSize: 15, fontWeight: FontWeight.w800)),
-        if (actionLabel != null && onAction != null) ...[
-          const SizedBox(height: 14),
-          FilledButton.tonal(onPressed: onAction, child: Text(actionLabel)),
+              color: _deepGreen,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 14),
+            FilledButton.tonal(
+              onPressed: onAction,
+              child: Text(actionLabel),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════
+// Volunteer Assignment Model
+// ═══════════════════════════════════════════════════════════
 
 class _VolunteerAssignment {
   final String? id;
@@ -556,174 +718,403 @@ class _VolunteerAssignment {
   });
 }
 
-class _VolunteerAssignmentDialog extends StatefulWidget {
-  final List<Map<String, dynamic>> volunteers;
-  final TextEditingController nameController;
-  final TextEditingController phoneController;
+// ═══════════════════════════════════════════════════════════
+// ✅ Volunteer Assignment Sheet (Bottom Sheet من تحت)
+// ═══════════════════════════════════════════════════════════
 
-  const _VolunteerAssignmentDialog({
-    required this.volunteers,
-    required this.nameController,
-    required this.phoneController,
-  });
+class _VolunteerAssignmentSheet extends StatefulWidget {
+  final List<Map<String, dynamic>> volunteers;
+
+  const _VolunteerAssignmentSheet({required this.volunteers});
 
   @override
-  State<_VolunteerAssignmentDialog> createState() =>
-      _VolunteerAssignmentDialogState();
+  State<_VolunteerAssignmentSheet> createState() =>
+      _VolunteerAssignmentSheetState();
 }
 
-class _VolunteerAssignmentDialogState
-    extends State<_VolunteerAssignmentDialog> {
+class _VolunteerAssignmentSheetState extends State<_VolunteerAssignmentSheet> {
+  static const _green = Color(0xFF087A52);
+  static const _deepGreen = Color(0xFF123D31);
+  static const _mint = Color(0xFFE9F7F0);
+
   bool _internal = true;
   String? _selectedId;
+  String? _nameError;
+  String? _phoneError;
 
-  static const _green = Color(0xFF087A52);
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Map<String, dynamic>? get _selectedVolunteer {
+    if (_selectedId == null) return null;
+    for (final v in widget.volunteers) {
+      if (v['id']?.toString() == _selectedId) return v;
+    }
+    return null;
+  }
+
+  void _submit() {
+    if (_internal) {
+      final v = _selectedVolunteer;
+      if (v == null) {
+        setState(() => _nameError = 'اختاري مندوبًا من الجمعية');
+        return;
+      }
+      Navigator.pop(
+        context,
+        _VolunteerAssignment(
+          id: v['id']?.toString(),
+          name: v['name']?.toString().trim() ?? '',
+          phone: v['phone']?.toString().trim() ?? '',
+        ),
+      );
+      return;
+    }
+
+    final name = _nameController.text.trim();
+    final phone = _phoneController.text.trim();
+
+    setState(() {
+      _nameError = name.isEmpty ? 'اكتبي اسم المندوب' : null;
+      _phoneError = phone.isEmpty ? 'اكتبي رقم المندوب' : null;
+    });
+
+    if (_nameError != null || _phoneError != null) return;
+
+    Navigator.pop(
+      context,
+      _VolunteerAssignment(id: null, name: name, phone: phone),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final activeVolunteers = widget.volunteers;
-    final selected = activeVolunteers
-        .where((item) => item['id']?.toString() == _selectedId)
-        .toList();
-    final selectedVolunteer = selected.isEmpty ? null : selected.first;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: const Text('تعيين مندوب التبرع',
-            style: TextStyle(fontWeight: FontWeight.w900)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'اختاري مندوبًا من الجمعية أو أدخلي بيانات مندوب خارجي.',
-                style: TextStyle(color: Colors.black54),
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment<bool>(
-                    value: true,
-                    label: Text('من الجمعية'),
-                    icon: Icon(Icons.groups_outlined),
-                  ),
-                  ButtonSegment<bool>(
-                    value: false,
-                    label: Text('خارجي'),
-                    icon: Icon(Icons.person_add_alt_1),
-                  ),
-                ],
-                selected: {_internal},
-                onSelectionChanged: (values) {
-                  setState(() {
-                    _internal = values.first;
-                    _selectedId = null;
-                    widget.nameController.clear();
-                    widget.phoneController.clear();
-                  });
-                },
-              ),
-              const SizedBox(height: 14),
-              if (_internal)
-                if (activeVolunteers.isEmpty)
-                  const Text('لا يوجد مندوبون نشطون داخل الجمعية.')
-                else
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedId,
-                    decoration: const InputDecoration(
-                      labelText: 'اختيار مندوب الجمعية',
-                      prefixIcon: Icon(Icons.badge_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: activeVolunteers.map((item) {
-                      final itemId = item['id']?.toString() ?? '';
-                      final itemName = item['name']?.toString() ?? 'مندوب';
-                      final itemPhone = item['phone']?.toString() ?? '';
-                      return DropdownMenuItem<String>(
-                        value: itemId,
-                        child: Text(
-                            '$itemName${itemPhone.isEmpty ? '' : ' — $itemPhone'}'),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedId = value);
-                    },
-                  )
-              else ...[
-                TextField(
-                  controller: widget.nameController,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المندوب الخارجي',
-                    prefixIcon: Icon(Icons.person_outline),
-                    border: OutlineInputBorder(),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCEBE3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: widget.phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم هاتف المندوب الخارجي',
-                    prefixIcon: Icon(Icons.phone_outlined),
-                    border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+
+                // ── Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _mint,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          color: _green,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'تعيين مندوب التبرع',
+                              style: TextStyle(
+                                color: _deepGreen,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'اختاري مندوب من الجمعية أو أضيفي مندوب خارجي',
+                              style: TextStyle(
+                                color: Color(0xFF71837C),
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                        color: _deepGreen,
+                      ),
+                    ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+                const Divider(height: 1, color: Color(0xFFE5EEEA)),
+                const SizedBox(height: 16),
+
+                // ── Content
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // ── Segmented Button
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment<bool>(
+                            value: true,
+                            label: Text('من الجمعية'),
+                            icon: Icon(Icons.groups_outlined, size: 18),
+                          ),
+                          ButtonSegment<bool>(
+                            value: false,
+                            label: Text('خارجي'),
+                            icon: Icon(Icons.person_add_alt_1, size: 18),
+                          ),
+                        ],
+                        selected: {_internal},
+                        onSelectionChanged: (values) {
+                          setState(() {
+                            _internal = values.first;
+                            _selectedId = null;
+                            _nameError = null;
+                            _phoneError = null;
+                            _nameController.clear();
+                            _phoneController.clear();
+                          });
+                        },
+                        style: SegmentedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF5F8F6),
+                          selectedBackgroundColor: _mint,
+                          selectedForegroundColor: _green,
+                          foregroundColor: _deepGreen,
+                          side: const BorderSide(color: Color(0xFFE1ECE6)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Internal Volunteers
+                      if (_internal) ...[
+                        if (widget.volunteers.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1D8),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFF0D5A0),
+                              ),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: Color(0xFF9A6711),
+                                  size: 20,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'لا يوجد مندوبون نشطون داخل الجمعية. أضيفي مندوب خارجي.',
+                                    style: TextStyle(
+                                      color: Color(0xFF9A6711),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedId,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              labelText: 'اختيار مندوب الجمعية',
+                              prefixIcon: const Icon(Icons.badge_outlined),
+                              filled: true,
+                              fillColor: const Color(0xFFF5F8F6),
+                              errorText: _nameError,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE1ECE6),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(
+                                  color: _green,
+                                  width: 1.6,
+                                ),
+                              ),
+                            ),
+                            items: widget.volunteers.map((item) {
+                              final itemId = item['id']?.toString() ?? '';
+                              final itemName =
+                                  item['name']?.toString() ?? 'مندوب';
+                              final itemPhone = item['phone']?.toString() ?? '';
+                              return DropdownMenuItem<String>(
+                                value: itemId,
+                                child: Text(
+                                  '$itemName${itemPhone.isEmpty ? '' : ' — $itemPhone'}',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedId = value;
+                                _nameError = null;
+                              });
+                            },
+                          ),
+                      ] else ...[
+                        // ── External Volunteer
+                        TextField(
+                          controller: _nameController,
+                          textInputAction: TextInputAction.next,
+                          decoration: InputDecoration(
+                            labelText: 'اسم المندوب الخارجي',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F8F6),
+                            errorText: _nameError,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE1ECE6),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: _green,
+                                width: 1.6,
+                              ),
+                            ),
+                          ),
+                          onChanged: (_) {
+                            if (_nameError != null) {
+                              setState(() => _nameError = null);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'رقم هاتف المندوب الخارجي',
+                            prefixIcon: const Icon(Icons.phone_outlined),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F8F6),
+                            errorText: _phoneError,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE1ECE6),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: _green,
+                                width: 1.6,
+                              ),
+                            ),
+                          ),
+                          onChanged: (_) {
+                            if (_phoneError != null) {
+                              setState(() => _phoneError = null);
+                            }
+                          },
+                        ),
+                      ],
+
+                      const SizedBox(height: 20),
+
+                      // ── Submit Button
+                      SizedBox(
+                        height: 52,
+                        child: FilledButton.icon(
+                          onPressed: _submit,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.check_rounded),
+                          label: const Text(
+                            'تعيين المندوب',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
               ],
-              if (_internal && selectedVolunteer != null) ...[
-                const SizedBox(height: 10),
-                Text(
-                  'سيتم تعيين: ${selectedVolunteer['name'] ?? 'مندوب الجمعية'}',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ],
-            ],
+            ),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: _green),
-            onPressed: () {
-              if (_internal) {
-                if (selectedVolunteer == null) return;
-                Navigator.pop(
-                  context,
-                  _VolunteerAssignment(
-                    id: selectedVolunteer['id']?.toString(),
-                    name: selectedVolunteer['name']?.toString().trim() ?? '',
-                    phone: selectedVolunteer['phone']?.toString().trim() ?? '',
-                  ),
-                );
-                return;
-              }
-              if (widget.nameController.text.trim().isEmpty ||
-                  widget.phoneController.text.trim().isEmpty) {
-                return;
-              }
-              Navigator.pop(
-                context,
-                const _VolunteerAssignment(id: null, name: '', phone: ''),
-              );
-            },
-            child: const Text('تعيين المندوب'),
-          ),
-        ],
       ),
     );
   }
 }
 
-// REDESIGNED: hero image (falls back to a gradient + icon when the donation
-// has no photos) with the title, institution name and status pill overlaid,
-// a slim quantity/info row, a step timeline, and the same action buttons as
-// before — same callbacks, same behaviour, entirely new look.
+// ═══════════════════════════════════════════════════════════
+// Donation Card
+// ═══════════════════════════════════════════════════════════
+
 class _DonationCard extends StatelessWidget {
   final Map<String, dynamic> row;
   final bool busy;
@@ -732,7 +1123,6 @@ class _DonationCard extends StatelessWidget {
   final VoidCallback onAssign;
   final VoidCallback onDeparted;
   final VoidCallback onGenerateCode;
-  final VoidCallback onVerifyCode;
   final VoidCallback onComplete;
 
   static const _green = Color(0xFF087A52);
@@ -757,7 +1147,6 @@ class _DonationCard extends StatelessWidget {
     required this.onAssign,
     required this.onDeparted,
     required this.onGenerateCode,
-    required this.onVerifyCode,
     required this.onComplete,
   });
 
@@ -791,9 +1180,10 @@ class _DonationCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE0EBE5)),
         boxShadow: [
           BoxShadow(
-              color: _deepGreen.withAlpha(18),
-              blurRadius: 20,
-              offset: const Offset(0, 10)),
+            color: _deepGreen.withAlpha(18),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -816,8 +1206,11 @@ class _DonationCard extends StatelessWidget {
                           ),
                         ),
                         child: Center(
-                          child: Icon(Icons.storefront_rounded,
-                              color: Colors.white, size: 44),
+                          child: Icon(
+                            Icons.storefront_rounded,
+                            color: Colors.white,
+                            size: 44,
+                          ),
                         ),
                       )
                     : Image.network(
@@ -832,8 +1225,11 @@ class _DonationCard extends StatelessWidget {
                             ),
                           ),
                           child: Center(
-                            child: Icon(Icons.image_not_supported_outlined,
-                                color: Colors.white, size: 38),
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: Colors.white,
+                              size: 38,
+                            ),
                           ),
                         ),
                       ),
@@ -877,8 +1273,11 @@ class _DonationCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          const Icon(Icons.storefront_rounded,
-                              color: Colors.white70, size: 13),
+                          const Icon(
+                            Icons.storefront_rounded,
+                            color: Colors.white70,
+                            size: 13,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -914,14 +1313,20 @@ class _DonationCard extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.inventory_2_outlined,
-                          color: _green, size: 18),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        color: _green,
+                        size: 18,
+                      ),
                       const SizedBox(width: 6),
-                      Text('الكمية: ${row['quantity'] ?? '—'}',
-                          style: const TextStyle(
-                              color: _deepGreen,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800)),
+                      Text(
+                        'الكمية: ${row['quantity'] ?? '—'}',
+                        style: const TextStyle(
+                          color: _deepGreen,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -937,17 +1342,23 @@ class _DonationCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.badge_outlined,
-                            color: _green, size: 22),
+                        const Icon(
+                          Icons.badge_outlined,
+                          color: _green,
+                          size: 22,
+                        ),
                         const SizedBox(width: 9),
                         Expanded(
                           child: Text(
-                            'مندوب الجمعية\n${volunteerName.isEmpty ? 'الاسم غير مسجل' : volunteerName}${volunteerPhone.isEmpty ? '' : '\n$volunteerPhone'}',
+                            'مندوب الجمعية\n'
+                            '${volunteerName.isEmpty ? 'الاسم غير مسجل' : volunteerName}'
+                            '${volunteerPhone.isEmpty ? '' : '\n$volunteerPhone'}',
                             style: const TextStyle(
-                                color: _deepGreen,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                height: 1.45),
+                              color: _deepGreen,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              height: 1.45,
+                            ),
                           ),
                         ),
                       ],
@@ -976,52 +1387,59 @@ class _DonationCard extends StatelessWidget {
   Widget _actions(String status) {
     switch (status) {
       case 'pending':
-        return Row(children: [
-          Expanded(
+        return Row(
+          children: [
+            Expanded(
               child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFB54747),
-                    side: const BorderSide(color: Color(0xFFF0C9C9)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB54747),
+                  side: const BorderSide(color: Color(0xFFF0C9C9)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
                   ),
-                  onPressed: onReject,
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  label: const Text('رفض'))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _action('قبول التبرع', Icons.check_rounded, onAccept)),
-        ]);
+                ),
+                onPressed: onReject,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                label: const Text('رفض'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _action('قبول التبرع', Icons.check_rounded, onAccept),
+            ),
+          ],
+        );
       case 'accepted':
-        return _action('تعيين متطوع', Icons.person_add_alt_1_rounded, onAssign);
+        return _action(
+          'تعيين متطوع',
+          Icons.person_add_alt_1_rounded,
+          onAssign,
+        );
       case 'volunteer_assigned':
         return _action(
-            'المتطوع في الطريق', Icons.directions_walk_rounded, onDeparted);
+          'المتطوع في الطريق',
+          Icons.directions_walk_rounded,
+          onDeparted,
+        );
       case 'institution_ready':
         return _action(
-            'تأكيد تحرك المتطوع', Icons.directions_walk_rounded, onDeparted);
+          'تأكيد تحرك المتطوع',
+          Icons.directions_walk_rounded,
+          onDeparted,
+        );
       case 'volunteer_departed':
-        return Row(children: [
-          Expanded(
-              child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _green,
-                    side: const BorderSide(color: Color(0xFFCBE6D5)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
-                  ),
-                  onPressed: onGenerateCode,
-                  icon: const Icon(Icons.qr_code_rounded, size: 18),
-                  label: const Text('إنشاء الكود'))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: _action(
-                  'تحقق من الكود', Icons.verified_user_outlined, onVerifyCode)),
-        ]);
+        return _action(
+          'إنشاء كود الاستلام',
+          Icons.qr_code_rounded,
+          onGenerateCode,
+        );
       case 'picked_up':
-        return _action('تأكيد وصول التبرع', Icons.task_alt_rounded, onComplete);
+        return _action(
+          'تأكيد وصول التبرع',
+          Icons.task_alt_rounded,
+          onComplete,
+        );
       default:
         return const SizedBox.shrink();
     }
@@ -1035,13 +1453,16 @@ class _DonationCard extends StatelessWidget {
             backgroundColor: _green,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 13),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
           ),
           onPressed: onPressed,
           icon: Icon(icon, size: 19),
-          label:
-              Text(text, style: const TextStyle(fontWeight: FontWeight.w800)),
+          label: Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
         ),
       );
 
@@ -1050,10 +1471,17 @@ class _DonationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-          color: data.$2, borderRadius: BorderRadius.circular(20)),
-      child: Text(data.$1,
-          style: TextStyle(
-              color: data.$3, fontSize: 10, fontWeight: FontWeight.w900)),
+        color: data.$2,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        data.$1,
+        style: TextStyle(
+          color: data.$3,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 
@@ -1062,41 +1490,49 @@ class _DonationCard extends StatelessWidget {
         'pending': (
           'في انتظار المراجعة',
           const Color(0xFFFFF1D8),
-          const Color(0xFF9A6711)
+          const Color(0xFF9A6711),
         ),
         'accepted': (
           'تم القبول',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'volunteer_assigned': (
           'تم تعيين المتطوع',
           const Color(0xFFECE8FF),
-          const Color(0xFF6651B5)
+          const Color(0xFF6651B5),
         ),
         'institution_ready': (
           'المؤسسة جاهزة',
           const Color(0xFFFFF1D8),
-          const Color(0xFF9A6711)
+          const Color(0xFF9A6711),
         ),
         'volunteer_departed': (
           'المتطوع في الطريق',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'picked_up': (
           'تم استلام التبرع',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
-        'completed': ('تم الوصول بنجاح', const Color(0xFFE3F7EC), _green),
+        'completed': (
+          'تم الوصول بنجاح',
+          const Color(0xFFE3F7EC),
+          _green,
+        ),
         'rejected': (
           'تم رفض التبرع',
           const Color(0xFFFBE4E4),
-          const Color(0xFFB54747)
+          const Color(0xFFB54747),
         ),
       }[status] ??
-      ('في انتظار المراجعة', const Color(0xFFF0F1F0), Colors.black54);
+      (
+        'في انتظار المراجعة',
+        const Color(0xFFF0F1F0),
+        Colors.black54,
+      );
 
   Widget _timeline(String status) {
     final current = _stages.indexOf(status);
@@ -1129,8 +1565,11 @@ class _DonationCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: done
-                          ? const Icon(Icons.check_rounded,
-                              size: 12, color: Colors.white)
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 12,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                     const SizedBox(height: 4),

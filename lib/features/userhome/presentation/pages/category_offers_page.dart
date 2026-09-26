@@ -20,6 +20,13 @@ import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 
+// ═══════════════════════════════════════════════════════════
+// ✅ FEATURE FLAGS
+// ═══════════════════════════════════════════════════════════
+class _AppFeatures {
+  static const bool showRestaurants = false;
+}
+
 class CategoryOffersPage extends StatefulWidget {
   final String categoryId;
   final String categoryName;
@@ -50,10 +57,22 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
   void initState() {
     super.initState();
 
+    debugPrint(
+      '🔵 [CategoryOffers] initState: '
+      'categoryId=${widget.categoryId}, '
+      'categoryName=${widget.categoryName}, '
+      'categorySlug=${widget.categorySlug}',
+    );
+
     _marketplaceBloc = MarketplaceBloc();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+
+      debugPrint(
+        '🔵 [CategoryOffers] Sending LoadMarketplaceCategory '
+        'with categoryId=${widget.categoryId}',
+      );
 
       _marketplaceBloc.add(
         LoadMarketplaceCategory(
@@ -92,9 +111,7 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
               surfaceTintColor: _bg,
               elevation: 0,
               centerTitle: true,
-              iconTheme: const IconThemeData(
-                color: _textPrimary,
-              ),
+              iconTheme: const IconThemeData(color: _textPrimary),
               title: Text(
                 widget.categoryName,
                 style: const TextStyle(
@@ -106,24 +123,26 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
             ),
             body: BlocBuilder<MarketplaceBloc, MarketplaceState>(
               builder: (context, marketplaceState) {
+                // 1️⃣ Loading
                 if (marketplaceState.isLoading) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                      color: _primaryRed,
-                    ),
+                    child: CircularProgressIndicator(color: _primaryRed),
                   );
                 }
 
-                if (marketplaceState.errorMessage != null &&
-                    marketplaceState.attributes.isEmpty &&
-                    marketplaceState.offers.isEmpty) {
-                  return _buildMarketplaceError(
-                    context,
-                    marketplaceState.errorMessage!,
-                  );
-                }
+                // 2️⃣ ✅ لو الـ marketplace bloc اشتغل (categoryId اتحدد)
+                final hasCategory = marketplaceState.categoryId != null &&
+                    marketplaceState.categoryId!.isNotEmpty;
 
-                if (marketplaceState.attributes.isNotEmpty) {
+                if (hasCategory) {
+                  if (marketplaceState.errorMessage != null &&
+                      marketplaceState.offers.isEmpty) {
+                    return _buildMarketplaceError(
+                      context,
+                      marketplaceState.errorMessage!,
+                    );
+                  }
+
                   return _MarketplaceFlowWithOffers(
                     state: marketplaceState,
                     categoryId: widget.categoryId,
@@ -131,21 +150,18 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                   );
                 }
 
+                // 3️⃣ Legacy fallback
                 return BlocBuilder<UserHomeBloc, UserHomeState>(
                   builder: (context, state) {
                     if (state is! UserHomeLoaded) {
                       return const Center(
-                        child: CircularProgressIndicator(
-                          color: _primaryRed,
-                        ),
+                        child: CircularProgressIndicator(color: _primaryRed),
                       );
                     }
 
                     if (state.categoryOffersLoading) {
                       return const Center(
-                        child: CircularProgressIndicator(
-                          color: _primaryRed,
-                        ),
+                        child: CircularProgressIndicator(color: _primaryRed),
                       );
                     }
 
@@ -166,12 +182,7 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                             );
                       },
                       child: GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(
-                          16,
-                          12,
-                          16,
-                          24,
-                        ),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
@@ -185,13 +196,9 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                         ),
                         itemBuilder: (context, index) {
                           final offer = state.categoryOffers[index];
-
                           return _DubizzleStyleCard(
                             offer: offer,
-                            onTap: () => _openOfferDetails(
-                              context,
-                              offer,
-                            ),
+                            onTap: () => _openOfferDetails(context, offer),
                           );
                         },
                       ),
@@ -206,14 +213,7 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
     );
   }
 
-  // ============================================================
-  // MARKETPLACE ERROR
-  // ============================================================
-
-  Widget _buildMarketplaceError(
-    BuildContext context,
-    String message,
-  ) {
+  Widget _buildMarketplaceError(BuildContext context, String message) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -279,10 +279,6 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
     );
   }
 
-  // ============================================================
-  // EMPTY STATE
-  // ============================================================
-
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
@@ -329,14 +325,17 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
     );
   }
 
-  // ============================================================
-  // LEGACY NAVIGATION
-  // ============================================================
+  void _openOfferDetails(BuildContext context, CategoryOffer offer) {
+    if (!_AppFeatures.showRestaurants) {
+      if (_isFoodCategory() || offer.ownerType == 'restaurant') {
+        debugPrint(
+          '🚫 [CategoryOffers] Restaurants disabled — blocking offer '
+          'slug=${widget.categorySlug} ownerType=${offer.ownerType}',
+        );
+        return;
+      }
+    }
 
-  void _openOfferDetails(
-    BuildContext context,
-    CategoryOffer offer,
-  ) {
     if (_isFoodCategory() || offer.ownerType == 'restaurant') {
       _openFoodDetails(context, offer);
       return;
@@ -362,59 +361,39 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
         name.contains('وجبات');
   }
 
-  void _openCommunityDetails(
-    BuildContext context,
-    CategoryOffer offer,
-  ) {
+  void _openCommunityDetails(BuildContext context, CategoryOffer offer) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CommunityOfferDetailsPage(
-          offer: offer.raw,
-        ),
+        builder: (_) => CommunityOfferDetailsPage(offer: offer.raw),
       ),
     );
   }
 
-  void _openFoodDetails(
-    BuildContext context,
-    CategoryOffer offer,
-  ) {
+  void _openFoodDetails(BuildContext context, CategoryOffer offer) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => PersonOfferDetailsPage(
-          offer: offer.raw,
-        ),
+        builder: (_) => PersonOfferDetailsPage(offer: offer.raw),
       ),
     );
   }
 
-  void _openInstitutionDetails(
-    BuildContext context,
-    CategoryOffer offer,
-  ) {
+  void _openInstitutionDetails(BuildContext context, CategoryOffer offer) {
     try {
       final institutionJson = _buildInstitutionJson(offer);
       final institutionOffer = InstitutionOffer.fromJson(institutionJson);
 
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => InstitutionOfferDetailsPage(
-            offer: institutionOffer,
-          ),
+          builder: (_) => InstitutionOfferDetailsPage(offer: institutionOffer),
         ),
       );
     } catch (e) {
-      debugPrint(
-        '⚠️ Failed to open institution details: $e',
-      );
-
+      debugPrint('⚠️ Failed to open institution details: $e');
       _openFoodDetails(context, offer);
     }
   }
 
-  Map<String, dynamic> _buildInstitutionJson(
-    CategoryOffer offer,
-  ) {
+  Map<String, dynamic> _buildInstitutionJson(CategoryOffer offer) {
     final raw = offer.raw;
 
     final institutionRaw =
@@ -489,19 +468,12 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
     };
   }
 
-  dynamic _firstNonEmpty(
-    List<dynamic> values,
-  ) {
+  dynamic _firstNonEmpty(List<dynamic> values) {
     for (final value in values) {
       if (value == null) continue;
-
       final text = value.toString().trim();
-
-      if (text.isNotEmpty && text != 'null') {
-        return value;
-      }
+      if (text.isNotEmpty && text != 'null') return value;
     }
-
     return null;
   }
 }
@@ -533,37 +505,26 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
       child: Column(
         children: [
           _buildFiltersSection(context),
-          Expanded(
-            child: _buildOffersSection(context),
-          ),
+          Expanded(child: _buildOffersSection(context)),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // FILTERS SECTION
-  // ============================================================
-
-  Widget _buildFiltersSection(
-    BuildContext context,
-  ) {
+  Widget _buildFiltersSection(BuildContext context) {
     final visibleAttributes = _getVisibleAttributes();
 
+    // ✅ لو مفيش خصائص للفلترة، نخفي القسم بالكامل
+    if (visibleAttributes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        12,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
         color: _bg,
         border: Border(
-          bottom: BorderSide(
-            color: Color(0xFF252527),
-            width: 1,
-          ),
+          bottom: BorderSide(color: Color(0xFF252527), width: 1),
         ),
       ),
       child: Column(
@@ -571,11 +532,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.tune_rounded,
-                color: _primaryRed,
-                size: 18,
-              ),
+              const Icon(Icons.tune_rounded, color: _primaryRed, size: 18),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -594,37 +551,22 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
                           const ResetMarketplaceFilters(),
                         );
                   },
-                  icon: const Icon(
-                    Icons.clear_rounded,
-                    size: 16,
-                  ),
+                  icon: const Icon(Icons.clear_rounded, size: 16),
                   label: const Text('مسح'),
                   style: TextButton.styleFrom(
                     foregroundColor: _primaryRed,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: const Size(0, 32),
                   ),
                 ),
             ],
           ),
           const SizedBox(height: 10),
-          if (visibleAttributes.isEmpty)
-            const SizedBox.shrink()
-          else
-            _buildDynamicAttributes(
-              context,
-              visibleAttributes,
-            ),
+          _buildDynamicAttributes(context, visibleAttributes),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // DYNAMIC ATTRIBUTES
-  // ============================================================
 
   Widget _buildDynamicAttributes(
     BuildContext context,
@@ -638,25 +580,9 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
             const <MarketplaceAttributeOption>[];
 
         final options = _deduplicateOptions(rawOptions);
-
         final selectedId = state.selectedOptionIds[attribute.slug];
 
-        final isFirst =
-            attribute.attributeId == state.attributes.first.attributeId;
-
-        final previousAttribute = _getPreviousVisibleAttribute(
-          attribute,
-          attributes,
-        );
-
-        final hasPreviousSelection = previousAttribute == null ||
-            state.selectedOptionIds.containsKey(
-              previousAttribute.slug,
-            );
-
-        final enabled = isFirst || hasPreviousSelection;
-
-        final isLoading = state.isLoadingOptions && options.isEmpty && enabled;
+        final isLoading = state.isLoadingOptions && options.isEmpty;
 
         return SizedBox(
           width: _getFilterWidth(context),
@@ -664,7 +590,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
             attribute: attribute,
             options: options,
             selectedOptionId: selectedId,
-            enabled: enabled,
+            enabled: true,
             isLoading: isLoading,
             onSelected: (option) {
               context.read<MarketplaceBloc>().add(
@@ -689,82 +615,37 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
 
     for (final option in options) {
       final id = option.id.trim();
-
-      if (id.isEmpty) {
-        continue;
-      }
-
-      if (seen.add(id)) {
-        result.add(option);
-      }
+      if (id.isEmpty) continue;
+      if (seen.add(id)) result.add(option);
     }
 
     return result;
   }
 
-  double _getFilterWidth(
-    BuildContext context,
-  ) {
+  double _getFilterWidth(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-
-    if (width >= 700) {
-      return (width - 48) / 3;
-    }
-
+    if (width >= 700) return (width - 48) / 3;
     return (width - 40) / 2;
   }
 
+  // ✅ نعرض فقط "الحالة" و "الماركة" بس عشان الفلاتر متبقاش ضخمة
   List<MarketplaceAttribute> _getVisibleAttributes() {
-    if (state.attributes.isEmpty) {
-      return const [];
-    }
+    if (state.attributes.isEmpty) return const [];
 
-    final visible = <MarketplaceAttribute>[];
+    const allowedSlugs = {'condition', 'brand'};
 
-    for (final attribute in state.attributes) {
-      final hasLoadedOptions =
-          state.optionsByAttribute.containsKey(attribute.slug);
-
-      final hasSelection = state.selectedOptionIds.containsKey(attribute.slug);
-
-      final isFirst =
-          attribute.attributeId == state.attributes.first.attributeId;
-
-      if (isFirst || hasLoadedOptions || hasSelection) {
-        visible.add(attribute);
-      }
-    }
-
-    return visible;
+    return state.attributes
+        .where(
+          (attr) =>
+              attr.inputType == 'select' && allowedSlugs.contains(attr.slug),
+        )
+        .toList();
   }
 
-  MarketplaceAttribute? _getPreviousVisibleAttribute(
-    MarketplaceAttribute current,
-    List<MarketplaceAttribute> visible,
-  ) {
-    final index = visible.indexWhere(
-      (attribute) => attribute.attributeId == current.attributeId,
-    );
-
-    if (index <= 0) {
-      return null;
-    }
-
-    return visible[index - 1];
-  }
-
-  // ============================================================
-  // OFFERS SECTION
-  // ============================================================
-
-  Widget _buildOffersSection(
-    BuildContext context,
-  ) {
+  Widget _buildOffersSection(BuildContext context) {
     if (state.isLoadingResults && state.offers.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: _primaryRed,
-        ),
+        child: CircularProgressIndicator(color: _primaryRed),
       );
     }
 
@@ -783,12 +664,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
       child: Stack(
         children: [
           GridView.builder(
-            padding: const EdgeInsets.fromLTRB(
-              12,
-              12,
-              12,
-              24,
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
@@ -801,10 +677,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
             ),
             itemBuilder: (context, index) {
               final offer = state.offers[index];
-
-              return _MarketplaceOfferCard(
-                offer: offer,
-              );
+              return _MarketplaceOfferCard(offer: offer);
             },
           ),
           if (state.isLoadingResults)
@@ -855,15 +728,11 @@ class _FilterDropdown extends StatelessWidget {
     if (!enabled) {
       return Container(
         height: 44,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFF252527),
-          ),
+          border: Border.all(color: const Color(0xFF252527)),
         ),
         child: Row(
           children: [
@@ -912,15 +781,11 @@ class _FilterDropdown extends StatelessWidget {
     if (options.isEmpty) {
       return Container(
         height: 44,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFF252527),
-          ),
+          border: Border.all(color: const Color(0xFF252527)),
         ),
         child: Center(
           child: Text(
@@ -936,39 +801,25 @@ class _FilterDropdown extends StatelessWidget {
       );
     }
 
-    // ============================================================
-    // IMPORTANT DROPDOWN SAFETY
-    // ============================================================
-
     final normalizedSelectedOptionId = selectedOptionId?.trim();
 
     final validSelectedOptionId = normalizedSelectedOptionId != null &&
             normalizedSelectedOptionId.isNotEmpty &&
-            options.any(
-              (option) => option.id == normalizedSelectedOptionId,
-            )
+            options.any((option) => option.id == normalizedSelectedOptionId)
         ? normalizedSelectedOptionId
         : null;
 
     final selectedOption = validSelectedOptionId == null
         ? null
-        : options.firstWhere(
-            (option) => option.id == validSelectedOptionId,
-          );
+        : options.firstWhere((option) => option.id == validSelectedOptionId);
 
     final hasSelection = selectedOption != null;
 
     return Container(
       height: 44,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: hasSelection
-            ? _primaryRed.withValues(
-                alpha: 0.15,
-              )
-            : _card,
+        color: hasSelection ? _primaryRed.withValues(alpha: 0.15) : _card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: hasSelection ? _primaryRed : const Color(0xFF303033),
@@ -1012,9 +863,7 @@ class _FilterDropdown extends StatelessWidget {
                       size: 14,
                       color: _primaryRed,
                     ),
-                    const SizedBox(
-                      width: 4,
-                    ),
+                    const SizedBox(width: 4),
                   ],
                   Expanded(
                     child: Text(
@@ -1034,22 +883,16 @@ class _FilterDropdown extends StatelessWidget {
             );
           }).toList(),
           onChanged: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return;
-            }
+            if (value == null || value.trim().isEmpty) return;
 
             MarketplaceAttributeOption? option;
-
             for (final item in options) {
               if (item.id == value) {
                 option = item;
                 break;
               }
             }
-
-            if (option == null) {
-              return;
-            }
+            if (option == null) return;
 
             onSelected(option);
           },
@@ -1078,11 +921,7 @@ class _EmptyOffersView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.search_off_rounded,
-              color: _primaryRed,
-              size: 56,
-            ),
+            Icon(Icons.search_off_rounded, color: _primaryRed, size: 56),
             SizedBox(height: 16),
             Text(
               'مفيش عروض مطابقة',
@@ -1142,9 +981,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF2A2A2A),
-          ),
+          border: Border.all(color: const Color(0xFF2A2A2A)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
@@ -1162,15 +999,11 @@ class _MarketplaceOfferCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _OfferImagesCarousel(
-                    images: images,
-                  ),
+                  _OfferImagesCarousel(images: images),
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _SourceBadge(
-                      sourceType: offer.sourceType,
-                    ),
+                    child: _SourceBadge(sourceType: offer.sourceType),
                   ),
                   if (offer.isLowStock)
                     Positioned(
@@ -1183,9 +1016,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: _warningOrange,
-                          borderRadius: BorderRadius.circular(
-                            8,
-                          ),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1195,9 +1026,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                               color: Colors.white,
                               size: 10,
                             ),
-                            const SizedBox(
-                              width: 3,
-                            ),
+                            const SizedBox(width: 3),
                             Text(
                               'آخر ${offer.availableQuantity}',
                               style: const TextStyle(
@@ -1216,12 +1045,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
             Expanded(
               flex: 7,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  10,
-                  8,
-                  10,
-                  8,
-                ),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1231,9 +1055,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                       children: [
                         if (offer.hasPrice)
                           Text(
-                            _formatPrice(
-                              offer.price!,
-                            ),
+                            _formatPrice(offer.price!),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1251,9 +1073,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                        const SizedBox(
-                          width: 3,
-                        ),
+                        const SizedBox(width: 3),
                         if (offer.hasPrice)
                           const Text(
                             'ج.م',
@@ -1265,9 +1085,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(
-                      height: 4,
-                    ),
+                    const SizedBox(height: 4),
                     Text(
                       offer.title,
                       maxLines: 1,
@@ -1279,9 +1097,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(
-                      height: 3,
-                    ),
+                    const SizedBox(height: 3),
                     if (offer.description != null &&
                         offer.description!.isNotEmpty)
                       Text(
@@ -1297,18 +1113,11 @@ class _MarketplaceOfferCard extends StatelessWidget {
                     const Spacer(),
                     if (offer.ownerName != null && offer.ownerName!.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 4,
-                        ),
+                        padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [
-                            _OwnerAvatar(
-                              url: offer.ownerAvatar,
-                              size: 16,
-                            ),
-                            const SizedBox(
-                              width: 4,
-                            ),
+                            _OwnerAvatar(url: offer.ownerAvatar, size: 16),
+                            const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 offer.ownerName!,
@@ -1336,9 +1145,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                                   size: 10,
                                   color: _textSecondary,
                                 ),
-                                const SizedBox(
-                                  width: 2,
-                                ),
+                                const SizedBox(width: 2),
                                 Expanded(
                                   child: Text(
                                     offer.pickupLocation!,
@@ -1360,16 +1167,10 @@ class _MarketplaceOfferCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: _successGreen.withValues(
-                                alpha: 0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(
-                                6,
-                              ),
+                              color: _successGreen.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: _successGreen.withValues(
-                                  alpha: 0.3,
-                                ),
+                                color: _successGreen.withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(
@@ -1393,19 +1194,14 @@ class _MarketplaceOfferCard extends StatelessWidget {
     );
   }
 
-  static String _formatPrice(
-    double price,
-  ) {
+  static String _formatPrice(double price) {
     if (price >= 1000) {
       return '${(price / 1000).toStringAsFixed(1)}k';
     }
-
     return price.toStringAsFixed(0);
   }
 
-  void _openDetails(
-    BuildContext context,
-  ) {
+  void _openDetails(BuildContext context) {
     switch (offer.sourceType) {
       case 'community':
         _openCommunityDetails(context);
@@ -1420,16 +1216,11 @@ class _MarketplaceOfferCard extends StatelessWidget {
         break;
 
       default:
-        debugPrint(
-          '⚠️ Unknown source_type: ${offer.sourceType}',
-        );
+        debugPrint('⚠️ Unknown source_type: ${offer.sourceType}');
     }
   }
 
-  // ✅ معدّلة: نمرر owner_id + owner_name + avatar_url
-  void _openCommunityDetails(
-    BuildContext context,
-  ) {
+  void _openCommunityDetails(BuildContext context) {
     debugPrint(
       '🚀 Opening community offer details: '
       'sourceId=${offer.sourceId}, '
@@ -1453,8 +1244,6 @@ class _MarketplaceOfferCard extends StatelessWidget {
             'status': offer.status,
             'created_at': offer.createdAt?.toIso8601String(),
             'source_type': offer.sourceType,
-
-            // ✅ معلومات صاحب العرض
             'owner_id': offer.ownerId,
             'owner_name': offer.ownerName,
             'avatar_url': offer.ownerAvatar,
@@ -1464,9 +1253,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
     );
   }
 
-  void _openInstitutionDetails(
-    BuildContext context,
-  ) {
+  void _openInstitutionDetails(BuildContext context) {
     try {
       final institutionJson = <String, dynamic>{
         'id': offer.sourceId,
@@ -1497,9 +1284,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
         },
       };
 
-      final institutionOffer = InstitutionOffer.fromJson(
-        institutionJson,
-      );
+      final institutionOffer = InstitutionOffer.fromJson(institutionJson);
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -1509,17 +1294,12 @@ class _MarketplaceOfferCard extends StatelessWidget {
         ),
       );
     } catch (e) {
-      debugPrint(
-        '⚠️ Failed to open institution details: $e',
-      );
-
+      debugPrint('⚠️ Failed to open institution details: $e');
       _openCommunityDetails(context);
     }
   }
 
-  void _openBusinessDetails(
-    BuildContext context,
-  ) {
+  void _openBusinessDetails(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PersonOfferDetailsPage(
@@ -1592,9 +1372,7 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
     }
 
     if (widget.images.length == 1) {
-      return _SingleImage(
-        url: widget.images.first,
-      );
+      return _SingleImage(url: widget.images.first);
     }
 
     return Stack(
@@ -1609,9 +1387,7 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
             });
           },
           itemBuilder: (context, index) {
-            return _SingleImage(
-              url: widget.images[index],
-            );
+            return _SingleImage(url: widget.images[index]);
           },
         ),
         Positioned(
@@ -1623,23 +1399,15 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
             children: List.generate(
               widget.images.length,
               (index) => AnimatedContainer(
-                duration: const Duration(
-                  milliseconds: 250,
-                ),
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 2,
-                ),
+                duration: const Duration(milliseconds: 250),
+                margin: const EdgeInsets.symmetric(horizontal: 2),
                 width: _currentIndex == index ? 14 : 5,
                 height: 5,
                 decoration: BoxDecoration(
                   color: _currentIndex == index
                       ? Colors.white
-                      : Colors.white.withValues(
-                          alpha: 0.5,
-                        ),
-                  borderRadius: BorderRadius.circular(
-                    3,
-                  ),
+                      : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(3),
                 ),
               ),
             ),
@@ -1649,17 +1417,10 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
           bottom: 8,
           right: 8,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 5,
-              vertical: 2,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(
-                alpha: 0.6,
-              ),
-              borderRadius: BorderRadius.circular(
-                6,
-              ),
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1669,9 +1430,7 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
                   color: Colors.white,
                   size: 9,
                 ),
-                const SizedBox(
-                  width: 2,
-                ),
+                const SizedBox(width: 2),
                 Text(
                   '${_currentIndex + 1}/${widget.images.length}',
                   style: const TextStyle(
@@ -1746,9 +1505,7 @@ class _SingleImage extends StatelessWidget {
     );
   }
 
-  static String _resolveImageUrl(
-    String raw,
-  ) {
+  static String _resolveImageUrl(String raw) {
     if (raw.startsWith('http://') || raw.startsWith('https://')) {
       return raw;
     }
@@ -1862,10 +1619,7 @@ class _SourceBadge extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(6),
@@ -1873,14 +1627,8 @@ class _SourceBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 9,
-          ),
-          const SizedBox(
-            width: 2,
-          ),
+          Icon(icon, color: Colors.white, size: 9),
+          const SizedBox(width: 2),
           Text(
             label,
             style: const TextStyle(
@@ -1896,7 +1644,7 @@ class _SourceBadge extends StatelessWidget {
 }
 
 // ============================================================================
-// LEGACY CARD
+// LEGACY CARD (Dubizzle Style)
 // ============================================================================
 
 class _DubizzleStyleCard extends StatelessWidget {
@@ -1921,10 +1669,7 @@ class _DubizzleStyleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFF2A2A2A),
-            width: 1,
-          ),
+          border: Border.all(color: const Color(0xFF2A2A2A), width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -1935,15 +1680,11 @@ class _DubizzleStyleCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _SingleImage(
-                    url: offer.image ?? '',
-                  ),
+                  _SingleImage(url: offer.image ?? ''),
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _OwnerBadge(
-                      ownerType: offer.ownerType,
-                    ),
+                    child: _OwnerBadge(ownerType: offer.ownerType),
                   ),
                 ],
               ),
@@ -1951,12 +1692,7 @@ class _DubizzleStyleCard extends StatelessWidget {
             Expanded(
               flex: 5,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  10,
-                  8,
-                  10,
-                  10,
-                ),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1970,9 +1706,7 @@ class _DubizzleStyleCard extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(
-                      height: 3,
-                    ),
+                    const SizedBox(height: 3),
                     Text(
                       offer.title,
                       maxLines: 2,
@@ -1993,9 +1727,7 @@ class _DubizzleStyleCard extends StatelessWidget {
                             size: 11,
                             color: _textSecondary,
                           ),
-                          const SizedBox(
-                            width: 2,
-                          ),
+                          const SizedBox(width: 2),
                           Flexible(
                             child: Text(
                               offer.distanceDisplay!,
@@ -2072,9 +1804,15 @@ class _OwnerBadge extends StatelessWidget {
         break;
 
       case 'restaurant':
-        color = const Color(0xFFE28B00);
-        icon = Icons.restaurant_rounded;
-        label = 'مطعم';
+        if (!_AppFeatures.showRestaurants) {
+          color = const Color(0xFF1565C0);
+          icon = Icons.storefront_rounded;
+          label = 'محل';
+        } else {
+          color = const Color(0xFFE28B00);
+          icon = Icons.restaurant_rounded;
+          label = 'مطعم';
+        }
         break;
 
       case 'institution':
@@ -2086,10 +1824,7 @@ class _OwnerBadge extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
@@ -2097,14 +1832,8 @@ class _OwnerBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: Colors.white,
-            size: 10,
-          ),
-          const SizedBox(
-            width: 3,
-          ),
+          Icon(icon, color: Colors.white, size: 10),
+          const SizedBox(width: 3),
           Text(
             label,
             style: const TextStyle(

@@ -30,6 +30,8 @@ import 'features/splash/presentation/bloc/splash_bloc.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
+// ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
+import 'core/services/auth_state_notifier.dart';
 import 'core/theme/app_theme.dart';
 
 // ✅ ThemeNotifier
@@ -80,6 +82,11 @@ Future<void> main() async {
     );
 
     debugPrint('Supabase initialized successfully');
+
+    // ═══════════════════════════════════════════════════════════
+    // ✅ Auth Listener موحّد — يزامن AuthStateNotifier مع Supabase
+    // ═══════════════════════════════════════════════════════════
+    _attachAuthStateSync();
   } catch (error, stack) {
     debugPrint('Supabase initialization failed: $error');
     debugPrintStack(stackTrace: stack);
@@ -131,6 +138,106 @@ Future<void> main() async {
   }
 
   runApp(MyApp(initialIsDarkMode: isDarkMode));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ مزامنة AuthStateNotifier مع أحداث Supabase Auth
+// - عند الخروج: ننضف الحالة فورًا
+// - عند الدخول/التحديث/الجلسة الأولية: نحمّل user_type ونضبط الحالة
+// ═══════════════════════════════════════════════════════════════
+int _authSyncGeneration = 0;
+
+/// مزامنة الجلسة مع users و service_providers قبل السماح للـ router بالتوجيه.
+/// لا نحدد الدور من users.user_type وحده، لأن الحساب قد يكون مستخدمًا ومزود خدمة.
+void _attachAuthStateSync() {
+  Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+    final event = data.event;
+    final session = data.session;
+
+    if (event == AuthChangeEvent.signedOut || session == null) {
+      _authSyncGeneration++;
+      AuthStateNotifier.instance.clear();
+      debugPrint('🔔 [AuthState] signed out → cleared');
+      return;
+    }
+
+    if (event != AuthChangeEvent.signedIn &&
+        event != AuthChangeEvent.tokenRefreshed &&
+        event != AuthChangeEvent.initialSession) {
+      return;
+    }
+
+    final generation = ++_authSyncGeneration;
+    final userId = session.user.id;
+    final authState = AuthStateNotifier.instance;
+
+    // مهم: لا نضع role=user هنا. ننتظر نتيجة الجدولين أولًا.
+    authState.beginSync();
+    debugPrint('🔄 [AuthState] resolving session for $userId');
+
+    try {
+      final client = Supabase.instance.client;
+
+      final results = await Future.wait<dynamic>([
+        client
+            .from('users')
+            .select('user_type, role, is_active')
+            .eq('id', userId)
+            .maybeSingle(),
+        client
+            .from('service_providers')
+            .select('id, verification_status, is_active')
+            .eq('user_id', userId)
+            .maybeSingle(),
+      ]);
+
+      // تجاهل نتيجة Listener قديمة لو وصل حدث أحدث أثناء الاستعلام.
+      if (generation != _authSyncGeneration) return;
+
+      final profile = results[0] as Map<String, dynamic>?;
+      final provider = results[1] as Map<String, dynamic>?;
+
+      if (profile == null) {
+        debugPrint('⚠️ [AuthState] no user row for $userId');
+        authState.clear();
+        return;
+      }
+
+      final profileRole = (profile['user_type'] ?? profile['role'] ?? 'user')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final resolvedRole = provider == null ? profileRole : 'provider';
+      final providerStatus =
+          provider?['verification_status']?.toString().trim().toLowerCase();
+      final isActive = profile['is_active'] != false &&
+          (provider == null || provider['is_active'] != false);
+
+      debugPrint(
+        '✅ [AuthState] resolved role=$resolvedRole '
+        'providerStatus=$providerStatus active=$isActive '
+        'providerFound=${provider != null}',
+      );
+
+      authState.setLoggedIn(
+        isLoggedIn: true,
+        role: resolvedRole,
+        providerStatus: providerStatus,
+        isActive: isActive,
+        authResolved: true,
+      );
+
+      debugPrint(
+        '🔔 [AuthState] synced from auth event: $resolvedRole '
+        'status=$providerStatus active=$isActive',
+      );
+    } catch (error, stack) {
+      if (generation != _authSyncGeneration) return;
+      debugPrint('⚠️ Failed to sync AuthState: $error');
+      debugPrintStack(stackTrace: stack);
+      authState.clear();
+    }
+  });
 }
 
 Future<bool> _loadEnvSafely() async {

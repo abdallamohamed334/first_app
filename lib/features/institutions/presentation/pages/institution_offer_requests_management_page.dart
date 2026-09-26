@@ -1,6 +1,9 @@
+// lib/features/institutions/presentation/pages/institution_offer_requests_management_page.dart
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 
@@ -192,17 +195,14 @@ class _InstitutionOfferRequestsManagementPageState
     BuildContext context,
     Map<String, dynamic> requestMap,
   ) {
-    print('📌🔴 _openRequestDetails: requestMap=$requestMap');
+    debugPrint('📌🔴 _openRequestDetails');
 
     try {
       final request = InstitutionOfferRequest.fromJson(
         requestMap,
       );
 
-      print('📌🔴 _openRequestDetails: request parsed successfully');
-      print('📌🔴 request.id=${request.id}');
-      print('📌🔴 request.status=${request.status}');
-      print('📌🔴 request.pickupCode=${request.pickupCode}');
+      debugPrint('📌🔴 request.id=${request.id}');
 
       Navigator.push(
         context,
@@ -212,11 +212,10 @@ class _InstitutionOfferRequestsManagementPageState
           ),
         ),
       ).then((_) {
-        // ✅ بعد العودة من صفحة التفاصيل، أعد تحميل الطلبات
         _reload();
       });
     } catch (error) {
-      print('❌ _openRequestDetails error=$error');
+      debugPrint('❌ _openRequestDetails error=$error');
       _showMessage(
         'تعذر فتح تفاصيل الطلب',
         isError: true,
@@ -234,6 +233,7 @@ class _InstitutionOfferRequestsManagementPageState
     if (_isProcessing) return;
 
     _isProcessing = true;
+    if (mounted) setState(() {});
 
     try {
       await _repository.markOfferRequestReady(
@@ -262,7 +262,7 @@ class _InstitutionOfferRequestsManagementPageState
   }
 
   // ============================================================
-  // VERIFY PICKUP CODE
+  // VERIFY PICKUP CODE ✅ مُصلح
   // ============================================================
 
   Future<void> _verifyCode(
@@ -271,117 +271,15 @@ class _InstitutionOfferRequestsManagementPageState
     if (!mounted || _isVerifying) return;
 
     _isVerifying = true;
-
-    if (mounted) {
-      setState(() {});
-    }
-
-    final controller = TextEditingController();
+    if (mounted) setState(() {});
 
     try {
+      // ✅ الـ dialog دلوقتي بيدير الـ controller بتاعه بنفسه
       final rawCode = await showDialog<String>(
         context: context,
         useRootNavigator: true,
         barrierDismissible: false,
-        builder: (dialogContext) {
-          bool invalidCode = false;
-
-          return StatefulBuilder(
-            builder: (
-              context,
-              setDialogState,
-            ) {
-              return AlertDialog(
-                title: const Text(
-                  'تحقق من كود المستخدم',
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'اطلب من المستخدم إعطائك الكود المكون من 6 أرقام',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF71837C),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF123F31),
-                      ),
-                      onChanged: (_) {
-                        if (invalidCode) {
-                          setDialogState(
-                            () => invalidCode = false,
-                          );
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: '000000',
-                        counterText: '',
-                        errorText: invalidCode ? 'أدخل 6 أرقام' : null,
-                        filled: true,
-                        fillColor: const Color(0xFFF4F8F5),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF0B7650),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                    },
-                    child: const Text(
-                      'إلغاء',
-                      style: TextStyle(
-                        color: Color(0xFF71837C),
-                      ),
-                    ),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      final normalized = _normalizeDigits(
-                        controller.text,
-                      );
-
-                      if (normalized != null) {
-                        Navigator.of(
-                          dialogContext,
-                        ).pop(normalized);
-                      } else {
-                        setDialogState(
-                          () => invalidCode = true,
-                        );
-                      }
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0B7650),
-                    ),
-                    child: const Text('تحقق'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+        builder: (dialogContext) => const _VerifyCodeDialog(),
       );
 
       if (!mounted || rawCode == null) return;
@@ -396,22 +294,14 @@ class _InstitutionOfferRequestsManagementPageState
         return;
       }
 
-      print('📌🔴 _verifyCode: requestId=$requestId, code=$code');
-
       debugPrint(
-        '[InstitutionRequests] verifying user pickup code '
-        'request=$requestId',
+        '[InstitutionRequests] verifying pickup code request=$requestId',
       );
-
-      print(
-          '📌🔴 _verifyCode: calling repository.verifyOfferRequestPickupCode');
 
       await _repository.verifyOfferRequestPickupCode(
         requestId: requestId,
         code: code,
       );
-
-      print('📌🔴 _verifyCode: success!');
 
       if (!mounted) return;
 
@@ -421,7 +311,7 @@ class _InstitutionOfferRequestsManagementPageState
 
       await _reload();
     } catch (error) {
-      print('❌ _verifyCode error: $error');
+      debugPrint('❌ _verifyCode error: $error');
       if (mounted) {
         _handleError(
           error,
@@ -429,7 +319,7 @@ class _InstitutionOfferRequestsManagementPageState
         );
       }
     } finally {
-      controller.dispose();
+      // ✅ مفيش controller.dispose هنا — الـ dialog بيدير نفسه
       _isVerifying = false;
 
       if (mounted) {
@@ -794,6 +684,148 @@ class _InstitutionOfferRequestsManagementPageState
             );
           },
         ),
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ✅ VERIFY CODE DIALOG — StatefulWidget مستقل
+// بيدير الـ TextEditingController بتاعه بنفسه
+// ============================================================
+
+class _VerifyCodeDialog extends StatefulWidget {
+  const _VerifyCodeDialog();
+
+  @override
+  State<_VerifyCodeDialog> createState() => _VerifyCodeDialogState();
+}
+
+class _VerifyCodeDialogState extends State<_VerifyCodeDialog> {
+  final _controller = TextEditingController();
+  bool _invalidCode = false;
+
+  @override
+  void dispose() {
+    // ✅ الـ dispose بيتنادى في الوقت الصح
+    // (بعد ما الـ dialog animation تخلص بالكامل)
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String? _normalize(String? value) {
+    if (value == null) return null;
+
+    final normalized = value
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
+        .replaceAll('٩', '9')
+        .replaceAll(RegExp(r'[^0-9]'), '');
+
+    return RegExp(r'^\d{6}$').hasMatch(normalized) ? normalized : null;
+  }
+
+  void _submit() {
+    final normalized = _normalize(_controller.text);
+    if (normalized != null) {
+      Navigator.of(context).pop(normalized);
+    } else {
+      setState(() => _invalidCode = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'تحقق من كود المستخدم',
+          style: TextStyle(
+            color: Color(0xFF123F31),
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'اطلب من المستخدم إعطائك الكود المكون من 6 أرقام',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF71837C),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF123F31),
+              ),
+              onChanged: (_) {
+                if (_invalidCode) {
+                  setState(() => _invalidCode = false);
+                }
+              },
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                hintText: '000000',
+                counterText: '',
+                errorText: _invalidCode ? 'أدخل 6 أرقام' : null,
+                filled: true,
+                fillColor: const Color(0xFFF4F8F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: Color(0xFF0B7650),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'إلغاء',
+              style: TextStyle(
+                color: Color(0xFF71837C),
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0B7650),
+            ),
+            child: const Text('تحقق'),
+          ),
+        ],
       ),
     );
   }
@@ -1360,10 +1392,7 @@ class _OfferGroupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ==================================================
             // OFFER HEADER
-            // ==================================================
-
             Container(
               padding: const EdgeInsets.fromLTRB(
                 18,
@@ -1486,10 +1515,7 @@ class _OfferGroupCard extends StatelessWidget {
               ),
             ),
 
-            // ==================================================
             // STATS
-            // ==================================================
-
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 18,
@@ -1548,10 +1574,7 @@ class _OfferGroupCard extends StatelessWidget {
               color: Color(0xFFE7ECE8),
             ),
 
-            // ==================================================
             // REQUESTERS
-            // ==================================================
-
             if (requests.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -1720,10 +1743,6 @@ class _OfferGroupCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ====================================================
-          // USER + PRODUCT
-          // ====================================================
-
           InkWell(
             borderRadius: BorderRadius.circular(
               12,
@@ -1737,7 +1756,6 @@ class _OfferGroupCard extends StatelessWidget {
                   },
             child: Row(
               children: [
-                // PRODUCT IMAGE
                 ClipRRect(
                   borderRadius: BorderRadius.circular(
                     12,
@@ -1774,12 +1792,9 @@ class _OfferGroupCard extends StatelessWidget {
                           ),
                   ),
                 ),
-
                 const SizedBox(
                   width: 10,
                 ),
-
-                // USER INFO
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1840,9 +1855,8 @@ class _OfferGroupCard extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // STATUS
                 Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 34,
@@ -1876,11 +1890,9 @@ class _OfferGroupCard extends StatelessWidget {
                     ),
                   ],
                 ),
-
                 const SizedBox(
                   width: 4,
                 ),
-
                 const Icon(
                   Icons.chevron_left_rounded,
                   color: Color(
@@ -1891,15 +1903,9 @@ class _OfferGroupCard extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(
             height: 10,
           ),
-
-          // ====================================================
-          // ACTION BUTTONS
-          // ====================================================
-
           _buildRequestActions(
             context,
             safeRequest,

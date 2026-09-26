@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/analytics_service.dart';
 import '../../../../core/services/fcm_notification_service.dart';
+import '../../../../core/services/auth_state_notifier.dart'; // ✅
 import '../../../../core/utils/validators.dart';
 
 class AuthRepository {
@@ -26,12 +27,32 @@ class AuthRepository {
         _webVapidKey = webVapidKey;
 
   // ═══════════════════════════════════════════════════════════
-  // 🎯 الأدوار المدعومة (3 بس)
+  // 🎯 الأدوار المدعومة للتسجيل (3 بس)
   // ═══════════════════════════════════════════════════════════
   static const Set<String> _supportedRoles = {
     'user',
     'provider',
     'institution',
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // ✅ أنواع الحسابات الصالحة للتحميل (بعد تسجيل الدخول)
+  // ده أوسع من _supportedRoles لأن الجمعيات والمطاعم والفنادق
+  // وغيرهم بيتضافوا يدويًا من فريق لقمة.
+  // ═══════════════════════════════════════════════════════════
+  static const Set<String> _validUserTypes = {
+    'user',
+    'admin',
+    'provider',
+    'institution',
+    'charity',
+    'restaurant',
+    'business',
+    'hotel',
+    'supermarket',
+    'bakery',
+    'cafe',
+    'company',
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -120,6 +141,53 @@ class AuthRepository {
   }
 
   // ═══════════════════════════════════════════════════════════
+  // 🛡️ منع استخدام رقم مزود الخدمة كحساب مستخدم عادي
+  // ═══════════════════════════════════════════════════════════
+  Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
+    final raw = phone.replaceAll(RegExp(r'[^\d]'), '');
+    final variants = <String>{raw};
+
+    if (raw.startsWith('0') && raw.length == 11) {
+      variants.add('20${raw.substring(1)}');
+      variants.add('+20${raw.substring(1)}');
+    }
+    if (raw.startsWith('20') && raw.length == 12) {
+      variants.add('0${raw.substring(2)}');
+      variants.add('+$raw');
+    }
+
+    final valid = variants.where((value) => value.isNotEmpty).toList();
+    if (valid.isEmpty) return null;
+
+    final filters = <String>[];
+    for (final value in valid) {
+      filters.add('phone.eq.$value');
+      filters.add('whatsapp.eq.$value');
+    }
+
+    final rows = await _supabase.client
+        .from('service_providers')
+        .select('id, verification_status, is_active, display_name')
+        .or(filters.join(','))
+        .limit(1);
+
+    if (rows is List && rows.isNotEmpty && rows.first is Map) {
+      return Map<String, dynamic>.from(rows.first as Map);
+    }
+    return null;
+  }
+
+  Future<String?> _providerBlockMessage(String phone) async {
+    final provider = await _findProviderByPhone(phone);
+    if (provider == null) return null;
+
+    final status = provider['verification_status']?.toString().trim();
+    final statusText = status == null || status.isEmpty ? 'غير محددة' : status;
+    return 'الرقم ده مسجل كمزود خدمة وحالته "$statusText". '
+        'استخدم دخول مقدم الخدمة.';
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // 📤 إرسال كود التحقق على واتساب
   // ═══════════════════════════════════════════════════════════
   Future<Either<String, String>> sendOtp({required String phone}) async {
@@ -128,6 +196,12 @@ class AuthRepository {
 
       if (cleanPhone.length < 10 || cleanPhone.length > 15) {
         return const Left('رقم الهاتف غير صحيح');
+      }
+
+      final providerBlock = await _providerBlockMessage(cleanPhone);
+      if (providerBlock != null) {
+        debugPrint('🚫 [Auth] Provider phone blocked from ordinary login');
+        return Left(providerBlock);
       }
 
       debugPrint('📤 Sending OTP to $cleanPhone');
@@ -179,6 +253,15 @@ class AuthRepository {
         return const Left('نوع الحساب غير مدعوم');
       }
 
+      // حماية ثانية بعد إدخال OTP، في حالة تم تجاوز فحص الواجهة.
+      if (role == 'user') {
+        final providerBlock = await _providerBlockMessage(cleanPhone);
+        if (providerBlock != null) {
+          debugPrint('🚫 [Auth] Provider phone blocked during verification');
+          return Left(providerBlock);
+        }
+      }
+
       debugPrint('📥 Verifying OTP for $cleanPhone (role=$role)');
 
       final response = await _supabase.client.functions.invoke(
@@ -214,6 +297,10 @@ class AuthRepository {
         return const Left('ملف المستخدم غير موجود');
       }
 
+      // ✅ مهم: user_type قد يظل user حتى لو كان له ملف مزود خدمة معتمد.
+      // نحدد الدور النهائي من service_providers قبل أي Navigation.
+      await _syncAuthStateFromDatabase(userId);
+
       // ✅ FCM + Analytics
       await _initializeFcmForUser(user.id);
 
@@ -248,8 +335,6 @@ class AuthRepository {
   // ═══════════════════════════════════════════════════════════
   // 📝 التسجيل (يُستخدم مع verifyAndCreate)
   // ═══════════════════════════════════════════════════════════
-  /// بياخد بيانات التسجيل + يبعت OTP
-  /// (ملاحظة: الحساب نفسه بيتعمل في verify-and-create)
   Future<Either<String, String>> register({
     required String name,
     required String phone,
@@ -286,7 +371,7 @@ class AuthRepository {
         return const Left('نوع الحساب غير مدعوم');
       }
 
-      // ✅ 2. التحقق من إضافي حسب الدور
+      // ✅ 2. التحقق الإضافي حسب الدور
       if (cleanRole == 'provider') {
         if (categoryId == null || categoryId.isEmpty) {
           return const Left('اختار نوع الخدمة');
@@ -295,6 +380,13 @@ class AuthRepository {
       if (cleanRole == 'institution') {
         if (institutionType == null || institutionType.isEmpty) {
           return const Left('اختار نوع المؤسسة');
+        }
+      }
+
+      if (cleanRole == 'user') {
+        final providerBlock = await _providerBlockMessage(cleanPhone);
+        if (providerBlock != null) {
+          return Left(providerBlock);
         }
       }
 
@@ -327,6 +419,9 @@ class AuthRepository {
     try {
       await _fcmNotifications.dispose();
       await _supabase.signOut();
+      // ✅ احتياطي: نضمن إن الـ AuthStateNotifier اتنضف
+      AuthStateNotifier.instance.clear();
+      debugPrint('🔔 [AuthState] cleared after logout()');
       return const Right(null);
     } catch (error) {
       debugPrint('LOGOUT FAILURE: type=${error.runtimeType}');
@@ -347,37 +442,61 @@ class AuthRepository {
 
       if (row == null) return null;
 
-      final rawRole = row['role']?.toString().trim().toLowerCase() ??
-          row['user_type']?.toString().trim().toLowerCase();
+      // ═════════════════════════════════════════════════════════
+      // ✅ الأهم: نقرا user_type الأول (لأنه النوع الحقيقي)
+      // ونرجع لـ role كـ fallback فقط لو user_type فاضي.
+      // ═════════════════════════════════════════════════════════
+      final userType = row['user_type']?.toString().trim().toLowerCase() ?? '';
+      final roleFallback = row['role']?.toString().trim().toLowerCase() ?? '';
 
-      if (!_supportedRoles.contains(rawRole)) {
-        debugPrint('AUTH ROLE INVALID: role=$rawRole');
+      final rawRole = userType.isNotEmpty ? userType : roleFallback;
+
+      if (rawRole.isEmpty) {
+        debugPrint('AUTH ROLE EMPTY: user_id=$userId');
         return null;
+      }
+
+      if (!_validUserTypes.contains(rawRole)) {
+        debugPrint(
+          'AUTH ROLE UNKNOWN: role=$rawRole → defaulting to institution',
+        );
       }
 
       var user = UserModel.fromJson(Map<String, dynamic>.from(row));
       final type = user.type.value.toLowerCase();
 
-      // ✅ مقدم خدمة → نجيب service_provider_id
-      if (type == 'provider') {
-        try {
-          final provider = await _supabase.client
-              .from('service_providers')
-              .select('id')
-              .eq('user_id', user.id)
-              .maybeSingle();
-          if (provider != null) {
-            user = user.copyWith(
-              serviceProviderId: _id(provider['id']),
-            );
-          }
-        } catch (e) {
-          debugPrint('PROVIDER ENRICHMENT SKIPPED: $e');
+      // ✅ نبحث دائمًا عن ملف مزود الخدمة.
+      // لا نعتمد على users.user_type لأن الحساب القديم قد يكون user
+      // رغم وجود service_providers.verification_status=approved.
+      try {
+        final provider = await _supabase.client
+            .from('service_providers')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (provider != null) {
+          user = user.copyWith(
+            serviceProviderId: _id(provider['id']),
+          );
         }
+      } catch (e) {
+        debugPrint('PROVIDER ENRICHMENT SKIPPED: $e');
       }
 
-      // ✅ مؤسسة → نجيب institution_id
-      if (type == 'institution') {
+      // ✅ مؤسسة / جمعية / أي نوع تاني → نجيب institution_id
+      const institutionLikeTypes = {
+        'institution',
+        'charity',
+        'restaurant',
+        'business',
+        'hotel',
+        'supermarket',
+        'bakery',
+        'cafe',
+        'company',
+      };
+
+      if (institutionLikeTypes.contains(type)) {
         try {
           final inst = await _supabase.client
               .from('institutions')
@@ -401,6 +520,80 @@ class AuthRepository {
     }
   }
 
+  /// يزامن الدور الحقيقي مع AuthStateNotifier.
+  ///
+  /// وجود صف في service_providers هو الذي يحدد أن الحساب مزود خدمة؛
+  /// لا نغير users.user_type لأن القيد الحالي لا يسمح بقيمة provider.
+  Future<void> syncCurrentAuthState({String? userId}) async {
+    final id = userId?.trim();
+    final authUser =
+        id == null || id.isEmpty ? await _supabase.getCurrentUser() : null;
+    final resolvedUserId = id?.isNotEmpty == true ? id! : authUser?.id;
+
+    if (resolvedUserId == null || resolvedUserId.isEmpty) {
+      AuthStateNotifier.instance.clear();
+      return;
+    }
+
+    await _syncAuthStateFromDatabase(resolvedUserId);
+  }
+
+  Future<void> _syncAuthStateFromDatabase(String userId) async {
+    final authState = AuthStateNotifier.instance;
+    authState.beginSync();
+
+    try {
+      final profile = await _supabase.client
+          .from('users')
+          .select('user_type, role, is_active')
+          .eq('id', userId)
+          .maybeSingle();
+
+      final provider = await _supabase.client
+          .from('service_providers')
+          .select('id, verification_status, is_active')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      final hasProviderProfile = provider != null;
+      final resolvedRole = hasProviderProfile
+          ? 'provider'
+          : ((profile?['user_type']
+                      ?.toString()
+                      .trim()
+                      .toLowerCase()
+                      .isNotEmpty ==
+                  true)
+              ? profile!['user_type'].toString().trim().toLowerCase()
+              : (profile?['role']?.toString().trim().toLowerCase() ?? 'user'));
+
+      final providerStatus =
+          provider?['verification_status']?.toString().trim().toLowerCase();
+
+      final active = profile?['is_active'] != false &&
+          (provider == null || provider['is_active'] != false);
+
+      debugPrint(
+        '✅ [Auth Sync] role=$resolvedRole '
+        'providerStatus=$providerStatus active=$active '
+        'providerFound=$hasProviderProfile',
+      );
+
+      authState.setLoggedIn(
+        isLoggedIn: true,
+        role: resolvedRole,
+        providerStatus: providerStatus,
+        isActive: active,
+        authResolved: true,
+      );
+    } catch (error, stack) {
+      debugPrint('❌ [Auth Sync] failed: $error');
+      debugPrintStack(stackTrace: stack);
+      // لا نفتح /home على أساس role=user عند فشل معرفة الدور.
+      authState.clear();
+    }
+  }
+
   Future<Either<String, UserModel>> getUser(String id) async {
     try {
       final user = await _loadUserWithRelations(id);
@@ -418,6 +611,7 @@ class AuthRepository {
       if (authUser == null) return const Left('المستخدم غير مسجل دخول');
       final user = await _loadUserWithRelations(authUser.id);
       if (user == null) return const Left('ملف المستخدم غير موجود');
+      await _syncAuthStateFromDatabase(authUser.id);
       return Right(user);
     } catch (error) {
       debugPrint('CURRENT USER LOAD ERROR: type=${error.runtimeType}');

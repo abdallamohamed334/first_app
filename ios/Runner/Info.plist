@@ -26,40 +26,23 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-
-	<!-- ═══════════════════════════════════════════════════════
-	     🌍 اللغة العربية
-	     ═══════════════════════════════════════════════════════ -->
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ar</string>
 		<string>en</string>
 	</array>
 
-	<!-- ═══════════════════════════════════════════════════════
-	     📍 صلاحيات الموقع
-	     ═══════════════════════════════════════════════════════ -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
-
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
-
-	<!-- ═══════════════════════════════════════════════════════
-	     📸 صلاحيات الكاميرا والصور
-	     ═══════════════════════════════════════════════════════ -->
 	<key>NSCameraUsageDescription</key>
 	<string>نحتاج الكاميرا علشان ترفع صور لمزود الخدمة أو للعروض</string>
-
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>نحتاج معرض الصور علشان تختار صور للعرض</string>
-
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>نحتاج نحفظ الصور في معرضك</string>
 
-	<!-- ═══════════════════════════════════════════════════════
-	     📞 Schemes (واتساب + اتصال + إيميل)
-	     ═══════════════════════════════════════════════════════ -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>tel</string>
@@ -70,17 +53,11 @@
 		<string>mailto</string>
 	</array>
 
-	<!-- ═══════════════════════════════════════════════════════
-	     🔔 FCM
-	     ═══════════════════════════════════════════════════════ -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
 	</array>
 
-	<!-- ═══════════════════════════════════════════════════════
-	     🌐 ATS (للسماح بالطلبات لـ Supabase)
-	     ═══════════════════════════════════════════════════════ -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -117,9 +94,7 @@
 		</dict>
 	</dict>
 
-	<!-- ═══════════════════════════════════════════════════════
-	     🖼️ UI
-	     ═══════════════════════════════════════════════════════ -->
+	<!-- Flutter uses SceneDelegate; no Main.storyboard is required. -->
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -129,14 +104,10 @@
 			<key>UIWindowSceneSessionRoleApplication</key>
 			<array>
 				<dict>
-					<key>UISceneClassName</key>
-					<string>UIWindowScene</string>
 					<key>UISceneConfigurationName</key>
 					<string>flutter</string>
 					<key>UISceneDelegateClassName</key>
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
-					<key>UISceneStoryboardFile</key>
-					<string>Main</string>
 				</dict>
 			</array>
 		</dict>
@@ -145,8 +116,6 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

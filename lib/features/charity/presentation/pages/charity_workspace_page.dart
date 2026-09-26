@@ -142,7 +142,11 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
   Future<void> _refresh() async {
     final next = _loadWorkspace();
     if (!mounted) return;
-    setState(() => _future = next);
+    // ✅ الحل: استخدم block body بدل arrow function عشان
+    // ما ترجعش Future من جوه setState
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 
@@ -154,7 +158,9 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
   Future<void> _onNavigationChanged(int index) async {
     if (!mounted || index == _selectedNavIndex) return;
     if (index == 0) {
-      setState(() => _selectedNavIndex = 0);
+      setState(() {
+        _selectedNavIndex = 0;
+      });
       return;
     }
 
@@ -167,10 +173,14 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
     };
     if (page == null) return;
 
-    setState(() => _selectedNavIndex = index);
+    setState(() {
+      _selectedNavIndex = index;
+    });
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
     if (mounted) {
-      setState(() => _selectedNavIndex = 0);
+      setState(() {
+        _selectedNavIndex = 0;
+      });
       await _refresh();
     }
   }

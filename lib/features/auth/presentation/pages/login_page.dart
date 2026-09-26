@@ -476,6 +476,98 @@ class _LoginPageState extends State<LoginPage>
   }
 
   // ═══════════════════════════════════════════════════════════
+  // 🛡️ فحص مزود الخدمة قبل دخول المستخدم العادي
+  // ═══════════════════════════════════════════════════════════
+  String _intlPhone(String localPhone) {
+    final digits = localPhone.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.startsWith('0') && digits.length == 11) {
+      return '20${digits.substring(1)}';
+    }
+    if (digits.startsWith('20') && digits.length == 12) return digits;
+    return digits;
+  }
+
+  Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
+    final local = _normalizeEgyptianPhone(phone);
+    final intl = _intlPhone(local);
+    final variants = <String>{local, intl, '+$intl'}
+        .where((value) => value.isNotEmpty)
+        .toList();
+    final filters = <String>[];
+    for (final value in variants) {
+      filters.add('phone.eq.$value');
+      filters.add('whatsapp.eq.$value');
+    }
+
+    final rows = await SupabaseService()
+        .client
+        .from('service_providers')
+        .select('id, user_id, verification_status, is_active, display_name')
+        .or(filters.join(','))
+        .limit(1);
+
+    if (rows is List && rows.isNotEmpty && rows.first is Map) {
+      return Map<String, dynamic>.from(rows.first as Map);
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _findProviderByUserId(String userId) async {
+    final row = await SupabaseService()
+        .client
+        .from('service_providers')
+        .select('id, user_id, verification_status, is_active, display_name')
+        .eq('user_id', userId)
+        .maybeSingle();
+    return row == null ? null : Map<String, dynamic>.from(row);
+  }
+
+  Future<void> _showProviderBlockedMessage({
+    required Map<String, dynamic> provider,
+    bool offerProviderLogin = true,
+  }) async {
+    final status =
+        provider['verification_status']?.toString().trim().toLowerCase();
+    final isActive = provider['is_active'] as bool? ?? true;
+    final isRejected = status == 'rejected';
+    final isSuspended = !isActive || status == 'suspended';
+    final title = isRejected
+        ? 'تم رفض حساب مزود الخدمة'
+        : isSuspended
+            ? 'تم إيقاف حساب مزود الخدمة'
+            : 'الرقم مسجل كمزود خدمة';
+    final message = isRejected
+        ? 'لا يمكن الدخول بهذا الرقم كمستخدم عادي لأن طلب مزود الخدمة تم رفضه. تواصل مع الدعم لمعرفة السبب.'
+        : isSuspended
+            ? 'تم إيقاف حساب مزود الخدمة. لا يمكن استخدام الرقم كمستخدم عادي. تواصل مع الدعم.'
+            : 'هذا الرقم مرتبط بحساب مزود خدمة. استخدم دخول مزود الخدمة بدلًا من دخول المستخدم.';
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title, textAlign: TextAlign.right),
+        content: Text(message, textAlign: TextAlign.right),
+        actions: [
+          if (offerProviderLogin && !isRejected && !isSuspended)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                context.push(AppRouter.providerAuth);
+              },
+              child: const Text('دخول مزود الخدمة'),
+            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('حسنًا'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
   // Auto Login Check
   // ═══════════════════════════════════════════════════════════
   Future<void> _checkAutoLogin() async {
@@ -488,6 +580,14 @@ class _LoginPageState extends State<LoginPage>
         },
         (data) async {
           final user = data['user'] as UserModel;
+          final provider = await _findProviderByUserId(user.id);
+          if (provider != null) {
+            await SupabaseService().signOut();
+            if (!mounted) return;
+            setState(() => _isCheckingAutoLogin = false);
+            await _showProviderBlockedMessage(provider: provider);
+            return;
+          }
           if (!mounted) return;
           setState(() => _isCheckingAutoLogin = false);
           await _navigateToHome(user);
@@ -513,6 +613,13 @@ class _LoginPageState extends State<LoginPage>
     setState(() => _isLoading = true);
 
     try {
+      final provider = await _findProviderByPhone(phone);
+      if (provider != null) {
+        if (mounted) setState(() => _isLoading = false);
+        await _showProviderBlockedMessage(provider: provider);
+        return;
+      }
+
       debugPrint('📌 [Login] sending OTP to $phone');
 
       final result = await _authRepo.sendOtp(phone: phone);
@@ -608,7 +715,7 @@ class _LoginPageState extends State<LoginPage>
     }
 
     if (type == 'provider') {
-      context.go(AppRouter.home);
+      _showError('هذا الرقم مسجل كمزود خدمة. استخدم دخول مزود الخدمة.');
       return;
     }
 

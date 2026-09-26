@@ -1,4 +1,7 @@
+// lib/features/institutions/presentation/pages/institution_offer_request_details_page.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/institution_offers_repository.dart';
@@ -21,6 +24,15 @@ class InstitutionOfferRequestDetailsPage extends StatefulWidget {
 
 class _InstitutionOfferRequestDetailsPageState
     extends State<InstitutionOfferRequestDetailsPage> {
+  // ── ألوان جُود ──
+  static const _green = Color(0xFF0B7650);
+  static const _greenLight = Color(0xFF25B77C);
+  static const _greenDark = Color(0xFF064D34);
+  static const _cream = Color(0xFFF8FBF8);
+  static const _ink = Color(0xFF123F31);
+  static const _inkSoft = Color(0xFF61756D);
+  static const _cardBg = Colors.white;
+
   late final InstitutionOffersRepository _repository;
   late InstitutionOfferRequest _request;
 
@@ -29,202 +41,234 @@ class _InstitutionOfferRequestDetailsPageState
   @override
   void initState() {
     super.initState();
-
     _repository = widget.repository ?? InstitutionOffersRepository();
-
     _request = widget.request;
   }
 
   // ============================================================
-  // Helpers
+  // Getters
   // ============================================================
 
   Map<String, dynamic> get _offer {
     return _request.offer ?? <String, dynamic>{};
   }
 
-  String get _title {
-    final value = _offer['title']?.toString().trim();
+  /// ✅ كارت المستخدم اللي طلب
+  /// بنحاول نوصله من أكتر من مكان
+  Map<String, dynamic> get _requester {
+    try {
+      // لو الـ entity بيخزنها في حقل requester
+      final dynamic raw = (_request as dynamic).requester;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+    } catch (_) {}
 
-    if (value == null || value.isEmpty) {
-      return 'عرض غذائي';
+    try {
+      // لو الـ entity بيخزن users
+      final dynamic raw = (_request as dynamic).users;
+      if (raw is Map) return Map<String, dynamic>.from(raw);
+    } catch (_) {}
+
+    // fallback: من offer.users (مش متوقع بس للأمان)
+    final offerUsers = _offer['users'];
+    if (offerUsers is Map) {
+      return Map<String, dynamic>.from(offerUsers);
     }
 
-    return value;
+    return <String, dynamic>{};
+  }
+
+  String get _requesterName {
+    final name = _requester['name']?.toString().trim() ?? '';
+    return name.isNotEmpty ? name : 'مستخدم جُود';
+  }
+
+  String get _requesterPhone {
+    return _requester['phone']?.toString().trim() ?? '';
+  }
+
+  String get _requesterAvatar {
+    return _requester['avatar_url']?.toString().trim() ?? '';
+  }
+
+  String get _requesterCity {
+    return _requester['city']?.toString().trim() ?? '';
+  }
+
+  String get _title {
+    final value = _offer['title']?.toString().trim();
+    return (value == null || value.isEmpty) ? 'عرض غذائي' : value;
   }
 
   String get _description {
     final value = _offer['description']?.toString().trim();
-
-    if (value == null || value.isEmpty) {
-      return 'لا يوجد وصف للعرض';
-    }
-
-    return value;
+    return (value == null || value.isEmpty) ? 'لا يوجد وصف للعرض' : value;
   }
 
   String get _category {
     final value = _offer['category']?.toString().trim();
-
-    if (value == null || value.isEmpty) {
-      return 'أخرى';
-    }
-
-    return value;
+    return (value == null || value.isEmpty) ? 'أخرى' : value;
   }
 
   String get _pickupLocation {
     final value = _offer['pickup_location']?.toString().trim();
+    if (value != null && value.isNotEmpty) return value;
 
-    if (value == null || value.isEmpty) {
-      return 'لم يتم تحديد مكان الاستلام';
+    // fallback من المؤسسة
+    final institution = _offer['institutions'];
+    if (institution is Map) {
+      final addr = institution['address']?.toString().trim();
+      if (addr != null && addr.isNotEmpty) return addr;
     }
 
-    return value;
+    return 'لم يتم تحديد مكان الاستلام';
+  }
+
+  String get _pickupTime {
+    return _offer['pickup_time']?.toString().trim() ?? '';
+  }
+
+  String get _pickupNotes {
+    return _offer['pickup_notes']?.toString().trim() ?? '';
   }
 
   String get _symbolicPrice {
     final value = _offer['symbolic_price'];
-
-    if (value == null) {
-      return '0';
-    }
-
+    if (value == null) return '0';
     if (value is num) {
       return value % 1 == 0 ? value.toInt().toString() : value.toString();
     }
-
     return value.toString();
   }
 
-  List<String> _getImages() {
+  String get _originalPrice {
+    final value = _offer['original_price'];
+    if (value == null) return '';
+    if (value is num) {
+      return value % 1 == 0 ? value.toInt().toString() : value.toString();
+    }
+    return value.toString();
+  }
+
+  bool get _hasDiscount {
+    final orig = num.tryParse(_originalPrice);
+    final sym = num.tryParse(_symbolicPrice);
+    if (orig == null || sym == null) return false;
+    return orig > sym && sym >= 0;
+  }
+
+  int get _discountPercent {
+    if (!_hasDiscount) return 0;
+    final orig = num.tryParse(_originalPrice)!;
+    final sym = num.tryParse(_symbolicPrice)!;
+    return (((orig - sym) / orig) * 100).round();
+  }
+
+  String get _institutionName {
+    final inst = _offer['institutions'];
+    if (inst is Map) {
+      return inst['name']?.toString().trim() ?? '';
+    }
+    return '';
+  }
+
+  List<String> get _images {
     final images = _offer['images'];
 
     if (images is List) {
       return images
           .map((e) => e.toString().trim())
-          .where((e) => e.isNotEmpty)
+          .where((e) => e.isNotEmpty && e != 'null')
           .toList();
     }
 
     if (images is String) {
       final value = images.trim();
-
-      if (value.isEmpty) {
-        return [];
-      }
-
+      if (value.isEmpty || value == 'null') return [];
       return [value];
     }
 
     return [];
   }
 
+  // ============================================================
+  // Status helpers
+  // ============================================================
+
   String _statusLabel(String status) {
     switch (status) {
       case 'pending':
         return 'قيد المراجعة';
-
       case 'accepted':
         return 'مقبول';
-
       case 'ready_for_pickup':
         return 'جاهز للاستلام';
-
       case 'picked_up':
         return 'تم الاستلام';
-
       case 'completed':
         return 'مكتمل';
-
       case 'rejected':
         return 'مرفوض';
-
       case 'cancelled':
         return 'ملغي';
-
       case 'expired':
         return 'منتهي';
-
       default:
         return status;
     }
   }
 
-  Color _statusColor(String status, BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Color _statusColor(String status) {
     switch (status) {
       case 'pending':
-        return Colors.orange;
-
+        return const Color(0xFFE28B00);
       case 'accepted':
-        return Colors.blue;
-
+        return const Color(0xFF3679C8);
       case 'ready_for_pickup':
-        return Colors.indigo;
-
+        return _green;
       case 'picked_up':
-        return Colors.teal;
-
+        return const Color(0xFF6651B5);
       case 'completed':
-        return Colors.green;
-
+        return _green;
       case 'rejected':
       case 'cancelled':
       case 'expired':
-        return Colors.red;
-
+        return const Color(0xFFB54747);
       default:
-        return colorScheme.primary;
+        return _inkSoft;
     }
   }
 
   IconData _statusIcon(String status) {
     switch (status) {
       case 'pending':
-        return Icons.hourglass_empty;
-
+        return Icons.hourglass_empty_rounded;
       case 'accepted':
-        return Icons.check_circle_outline;
-
+        return Icons.check_circle_outline_rounded;
       case 'ready_for_pickup':
         return Icons.inventory_2_outlined;
-
       case 'picked_up':
         return Icons.local_shipping_outlined;
-
       case 'completed':
-        return Icons.done_all;
-
+        return Icons.done_all_rounded;
       case 'rejected':
-        return Icons.close;
-
+        return Icons.close_rounded;
       case 'cancelled':
         return Icons.cancel_outlined;
-
       case 'expired':
         return Icons.timer_off_outlined;
-
       default:
         return Icons.info_outline;
     }
   }
 
   // ============================================================
-  // Request status update
+  // Actions
   // ============================================================
-
-// ============================================================
-// Request status update
-// ============================================================
 
   Future<void> _updateStatus(String status) async {
     if (_loading) return;
 
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
       await _repository.updateOfferRequest(
@@ -242,26 +286,11 @@ class _InstitutionOfferRequestDetailsPageState
         status == 'accepted' ? 'تم قبول الطلب بنجاح' : 'تم رفض الطلب بنجاح',
         success: true,
       );
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
-
-      _showMessage(
-        e.message.isNotEmpty ? e.message : 'حدث خطأ أثناء تحديث الطلب',
-        success: false,
-      );
     } catch (e) {
       if (!mounted) return;
-
-      _showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-        success: false,
-      );
+      _showMessage(_friendlyError(e), success: false);
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -275,106 +304,89 @@ class _InstitutionOfferRequestDetailsPageState
       'created_at': _request.createdAt.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
       'institution_offers': _offer,
+      // ✅ نمرر بيانات المستخدم لو كانت موجودة
+      if (_requester.isNotEmpty) 'users': _requester,
     });
   }
-
-  // ============================================================
-  // Accept
-  // ============================================================
 
   Future<void> _showAcceptConfirmation() async {
     if (_loading) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'قبول الطلب',
-            textAlign: TextAlign.right,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'قبول الطلب',
+          textAlign: TextAlign.right,
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'هل أنت متأكد من قبول هذا الطلب؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
           ),
-          content: const Text(
-            'هل أنت متأكد من قبول هذا الطلب؟',
-            textAlign: TextAlign.right,
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _green),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('قبول الطلب'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('قبول الطلب'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
 
     if (confirmed != true || !mounted) return;
-
     await _updateStatus('accepted');
   }
-
-  // ============================================================
-  // Reject
-  // ============================================================
 
   Future<void> _showRejectConfirmation() async {
     if (_loading) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'رفض الطلب',
-            textAlign: TextAlign.right,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'رفض الطلب',
+          textAlign: TextAlign.right,
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'هل أنت متأكد من رفض هذا الطلب؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
           ),
-          content: const Text(
-            'هل أنت متأكد من رفض هذا الطلب؟',
-            textAlign: TextAlign.right,
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFB54747),
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('رفض الطلب'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('رفض الطلب'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
 
     if (confirmed != true || !mounted) return;
-
     await _updateStatus('rejected');
   }
-
-  // ============================================================
-  // Prepare request
-  // ============================================================
 
   Future<void> _prepareForPickup() async {
     if (_loading) return;
 
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
       await _repository.markOfferRequestReady(_request.id);
@@ -385,51 +397,25 @@ class _InstitutionOfferRequestDetailsPageState
         _request = _copyRequestWithStatus('ready_for_pickup');
       });
 
-      _showMessage(
-        'تم تجهيز الطلب للاستلام',
-        success: true,
-      );
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
-
-      _showMessage(
-        e.message.isNotEmpty ? e.message : 'حدث خطأ أثناء تجهيز الطلب',
-        success: false,
-      );
+      _showMessage('تم تجهيز الطلب للاستلام', success: true);
     } catch (e) {
       if (!mounted) return;
-
-      _showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-        success: false,
-      );
+      _showMessage(_friendlyError(e), success: false);
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
-
-  // ============================================================
-  // Verify Pickup Code (NEW)
-  // ============================================================
 
   Future<void> _verifyPickupCode() async {
     if (_loading) return;
 
-    print('📌🔴 _verifyPickupCode START');
+    final code = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _PickupCodeDialog(),
+    );
 
-    final code = await _showPickupCodeDialog();
-
-    if (code == null) {
-      print('📌🔴 _verifyPickupCode: code is null');
-      return;
-    }
-
-    print('📌🔴 _verifyPickupCode: code=$code');
-    print('📌🔴 _verifyPickupCode: requestId=${_request.id}');
+    if (code == null || !mounted) return;
 
     setState(() => _loading = true);
 
@@ -439,163 +425,66 @@ class _InstitutionOfferRequestDetailsPageState
         code: code,
       );
 
-      print('📌🔴 _verifyPickupCode: result=$result');
+      if (!mounted) return;
 
       if (result['success'] == true) {
         setState(() {
           _request = _copyRequestWithStatus('picked_up');
         });
 
-        _showMessage(
-          '✅ تم تأكيد الاستلام بنجاح',
-          success: true,
-        );
-
+        _showMessage('✅ تم تأكيد الاستلام بنجاح', success: true);
         Navigator.of(context).pop(true);
       } else {
         _showMessage(
-          result['error'] ?? result['message'] ?? 'فشل التحقق من الكود',
+          result['error']?.toString() ??
+              result['message']?.toString() ??
+              'فشل التحقق من الكود',
           success: false,
         );
       }
     } catch (e) {
-      print('❌ _verifyPickupCode error: $e');
-      _showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-        success: false,
-      );
+      if (!mounted) return;
+      _showMessage(_friendlyError(e), success: false);
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
-
-  Future<String?> _showPickupCodeDialog() async {
-    final controller = TextEditingController();
-    String? errorText;
-
-    return showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text(
-            'تحقق من كود الاستلام',
-            textAlign: TextAlign.right,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'أدخل كود الاستلام المكون من 6 أرقام',
-                textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 13, color: Color(0xFF71837C)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF123F31),
-                ),
-                onChanged: (_) {
-                  if (errorText != null) {
-                    setDialogState(() => errorText = null);
-                  }
-                },
-                decoration: InputDecoration(
-                  hintText: '000000',
-                  counterText: '',
-                  errorText: errorText,
-                  filled: true,
-                  fillColor: const Color(0xFFF4F8F5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFF0B7650)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final code = controller.text.trim();
-                if (code.length == 6) {
-                  Navigator.pop(context, code);
-                } else {
-                  setDialogState(() => errorText = 'أدخل 6 أرقام');
-                }
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0B7650),
-              ),
-              child: const Text('تحقق'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // Complete request
-  // ============================================================
 
   Future<void> _completeRequest() async {
     if (_loading) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(
-            'إكمال الطلب',
-            textAlign: TextAlign.right,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'إكمال الطلب',
+          textAlign: TextAlign.right,
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'هل تم استلام الطلب بالفعل وتريد تسجيله كمكتمل؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
           ),
-          content: const Text(
-            'هل تم استلام الطلب بالفعل وتريد تسجيله كمكتمل؟',
-            textAlign: TextAlign.right,
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _green),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('إكمال الطلب'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, false);
-              },
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext, true);
-              },
-              child: const Text('إكمال الطلب'),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
 
     if (confirmed != true || !mounted) return;
 
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
       await _repository.completeRequest(_request.id);
@@ -606,140 +495,207 @@ class _InstitutionOfferRequestDetailsPageState
         _request = _copyRequestWithStatus('completed');
       });
 
-      _showMessage(
-        'تم إكمال الطلب بنجاح',
-        success: true,
-      );
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
-
-      _showMessage(
-        e.message.isNotEmpty ? e.message : 'حدث خطأ أثناء إكمال الطلب',
-        success: false,
-      );
+      _showMessage('تم إكمال الطلب بنجاح', success: true);
     } catch (e) {
       if (!mounted) return;
-
-      _showMessage(
-        e.toString().replaceFirst('Exception: ', ''),
-        success: false,
-      );
+      _showMessage(_friendlyError(e), success: false);
     } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   // ============================================================
-  // Message
+  // Helpers
   // ============================================================
 
-  void _showMessage(
-    String message, {
-    required bool success,
-  }) {
+  String _friendlyError(Object error) {
+    if (error is PostgrestException) {
+      final msg = error.message.toLowerCase();
+      if (msg.contains('not authorized') ||
+          msg.contains('permission') ||
+          error.code == '42501') {
+        return 'غير مصرح لك بهذا الإجراء';
+      }
+      if (msg.contains('not found') || error.code == 'PGRST116') {
+        return 'الطلب غير موجود';
+      }
+      if (msg.contains('expired')) {
+        return 'انتهت صلاحية الطلب';
+      }
+      return 'تعذر إتمام العملية، حاول مرة أخرى';
+    }
+
+    if (error is AuthException) {
+      return 'يجب تسجيل الدخول أولًا';
+    }
+
+    final msg = error.toString().replaceFirst('Exception: ', '').trim();
+    if (msg.isEmpty || msg.contains('Exception')) {
+      return 'تعذر إتمام العملية، حاول مرة أخرى';
+    }
+    return msg;
+  }
+
+  void _showMessage(String message, {required bool success}) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            textAlign: TextAlign.right,
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
+          content: Text(message, textAlign: TextAlign.right),
+          backgroundColor: success ? _green : const Color(0xFFB54747),
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       );
   }
 
+  void _callRequester() {
+    if (_requesterPhone.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: _requesterPhone));
+    _showMessage('تم نسخ رقم الهاتف: $_requesterPhone', success: true);
+  }
+
   // ============================================================
-  // Build
+  // BUILD
   // ============================================================
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final images = _getImages();
+    final images = _images;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('تفاصيل الطلب'),
-          centerTitle: true,
-        ),
+        backgroundColor: _cream,
         body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              32,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _OfferGallery(
-                  images: images,
-                  title: _title,
-                ),
-                const SizedBox(height: 16),
-                _OfferHeader(
-                  title: _title,
-                  category: _category,
-                  price: _symbolicPrice,
-                  quantity: _request.quantity,
-                ),
-                const SizedBox(height: 16),
-                _StatusCard(
-                  status: _request.status,
-                  label: _statusLabel(_request.status),
-                  color: _statusColor(
-                    _request.status,
-                    context,
-                  ),
-                  icon: _statusIcon(_request.status),
-                ),
-                const SizedBox(height: 20),
-                _RequestProgress(
-                  status: _request.status,
-                ),
-                const SizedBox(height: 20),
-                _RequestInfoCard(
-                  request: _request,
-                ),
-                const SizedBox(height: 16),
-                _OfferInfoCard(
-                  description: _description,
-                  pickupLocation: _pickupLocation,
-                  offer: _offer,
-                ),
-                const SizedBox(height: 24),
-                _buildActions(),
-                const SizedBox(height: 8),
-                if (_loading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
+          top: false,
+          child: Stack(
+            children: [
+              CustomScrollView(
+                slivers: [
+                  // ── SliverAppBar مع صورة العرض
+                  SliverAppBar(
+                    expandedHeight: images.isNotEmpty ? 280 : 130,
+                    pinned: true,
+                    stretch: true,
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    flexibleSpace: FlexibleSpaceBar(
+                      background: images.isNotEmpty
+                          ? _HeroGallery(images: images)
+                          : Container(
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [_green, _greenLight],
+                                  begin: Alignment.topRight,
+                                  end: Alignment.bottomLeft,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.fastfood_outlined,
+                                  size: 70,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
-              ],
-            ),
+
+                  // ── المحتوى
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // ── Status Banner
+                          _StatusBanner(
+                            status: _request.status,
+                            label: _statusLabel(_request.status),
+                            color: _statusColor(_request.status),
+                            icon: _statusIcon(_request.status),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // ── كارت العرض
+                          _OfferCard(
+                            title: _title,
+                            category: _category,
+                            price: _symbolicPrice,
+                            originalPrice: _hasDiscount ? _originalPrice : null,
+                            discount: _discountPercent,
+                            quantity: _request.quantity,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // ── كارت المستخدم اللي طلب
+                          _RequesterCard(
+                            name: _requesterName,
+                            phone: _requesterPhone,
+                            avatarUrl: _requesterAvatar,
+                            city: _requesterCity,
+                            onCall: _requesterPhone.isNotEmpty
+                                ? _callRequester
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // ── تفاصيل الاستلام
+                          _PickupCard(
+                            location: _pickupLocation,
+                            time: _pickupTime,
+                            notes: _pickupNotes,
+                          ),
+
+                          // ── الوصف
+                          if (_description.isNotEmpty &&
+                              _description != 'لا يوجد وصف للعرض') ...[
+                            const SizedBox(height: 14),
+                            _DescriptionCard(description: _description),
+                          ],
+
+                          const SizedBox(height: 14),
+
+                          // ── Progress Tracker
+                          _RequestProgress(status: _request.status),
+
+                          const SizedBox(height: 22),
+
+                          // ── الأزرار
+                          _buildActions(),
+
+                          if (_loading) ...[
+                            const SizedBox(height: 14),
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: _green,
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  // ============================================================
-  // Actions
-  // ============================================================
 
   Widget _buildActions() {
     switch (_request.status) {
@@ -747,28 +703,62 @@ class _InstitutionOfferRequestDetailsPageState
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            FilledButton.icon(
-              onPressed: _loading ? null : _showAcceptConfirmation,
-              icon: const Icon(Icons.check_circle_outline),
-              label: const Text('قبول الطلب'),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _showAcceptConfirmation,
+                icon: const Icon(Icons.check_circle_outline_rounded),
+                label: const Text(
+                  'قبول الطلب',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _showRejectConfirmation,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
+            SizedBox(
+              height: 50,
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : _showRejectConfirmation,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFB54747),
+                  side: const BorderSide(color: Color(0xFFE5BABA)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                icon: const Icon(Icons.close_rounded),
+                label: const Text(
+                  'رفض الطلب',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
-              icon: const Icon(Icons.close),
-              label: const Text('رفض الطلب'),
             ),
           ],
         );
 
       case 'accepted':
-        return FilledButton.icon(
-          onPressed: _loading ? null : _prepareForPickup,
-          icon: const Icon(Icons.inventory_2_outlined),
-          label: const Text('تجهيز الطلب للاستلام'),
+        return SizedBox(
+          height: 52,
+          child: FilledButton.icon(
+            onPressed: _loading ? null : _prepareForPickup,
+            icon: const Icon(Icons.inventory_2_outlined),
+            label: const Text(
+              'تجهيز الطلب للاستلام',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
         );
 
       case 'ready_for_pickup':
@@ -779,24 +769,37 @@ class _InstitutionOfferRequestDetailsPageState
               icon: Icons.pin_outlined,
               title: 'في انتظار كود الاستلام',
               message:
-                  'الطلب جاهز للاستلام. اطلب من المستخدم إظهار كود الاستلام المكون من 6 أرقام ثم تحقّق منه من خلال الزر أدناه.',
-              color: Colors.indigo,
+                  'اطلب من المستخدم إظهار كود الاستلام المكوّن من 6 أرقام، ثم تحقّق منه من الزر أدناه.',
+              color: Color(0xFF3679C8),
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _loading ? null : _verifyPickupCode,
-              icon: _loading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.verified_user_outlined),
-              label: Text(
-                _loading ? 'جارٍ التحقق...' : '🔑 تحقق من كود الاستلام',
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _verifyPickupCode,
+                icon: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.verified_user_outlined),
+                label: Text(
+                  _loading ? 'جارٍ التحقق...' : '🔑 تحقق من كود الاستلام',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
           ],
@@ -807,35 +810,47 @@ class _InstitutionOfferRequestDetailsPageState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _NoticeCard(
-              icon: Icons.check_circle_outline,
+              icon: Icons.check_circle_outline_rounded,
               title: 'تم استلام الطلب',
               message:
                   'تم التحقق من كود الاستلام بنجاح. يمكنك الآن تسجيل الطلب كمكتمل.',
-              color: Colors.teal,
+              color: Color(0xFF6651B5),
             ),
             const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _loading ? null : _completeRequest,
-              icon: const Icon(Icons.done_all),
-              label: const Text('إكمال الطلب'),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _completeRequest,
+                icon: const Icon(Icons.done_all_rounded),
+                label: const Text(
+                  'إكمال الطلب',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
             ),
           ],
         );
 
       case 'completed':
         return const _NoticeCard(
-          icon: Icons.done_all,
+          icon: Icons.done_all_rounded,
           title: 'الطلب مكتمل',
           message: 'تم استلام الطلب وإكمال العملية بنجاح.',
-          color: Colors.green,
+          color: Color(0xFF0B7650),
         );
 
       case 'rejected':
         return const _NoticeCard(
-          icon: Icons.close,
+          icon: Icons.close_rounded,
           title: 'تم رفض الطلب',
           message: 'تم رفض هذا الطلب.',
-          color: Colors.red,
+          color: Color(0xFFB54747),
         );
 
       case 'cancelled':
@@ -843,7 +858,7 @@ class _InstitutionOfferRequestDetailsPageState
           icon: Icons.cancel_outlined,
           title: 'الطلب ملغي',
           message: 'تم إلغاء هذا الطلب.',
-          color: Colors.red,
+          color: Color(0xFFB54747),
         );
 
       case 'expired':
@@ -851,7 +866,7 @@ class _InstitutionOfferRequestDetailsPageState
           icon: Icons.timer_off_outlined,
           title: 'الطلب منتهي',
           message: 'انتهت صلاحية هذا الطلب.',
-          color: Colors.red,
+          color: Color(0xFFB54747),
         );
 
       default:
@@ -861,26 +876,20 @@ class _InstitutionOfferRequestDetailsPageState
 }
 
 // ================================================================
-// Offer Gallery
+// HERO GALLERY
 // ================================================================
 
-class _OfferGallery extends StatefulWidget {
+class _HeroGallery extends StatefulWidget {
   final List<String> images;
-  final String title;
-
-  const _OfferGallery({
-    required this.images,
-    required this.title,
-  });
+  const _HeroGallery({required this.images});
 
   @override
-  State<_OfferGallery> createState() => _OfferGalleryState();
+  State<_HeroGallery> createState() => _HeroGalleryState();
 }
 
-class _OfferGalleryState extends State<_OfferGallery> {
+class _HeroGalleryState extends State<_HeroGallery> {
   final PageController _controller = PageController();
-
-  int _currentIndex = 0;
+  int _current = 0;
 
   @override
   void dispose() {
@@ -890,188 +899,101 @@ class _OfferGalleryState extends State<_OfferGallery> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.images.isEmpty) {
-      return Container(
-        height: 230,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.fastfood_outlined,
-            size: 70,
-          ),
-        ),
-      );
-    }
-
-    return Column(
+    return Stack(
+      fit: StackFit.expand,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: SizedBox(
-            height: 230,
-            width: double.infinity,
-            child: PageView.builder(
-              controller: _controller,
-              itemCount: widget.images.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-              itemBuilder: (context, index) {
-                final imageUrl = widget.images[index];
-
-                return Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  errorBuilder: (_, __, ___) {
-                    return Container(
-                      color:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
-                          size: 60,
-                        ),
-                      ),
-                    );
-                  },
-                  loadingBuilder: (
-                    context,
-                    child,
-                    loadingProgress,
-                  ) {
-                    if (loadingProgress == null) {
-                      return child;
-                    }
-
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  },
+        PageView.builder(
+          controller: _controller,
+          itemCount: widget.images.length,
+          onPageChanged: (i) => setState(() => _current = i),
+          itemBuilder: (_, index) {
+            return Image.network(
+              widget.images[index],
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: _InstitutionOfferRequestDetailsPageState._greenDark,
+                child: const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white,
+                    size: 60,
+                  ),
+                ),
+              ),
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  color: _InstitutionOfferRequestDetailsPageState._greenDark,
+                  child: const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
                 );
               },
+            );
+          },
+        ),
+        // ── Gradient خفيف أسفل عشان الأيقونات تبان
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 90,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.35),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-        if (widget.images.length > 1) ...[
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              widget.images.length,
-              (index) {
-                final active = index == _currentIndex;
-
+        // ── Dots
+        if (widget.images.length > 1)
+          Positioned(
+            bottom: 14,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.images.length, (i) {
+                final active = i == _current;
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 3,
-                  ),
-                  width: active ? 18 : 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 22 : 7,
                   height: 7,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     color: active
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outlineVariant,
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.5),
                   ),
                 );
-              },
+              }),
             ),
           ),
-        ],
       ],
     );
   }
 }
 
 // ================================================================
-// Offer Header
+// STATUS BANNER
 // ================================================================
 
-class _OfferHeader extends StatelessWidget {
-  final String title;
-  final String category;
-  final String price;
-  final int quantity;
-
-  const _OfferHeader({
-    required this.title,
-    required this.category,
-    required this.price,
-    required this.quantity,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _SmallChip(
-                  icon: Icons.category_outlined,
-                  label: category,
-                ),
-                const SizedBox(width: 8),
-                _SmallChip(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'الكمية: $quantity',
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                const Icon(
-                  Icons.payments_outlined,
-                  size: 21,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'السعر الرمزي: $price جنيه',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================================================================
-// Status Card
-// ================================================================
-
-class _StatusCard extends StatelessWidget {
+class _StatusBanner extends StatelessWidget {
   final String status;
   final String label;
   final Color color;
   final IconData icon;
 
-  const _StatusCard({
+  const _StatusBanner({
     required this.status,
     required this.label,
     required this.color,
@@ -1083,27 +1005,628 @@ class _StatusCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withAlpha(64),
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.15),
+            color.withValues(alpha: 0.05),
+          ],
         ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: color.withAlpha(38),
-            foregroundColor: color,
-            child: Icon(icon),
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'حالة الطلب',
+                  style: TextStyle(
+                    color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================================================
+// OFFER CARD
+// ================================================================
+
+class _OfferCard extends StatelessWidget {
+  final String title;
+  final String category;
+  final String price;
+  final String? originalPrice;
+  final int discount;
+  final int quantity;
+
+  const _OfferCard({
+    required this.title,
+    required this.category,
+    required this.price,
+    required this.originalPrice,
+    required this.discount,
+    required this.quantity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A123F31),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── العنوان + شارة الخصم
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _InstitutionOfferRequestDetailsPageState._ink,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              if (discount > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD64545),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '-$discount%',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── التصنيف
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _InstitutionOfferRequestDetailsPageState._green
+                  .withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.category_outlined,
+                  size: 14,
+                  color: _InstitutionOfferRequestDetailsPageState._green,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  category,
+                  style: const TextStyle(
+                    color: _InstitutionOfferRequestDetailsPageState._green,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // ── السعر والكمية
+          Row(
+            children: [
+              // السعر
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _InstitutionOfferRequestDetailsPageState._green
+                        .withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _InstitutionOfferRequestDetailsPageState._green
+                          .withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.payments_outlined,
+                            size: 14,
+                            color: _InstitutionOfferRequestDetailsPageState
+                                ._inkSoft,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'السعر الرمزي',
+                            style: TextStyle(
+                              color: _InstitutionOfferRequestDetailsPageState
+                                  ._inkSoft,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              color: _InstitutionOfferRequestDetailsPageState
+                                  ._green,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              'جنيه',
+                              style: TextStyle(
+                                color: _InstitutionOfferRequestDetailsPageState
+                                    ._inkSoft,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (originalPrice != null) ...[
+                            const SizedBox(width: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 3),
+                              child: Text(
+                                originalPrice!,
+                                style: const TextStyle(
+                                  color:
+                                      _InstitutionOfferRequestDetailsPageState
+                                          ._inkSoft,
+                                  fontSize: 13,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+
+              // الكمية
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3679C8).withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF3679C8).withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            size: 14,
+                            color: _InstitutionOfferRequestDetailsPageState
+                                ._inkSoft,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'الكمية المطلوبة',
+                            style: TextStyle(
+                              color: _InstitutionOfferRequestDetailsPageState
+                                  ._inkSoft,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '$quantity',
+                            style: const TextStyle(
+                              color: Color(0xFF3679C8),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 2),
+                            child: Text(
+                              'وحدة',
+                              style: TextStyle(
+                                color: _InstitutionOfferRequestDetailsPageState
+                                    ._inkSoft,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================================================
+// REQUESTER CARD
+// ================================================================
+
+class _RequesterCard extends StatelessWidget {
+  final String name;
+  final String phone;
+  final String avatarUrl;
+  final String city;
+  final VoidCallback? onCall;
+
+  const _RequesterCard({
+    required this.name,
+    required this.phone,
+    required this.avatarUrl,
+    required this.city,
+    this.onCall,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A123F31),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // ── الأفاتار
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _InstitutionOfferRequestDetailsPageState._green
+                    .withValues(alpha: 0.2),
+                width: 2,
+              ),
+            ),
+            child: ClipOval(
+              child: avatarUrl.isNotEmpty
+                  ? Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _fallbackAvatar(),
+                    )
+                  : _fallbackAvatar(),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // ── البيانات
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'صاحب الطلب',
+                  style: TextStyle(
+                    color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: _InstitutionOfferRequestDetailsPageState._ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.phone_rounded,
+                        size: 13,
+                        color:
+                            _InstitutionOfferRequestDetailsPageState._inkSoft,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        phone,
+                        style: const TextStyle(
+                          color:
+                              _InstitutionOfferRequestDetailsPageState._inkSoft,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (city.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color:
+                            _InstitutionOfferRequestDetailsPageState._inkSoft,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        city,
+                        style: const TextStyle(
+                          color:
+                              _InstitutionOfferRequestDetailsPageState._inkSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // ── زر الاتصال
+          if (onCall != null)
+            Material(
+              color: _InstitutionOfferRequestDetailsPageState._green
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                onTap: onCall,
+                borderRadius: BorderRadius.circular(14),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Icon(
+                    Icons.phone_rounded,
+                    color: _InstitutionOfferRequestDetailsPageState._green,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fallbackAvatar() {
+    return Container(
+      color: _InstitutionOfferRequestDetailsPageState._green
+          .withValues(alpha: 0.12),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.person_rounded,
+        color: _InstitutionOfferRequestDetailsPageState._green,
+        size: 30,
+      ),
+    );
+  }
+}
+
+// ================================================================
+// PICKUP CARD
+// ================================================================
+
+class _PickupCard extends StatelessWidget {
+  final String location;
+  final String time;
+  final String notes;
+
+  const _PickupCard({
+    required this.location,
+    required this.time,
+    required this.notes,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A123F31),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _InstitutionOfferRequestDetailsPageState._green
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.location_on_outlined,
+                  size: 18,
+                  color: _InstitutionOfferRequestDetailsPageState._green,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'معلومات الاستلام',
+                style: TextStyle(
+                  color: _InstitutionOfferRequestDetailsPageState._ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _InfoLine(
+            icon: Icons.place_outlined,
+            label: 'مكان الاستلام',
+            value: location,
+          ),
+          if (time.isNotEmpty)
+            _InfoLine(
+              icon: Icons.access_time_outlined,
+              label: 'وقت الاستلام',
+              value: time,
+            ),
+          if (notes.isNotEmpty)
+            _InfoLine(
+              icon: Icons.notes_outlined,
+              label: 'ملاحظات',
+              value: notes,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 90,
             child: Text(
               label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+              style: const TextStyle(
+                color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: _InstitutionOfferRequestDetailsPageState._ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
               ),
             ),
           ),
@@ -1114,33 +1637,95 @@ class _StatusCard extends StatelessWidget {
 }
 
 // ================================================================
-// Request Progress
+// DESCRIPTION CARD
+// ================================================================
+
+class _DescriptionCard extends StatelessWidget {
+  final String description;
+  const _DescriptionCard({required this.description});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A123F31),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _InstitutionOfferRequestDetailsPageState._green
+                      .withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.description_outlined,
+                  size: 18,
+                  color: _InstitutionOfferRequestDetailsPageState._green,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'وصف العرض',
+                style: TextStyle(
+                  color: _InstitutionOfferRequestDetailsPageState._ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            description,
+            style: const TextStyle(
+              color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+              fontSize: 13.5,
+              height: 1.7,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================================================
+// REQUEST PROGRESS
 // ================================================================
 
 class _RequestProgress extends StatelessWidget {
   final String status;
-
-  const _RequestProgress({
-    required this.status,
-  });
+  const _RequestProgress({required this.status});
 
   int get _currentStep {
     switch (status) {
       case 'pending':
         return 0;
-
       case 'accepted':
         return 1;
-
       case 'ready_for_pickup':
         return 2;
-
       case 'picked_up':
         return 3;
-
       case 'completed':
         return 4;
-
       default:
         return -1;
     }
@@ -1149,291 +1734,127 @@ class _RequestProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = _currentStep;
-
-    if (current < 0) {
-      return const SizedBox.shrink();
-    }
+    if (current < 0) return const SizedBox.shrink();
 
     const steps = [
-      (
-        title: 'طلب',
-        icon: Icons.receipt_long_outlined,
-      ),
-      (
-        title: 'قبول',
-        icon: Icons.check_circle_outline,
-      ),
-      (
-        title: 'تجهيز',
-        icon: Icons.inventory_2_outlined,
-      ),
-      (
-        title: 'استلام',
-        icon: Icons.local_shipping_outlined,
-      ),
-      (
-        title: 'إكمال',
-        icon: Icons.done_all,
-      ),
+      (title: 'طلب', icon: Icons.receipt_long_outlined),
+      (title: 'قبول', icon: Icons.check_circle_outline_rounded),
+      (title: 'تجهيز', icon: Icons.inventory_2_outlined),
+      (title: 'استلام', icon: Icons.local_shipping_outlined),
+      (title: 'إكمال', icon: Icons.done_all_rounded),
     ];
 
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'حالة الطلب',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: List.generate(
-                steps.length,
-                (index) {
-                  final completed = index <= current;
-
-                  return Expanded(
-                    child: Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: completed
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                          foregroundColor: completed ? Colors.white : null,
-                          child: Icon(
-                            steps[index].icon,
-                            size: 20,
-                            color: completed ? Colors.white : null,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          steps[index].title,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight:
-                                completed ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ================================================================
-// Request Info
-// ================================================================
-
-class _RequestInfoCard extends StatelessWidget {
-  final InstitutionOfferRequest request;
-
-  const _RequestInfoCard({
-    required this.request,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'بيانات الطلب',
-      icon: Icons.person_outline,
-      children: [
-        _InfoRow(
-          icon: Icons.tag,
-          title: 'رقم الطلب',
-          value: request.id,
-        ),
-        _InfoRow(
-          icon: Icons.person_outline,
-          title: 'معرف المستخدم',
-          value: request.requesterId,
-        ),
-        _InfoRow(
-          icon: Icons.shopping_bag_outlined,
-          title: 'الكمية المطلوبة',
-          value: request.quantity.toString(),
-        ),
-        _InfoRow(
-          icon: Icons.schedule_outlined,
-          title: 'تاريخ الطلب',
-          value: _formatDate(request.createdAt),
-        ),
-      ],
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    final local = date.toLocal();
-
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year.toString();
-
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-
-    return '$day/$month/$year - $hour:$minute';
-  }
-}
-
-// ================================================================
-// Offer Info
-// ================================================================
-
-class _OfferInfoCard extends StatelessWidget {
-  final String description;
-  final String pickupLocation;
-  final Map<String, dynamic> offer;
-
-  const _OfferInfoCard({
-    required this.description,
-    required this.pickupLocation,
-    required this.offer,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final pickupTime = offer['pickup_time']?.toString().trim();
-
-    final pickupNotes = offer['pickup_notes']?.toString().trim();
-
-    return _SectionCard(
-      title: 'تفاصيل العرض',
-      icon: Icons.fastfood_outlined,
-      children: [
-        _InfoRow(
-          icon: Icons.description_outlined,
-          title: 'الوصف',
-          value: description,
-        ),
-        _InfoRow(
-          icon: Icons.location_on_outlined,
-          title: 'مكان الاستلام',
-          value: pickupLocation,
-        ),
-        if (pickupTime != null && pickupTime.isNotEmpty)
-          _InfoRow(
-            icon: Icons.access_time_outlined,
-            title: 'وقت الاستلام',
-            value: pickupTime,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x0A123F31),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
-        if (pickupNotes != null && pickupNotes.isNotEmpty)
-          _InfoRow(
-            icon: Icons.notes_outlined,
-            title: 'ملاحظات الاستلام',
-            value: pickupNotes,
-          ),
-      ],
-    );
-  }
-}
-
-// ================================================================
-// Section Card
-// ================================================================
-
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final List<Widget> children;
-
-  const _SectionCard({
-    required this.title,
-    required this.icon,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            ...children,
-          ],
-        ),
+        ],
       ),
-    );
-  }
-}
-
-// ================================================================
-// Info Row
-// ================================================================
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 2,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+          const Text(
+            'مراحل الطلب',
+            style: TextStyle(
+              color: _InstitutionOfferRequestDetailsPageState._ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              textAlign: TextAlign.left,
-            ),
+          const SizedBox(height: 18),
+          Row(
+            children: List.generate(steps.length, (index) {
+              final completed = index <= current;
+              final isCurrent = index == current;
+
+              return Expanded(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        if (index > 0)
+                          Expanded(
+                            child: Container(
+                              height: 2,
+                              color: index <= current
+                                  ? _InstitutionOfferRequestDetailsPageState
+                                      ._green
+                                  : const Color(0xFFE1E8E4),
+                            ),
+                          ),
+                        Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: completed
+                                ? _InstitutionOfferRequestDetailsPageState
+                                    ._green
+                                : Colors.white,
+                            border: Border.all(
+                              color: completed
+                                  ? _InstitutionOfferRequestDetailsPageState
+                                      ._green
+                                  : const Color(0xFFE1E8E4),
+                              width: 2,
+                            ),
+                            boxShadow: isCurrent
+                                ? [
+                                    BoxShadow(
+                                      color:
+                                          _InstitutionOfferRequestDetailsPageState
+                                              ._green
+                                              .withValues(alpha: 0.35),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Icon(
+                            steps[index].icon,
+                            size: 15,
+                            color: completed
+                                ? Colors.white
+                                : const Color(0xFFB8C8C0),
+                          ),
+                        ),
+                        if (index < steps.length - 1)
+                          Expanded(
+                            child: Container(
+                              height: 2,
+                              color: index < current
+                                  ? _InstitutionOfferRequestDetailsPageState
+                                      ._green
+                                  : const Color(0xFFE1E8E4),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      steps[index].title,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight:
+                            completed ? FontWeight.w900 : FontWeight.w600,
+                        color: completed
+                            ? _InstitutionOfferRequestDetailsPageState._ink
+                            : _InstitutionOfferRequestDetailsPageState._inkSoft,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -1442,51 +1863,7 @@ class _InfoRow extends StatelessWidget {
 }
 
 // ================================================================
-// Small Chip
-// ================================================================
-
-class _SmallChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SmallChip({
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ================================================================
-// Notice Card
+// NOTICE CARD
 // ================================================================
 
 class _NoticeCard extends StatelessWidget {
@@ -1507,18 +1884,22 @@ class _NoticeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withAlpha(20),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withAlpha(51),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: color,
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1529,18 +1910,134 @@ class _NoticeCard extends StatelessWidget {
                   title,
                   style: TextStyle(
                     color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14.5,
                   ),
                 ),
                 const SizedBox(height: 5),
                 Text(
                   message,
                   style: const TextStyle(
-                    height: 1.5,
+                    color: _InstitutionOfferRequestDetailsPageState._inkSoft,
+                    fontSize: 12.5,
+                    height: 1.6,
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ================================================================
+// PICKUP CODE DIALOG
+// ================================================================
+
+class _PickupCodeDialog extends StatefulWidget {
+  const _PickupCodeDialog();
+
+  @override
+  State<_PickupCodeDialog> createState() => _PickupCodeDialogState();
+}
+
+class _PickupCodeDialogState extends State<_PickupCodeDialog> {
+  final _controller = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final code = _controller.text.trim();
+    if (code.length == 6) {
+      Navigator.pop(context, code);
+    } else {
+      setState(() => _errorText = 'أدخل 6 أرقام');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+        ),
+        title: const Text(
+          'تحقق من كود الاستلام',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'أدخل كود الاستلام المكون من 6 أرقام',
+              style: TextStyle(fontSize: 13, color: Color(0xFF71837C)),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              textAlign: TextAlign.center,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ],
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF123F31),
+                letterSpacing: 4,
+              ),
+              onChanged: (_) {
+                if (_errorText != null) {
+                  setState(() => _errorText = null);
+                }
+              },
+              onSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                hintText: '000000',
+                counterText: '',
+                errorText: _errorText,
+                filled: true,
+                fillColor: const Color(0xFFF4F8F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFF0B7650)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: _submit,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0B7650),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'تحقق',
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],

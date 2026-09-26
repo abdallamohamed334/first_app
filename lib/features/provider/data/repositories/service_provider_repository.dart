@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/supabase_service.dart';
+import '../../../../core/services/auth_state_notifier.dart';
 
 class ServiceProviderRepository {
   final SupabaseService _supabase;
@@ -305,6 +306,9 @@ class ServiceProviderRepository {
 
       debugPrint('✅ [Provider OTP] Auth OK: $userId');
 
+      // امنع الـ router من اتخاذ قرار قبل تحميل حالة مزود الخدمة.
+      AuthStateNotifier.instance.beginSync();
+
       final existing = await _client.from('service_providers').select('''
             *,
             categories:category_id (id, name_ar, slug, icon)
@@ -328,6 +332,11 @@ class ServiceProviderRepository {
         }
 
         debugPrint('✅ [Provider OTP] Existing provider status=$status');
+
+        await _publishProviderAuthState(
+          provider: existing,
+          userId: userId,
+        );
 
         return Right({
           'user': _client.auth.currentUser,
@@ -380,6 +389,11 @@ class ServiceProviderRepository {
 
       debugPrint('✅ [Provider OTP] Created: ${providerRow['id']}');
 
+      await _publishProviderAuthState(
+        provider: providerRow,
+        userId: userId,
+      );
+
       return Right({
         'user': _client.auth.currentUser,
         'provider': Map<String, dynamic>.from(providerRow),
@@ -397,6 +411,31 @@ class ServiceProviderRepository {
   // ═══════════════════════════════════════════════════════════
   // 👤 جلب بروفايل المزود الحالي
   // ═══════════════════════════════════════════════════════════
+  /// يثبت الدور النهائي بعد نجاح OTP.
+  /// لا نعدل users.user_type؛ وجود service_providers هو مصدر الدور هنا.
+  Future<void> _publishProviderAuthState({
+    required Map<String, dynamic> provider,
+    required String userId,
+  }) async {
+    final status =
+        provider['verification_status']?.toString().trim().toLowerCase();
+    final providerActive = provider['is_active'] != false;
+
+    debugPrint(
+      '✅ [Provider Auth] resolved role=provider '
+      'providerStatus=$status active=$providerActive '
+      'userId=$userId',
+    );
+
+    AuthStateNotifier.instance.setLoggedIn(
+      isLoggedIn: true,
+      role: 'provider',
+      providerStatus: status,
+      isActive: providerActive,
+      authResolved: true,
+    );
+  }
+
   Future<Either<String, Map<String, dynamic>>> getCurrentProvider() async {
     try {
       final user = _client.auth.currentUser;

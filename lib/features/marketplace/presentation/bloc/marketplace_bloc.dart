@@ -1,5 +1,6 @@
 // lib/features/marketplace/presentation/bloc/marketplace_bloc.dart
 
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/repositories/marketplace_repository_impl.dart';
@@ -16,37 +17,40 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
   // REQUEST GUARDS
   // ============================================================
 
-  int _optionsRequestId = 0;
   int _resultsRequestId = 0;
-  int _nextAttributeRequestId = 0;
+  int _loadCategoryRequestId = 0;
 
   MarketplaceBloc({
     MarketplaceRepository? repository,
   })  : _repository = repository ?? MarketplaceRepositoryImpl(),
         super(const MarketplaceState()) {
     on<LoadMarketplaceCategory>(_onLoadCategory);
-    on<LoadMarketplaceOptions>(_onLoadOptions);
     on<SelectMarketplaceOption>(_onSelectOption);
     on<LoadMarketplaceResults>(_onLoadResults);
     on<ResetMarketplaceFilters>(_onReset);
   }
 
   // ============================================================
-  // LOAD CATEGORY
+  // LOAD CATEGORY + ALL OPTIONS (BATCH)
   // ============================================================
 
   Future<void> _onLoadCategory(
     LoadMarketplaceCategory event,
     Emitter<MarketplaceState> emit,
   ) async {
-    _optionsRequestId++;
-    _resultsRequestId++;
-    _nextAttributeRequestId++;
+    // ✅ DEBUG
+    debugPrint('🟢 [Bloc] LoadMarketplaceCategory called: '
+        'categoryId=${event.categoryId}, '
+        'categoryName=${event.categoryName}');
 
+    final requestId = ++_loadCategoryRequestId;
+    _resultsRequestId++;
+
+    // ─── Reset state ───
     emit(
       state.copyWith(
         isLoading: true,
-        isLoadingOptions: false,
+        isLoadingOptions: true,
         isLoadingResults: false,
         clearError: true,
         categoryId: event.categoryId,
@@ -60,119 +64,77 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
     );
 
     try {
+      // ─── 1) Get attributes ───
+      debugPrint(
+          '🟢 [Bloc] Fetching attributes for category=${event.categoryId}');
+
       final attributes = await _repository.getCategoryFlow(
         event.categoryId,
       );
 
-      if (isClosed) return;
+      debugPrint('🟢 [Bloc] Got ${attributes.length} attributes');
 
+      if (isClosed) return;
+      if (requestId != _loadCategoryRequestId) {
+        debugPrint('🟢 [Bloc] Request cancelled (attributes)');
+        return;
+      }
       if (state.categoryId != event.categoryId) {
+        debugPrint('🟢 [Bloc] Category changed (attributes)');
         return;
       }
 
       final sortedAttributes = List<MarketplaceAttribute>.from(attributes)
-        ..sort(
-          (a, b) => a.sortOrder.compareTo(b.sortOrder),
-        );
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
-      emit(
-        state.copyWith(
-          isLoading: false,
+      // ─── 2) Batch load ALL options for select attributes ───
+      Map<String, List<MarketplaceAttributeOption>> optionsMap = {};
+
+      try {
+        debugPrint('🟢 [Bloc] Fetching all filter options...');
+
+        optionsMap = await _repository.getAllFilterOptions(
+          categoryId: event.categoryId,
           attributes: sortedAttributes,
-        ),
-      );
-
-      // Empty filters = all offers.
-      add(const LoadMarketplaceResults());
-
-      // Start with the first attribute.
-      if (sortedAttributes.isNotEmpty) {
-        add(
-          LoadMarketplaceOptions(
-            attribute: sortedAttributes.first,
-          ),
         );
-      }
-    } catch (error) {
-      if (isClosed) return;
 
+        debugPrint('🟢 [Bloc] Got options for ${optionsMap.length} attributes');
+      } catch (e) {
+        debugPrint('🟢 [Bloc] ❌ getAllFilterOptions failed: $e');
+        optionsMap = <String, List<MarketplaceAttributeOption>>{};
+      }
+
+      if (isClosed) return;
+      if (requestId != _loadCategoryRequestId) {
+        debugPrint('🟢 [Bloc] Request cancelled (options)');
+        return;
+      }
       if (state.categoryId != event.categoryId) {
+        debugPrint('🟢 [Bloc] Category changed (options)');
         return;
       }
 
       emit(
         state.copyWith(
           isLoading: false,
-          errorMessage: _friendlyError(error),
-        ),
-      );
-    }
-  }
-
-  // ============================================================
-  // LOAD OPTIONS
-  // ============================================================
-
-  Future<void> _onLoadOptions(
-    LoadMarketplaceOptions event,
-    Emitter<MarketplaceState> emit,
-  ) async {
-    final categoryId = state.categoryId;
-
-    if (categoryId == null || categoryId.isEmpty) {
-      return;
-    }
-
-    final requestId = ++_optionsRequestId;
-
-    emit(
-      state.copyWith(
-        isLoadingOptions: true,
-        clearError: true,
-      ),
-    );
-
-    try {
-      final options = await _repository.getDynamicFilterOptions(
-        categoryId: categoryId,
-        attributeId: event.attribute.attributeId,
-        parentOptionId: event.parentOptionId,
-      );
-
-      if (isClosed) return;
-
-      if (requestId != _optionsRequestId) {
-        return;
-      }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
-
-      final optionsMap = <String, List<MarketplaceAttributeOption>>{
-        ...state.optionsByAttribute,
-        event.attribute.slug: options,
-      };
-
-      emit(
-        state.copyWith(
           isLoadingOptions: false,
+          attributes: sortedAttributes,
           optionsByAttribute: optionsMap,
         ),
       );
+
+      // ─── 3) Load all offers with empty filters ───
+      add(const LoadMarketplaceResults());
     } catch (error) {
+      debugPrint('🟢 [Bloc] ❌ _onLoadCategory error: $error');
+
       if (isClosed) return;
-
-      if (requestId != _optionsRequestId) {
-        return;
-      }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
+      if (requestId != _loadCategoryRequestId) return;
+      if (state.categoryId != event.categoryId) return;
 
       emit(
         state.copyWith(
+          isLoading: false,
           isLoadingOptions: false,
           errorMessage: _friendlyError(error),
         ),
@@ -181,278 +143,60 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
   }
 
   // ============================================================
-  // SELECT OPTION / VALUE
+  // SELECT OPTION
   // ============================================================
 
   Future<void> _onSelectOption(
     SelectMarketplaceOption event,
     Emitter<MarketplaceState> emit,
   ) async {
-    final currentAttribute = event.attribute;
+    debugPrint('🟢 [Bloc] SelectMarketplaceOption: '
+        'attribute=${event.attribute.slug}, '
+        'optionId=${event.optionId}, '
+        'value=${event.value}');
 
+    // ─── Validate attribute exists ───
     final attributeExists = state.attributes.any(
-      (attribute) => attribute.attributeId == currentAttribute.attributeId,
+      (attribute) => attribute.attributeId == event.attribute.attributeId,
     );
 
     if (!attributeExists) {
+      debugPrint('🟢 [Bloc] ⚠️ Attribute not in list — skipping');
       return;
     }
 
-    final categoryId = state.categoryId;
+    if (state.categoryId == null || state.categoryId!.isEmpty) return;
 
-    if (categoryId == null || categoryId.isEmpty) {
-      return;
-    }
+    final selectedIds = <String, String>{...state.selectedOptionIds};
+    final selectedValues = <String, String>{...state.selectedValues};
 
-    final selectedIds = <String, String>{
-      ...state.selectedOptionIds,
-    };
-
-    final selectedValues = <String, String>{
-      ...state.selectedValues,
-    };
-
-    final optionsMap = <String, List<MarketplaceAttributeOption>>{
-      ...state.optionsByAttribute,
-    };
-
-    // SAVE VALUE
     final value = event.value.trim();
 
     if (value.isEmpty) {
-      selectedValues.remove(currentAttribute.slug);
-      selectedIds.remove(currentAttribute.slug);
+      selectedValues.remove(event.attribute.slug);
+      selectedIds.remove(event.attribute.slug);
     } else {
-      selectedValues[currentAttribute.slug] = value;
+      selectedValues[event.attribute.slug] = value;
 
       if (event.optionId.trim().isNotEmpty) {
-        selectedIds[currentAttribute.slug] = event.optionId;
+        selectedIds[event.attribute.slug] = event.optionId;
       } else {
-        selectedIds.remove(currentAttribute.slug);
+        selectedIds.remove(event.attribute.slug);
       }
     }
 
-    // CLEAR OLD BRANCH
-    _removeStaleSelectionsAfterAttribute(
-      selectedIds: selectedIds,
-      selectedValues: selectedValues,
-      optionsMap: optionsMap,
-      currentAttributeId: currentAttribute.attributeId,
-    );
-
-    // INVALIDATE OLD REQUESTS
-    _optionsRequestId++;
     _resultsRequestId++;
-
-    final nextRequestId = ++_nextAttributeRequestId;
 
     emit(
       state.copyWith(
         selectedOptionIds: selectedIds,
         selectedValues: selectedValues,
-        optionsByAttribute: optionsMap,
         clearError: true,
       ),
     );
 
-    // NUMBER / TEXT ATTRIBUTE
-    final isValueAttribute = currentAttribute.inputType != 'select';
-
-    if (isValueAttribute) {
-      final nextAttribute = _getNextAttributeByOrder(
-        currentAttribute.attributeId,
-      );
-
-      if (nextAttribute != null) {
-        add(
-          LoadMarketplaceOptions(
-            attribute: nextAttribute,
-          ),
-        );
-      }
-
-      add(const LoadMarketplaceResults());
-      return;
-    }
-
-    // SELECT ATTRIBUTE
-    final optionId = event.optionId.trim();
-
-    if (optionId.isEmpty) {
-      final nextAttribute = _getNextAttributeByOrder(
-        currentAttribute.attributeId,
-      );
-
-      if (nextAttribute != null) {
-        add(
-          LoadMarketplaceOptions(
-            attribute: nextAttribute,
-          ),
-        );
-      }
-
-      add(const LoadMarketplaceResults());
-      return;
-    }
-
-    // ASK DATABASE FOR NEXT ATTRIBUTE
-    try {
-      final nextAttribute = await _repository.getNextAttribute(
-        categoryId: categoryId,
-        optionId: optionId,
-      );
-
-      if (isClosed) return;
-
-      if (nextRequestId != _nextAttributeRequestId) {
-        return;
-      }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
-
-      if (nextAttribute != null) {
-        final shouldUseParentOption = _shouldUseParentOption(
-          currentAttribute: currentAttribute,
-          nextAttribute: nextAttribute,
-        );
-
-        add(
-          LoadMarketplaceOptions(
-            attribute: nextAttribute,
-            parentOptionId: shouldUseParentOption ? optionId : null,
-          ),
-        );
-
-        add(const LoadMarketplaceResults());
-        return;
-      }
-
-      final fallbackNextAttribute = _getNextAttributeByOrder(
-        currentAttribute.attributeId,
-      );
-
-      if (fallbackNextAttribute != null) {
-        add(
-          LoadMarketplaceOptions(
-            attribute: fallbackNextAttribute,
-          ),
-        );
-      }
-
-      add(const LoadMarketplaceResults());
-    } catch (error) {
-      if (isClosed) return;
-
-      if (nextRequestId != _nextAttributeRequestId) {
-        return;
-      }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
-
-      emit(
-        state.copyWith(
-          errorMessage: _friendlyError(error),
-        ),
-      );
-
-      add(const LoadMarketplaceResults());
-
-      final fallbackNextAttribute = _getNextAttributeByOrder(
-        currentAttribute.attributeId,
-      );
-
-      if (fallbackNextAttribute != null) {
-        add(
-          LoadMarketplaceOptions(
-            attribute: fallbackNextAttribute,
-          ),
-        );
-      }
-    }
-  }
-
-  // ============================================================
-  // SHOULD USE PARENT OPTION?
-  // ============================================================
-
-  bool _shouldUseParentOption({
-    required MarketplaceAttribute currentAttribute,
-    required MarketplaceAttribute nextAttribute,
-  }) {
-    final currentSlug = currentAttribute.slug.trim().toLowerCase();
-    final nextSlug = nextAttribute.slug.trim().toLowerCase();
-
-    // Brand -> Model
-    if (currentSlug == 'brand' && nextSlug == 'model') {
-      return true;
-    }
-
-    return false;
-  }
-
-  // ============================================================
-  // GET NEXT ATTRIBUTE BY SORT ORDER
-  // ============================================================
-
-  MarketplaceAttribute? _getNextAttributeByOrder(
-    String currentAttributeId,
-  ) {
-    final attributes = List<MarketplaceAttribute>.from(state.attributes)
-      ..sort(
-        (a, b) => a.sortOrder.compareTo(b.sortOrder),
-      );
-
-    final currentIndex = attributes.indexWhere(
-      (attribute) => attribute.attributeId == currentAttributeId,
-    );
-
-    if (currentIndex == -1) {
-      return null;
-    }
-
-    final nextIndex = currentIndex + 1;
-
-    if (nextIndex >= attributes.length) {
-      return null;
-    }
-
-    return attributes[nextIndex];
-  }
-
-  // ============================================================
-  // REMOVE STALE SELECTIONS
-  // ============================================================
-
-  void _removeStaleSelectionsAfterAttribute({
-    required Map<String, String> selectedIds,
-    required Map<String, String> selectedValues,
-    required Map<String, List<MarketplaceAttributeOption>> optionsMap,
-    required String currentAttributeId,
-  }) {
-    final attributes = List<MarketplaceAttribute>.from(state.attributes)
-      ..sort(
-        (a, b) => a.sortOrder.compareTo(b.sortOrder),
-      );
-
-    final currentIndex = attributes.indexWhere(
-      (attribute) => attribute.attributeId == currentAttributeId,
-    );
-
-    if (currentIndex == -1) {
-      return;
-    }
-
-    for (var i = currentIndex + 1; i < attributes.length; i++) {
-      final attribute = attributes[i];
-
-      selectedIds.remove(attribute.slug);
-      selectedValues.remove(attribute.slug);
-      optionsMap.remove(attribute.slug);
-    }
+    // ─── Reload offers with new filters ───
+    add(const LoadMarketplaceResults());
   }
 
   // ============================================================
@@ -464,6 +208,10 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
     Emitter<MarketplaceState> emit,
   ) async {
     final categoryId = state.categoryId;
+
+    debugPrint('🟢 [Bloc] LoadMarketplaceResults: '
+        'categoryId=$categoryId, '
+        'filters=${state.selectedValues}');
 
     if (categoryId == null || categoryId.isEmpty) {
       emit(
@@ -491,15 +239,14 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
         filters: filters,
       );
 
+      debugPrint('🟢 [Bloc] ✅ Got ${offers.length} offers');
+
       if (isClosed) return;
-
       if (requestId != _resultsRequestId) {
+        debugPrint('🟢 [Bloc] Results request cancelled');
         return;
       }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
+      if (state.categoryId != categoryId) return;
 
       emit(
         state.copyWith(
@@ -508,15 +255,11 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
         ),
       );
     } catch (error) {
+      debugPrint('🟢 [Bloc] ❌ _onLoadResults error: $error');
+
       if (isClosed) return;
-
-      if (requestId != _resultsRequestId) {
-        return;
-      }
-
-      if (state.categoryId != categoryId) {
-        return;
-      }
+      if (requestId != _resultsRequestId) return;
+      if (state.categoryId != categoryId) return;
 
       emit(
         state.copyWith(
@@ -528,39 +271,24 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
   }
 
   // ============================================================
-  // RESET
+  // RESET FILTERS
   // ============================================================
 
   void _onReset(
     ResetMarketplaceFilters event,
     Emitter<MarketplaceState> emit,
   ) {
-    _optionsRequestId++;
+    debugPrint('🟢 [Bloc] ResetMarketplaceFilters');
+
     _resultsRequestId++;
-    _nextAttributeRequestId++;
 
     emit(
       state.copyWith(
-        optionsByAttribute: const <String, List<MarketplaceAttributeOption>>{},
         selectedOptionIds: const <String, String>{},
         selectedValues: const <String, String>{},
-        offers: const [],
         clearError: true,
       ),
     );
-
-    final attributes = List<MarketplaceAttribute>.from(state.attributes)
-      ..sort(
-        (a, b) => a.sortOrder.compareTo(b.sortOrder),
-      );
-
-    if (attributes.isNotEmpty) {
-      add(
-        LoadMarketplaceOptions(
-          attribute: attributes.first,
-        ),
-      );
-    }
 
     add(const LoadMarketplaceResults());
   }
@@ -573,14 +301,8 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
     final raw = error.toString().trim();
 
     final message = raw
-        .replaceFirst(
-          'PostgrestException(message:',
-          '',
-        )
-        .replaceFirst(
-          'Exception:',
-          '',
-        )
+        .replaceFirst('PostgrestException(message:', '')
+        .replaceFirst('Exception:', '')
         .trim();
 
     if (message.isEmpty) {

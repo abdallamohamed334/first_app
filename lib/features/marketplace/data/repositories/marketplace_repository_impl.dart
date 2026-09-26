@@ -5,6 +5,7 @@ import '../../domain/entities/marketplace_attribute_option.dart';
 import '../../domain/entities/marketplace_offer.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../datasources/marketplace_remote_datasource.dart';
+import '../models/marketplace_attribute_model.dart';
 
 class MarketplaceRepositoryImpl implements MarketplaceRepository {
   final MarketplaceRemoteDataSource _remoteDataSource;
@@ -65,11 +66,59 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     required String categoryId,
     required String attributeId,
     String? parentOptionId,
+    Map<String, String> filters = const {},
   }) {
     return _remoteDataSource.getDynamicFilterOptions(
       categoryId: categoryId,
       attributeId: attributeId,
       parentOptionId: parentOptionId,
+      filters: filters,
+    );
+  }
+
+  // ============================================================
+  // ✅ BATCH: كل الـ filter options مرة واحدة
+  // ============================================================
+
+  @override
+  Future<Map<String, List<MarketplaceAttributeOption>>> getAllFilterOptions({
+    required String categoryId,
+    required List<MarketplaceAttribute> attributes,
+    Map<String, String> filters = const {},
+  }) async {
+    // نحوّل الـ entities لـ models (لو هي أصلاً models نمررها زي ما هي)
+    final models = attributes.whereType<MarketplaceAttributeModel>().toList();
+
+    // لو مفيش models (يعني الـ entities مش من نفس النوع)، نبني models مؤقتة
+    final safeModels = models.isNotEmpty
+        ? models
+        : attributes
+            .map(
+              (a) => MarketplaceAttributeModel(
+                attributeId: a.attributeId,
+                slug: a.slug,
+                nameAr: a.nameAr,
+                nameEn: a.nameEn,
+                inputType: a.inputType,
+                sortOrder: a.sortOrder,
+                isRequired: a.isRequired,
+                isFilterable: a.isFilterable,
+              ),
+            )
+            .toList();
+
+    final result = await _remoteDataSource.getAllFilterOptions(
+      categoryId: categoryId,
+      attributes: safeModels,
+      filters: filters,
+    );
+
+    // نحوّل الـ Map من models لـ entities
+    return result.map(
+      (key, value) => MapEntry(
+        key,
+        value.cast<MarketplaceAttributeOption>(),
+      ),
     );
   }
 

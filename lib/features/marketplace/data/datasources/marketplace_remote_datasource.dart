@@ -109,15 +109,15 @@ class MarketplaceRemoteDataSource {
     required String categoryId,
     required String attributeId,
     String? parentOptionId,
+    Map<String, String> filters = const {},
   }) async {
-    // ✅ نبعت كل الباراميترز — الـ RPC بتقبلهم
     final response = await _supabase.rpc(
       'get_marketplace_dynamic_filter_options',
       params: {
         'p_category_id': categoryId,
         'p_attribute_id': attributeId,
         'p_parent_option_id': parentOptionId,
-        'p_filters': <String, String>{},
+        'p_filters': filters,
       },
     );
 
@@ -133,6 +133,43 @@ class MarketplaceRemoteDataSource {
           ),
         )
         .toList();
+  }
+
+  // ============================================================
+  // ✅ BATCH: جيب options كل الـ select attributes مرة واحدة
+  // ============================================================
+
+  Future<Map<String, List<MarketplaceAttributeOptionModel>>>
+      getAllFilterOptions({
+    required String categoryId,
+    required List<MarketplaceAttributeModel> attributes,
+    Map<String, String> filters = const {},
+  }) async {
+    // ناخد بس الخصائص القابلة للفلترة (select)
+    final selectAttributes =
+        attributes.where((a) => a.inputType == 'select').toList();
+
+    if (selectAttributes.isEmpty) {
+      return <String, List<MarketplaceAttributeOptionModel>>{};
+    }
+
+    // نجيب options كل خاصية بالتوازي
+    final futures = selectAttributes.map((attr) async {
+      try {
+        final options = await getDynamicFilterOptions(
+          categoryId: categoryId,
+          attributeId: attr.attributeId,
+          filters: filters,
+        );
+        return MapEntry(attr.slug, options);
+      } catch (e) {
+        return MapEntry(attr.slug, <MarketplaceAttributeOptionModel>[]);
+      }
+    }).toList();
+
+    final results = await Future.wait(futures);
+
+    return Map.fromEntries(results);
   }
 
   // ============================================================

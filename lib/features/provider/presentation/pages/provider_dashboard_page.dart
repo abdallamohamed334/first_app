@@ -38,6 +38,9 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     _load();
   }
 
+  // ══════════════════════════════════════════════════════════
+  // Load — مع الفحص التلقائي للظهور
+  // ══════════════════════════════════════════════════════════
   Future<void> _load() async {
     setState(() => _loading = true);
 
@@ -50,8 +53,37 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
         _snack(err, error: true);
       },
       (provider) async {
+        // ══════════════════════════════════════════════════════════
+        // ✅ فحص تلقائي: لو البروفايل ناقص و is_available=true → صفّره
+        // ══════════════════════════════════════════════════════════
+        final isVisible = provider['is_available'] as bool? ?? false;
+        final missing = _repo.checkProfileCompletion(provider);
+
+        if (isVisible && missing.isNotEmpty) {
+          debugPrint(
+            '🔒 [Dashboard] Profile incomplete → forcing is_available=false',
+          );
+
+          // ✅ صفّر الظهور في DB
+          try {
+            await _repo.toggleAvailability(
+              providerId: provider['id'].toString(),
+              isAvailable: false,
+            );
+            // ✅ حدّث القيمة محلياً
+            provider = {
+              ...provider,
+              'is_available': false,
+            };
+          } catch (e) {
+            debugPrint('❌ Failed to reset visibility: $e');
+          }
+        }
+
+        if (!mounted) return;
         setState(() => _provider = provider);
 
+        // ✅ جيب الإحصائيات
         final statsResult =
             await _repo.getProviderStats(provider['id'].toString());
 
@@ -69,7 +101,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   }
 
   // ══════════════════════════════════════════════════════════
-  // ✅ Toggle Visibility (مع فحص البروفايل)
+  // Toggle Visibility (مع فحص البروفايل)
   // ══════════════════════════════════════════════════════════
   Future<void> _toggleVisibility(bool value) async {
     if (_provider == null) return;
@@ -117,7 +149,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   }
 
   // ══════════════════════════════════════════════════════════
-  // ✅ Dialog البروفايل الناقص
+  // Dialog البروفايل الناقص
   // ══════════════════════════════════════════════════════════
   Future<void> _showIncompleteProfileDialog(List<String> missing) async {
     await showDialog<void>(

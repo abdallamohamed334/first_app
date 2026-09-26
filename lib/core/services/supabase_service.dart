@@ -9,6 +9,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../models/community_stats.dart';
 import 'fcm_notification_service.dart';
+// ✅ AuthStateNotifier — عشان ننضف الحالة عند تسجيل الخروج
+import 'auth_state_notifier.dart';
 
 class RewardData {
   final String id;
@@ -90,6 +92,10 @@ class SupabaseService {
     await _fcmNotifications.dispose();
     await _fcmNotifications.unregister();
     await client.auth.signOut(scope: SignOutScope.local);
+
+    // ✅ الأهم: ننضف الـ AuthStateNotifier عشان ما يفضلش عالق
+    AuthStateNotifier.instance.clear();
+    debugPrint('🔔 [AuthState] cleared after signOut');
   }
 
   Future<User?> getCurrentUser() async {
@@ -233,23 +239,32 @@ class SupabaseService {
       var user = UserModel.fromJson(response);
       final role = user.type.value.toLowerCase();
 
-      if (role == 'provider') {
-        try {
-          final provider = await adminClient
-              .from('service_providers')
-              .select('id')
-              .eq('user_id', user.id)
-              .maybeSingle();
+      // ✅ نبحث دائمًا عن ملف مزود الخدمة.
+      // لا نعتمد على users.user_type لأن الحساب قد يكون user
+      // مع وجود service_providers.verification_status=approved.
+      Map<String, dynamic>? provider;
+      try {
+        provider = await adminClient
+            .from('service_providers')
+            .select('id, verification_status, is_active')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-          if (provider != null) {
-            user = user.copyWith(
-              serviceProviderId: provider['id'] as String?,
-            );
-          }
-        } catch (e) {
-          debugPrint('⚠️ Provider enrichment skipped: $e');
+        if (provider != null) {
+          user = user.copyWith(
+            serviceProviderId: provider['id']?.toString(),
+          );
         }
+      } catch (e) {
+        debugPrint('⚠️ Provider enrichment skipped: $e');
       }
+
+      // ✅ مزامنة الدور النهائي قبل أن يقرر الـ router الصفحة.
+      await _syncAuthStateForUser(
+        user: user,
+        profile: response,
+        provider: provider,
+      );
 
       if (role == 'institution') {
         try {
@@ -273,6 +288,49 @@ class SupabaseService {
     } catch (e) {
       debugPrint('❌ Error getting user by id: $e');
       return null;
+    }
+  }
+
+  Future<void> _syncAuthStateForUser({
+    required UserModel user,
+    required Map<String, dynamic> profile,
+    required Map<String, dynamic>? provider,
+  }) async {
+    try {
+      final authState = AuthStateNotifier.instance;
+      authState.beginSync();
+
+      final hasProvider = provider != null;
+      final resolvedRole = hasProvider
+          ? 'provider'
+          : ((profile['user_type']?.toString().trim().isNotEmpty == true)
+              ? profile['user_type'].toString().trim().toLowerCase()
+              : (profile['role']?.toString().trim().toLowerCase() ?? 'user'));
+
+      final providerStatus =
+          provider?['verification_status']?.toString().trim().toLowerCase();
+
+      final active = profile['is_active'] != false &&
+          (provider == null || provider['is_active'] != false);
+
+      debugPrint(
+        '✅ [Auth Sync] role=$resolvedRole '
+        'providerStatus=$providerStatus active=$active '
+        'providerFound=$hasProvider',
+      );
+
+      authState.setLoggedIn(
+        isLoggedIn: true,
+        role: resolvedRole,
+        providerStatus: providerStatus,
+        isActive: active,
+        authResolved: true,
+      );
+    } catch (error, stack) {
+      debugPrint('❌ [Auth Sync] failed: $error');
+      debugPrintStack(stackTrace: stack);
+      // لا نفتح الصفحة الرئيسية على أساس role=user عند فشل المزامنة.
+      AuthStateNotifier.instance.clear();
     }
   }
 

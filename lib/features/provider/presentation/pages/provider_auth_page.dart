@@ -116,25 +116,62 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
   }
 
   /// ✅ يروح لصفحة Pending
-  void _goToPendingPage(Map<String, dynamic> provider) {
-    final status = provider['verification_status']?.toString() ?? 'pending';
+  Future<void> _goToPendingPage(Map<String, dynamic> provider) async {
+    final status = (provider['verification_status']?.toString() ?? 'pending')
+        .trim()
+        .toLowerCase();
     final isActive = provider['is_active'] as bool? ?? true;
+    final rejected = status == 'rejected';
+    final suspended = status == 'suspended' || !isActive;
 
     debugPrint(
-      '🚫 [Provider] → PendingPage (status=$status, active=$isActive)',
+      '🚫 [Provider] blocked login (status=$status, active=$isActive)',
     );
 
-    // ✅ نحدّث الـ notifier
+    if (rejected || suspended) {
+      if (mounted) {
+        setState(() => _loading = false);
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(
+              rejected
+                  ? 'تم رفض حساب مزود الخدمة'
+                  : 'تم إيقاف حساب مزود الخدمة',
+              textAlign: TextAlign.right,
+            ),
+            content: Text(
+              rejected
+                  ? 'لا يمكن الدخول إلى صفحة مزود الخدمة لأن الحساب مرفوض. تواصل مع الدعم لمعرفة السبب.'
+                  : 'تم إيقاف حساب مزود الخدمة. تواصل مع الدعم لإعادة تفعيل الحساب.',
+              textAlign: TextAlign.right,
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('حسنًا'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      await _repo.logout();
+      if (mounted) context.go(AppRouter.userTypeSelection);
+      return;
+    }
+
     AuthStateNotifier.instance.setLoggedIn(
       isLoggedIn: true,
       role: 'provider',
       providerStatus: status,
       isActive: isActive,
+      authResolved: true,
     );
 
     if (!mounted) return;
     setState(() => _loading = false);
-
     context.go(AppRouter.providerPending, extra: provider);
   }
 
@@ -272,7 +309,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
 
     if (status != 'approved' || !isActive) {
       // ✅ روح PendingPage بدون إرسال OTP
-      _goToPendingPage(existingProvider!);
+      await _goToPendingPage(existingProvider!);
       return;
     }
 
@@ -350,7 +387,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     // 2️⃣ ✅ لو الرقم مسجل بالفعل → روح PendingPage فوراً
     // ══════════════════════════════════════════════════════════
     if (existingProvider != null) {
-      _goToPendingPage(existingProvider!);
+      await _goToPendingPage(existingProvider!);
       return;
     }
 

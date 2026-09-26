@@ -118,9 +118,11 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
       },
       (data) {
         final provider = data['provider'] as Map<String, dynamic>;
-        final status = data['status']?.toString() ??
-            provider['verification_status']?.toString() ??
-            'pending';
+        final status = (data['status']?.toString() ??
+                provider['verification_status']?.toString() ??
+                'pending')
+            .trim()
+            .toLowerCase();
         final isActive = provider['is_active'] as bool? ?? true;
         final needsApproval = data['needsApproval'] == true;
 
@@ -137,10 +139,15 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
           role: 'provider',
           providerStatus: status,
           isActive: isActive,
+          authResolved: true,
         );
 
-        // ✅ التوجيه
-        if (needsApproval || status != 'approved') {
+        if (!mounted) return;
+        setState(() => _verifying = false);
+
+        // ✅ التوجيه النهائي حسب حالة المزود.
+        // approved + active فقط يذهب إلى لوحة مزود الخدمة.
+        if (needsApproval || status != 'approved' || !isActive) {
           context.go(AppRouter.providerPending, extra: provider);
         } else {
           context.go(AppRouter.providerHome);

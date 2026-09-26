@@ -33,27 +33,13 @@ abstract class MarketplaceRepository {
   // Color
   //   ↓
   // Condition
-  //   ↓
-  // Air Conditioning
-  //   ↓
-  // Interior
-  //   ↓
-  // Number Of Owners
-  //   ↓
-  // Payment Method
-  //   ↓
-  // Down Payment
-  //   ↓
-  // Engine Capacity
   //
   // Other categories:
   //
-  // Condition
+  // Brand
   //
   // "other":
   //
-  // Condition
-  //   ↓
   // Item Type
   //
   // The actual configuration comes from:
@@ -90,9 +76,6 @@ abstract class MarketplaceRepository {
   // Flutter should not assume that every next attribute depends
   // on the previous selected option.
   //
-  // For attributes that don't have option-based branching,
-  // MarketplaceBloc can fall back to sort_order.
-  //
 
   Future<MarketplaceAttribute?> getNextAttribute({
     required String categoryId,
@@ -102,15 +85,6 @@ abstract class MarketplaceRepository {
   // ============================================================
   // LEGACY / BASIC ATTRIBUTE OPTIONS
   // ============================================================
-  //
-  // Kept for compatibility with existing marketplace code.
-  //
-  // New marketplace browsing should normally use:
-  //
-  // getDynamicFilterOptions()
-  //
-  // instead.
-  //
 
   Future<List<MarketplaceAttributeOption>> getAttributeOptions({
     required String attributeId,
@@ -134,20 +108,31 @@ abstract class MarketplaceRepository {
   //
   // -> return Toyota models only.
   //
-  // For independent attributes such as:
-  //
-  // Condition
-  // Fuel Type
-  // Transmission
-  // Color
-  //
-  // parentOptionId can be null.
-  //
 
   Future<List<MarketplaceAttributeOption>> getDynamicFilterOptions({
     required String categoryId,
     required String attributeId,
     String? parentOptionId,
+    Map<String, String> filters = const {},
+  });
+
+  // ============================================================
+  // ✅ BATCH: كل الـ filter options مرة واحدة
+  // ============================================================
+  //
+  // Returns a map where:
+  //   key   = attribute slug
+  //   value = list of options for that attribute
+  //
+  // This avoids N round-trips to the database when the filters
+  // section is opened. Options for all filterable (select)
+  // attributes are fetched in a single call.
+  //
+
+  Future<Map<String, List<MarketplaceAttributeOption>>> getAllFilterOptions({
+    required String categoryId,
+    required List<MarketplaceAttribute> attributes,
+    Map<String, String> filters = const {},
   });
 
   // ============================================================
@@ -159,10 +144,6 @@ abstract class MarketplaceRepository {
   // Empty filters means:
   //
   // -> return all active/published offers in the category.
-  //
-  // This is important because old/legacy offers that don't have
-  // marketplace_offer_attributes should still be visible when
-  // the user hasn't selected filters.
   //
   // Example:
   //

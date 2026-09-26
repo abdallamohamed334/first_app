@@ -1,16 +1,20 @@
 // lib/features/auth/presentation/pages/institution_login_page.dart
 //
-// ✅ صفحة تسجيل دخول مخصصة للمؤسسات فقط. مفيش أي رابط "إنشاء حساب"
-// هنا لأن حسابات المؤسسات بتتضاف يدويًا من فريق لقمة. بعد نجاح
-// الدخول بيتم التأكد إن الحساب ده فعلاً حساب مؤسسة/شريك، ولو حساب
-// مستخدم عادي غلط بيدخل من هنا، بيتسجل خروجه تلقائيًا وتظهر رسالة
-// واضحة توجهه لصفحة الدخول الصح.
+// ✅ صفحة تسجيل دخول مخصصة للمؤسسات/الشركاء فقط.
+// مفيش أي رابط "إنشاء حساب" هنا لأن الحسابات بتتضاف يدويًا من فريق لقمة.
+//
+// القاعدة:
+//   • جمعية (charity)     → /charity-home
+//   • مطعم (restaurant)   → /restaurant-home
+//   • أي نوع تاني         → /institutions-home
+//   • user / admin / provider → ❌ يترفض + signOut + رسالة
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class InstitutionLoginPage extends StatefulWidget {
@@ -38,14 +42,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
   static const _cardBg = Color(0xFFFFFBF5);
   static const _red = Color(0xFFB54747);
 
-  static const _businessUserTypes = {
-    'restaurant',
-    'business',
-    'hotel',
-    'supermarket',
-    'bakery',
-    'cafe',
-  };
+  /// الأنواع المرفوضة من بوابة المؤسسات
+  static const _blockedTypes = {'user', 'admin', 'provider'};
 
   @override
   void dispose() {
@@ -57,7 +55,6 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
   // ═══════════════════════════════════════════════════════════
   // LOGIN
   // ═══════════════════════════════════════════════════════════
-
   Future<void> _login() async {
     if (!_formKey.currentState!.validate() || _loading) return;
 
@@ -79,43 +76,76 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         throw const AuthException('تعذر تسجيل الدخول');
       }
 
+      // ✅ نقرأ user_type + is_active من جدول users
+      // user_type هو اللي بيحدد نوع الحساب (مش عمود role)
       final userData = await client
           .from('users')
-          .select('user_type')
+          .select('user_type, is_active')
           .eq('id', user.id)
           .maybeSingle();
 
       final type = userData?['user_type']?.toString().toLowerCase() ?? '';
+      final isActive = userData?['is_active'] as bool? ?? true;
 
       if (!mounted) return;
 
-      // ✅ صفحة واحدة لكل اللي مش "مستخدم عادي": مطاعم، مؤسسات،
-      // جمعيات، وأي نوع تجاري تاني — كل واحد يروح لصفحته حسب نوعه،
-      // بنفس التصنيف اللي السبلاش بيستخدمه بالظبط.
+      // ═══════════════════════════════════════════════════════
+      // ❌ رفض: مستخدم عادي / أدمن / مزود خدمة
+      // ═══════════════════════════════════════════════════════
+      if (type.isEmpty || _blockedTypes.contains(type)) {
+        await client.auth.signOut();
+
+        String message;
+        switch (type) {
+          case 'provider':
+            message =
+                'الحساب ده حساب مزود خدمة. ادخل من صفحة تسجيل دخول مزودي الخدمة.';
+            break;
+          case 'admin':
+            message = 'الحساب ده حساب أدمن. ادخل من لوحة التحكم.';
+            break;
+          case 'user':
+            message =
+                'الحساب ده حساب مستخدم عادي. ادخل من صفحة تسجيل الدخول التانية.';
+            break;
+          default:
+            message = 'تعذر التعرف على نوع الحساب. تواصل مع فريق لقمة.';
+        }
+
+        if (!mounted) return;
+        setState(() => _errorMessage = message);
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════
+      // ✅ ضبط الـ AuthStateNotifier بالـ user_type الصح
+      // عشان الـ router ما يوجهش على /home بالغلط
+      // ═══════════════════════════════════════════════════════
+      AuthStateNotifier.instance.setLoggedIn(
+        isLoggedIn: true,
+        role:
+            type, // institution | charity | restaurant | hotel | business | ...
+        isActive: isActive,
+      );
+
+      if (!mounted) return;
+
+      // ═══════════════════════════════════════════════════════
+      // ✅ التوجيه حسب النوع
+      // ═══════════════════════════════════════════════════════
       if (type == 'charity') {
         context.go(AppRouter.charityHome);
         return;
       }
 
-      if (type == 'institution') {
-        context.go(AppRouter.institutionsHome);
-        return;
-      }
-
-      if (_businessUserTypes.contains(type)) {
+      if (type == 'restaurant') {
         context.go(AppRouter.restaurantHome);
         return;
       }
 
-      // ✅ الحساب ده حساب مستخدم عادي (أو نوع غير معروف) —
-      // سجّله خروج ووريه رسالة واضحة توجهه للمكان الصح
-      await client.auth.signOut();
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = type == 'user'
-            ? 'الحساب ده حساب مستخدم عادي. ادخل من صفحة تسجيل الدخول التانية.'
-            : 'تعذر التعرف على نوع الحساب. تواصل مع فريق لقمة.';
-      });
+      // ✅ أي نوع تاني (institution / hotel / business / supermarket /
+      // bakery / cafe / company / أي نوع جديد) → المؤسسات
+      context.go(AppRouter.institutionsHome);
     } on AuthException catch (_) {
       if (!mounted) return;
       setState(
@@ -132,7 +162,6 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
   // ═══════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     return Directionality(
