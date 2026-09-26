@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.8
+  app_links: ^7.2.1
+
   flutter_map: 6.2.1
   sqflite: ^2.3.3
   flutter_cache_manager: ^3.3.0
