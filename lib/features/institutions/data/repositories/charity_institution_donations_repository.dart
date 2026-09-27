@@ -26,8 +26,11 @@ class CharityInstitutionDonationsRepository {
   }
 
   Future<List<Map<String, dynamic>>> listCharityVolunteers() async {
-    await _currentCharityId();
-    final raw = await _client.rpc('list_my_charity_volunteers_manage');
+    final charityId = await _currentCharityId();
+    final raw = await _client.rpc(
+      'list_my_charity_volunteers_manage',
+      params: {'p_charity_id': charityId},
+    );
     if (raw is! List) return const <Map<String, dynamic>>[];
 
     return raw

@@ -1393,11 +1393,15 @@ class InstitutionOffersRepository {
         throw Exception('معرف العرض غير موجود');
       }
 
+      if (status != 'active' && status != 'paused') {
+        throw Exception('حالة العرض غير مدعومة في هذا المسار');
+      }
+
       final result = await _client.rpc(
-        'update_institution_offer_status',
+        'toggle_institution_offer_status',
         params: {
           'p_offer_id': cleanOfferId,
-          'p_status': status,
+          'p_new_status': status,
         },
       );
 

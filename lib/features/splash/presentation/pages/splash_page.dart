@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:loqma/features/institutions/domain/entities/institution.dart';
 
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -125,17 +126,45 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       try {
         final userData = await client
             .from('users')
-            .select('role, name, city')
+            .select('role, user_type, name, city')
             .eq('id', session.user.id)
             .maybeSingle();
 
-        final role =
-            userData?['role']?.toString().toLowerCase().trim() ?? 'user';
+        final profileRole =
+            (userData?['role'] ?? userData?['user_type'] ?? 'user')
+                .toString()
+                .toLowerCase()
+                .trim();
+
+        Map<String, dynamic>? institutionRow;
+        try {
+          institutionRow = await client
+              .from('institutions')
+              .select('institution_type, status')
+              .eq('user_id', session.user.id)
+              .maybeSingle();
+        } catch (error) {
+          debugPrint('⚠️ [Splash] institution lookup skipped: $error');
+        }
+
+        final institutionType = institutionRow?['institution_type']
+            ?.toString()
+            .toLowerCase()
+            .trim();
+        final role = institutionType == null || institutionType.isEmpty
+            ? profileRole
+            : institutionType;
 
         debugPrint('🔴 [Splash] role=$role');
 
         String? providerStatus;
+        String? institutionStatus;
         bool isActive = true;
+
+        if (institutionRow != null) {
+          institutionStatus = institutionRow['status']?.toString();
+          isActive = Institution.isAllowedStatus(institutionStatus);
+        }
 
         // ✅ لو provider → نجيب حالته
         if (role == 'provider') {
@@ -168,6 +197,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           isLoggedIn: true,
           role: role,
           providerStatus: providerStatus,
+          institutionStatus: institutionStatus,
           isActive: isActive,
         );
 

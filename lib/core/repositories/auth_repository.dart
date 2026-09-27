@@ -555,34 +555,60 @@ class AuthRepository {
           .eq('user_id', userId)
           .maybeSingle();
 
+      Map<String, dynamic>? institution;
+      try {
+        institution = await _supabase.client
+            .from('institutions')
+            .select('institution_type, status')
+            .eq('user_id', userId)
+            .maybeSingle();
+      } catch (error) {
+        debugPrint('⚠️ [Auth Sync] institution lookup skipped: $error');
+      }
+
       final hasProviderProfile = provider != null;
+      final institutionType = institution?['institution_type']
+          ?.toString()
+          .trim()
+          .toLowerCase();
       final resolvedRole = hasProviderProfile
           ? 'provider'
-          : ((profile?['user_type']
+          : (institutionType != null && institutionType.isNotEmpty
+              ? institutionType
+              : ((profile?['user_type']
                       ?.toString()
                       .trim()
                       .toLowerCase()
                       .isNotEmpty ==
                   true)
               ? profile!['user_type'].toString().trim().toLowerCase()
-              : (profile?['role']?.toString().trim().toLowerCase() ?? 'user'));
+              : (profile?['role']?.toString().trim().toLowerCase() ??
+                  'user'))));
 
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();
+      final institutionStatus =
+          institution?['status']?.toString().trim().toLowerCase();
 
       final active = profile?['is_active'] != false &&
-          (provider == null || provider['is_active'] != false);
+          (provider == null || provider['is_active'] != false) &&
+          (institution == null ||
+              institutionStatus == 'active' ||
+              institutionStatus == 'approved');
 
       debugPrint(
         '✅ [Auth Sync] role=$resolvedRole '
         'providerStatus=$providerStatus active=$active '
-        'providerFound=$hasProviderProfile',
+        'providerFound=$hasProviderProfile '
+        'institutionStatus=$institutionStatus '
+        'institutionFound=${institution != null}',
       );
 
       authState.setLoggedIn(
         isLoggedIn: true,
         role: resolvedRole,
         providerStatus: providerStatus,
+        institutionStatus: institutionStatus,
         isActive: active,
         authResolved: true,
       );

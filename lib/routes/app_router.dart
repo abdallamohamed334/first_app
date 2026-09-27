@@ -161,6 +161,56 @@ class AppRouter {
       }
 
       // ══════════════════════════════════════════════════════════
+      // ✅ Institution restrictions — keep institution accounts out of
+      // the ordinary-user home and remove access when their account is
+      // no longer active/approved.
+      // ══════════════════════════════════════════════════════════
+      const institutionRoles = {
+        'institution',
+        'business',
+        'restaurant',
+        'grocery',
+        'bakery',
+        'pastry_shop',
+        'sweets',
+        'juice_shop',
+        'butcher',
+        'fish_market',
+        'poultry_shop',
+        'dairy_shop',
+        'food_factory',
+        'catering',
+        'food_truck',
+        'hotel',
+        'resort',
+        'wedding_hall',
+        'company',
+        'cafe',
+        'game_store',
+        'pharmacy',
+        'clinic',
+        'school',
+        'university',
+        'bookstore',
+        'clothing_store',
+        'electronics_store',
+        'furniture_store',
+        'market',
+        'supermarket',
+        'other',
+      };
+      if (institutionRoles.contains(auth.role)) {
+        final institutionAllowed = auth.isActive &&
+            {'active', 'approved'}.contains(auth.institutionStatus);
+
+        if (!institutionAllowed) {
+          if (loc != userTypeSelection) return userTypeSelection;
+        } else if (loc == home) {
+          return auth.homeRoute;
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════
       // ✅ مسجل دخول → لو على صفحة auth/ترحيب → نروح للـ home
       // ⚠️ ماعدا /institution-login: سيبها تتحكم بنفسها عشان
       // تقدر توجه حسب user_type قبل ما الـ redirect يسبقها.

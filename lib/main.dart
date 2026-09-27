@@ -33,6 +33,7 @@ import 'core/services/supabase_service.dart';
 // ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
 import 'core/services/auth_state_notifier.dart';
 import 'core/theme/app_theme.dart';
+import 'features/institutions/domain/entities/institution.dart';
 
 // ✅ ThemeNotifier
 import 'core/theme/theme_notifier.dart';
@@ -147,7 +148,7 @@ Future<void> main() async {
 // ═══════════════════════════════════════════════════════════════
 int _authSyncGeneration = 0;
 
-/// مزامنة الجلسة مع users و service_providers قبل السماح للـ router بالتوجيه.
+/// مزامنة الجلسة مع users و service_providers و institutions قبل السماح للـ router بالتوجيه.
 /// لا نحدد الدور من users.user_type وحده، لأن الحساب قد يكون مستخدمًا ومزود خدمة.
 void _attachAuthStateSync() {
   Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
@@ -196,6 +197,19 @@ void _attachAuthStateSync() {
 
       final profile = results[0] as Map<String, dynamic>?;
       final provider = results[1] as Map<String, dynamic>?;
+      Map<String, dynamic>? institution;
+      try {
+        institution = await client
+            .from('institutions')
+            .select('id, institution_type, status, is_verified')
+            .eq('user_id', userId)
+            .maybeSingle();
+      } catch (error) {
+        // Institutions may have stricter RLS than the users table. Do not
+        // break ordinary-user/provider session recovery when that query is
+        // unavailable; the institution login flow still validates ownership.
+        debugPrint('⚠️ [AuthState] institution lookup skipped: $error');
+      }
 
       if (profile == null) {
         debugPrint('⚠️ [AuthState] no user row for $userId');
@@ -207,22 +221,37 @@ void _attachAuthStateSync() {
           .toString()
           .trim()
           .toLowerCase();
-      final resolvedRole = provider == null ? profileRole : 'provider';
+      final institutionType = institution?['institution_type']
+          ?.toString()
+          .trim()
+          .toLowerCase();
+      final resolvedRole = provider != null
+          ? 'provider'
+          : (institutionType == null || institutionType.isEmpty
+              ? profileRole
+              : institutionType);
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();
+      final institutionStatus =
+          institution?['status']?.toString().trim().toLowerCase();
       final isActive = profile['is_active'] != false &&
-          (provider == null || provider['is_active'] != false);
+          (provider == null || provider['is_active'] != false) &&
+          (institution == null ||
+              Institution.isAllowedStatus(institutionStatus));
 
       debugPrint(
         '✅ [AuthState] resolved role=$resolvedRole '
         'providerStatus=$providerStatus active=$isActive '
-        'providerFound=${provider != null}',
+        'providerFound=${provider != null} '
+        'institutionStatus=$institutionStatus '
+        'institutionFound=${institution != null}',
       );
 
       authState.setLoggedIn(
         isLoggedIn: true,
         role: resolvedRole,
         providerStatus: providerStatus,
+        institutionStatus: institutionStatus,
         isActive: isActive,
         authResolved: true,
       );

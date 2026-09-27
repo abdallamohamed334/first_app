@@ -533,7 +533,7 @@ class InstitutionsRepository {
       );
     }
 
-    if (ownedInstitution['status']?.toString() != 'active') {
+    if (!Institution.isAllowedStatus(ownedInstitution['status'])) {
       throw const FormatException(
         'حساب المؤسسة غير نشط حاليًا',
       );
@@ -699,91 +699,37 @@ class InstitutionsRepository {
     String? contactPhone,
   }) async {
     try {
-      final Map<String, dynamic> data = {
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      };
-
-      if (title != null) {
-        data['title'] = title.trim();
-      }
-
-      if (description != null) {
-        data['description'] = description.trim();
-      }
-
-      if (category != null) {
-        data['category'] = category;
-      }
-
-      if (quantity != null) {
-        data['quantity'] = quantity;
-      }
-
-      if (remainingQuantity != null) {
-        data['remaining_quantity'] = remainingQuantity;
-      }
-
-      if (symbolicPrice != null) {
-        data['symbolic_price'] = symbolicPrice;
-      }
-
-      if (originalPrice != null) {
-        data['original_price'] = originalPrice;
-      }
-
-      if (images != null) {
-        data['images'] = images;
-      }
-
-      if (pickupLocation != null) {
-        data['pickup_location'] = pickupLocation.trim();
-      }
-
-      if (expiresAt != null) {
-        data['expires_at'] = expiresAt.toUtc().toIso8601String();
-      }
-
-      if (pickupBefore != null) {
-        data['pickup_before'] = pickupBefore.toUtc().toIso8601String();
-      }
-
-      if (status != null) {
-        data['status'] = status;
-      }
-
-      if (foodType != null) {
-        data['food_type'] = foodType;
-      }
-
-      if (isHalal != null) {
-        data['is_halal'] = isHalal;
-      }
-
-      if (isVegetarian != null) {
-        data['is_vegetarian'] = isVegetarian;
-      }
-
-      if (foodCondition != null) {
-        data['food_condition'] = foodCondition;
-      }
-
-      if (requiresRefrigeration != null) {
-        data['requires_refrigeration'] = requiresRefrigeration;
-      }
-
-      if (pickupNotes != null) {
-        data['pickup_notes'] = pickupNotes.trim();
-      }
-
-      if (contactPhone != null) {
-        data['contact_phone'] = contactPhone.trim();
-      }
-
-      data.removeWhere(
-        (key, value) => value == null || (value is String && value.isEmpty),
+      final result = await _client.rpc(
+        'update_institution_offer',
+        params: {
+          'p_offer_id': offerId.trim(),
+          'p_title': title?.trim(),
+          'p_description': description?.trim(),
+          'p_category': category,
+          'p_quantity': quantity,
+          'p_remaining_quantity': remainingQuantity,
+          'p_symbolic_price': symbolicPrice,
+          'p_original_price': originalPrice,
+          'p_images': images,
+          'p_pickup_location': pickupLocation?.trim(),
+          'p_expires_at': expiresAt?.toUtc().toIso8601String(),
+          'p_pickup_end': pickupBefore?.toUtc().toIso8601String(),
+          'p_status': status,
+          'p_food_type': foodType,
+          'p_is_halal': isHalal,
+          'p_is_vegetarian': isVegetarian,
+          'p_food_condition': foodCondition,
+          'p_requires_refrigeration': requiresRefrigeration,
+          'p_pickup_notes': pickupNotes?.trim(),
+          'p_contact_phone': contactPhone?.trim(),
+        },
       );
 
-      await _client.from('institution_offers').update(data).eq('id', offerId);
+      if (result is Map && result['success'] == false) {
+        throw FormatException(
+          result['message']?.toString() ?? 'تعذر تحديث العرض',
+        );
+      }
     } catch (e) {
       throw Exception(
         'فشل تحديث العرض: $e',
@@ -960,40 +906,26 @@ class InstitutionsRepository {
       );
     }
 
-    final data = <String, dynamic>{
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    };
+    final result = await _client.rpc(
+      'update_my_institution_profile',
+      params: {
+        'p_name': name,
+        'p_institution_type': institutionType,
+        'p_phone': phone,
+        'p_city': city,
+        'p_address': address,
+        'p_description': description,
+        'p_logo_url': logoUrl,
+        'p_cover_image_url': coverImageUrl,
+      },
+    );
 
-    void put(
-      String key,
-      String? value,
-    ) {
-      if (value != null) {
-        data[key] = value.trim();
-      }
+    if (result is! Map) {
+      throw const FormatException('استجابة غير صالحة من الخادم');
     }
 
-    put('name', name);
-    put('institution_type', institutionType);
-    put('phone', phone);
-    put('city', city);
-    put('address', address);
-    put('description', description);
-    put('logo_url', logoUrl);
-    put('cover_image_url', coverImageUrl);
-
-    final row = await _client
-        .from('institutions')
-        .update(data)
-        .eq(
-          'user_id',
-          userId,
-        )
-        .select()
-        .single();
-
     return Institution.fromJson(
-      Map<String, dynamic>.from(row),
+      Map<String, dynamic>.from(result),
     );
   }
 
@@ -1861,10 +1793,22 @@ class InstitutionsRepository {
       throw Exception('حالة غير صحيحة');
     }
 
-    await _client.from('product_complaints').update({
-      'status': status,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', complaintId);
+    final result = await _client.rpc(
+      'institution_update_product_complaint_status',
+      params: {
+        'p_complaint_id': complaintId.trim(),
+        'p_status': status,
+      },
+    );
+
+    if (result is! Map || result['success'] != true) {
+      final message = result is Map
+          ? result['message']?.toString()
+          : null;
+      throw FormatException(
+        message ?? 'تعذر تحديث حالة الشكوى',
+      );
+    }
   }
 
   // ============================================================

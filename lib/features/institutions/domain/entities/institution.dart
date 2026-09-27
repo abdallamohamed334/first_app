@@ -31,8 +31,15 @@ class Institution extends Equatable {
     this.isVerified = false,
   });
 
-  bool get isActive => status.toLowerCase() == 'active';
+  bool get isActive => isAllowedStatus(status);
   bool get isReadyForPublishing => isActive;
+
+  /// The deployed institutions.status constraint uses `approved` as the
+  /// publishable/active account state.
+  static bool isAllowedStatus(dynamic value) {
+    final normalized = value?.toString().trim().toLowerCase();
+    return normalized == 'approved';
+  }
 
   String get typeLabel {
     switch (type.toLowerCase()) {

@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/features/institutions/domain/entities/institution.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class InstitutionLoginPage extends StatefulWidget {
@@ -235,7 +236,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       return;
     }
 
-    if (status != 'approved' && status != 'active') {
+    if (!Institution.isAllowedStatus(status)) {
       await _rejectSession('لا يمكن الدخول بحساب المؤسسة حاليًا.');
       return;
     }
@@ -247,6 +248,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     AuthStateNotifier.instance.setLoggedIn(
       isLoggedIn: true,
       role: institutionType,
+      institutionStatus: status,
       isActive: true,
       authResolved: true,
     );
