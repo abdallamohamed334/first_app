@@ -396,7 +396,10 @@ class _RegisterPageState extends State<RegisterPage> {
       };
 
       // ✅ نبعت OTP عبر AuthRepository
-      final result = await _authRepo.sendOtp(phone: phone);
+      final result = await _authRepo.sendOtp(
+        phone: phone,
+        loginMode: _isProvider ? 'provider' : 'user',
+      );
 
       if (!mounted) return;
 

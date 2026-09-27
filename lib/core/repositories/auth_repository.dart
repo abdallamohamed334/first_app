@@ -190,9 +190,16 @@ class AuthRepository {
   // ═══════════════════════════════════════════════════════════
   // 📤 إرسال كود التحقق على واتساب
   // ═══════════════════════════════════════════════════════════
-  Future<Either<String, String>> sendOtp({required String phone}) async {
+  Future<Either<String, String>> sendOtp({
+    required String phone,
+    String loginMode = 'user',
+  }) async {
     try {
       final cleanPhone = _cleanPhone(phone);
+
+      if (loginMode != 'user' && loginMode != 'provider') {
+        return const Left('نوع الدخول غير صحيح');
+      }
 
       if (cleanPhone.length < 10 || cleanPhone.length > 15) {
         return const Left('رقم الهاتف غير صحيح');
@@ -204,11 +211,14 @@ class AuthRepository {
         return Left(providerBlock);
       }
 
-      debugPrint('📤 Sending OTP to $cleanPhone');
+      debugPrint('📤 Sending OTP to $cleanPhone (mode=$loginMode)');
 
       final response = await _supabase.client.functions.invoke(
         'send-otp',
-        body: {'phone': cleanPhone},
+        body: {
+          'phone': cleanPhone,
+          'loginMode': loginMode,
+        },
       );
 
       final data = _asMap(response.data);

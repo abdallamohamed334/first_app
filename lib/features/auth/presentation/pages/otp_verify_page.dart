@@ -203,7 +203,11 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
     setState(() => _sending = true);
 
     try {
-      final result = await _authRepo.sendOtp(phone: widget.phone);
+      final role = widget.profile['role']?.toString().toLowerCase();
+      final result = await _authRepo.sendOtp(
+        phone: widget.phone,
+        loginMode: role == 'provider' ? 'provider' : 'user',
+      );
       if (!mounted) return;
 
       result.fold(
