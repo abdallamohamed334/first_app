@@ -12,19 +12,37 @@ class OnboardingHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Container(
+            width: 42,
+            height: 42,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: colorScheme.primary.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/images/wasla_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           Text(
             'وِصلة',
             style: TextStyle(
               fontSize: 28,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w900,
               color: colorScheme.primary,
             ),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.volunteer_activism,
-            color: colorScheme.primary,
-            size: 32,
           ),
         ],
       ),

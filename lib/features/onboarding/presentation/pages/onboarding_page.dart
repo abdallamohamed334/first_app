@@ -20,14 +20,14 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
   // ─── ألوان وِصلة ───
-  static const _green = Color(0xFF0B7650);
-  static const _greenLight = Color(0xFF25B77C);
-  static const _greenDark = Color(0xFF064D34);
-  static const _mint = Color(0xFFBFEBD7);
-  static const _cream = Color(0xFFF7FBF8);
-  static const _ink = Color(0xFF123F31);
-  static const _inkSoft = Color(0xFF61756D);
-  static const _gold = Color(0xFFE0A24C);
+  static const _green = Color(0xFF0B6B64);
+  static const _greenLight = Color(0xFF9AD83D);
+  static const _greenDark = Color(0xFF063F3A);
+  static const _mint = Color(0xFFDDF4E8);
+  static const _cream = Color(0xFFF6FBF8);
+  static const _ink = Color(0xFF0B3833);
+  static const _inkSoft = Color(0xFF66827B);
+  static const _gold = Color(0xFFF2B84B);
 
   // ─── Animations ───
   late final AnimationController _fadeController;
@@ -132,7 +132,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [_cream, Color(0xFFE7F3EC)],
+              colors: [_cream, _mint],
           ),
         ),
         child: const Center(
@@ -266,7 +266,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [_cream, Color(0xFFEBF5EF)],
+            colors: [_cream, Color(0xFFE9F7F0)],
           ),
         ),
         child: SafeArea(
@@ -333,29 +333,36 @@ class _OnboardingPageState extends State<OnboardingPage>
       children: [
         Row(
           children: [
-            const _LogoMark(size: 40),
-            const SizedBox(width: 9),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              width: 42,
+              height: 42,
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: _greenDark.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: _greenDark.withValues(alpha: 0.12),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
                   ),
                 ],
               ),
-              child: const Text(
-                'وِصلة',
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/wasla_logo.png',
+                  fit: BoxFit.contain,
                 ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'وِصلة',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -381,12 +388,12 @@ class _OnboardingPageState extends State<OnboardingPage>
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(38)),
         boxShadow: [
           BoxShadow(
-            color: _greenDark.withValues(alpha: 0.07),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
+            color: _greenDark.withValues(alpha: 0.1),
+            blurRadius: 30,
+            offset: const Offset(0, -10),
           ),
         ],
       ),
@@ -394,7 +401,17 @@ class _OnboardingPageState extends State<OnboardingPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildIndicators(state),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+          const Text(
+            'وِصلة • معًا نصنع أثرًا',
+            style: TextStyle(
+              color: _green,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
           _staggeredEntry(
             index: 0,
             child: Text(
@@ -615,7 +632,7 @@ class _OnboardingIllustration extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [Color(0xFFFFF4E0), Color(0xFFFDE6BC)],
+            colors: [Color(0xFFFFF7E6), Color(0xFFFFE9B5)],
             ),
           ),
         );
@@ -625,7 +642,7 @@ class _OnboardingIllustration extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [Color(0xFFEDE8FB), Color(0xFFD7CCF2)],
+            colors: [Color(0xFFE6F7F5), Color(0xFFC9EDE5)],
             ),
           ),
         );
@@ -923,9 +940,9 @@ class _OnboardingIllustration extends StatelessWidget {
       case 0:
         return _OnboardingPageState._green;
       case 1:
-        return const Color(0xFFB57A2E);
+        return _OnboardingPageState._gold;
       default:
-        return const Color(0xFF6B4FBF);
+        return _OnboardingPageState._green;
     }
   }
 }
@@ -1098,27 +1115,15 @@ class _LogoMark extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(
-            top: size * 0.14,
-            right: size * 0.14,
-            child: Container(
-              width: size * 0.18,
-              height: size * 0.18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.35),
-              ),
-            ),
+      child: Padding(
+        padding: EdgeInsets.all(size * .08),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(size * .24),
+          child: Image.asset(
+            'assets/images/wasla_logo.png',
+            fit: BoxFit.contain,
           ),
-          Icon(
-            Icons.volunteer_activism_rounded,
-            color: Colors.white,
-            size: size * .46,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -247,14 +247,14 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4EEE5),
+      backgroundColor: const Color(0xFF063F3A),
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
           systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarIconBrightness: Brightness.light,
         ),
         child: Stack(
           children: [
@@ -262,11 +262,11 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                   colors: [
-                    Color(0xFFF4EEE5),
-                    Color(0xFFE6D9C8),
+                    Color(0xFF0B6B64),
+                    Color(0xFF063F3A),
                   ],
                 ),
               ),
@@ -284,13 +284,13 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
               ),
             ),
             Positioned(
-              bottom: MediaQuery.of(context).size.height * 0.12,
+              bottom: MediaQuery.of(context).size.height * 0.13,
               left: 40,
               right: 40,
               child: _buildProgress(),
             ),
             Positioned(
-              bottom: MediaQuery.of(context).viewPadding.bottom + 20,
+              bottom: MediaQuery.of(context).viewPadding.bottom + 24,
               left: 0,
               right: 0,
               child: _buildBranding(),
@@ -331,12 +331,12 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                     width: 210,
                     height: 210,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF315A45).withValues(alpha: 0.07),
+                    color: const Color(0xFF9AD83D).withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
                           color:
-                              const Color(0xFFC78950).withValues(alpha: 0.16),
+                              const Color(0xFF9AD83D).withValues(alpha: 0.22),
                           blurRadius: 64,
                           spreadRadius: 28,
                         ),
@@ -347,30 +347,30 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
               },
             ),
             Container(
-              width: 142,
-              height: 142,
-              padding: const EdgeInsets.all(8),
+              width: 164,
+              height: 164,
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBF5),
-                borderRadius: BorderRadius.circular(38),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(46),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFC78950).withValues(alpha: 0.18),
-                    blurRadius: 42,
-                    spreadRadius: 10,
+                    color: const Color(0xFF9AD83D).withValues(alpha: 0.22),
+                    blurRadius: 48,
+                    spreadRadius: 8,
                   ),
                   BoxShadow(
-                    color: const Color(0xFF315A45).withValues(alpha: 0.14),
-                    blurRadius: 28,
-                    offset: const Offset(0, 16),
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 30,
+                    offset: const Offset(0, 18),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(36),
                 child: Image.asset(
-                  'assets/images/loqma_launcher_icon.png',
-                  fit: BoxFit.cover,
+                  'assets/images/wasla_logo.png',
+                  fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => Container(
                     color: colorScheme.primary,
                     alignment: Alignment.center,
@@ -402,12 +402,12 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
-              color: const Color(0xFF244536),
+              color: Colors.white,
               height: 1.1,
               letterSpacing: -0.5,
               shadows: [
                 BoxShadow(
-                  color: const Color(0xFF315A45).withValues(alpha: 0.12),
+                  color: const Color(0xFF9AD83D).withValues(alpha: 0.18),
                   blurRadius: 20,
                   offset: const Offset(0, 5),
                 ),
@@ -421,7 +421,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF315A45).withValues(alpha: 0.78),
+              color: Colors.white.withValues(alpha: 0.78),
               letterSpacing: 0.5,
             ),
             textAlign: TextAlign.center,
@@ -441,7 +441,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         return Container(
           height: 4,
           decoration: BoxDecoration(
-            color: const Color(0xFF315A45).withValues(alpha: 0.14),
+            color: Colors.white.withValues(alpha: 0.18),
             borderRadius: BorderRadius.circular(4),
           ),
           child: FractionallySizedBox(
@@ -449,11 +449,11 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             widthFactor: _progressAnimation.value,
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFFC78950),
+                color: const Color(0xFF9AD83D),
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF315A45).withValues(alpha: 0.58),
+                    color: const Color(0xFF9AD83D).withValues(alpha: 0.58),
                     blurRadius: 12,
                     spreadRadius: 2,
                   ),
@@ -477,7 +477,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           Text(
             'استدامة . عطاء . وِصلة',
             style: TextStyle(
-              color: const Color(0xFF315A45).withValues(alpha: 0.58),
+              color: Colors.white.withValues(alpha: 0.72),
               fontSize: 14,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.5,
@@ -488,7 +488,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           Text(
             'v1.0.0',
             style: TextStyle(
-              color: const Color(0xFF315A45).withValues(alpha: 0.36),
+              color: Colors.white.withValues(alpha: 0.42),
               fontSize: 11,
               fontWeight: FontWeight.w400,
             ),
@@ -520,7 +520,7 @@ class _FoodPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF315A45).withValues(alpha: 0.06)
+      ..color = Colors.white.withValues(alpha: 0.06)
       ..style = PaintingStyle.fill;
 
     const spacing = 60.0;
@@ -537,7 +537,7 @@ class _FoodPatternPainter extends CustomPainter {
     }
 
     final paint2 = Paint()
-      ..color = const Color(0xFFC78950).withValues(alpha: 0.05)
+      ..color = const Color(0xFF9AD83D).withValues(alpha: 0.06)
       ..style = PaintingStyle.fill;
 
     for (double x = spacing / 2; x < size.width; x += spacing) {

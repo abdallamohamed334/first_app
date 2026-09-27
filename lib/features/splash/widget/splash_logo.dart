@@ -13,7 +13,7 @@ class SplashLogo extends StatelessWidget {
     final logoSize = MediaQuery.of(context).size.width < 600 ? 100.0 : 128.0;
 
     return Semantics(
-      label: 'Ø´Ø¹Ø§Ø± Ù„Ù‚Ù…Ø©',
+      label: 'شعار وِصلة',
       child: ScaleTransition(
         scale: animation,
         child: Container(
@@ -53,4 +53,3 @@ class SplashLogo extends StatelessWidget {
     );
   }
 }
-
