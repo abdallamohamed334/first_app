@@ -19,7 +19,7 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
-  // ─── ألوان جُود ───
+  // ─── ألوان وِصلة ───
   static const _green = Color(0xFF0B7650);
   static const _greenLight = Color(0xFF25B77C);
   static const _greenDark = Color(0xFF064D34);
@@ -349,7 +349,7 @@ class _OnboardingPageState extends State<OnboardingPage>
                 ],
               ),
               child: const Text(
-                'جُود',
+                'وِصلة',
                 style: TextStyle(
                   color: _ink,
                   fontSize: 15,

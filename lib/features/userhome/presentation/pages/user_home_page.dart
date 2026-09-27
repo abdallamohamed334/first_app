@@ -457,7 +457,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  'أهلًا بيك في لقمة 👋',
+                  'أهلًا بيك في وِصلة 👋',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _textPrimary,
@@ -467,7 +467,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'سجّل دخولك علشان تكتشف العروض القريبة منك وتشارك في مجتمع لقمة.',
+                  'سجّل دخولك علشان تكتشف العروض القريبة منك وتشارك في مجتمع وِصلة.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _textSecondary,
@@ -653,7 +653,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          isServices ? 'خدمات لقمة' : 'أقسام لقمة',
+                          isServices ? 'خدمات وِصلة' : 'أقسام وِصلة',
                           style: const TextStyle(
                             color: _textPrimary,
                             fontSize: 21,
@@ -1160,7 +1160,7 @@ class _UserHomePageState extends State<UserHomePage> {
                           color: Colors.white, size: 16),
                       SizedBox(width: 6),
                       Text(
-                        'خدمات لقمة',
+                        'خدمات وِصلة',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 11.5,
@@ -1439,7 +1439,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 Icon(Icons.restaurant_rounded, color: Colors.white, size: 16),
                 SizedBox(width: 6),
                 Text(
-                  'لقمة',
+                  'وِصلة',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 15,
@@ -1742,7 +1742,7 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
               SizedBox(height: 10),
               Text(
-                'لقمة بتجمعنا 🤝',
+                'وِصلة بتجمعنا 🤝',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 23,
@@ -3978,7 +3978,7 @@ class _LoadingHome extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             const Text(
-              'لقمة بتحضرلك الخير...',
+              'وِصلة بتحضرلك الخير...',
               style: TextStyle(
                 color: _UserHomePageState._textSecondary,
                 fontSize: 14,

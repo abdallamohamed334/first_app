@@ -116,7 +116,7 @@ class _ProviderStatusGuardState extends State<ProviderStatusGuard>
     required String status,
   }) async {
     final reason = status == 'rejected' ? 'مرفوض' : 'موقوف';
-    final message = 'مرحبًا فريق جُود،\n\n'
+    final message = 'مرحبًا فريق وِصلة،\n\n'
         'أنا مزود خدمة وحسابي $reason.\n'
         'أحتاج معرفة السبب والمساعدة في حل المشكلة.';
     final uri = Uri.parse(

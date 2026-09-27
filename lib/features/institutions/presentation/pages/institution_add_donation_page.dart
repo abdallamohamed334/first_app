@@ -19,7 +19,7 @@ class InstitutionAddDonationPage extends StatefulWidget {
 
 class _InstitutionAddDonationPageState
     extends State<InstitutionAddDonationPage> {
-  // ─── ألوان هوية جُود ───
+  // ─── ألوان هوية وِصلة ───
   static const Color _primary = Color(0xFF0B7650);
   static const Color _primaryLight = Color(0xFF25B77C);
   static const Color _primaryDark = Color(0xFF054D34);

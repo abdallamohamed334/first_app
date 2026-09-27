@@ -242,7 +242,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 28),
 
                   Text(
-                    'loqma • إنقاذ الطعام يبدأ بخطوة',
+                    'وِصلة • إنقاذ الطعام يبدأ بخطوة',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
@@ -294,7 +294,7 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'مجتمع loqma',
+            'مجتمع وِصلة',
             style: TextStyle(
               color: colors.onPrimaryContainer,
               fontSize: 16,

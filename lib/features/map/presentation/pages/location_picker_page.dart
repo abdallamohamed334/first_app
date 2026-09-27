@@ -203,7 +203,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                   TileLayer(
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.loqma.app',
+                    userAgentPackageName: 'com.وِصلة.app',
                   ),
                   if (_selectedLocation != null)
                     MarkerLayer(

@@ -455,7 +455,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
           ),
         ),
         const Text(
-          'جُود',
+          'وِصلة',
           style: TextStyle(
             color: _primary,
             fontSize: 22,

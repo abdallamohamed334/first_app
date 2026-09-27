@@ -9,7 +9,7 @@ import 'package:loqma/routes/app_router.dart';
 class UserTypeSelectionPage extends StatelessWidget {
   const UserTypeSelectionPage({super.key});
 
-  // ── ألوان جُود
+  // ── ألوان وِصلة
   static const _bg = Color(0xFFF4F8F6);
   static const _bgDark = Color(0xFFE6F0EA);
   static const _primary = Color(0xFF0B7650);
@@ -92,7 +92,7 @@ class UserTypeSelectionPage extends StatelessWidget {
 
                     // ── Title
                     const Text(
-                      'أهلًا بيك في جُود 👋',
+                      'أهلًا بيك في وِصلة 👋',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _ink,
@@ -142,7 +142,7 @@ class UserTypeSelectionPage extends StatelessWidget {
                     _TypeCard(
                       icon: Icons.business_rounded,
                       title: 'مؤسسة / جمعية',
-                      subtitle: 'مطعم، جمعية، أو مؤسسة شريكة مع جُود',
+                      subtitle: 'مطعم، جمعية، أو مؤسسة شريكة مع وِصلة',
                       color: const Color(0xFFE28B00),
                       onTap: () => context.push(AppRouter.institutionLogin),
                     ),

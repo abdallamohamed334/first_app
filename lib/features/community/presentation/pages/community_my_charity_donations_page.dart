@@ -365,7 +365,7 @@ class _CommunityMyCharityDonationsPageState
           ),
           const SizedBox(width: 10),
           const Text(
-            'جُود',
+            'وِصلة',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,

@@ -90,7 +90,7 @@ class loqmaNotificationMessage {
   static String _defaultTitle(loqmaNotificationType type) {
     switch (type) {
       case loqmaNotificationType.donationCreated:
-        return 'عرض جديد على جُود';
+        return 'عرض جديد على وِصلة';
       case loqmaNotificationType.donationViewed:
         return 'تفاصيل العرض';
       case loqmaNotificationType.donationAccepted:

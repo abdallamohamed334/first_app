@@ -172,7 +172,7 @@ class VolunteerRankCard extends StatelessWidget {
                   ),
                   SizedBox(width: 8),
                   Text(
-                    '🎉 أنت في اجُود! استمر في التطوع',
+                    '🎉 أنت في اوِصلة! استمر في التطوع',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

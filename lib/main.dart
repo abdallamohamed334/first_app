@@ -484,7 +484,7 @@ class _MyAppState extends State<MyApp> {
           builder: (context, isDarkMode, _) {
             return MaterialApp.router(
               // ✅ الاسم الجديد
-              title: 'جُود',
+              title: 'وِصلة',
               debugShowCheckedModeBanner: false,
               routerConfig: AppRouter.router,
               theme: AppTheme.light(),

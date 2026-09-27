@@ -18,7 +18,7 @@ import 'institution_profile_page.dart';
 import 'institution_edit_offer_dialog.dart';
 import 'institution_booking_search_page.dart';
 
-// ─── ألوان هوية جُود ───
+// ─── ألوان هوية وِصلة ───
 const Color _primary = Color(0xFF0B7650);
 const Color _primaryLight = Color(0xFF25B77C);
 const Color _primaryDark = Color(0xFF054D34);

@@ -36,8 +36,8 @@ class FcmNotificationService {
   static const AndroidNotificationChannel _defaultChannel =
       AndroidNotificationChannel(
     'loqma_general_notifications',
-    'إشعارات جُود',
-    description: 'إشعارات الطلبات والتبرعات والاستلام في تطبيق جُود',
+    'إشعارات وِصلة',
+    description: 'إشعارات الطلبات والتبرعات والاستلام في تطبيق وِصلة',
     importance: Importance.high,
   );
 
@@ -194,14 +194,14 @@ class FcmNotificationService {
     final payload = jsonEncode(message.data);
     await _localNotifications.show(
       message.hashCode,
-      title ?? 'إشعار جديد من جُود',
+      title ?? 'إشعار جديد من وِصلة',
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'loqma_general_notifications',
-          'إشعارات جُود',
+          'إشعارات وِصلة',
           channelDescription:
-              'إشعارات الطلبات والتبرعات والاستلام في تطبيق جُود',
+              'إشعارات الطلبات والتبرعات والاستلام في تطبيق وِصلة',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',

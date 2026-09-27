@@ -1,7 +1,7 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized Crashlytics reporting for loqma.
+/// Centralized Crashlytics reporting for وِصلة.
 ///
 /// The helper accepts only short, non-sensitive context. Do not pass user
 /// names, email addresses, phone numbers, passwords, auth tokens, full

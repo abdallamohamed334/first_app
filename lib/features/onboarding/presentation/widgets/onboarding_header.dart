@@ -13,7 +13,7 @@ class OnboardingHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'جُود',
+            'وِصلة',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,

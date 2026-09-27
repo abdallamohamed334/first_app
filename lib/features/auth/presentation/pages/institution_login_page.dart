@@ -1,7 +1,7 @@
 // lib/features/auth/presentation/pages/institution_login_page.dart
 //
 // ✅ صفحة تسجيل دخول مخصصة للمؤسسات/الشركاء فقط.
-// مفيش أي رابط "إنشاء حساب" هنا لأن الحسابات بتتضاف يدويًا من فريق لقمة.
+// مفيش أي رابط "إنشاء حساب" هنا لأن الحسابات بتتضاف يدويًا من فريق وِصلة.
 //
 // القاعدة:
 //   • جمعية (charity)     → /charity-home
@@ -165,7 +165,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     final status = result['status']?.toString().toLowerCase() ?? 'pending';
 
     if (status == 'rejected') {
-      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة جُود.');
+      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة وِصلة.');
       return;
     }
 
@@ -219,7 +219,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
 
     if (status == 'rejected') {
       await _rejectSession(
-        'تم رفض طلب المؤسسة. برجاء التواصل مع إدارة جُود.',
+        'تم رفض طلب المؤسسة. برجاء التواصل مع إدارة وِصلة.',
       );
       return;
     }
@@ -349,7 +349,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                       Text(
                         _isCharity
                             ? 'ادخل ببريد الجمعية والكود الثابت المخصص لها'
-                            : 'ادخل ببيانات المؤسسة التي أنشأها لك فريق جُود',
+                            : 'ادخل ببيانات المؤسسة التي أنشأها لك فريق وِصلة',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _inkSoft.withValues(alpha: 0.75),
@@ -516,8 +516,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                             Expanded(
                               child: Text(
                                 _isCharity
-                                    ? 'حسابات الجمعيات بتتراجع وتتعتمد من فريق جُود. لا يتم إرسال OTP.'
-                                    : 'حسابات المؤسسات بتتعمل من فريق جُود مباشرة. لو لسه معندكش حساب، تواصل معانا.',
+                                    ? 'حسابات الجمعيات بتتراجع وتتعتمد من فريق وِصلة. لا يتم إرسال OTP.'
+                                    : 'حسابات المؤسسات بتتعمل من فريق وِصلة مباشرة. لو لسه معندكش حساب، تواصل معانا.',
                                 style: TextStyle(
                                   color: _inkSoft.withValues(alpha: 0.65),
                                   fontSize: 11.5,

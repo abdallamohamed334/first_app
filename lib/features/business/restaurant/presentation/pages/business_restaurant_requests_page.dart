@@ -188,7 +188,7 @@ class _BusinessRestaurantRequestsPageState
               ),
               const SizedBox(height: 14),
               _detail('العرض', request['offer_title'] ?? 'عرض المطعم'),
-              _detail('المستخدم', request['requester_name'] ?? 'مستخدم loqma'),
+              _detail('المستخدم', request['requester_name'] ?? 'مستخدم وِصلة'),
               _detail('الكمية', request['quantity'] ?? 'غير محددة'),
               _detail('الحالة', _statusLabel(status)),
               if (status == 'accepted') ...[
@@ -277,7 +277,7 @@ class _RequestCard extends StatelessWidget {
         .toString()
         .toLowerCase();
     final offerTitle = request['offer_title']?.toString() ?? 'عرض المطعم';
-    final requester = request['requester_name']?.toString() ?? 'مستخدم loqma';
+    final requester = request['requester_name']?.toString() ?? 'مستخدم وِصلة';
     final isActionable = status == 'ready_for_pickup';
 
     return Material(

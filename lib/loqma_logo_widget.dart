@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Reusable loqma branding widget for splash, login, home, and profile screens.
+/// Reusable وِصلة branding widget for splash, login, home, and profile screens.
 class loqmaLogo extends StatelessWidget {
   final double size;
   final bool showWordmark;
@@ -16,10 +16,10 @@ class loqmaLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'loqma',
+      label: 'وِصلة',
       image: true,
       child: Image.asset(
-        'assets/images/loqma_logo.png',
+        'assets/images/wasla_logo.png',
         width: showWordmark ? size * 2.6 : size,
         height: size,
         fit: fit,

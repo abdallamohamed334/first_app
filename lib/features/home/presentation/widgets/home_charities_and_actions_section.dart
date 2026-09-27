@@ -721,7 +721,7 @@ class CharityDetailsPage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             verified
-                ? 'جمعية موثقة على منصة جُود'
+                ? 'جمعية موثقة على منصة وِصلة'
                 : 'جمعية متاحة لاستقبال التبرعات',
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),

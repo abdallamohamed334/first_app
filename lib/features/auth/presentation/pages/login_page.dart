@@ -36,7 +36,7 @@ class _LoginPageState extends State<LoginPage>
   bool _isLoading = false;
   bool _isCheckingAutoLogin = true;
 
-  // ── ألوان (هوية "جُود" الخضراء)
+  // ── ألوان (هوية "وِصلة" الخضراء)
   static const _bg = Color(0xFFF4F8F6);
   static const _primary = Color(0xFF0B7650);
   static const _primaryLight = Color(0xFF25B77C);
@@ -241,7 +241,7 @@ class _LoginPageState extends State<LoginPage>
             border: Border.all(color: _cardBorder),
           ),
           child: const Text(
-            'جُود',
+            'وِصلة',
             style: TextStyle(
               color: _primary,
               fontSize: 17,

@@ -28,7 +28,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
   String _query = '';
   _OfferFilter _filter = _OfferFilter.active;
 
-  // ─── ألوان هوية جُود ───
+  // ─── ألوان هوية وِصلة ───
   static const Color _primary = Color(0xFF0B7650);
   static const Color _primaryLight = Color(0xFF25B77C);
   static const Color _primaryDark = Color(0xFF054D34);

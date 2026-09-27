@@ -311,7 +311,7 @@ class BusinessRestaurantRequestCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                           request['requester_name']?.toString() ??
-                              'مستخدم جُود',
+                              'مستخدم وِصلة',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: _muted, fontSize: 12)),

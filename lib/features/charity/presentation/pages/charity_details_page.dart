@@ -290,7 +290,7 @@ class _CharityDetailsPageState extends State<CharityDetailsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'جمعية موثوقة على جُود',
+                          'جمعية موثوقة على وِصلة',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 12,

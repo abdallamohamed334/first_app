@@ -398,7 +398,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       child: Column(
         children: [
           Text(
-            'جُود',
+            'وِصلة',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
@@ -475,7 +475,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       child: Column(
         children: [
           Text(
-            'استدامة . عطاء . جُود',
+            'استدامة . عطاء . وِصلة',
             style: TextStyle(
               color: const Color(0xFF315A45).withValues(alpha: 0.58),
               fontSize: 14,

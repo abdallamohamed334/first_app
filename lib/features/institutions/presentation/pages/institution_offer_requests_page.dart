@@ -155,7 +155,7 @@ class _InstitutionOfferRequestsPageState
   }
 
   String _pickupCodeKey(String requestId) =>
-      'loqma.pickup_code.${requestId.trim()}';
+      'وِصلة.pickup_code.${requestId.trim()}';
 
   Future<void> _complete(String requestId) async {
     try {

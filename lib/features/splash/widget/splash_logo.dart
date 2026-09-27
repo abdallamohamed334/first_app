@@ -37,7 +37,7 @@ class SplashLogo extends StatelessWidget {
           ),
           child: ClipOval(
             child: Image.asset(
-              'assets/images/logo.png',
+              'assets/images/wasla_logo.png',
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Icon(

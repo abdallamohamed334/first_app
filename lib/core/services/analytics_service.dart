@@ -1,7 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized Firebase Analytics events for loqma.
+/// Centralized Firebase Analytics events for وِصلة.
 ///
 /// Only allowlisted, non-sensitive dimensions are accepted. Never pass email,
 /// phone numbers, passwords, auth tokens, full addresses, names, or database

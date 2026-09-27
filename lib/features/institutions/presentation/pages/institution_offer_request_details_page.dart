@@ -24,7 +24,7 @@ class InstitutionOfferRequestDetailsPage extends StatefulWidget {
 
 class _InstitutionOfferRequestDetailsPageState
     extends State<InstitutionOfferRequestDetailsPage> {
-  // ── ألوان جُود ──
+  // ── ألوان وِصلة ──
   static const _green = Color(0xFF0B7650);
   static const _greenLight = Color(0xFF25B77C);
   static const _greenDark = Color(0xFF064D34);
@@ -79,7 +79,7 @@ class _InstitutionOfferRequestDetailsPageState
 
   String get _requesterName {
     final name = _requester['name']?.toString().trim() ?? '';
-    return name.isNotEmpty ? name : 'مستخدم جُود';
+    return name.isNotEmpty ? name : 'مستخدم وِصلة';
   }
 
   String get _requesterPhone {

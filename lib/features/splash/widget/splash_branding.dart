@@ -15,7 +15,7 @@ class SplashBranding extends StatelessWidget {
     return FadeTransition(
       opacity: animation,
       child: Text(
-        'استدامة . عطاء . جُود',
+        'استدامة . عطاء . وِصلة',
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.4),
           fontSize: isSmall ? 12 : 14,

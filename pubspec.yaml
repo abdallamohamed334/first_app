@@ -1,5 +1,5 @@
 name: loqma
-description: "Food surplus management platform"
+description: "Wasla food sharing and community support platform"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -75,10 +75,10 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/loqma_launcher_icon.png"
+  image_path: "assets/images/wasla_logo.png"
   min_sdk_android: 21
   adaptive_icon_background: "#123B2A"
-  adaptive_icon_foreground: "assets/images/loqma_launcher_icon.png"
+  adaptive_icon_foreground: "assets/images/wasla_logo.png"
   remove_alpha_ios: true
 
 flutter:

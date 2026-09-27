@@ -1,11 +1,11 @@
 {
-    "name": "first_app",
-    "short_name": "first_app",
+    "name": "وِصلة",
+    "short_name": "وِصلة",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B6B64",
+    "theme_color": "#0B6B64",
+    "description": "منصة وِصلة لمشاركة الطعام ودعم المجتمع",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

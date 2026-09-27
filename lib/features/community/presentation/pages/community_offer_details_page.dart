@@ -897,7 +897,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              _ownerName.isEmpty ? 'مستخدم لقمة' : _ownerName,
+                              _ownerName.isEmpty ? 'مستخدم وِصلة' : _ownerName,
                               style: const TextStyle(
                                 color: Color(0xFF626B75),
                                 fontSize: 13,
@@ -1548,7 +1548,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _ownerName.isEmpty ? 'مستخدم لقمة' : _ownerName,
+                    _ownerName.isEmpty ? 'مستخدم وِصلة' : _ownerName,
                     style: TextStyle(
                       fontSize: 15.5,
                       fontWeight: FontWeight.w900,
