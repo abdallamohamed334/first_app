@@ -402,7 +402,10 @@ class AuthRepository {
 
       // ✅ 3. نبعت OTP
       debugPrint('📤 Register: sending OTP to $cleanPhone (role=$cleanRole)');
-      final otpResult = await sendOtp(phone: cleanPhone);
+      final otpResult = await sendOtp(
+        phone: cleanPhone,
+        loginMode: cleanRole == 'provider' ? 'provider' : 'user',
+      );
 
       return otpResult.fold(
         (err) => Left(err),
@@ -418,8 +421,11 @@ class AuthRepository {
   // ═══════════════════════════════════════════════════════════
   // 🔄 إعادة إرسال OTP
   // ═══════════════════════════════════════════════════════════
-  Future<Either<String, String>> resendOtp({required String phone}) async {
-    return sendOtp(phone: phone);
+  Future<Either<String, String>> resendOtp({
+    required String phone,
+    String loginMode = 'user',
+  }) async {
+    return sendOtp(phone: phone, loginMode: loginMode);
   }
 
   // ═══════════════════════════════════════════════════════════
