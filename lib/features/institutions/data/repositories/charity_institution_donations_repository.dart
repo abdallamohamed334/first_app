@@ -11,22 +11,14 @@ class CharityInstitutionDonationsRepository {
       : _client = client ?? SupabaseService().client;
 
   Future<List<Map<String, dynamic>>> listMyDonations() async {
-    final charity = await _client
-        .from('charities')
-        .select('id')
-        .eq('user_id', _client.auth.currentUser!.id)
-        .eq('status', 'active')
-        .maybeSingle();
-    final charityId = charity?['id']?.toString();
-    if (charityId == null || charityId.isEmpty) {
-      throw const FormatException('لا توجد جمعية نشطة مرتبطة بالحساب');
-    }
+    final charityId = await _currentCharityId();
 
     final rows = await _client
         .from('institution_charity_donations')
         .select('*, institutions(id, name, institution_type, logo_url)')
         .eq('charity_id', charityId)
         .order('created_at', ascending: false);
+
     return rows
         .whereType<Map>()
         .map((row) => Map<String, dynamic>.from(row))
@@ -34,17 +26,17 @@ class CharityInstitutionDonationsRepository {
   }
 
   Future<List<Map<String, dynamic>>> listCharityVolunteers() async {
-    final charityId = await _currentCharityId();
-    final rows = await _client
-        .from('charity_volunteers')
-        .select('id, name, phone, status')
-        .eq('charity_id', charityId)
-        .eq('status', 'active')
-        .order('name');
-    return rows
+    await _currentCharityId();
+    final raw = await _client.rpc('list_my_charity_volunteers_manage');
+    if (raw is! List) return const <Map<String, dynamic>>[];
+
+    return raw
         .whereType<Map>()
         .map((row) => Map<String, dynamic>.from(row))
-        .toList(growable: false);
+        .where((row) {
+      final status = row['status']?.toString().trim().toLowerCase();
+      return status == null || status.isEmpty || status == 'active';
+    }).toList(growable: false);
   }
 
   Future<String> _currentCharityId() async {
@@ -52,15 +44,26 @@ class CharityInstitutionDonationsRepository {
     if (userId == null || userId.isEmpty) {
       throw const FormatException('يجب تسجيل الدخول أولًا');
     }
-    final charity = await _client
-        .from('charities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
-    final id = charity?['id']?.toString().trim() ?? '';
-    if (id.isEmpty) {
-      throw const FormatException('لا توجد جمعية نشطة مرتبطة بالحساب');
+
+    final raw = await _client.rpc('get_my_charity_context');
+    final data =
+        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final id = data['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = data['user_id']?.toString().trim() ?? '';
+
+    debugPrint(
+      '🔎 [InstitutionDonations] allowed=${data['allowed']} '
+      'charityId=$id rpcUserId=$rpcUserId currentUser=$userId '
+      'status=${data['status']}',
+    );
+
+    if (data['allowed'] != true ||
+        id.isEmpty ||
+        rpcUserId.isEmpty ||
+        rpcUserId != userId) {
+      throw FormatException(
+        data['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب',
+      );
     }
     return id;
   }
@@ -162,7 +165,10 @@ class CharityInstitutionDonationsRepository {
 
       if (result is Map) {
         final map = Map<String, dynamic>.from(result);
-        if (map['success'] == true) {
+        if (map['success'] == true ||
+            map['ok'] == true ||
+            map['pickup_code'] != null ||
+            map['code'] != null) {
           return map;
         }
 

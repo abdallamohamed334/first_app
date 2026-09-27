@@ -133,15 +133,30 @@ class AppRouter {
           return providerHome;
         }
 
-        final isBlocked = !isActive ||
-            status == 'suspended' ||
-            status == 'rejected' ||
-            status == 'pending';
+        final isPending = status == 'pending' && isActive;
+        final isRejectedOrSuspended =
+            !isActive || status == 'suspended' || status == 'rejected';
 
-        // ✅ الحساب المرفوض/الموقوف لا يدخل أي صفحة ولا مسار مزود.
-        // نرسله دائمًا لاختيار نوع الحساب، حتى من splash أو صفحة الخطأ.
-        if (isBlocked && loc != userTypeSelection) {
-          return userTypeSelection;
+        // pending له صفحة انتظار حقيقية، ويسمح بالرجوع لاختيار نوع الحساب.
+        if (isPending) {
+          final pendingAllowed = loc == providerPending ||
+              loc == userTypeSelection ||
+              loc == providerAuth ||
+              loc == providerOtpVerify;
+
+          if (!pendingAllowed) {
+            return providerPending;
+          }
+        }
+
+        // المرفوض أو الموقوف لا يدخل صفحات المزود.
+        if (isRejectedOrSuspended) {
+          final isProviderRoute =
+              loc == providerHome || loc.startsWith('/provider/');
+
+          if (isProviderRoute || loc == home) {
+            return userTypeSelection;
+          }
         }
       }
 
@@ -158,6 +173,15 @@ class AppRouter {
         '/institution-login',
         // لا نضع provider auth/OTP هنا؛ هذه صفحات تدفق الدخول نفسها.
       };
+
+      // لا نعيد مزود pending من صفحة الانتظار أو اختيار نوع الحساب.
+      // هذا هو ما يجعل زر الرجوع يعمل بدل أن يعيده redirect إلى home.
+      if (auth.role == 'provider' &&
+          (auth.providerStatus ?? 'pending') == 'pending' &&
+          auth.isActive &&
+          (loc == userTypeSelection || loc == providerPending)) {
+        return null;
+      }
 
       if (authPagesToRedirect.contains(loc)) {
         // ✅ لا تعيد التوجيه من صفحة دخول المؤسسات

@@ -314,7 +314,10 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     }
 
     // 4️⃣ approved + active → أرسل OTP
-    final result = await _repo.sendProviderOtp(phone: phone);
+    final result = await _repo.sendProviderOtp(
+      phone: phone,
+      loginMode: 'provider',
+    );
     if (!mounted) return;
 
     result.fold(
@@ -392,7 +395,10 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     }
 
     // 3️⃣ الرقم جديد → أرسل OTP
-    final result = await _repo.sendProviderOtp(phone: phone);
+    final result = await _repo.sendProviderOtp(
+      phone: phone,
+      loginMode: 'provider',
+    );
     if (!mounted) return;
 
     result.fold(

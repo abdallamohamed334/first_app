@@ -30,6 +30,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isCharity = false;
   bool _loading = false;
   String? _errorMessage;
 
@@ -64,99 +65,205 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     });
 
     final client = Supabase.instance.client;
+    final email = _emailController.text.trim().toLowerCase();
+    final passwordOrCode = _passwordController.text;
 
     try {
+      // الجمعية: افحص الكود الثابت من public.charities أولًا.
+      // لا تستخدم signInWithPassword قبل الفحص، لأن الكود محفوظ كـ hash
+      // في قاعدة البيانات وليس كنص عادي في التطبيق.
+      if (_isCharity) {
+        await _loginAsCharity(client, email, passwordOrCode);
+        return;
+      }
+
+      // المؤسسة التجارية: دخول Supabase بالبريد وكلمة المرور.
       final response = await client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+        email: email,
+        password: passwordOrCode,
       );
 
-      final user = response.user;
-      if (user == null) {
+      final authUser = response.user;
+      if (authUser == null) {
         throw const AuthException('تعذر تسجيل الدخول');
       }
 
-      // ✅ نقرأ user_type + is_active من جدول users
-      // user_type هو اللي بيحدد نوع الحساب (مش عمود role)
-      final userData = await client
-          .from('users')
-          .select('user_type, is_active')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      final type = userData?['user_type']?.toString().toLowerCase() ?? '';
-      final isActive = userData?['is_active'] as bool? ?? true;
-
+      await _loginAsInstitution(client, authUser.id);
+    } on AuthException catch (error) {
+      debugPrint('❌ Partner login auth error: ${error.message}');
       if (!mounted) return;
-
-      // ═══════════════════════════════════════════════════════
-      // ❌ رفض: مستخدم عادي / أدمن / مزود خدمة
-      // ═══════════════════════════════════════════════════════
-      if (type.isEmpty || _blockedTypes.contains(type)) {
-        await client.auth.signOut();
-
-        String message;
-        switch (type) {
-          case 'provider':
-            message =
-                'الحساب ده حساب مزود خدمة. ادخل من صفحة تسجيل دخول مزودي الخدمة.';
-            break;
-          case 'admin':
-            message = 'الحساب ده حساب أدمن. ادخل من لوحة التحكم.';
-            break;
-          case 'user':
-            message =
-                'الحساب ده حساب مستخدم عادي. ادخل من صفحة تسجيل الدخول التانية.';
-            break;
-          default:
-            message = 'تعذر التعرف على نوع الحساب. تواصل مع فريق لقمة.';
-        }
-
-        if (!mounted) return;
-        setState(() => _errorMessage = message);
-        return;
-      }
-
-      // ═══════════════════════════════════════════════════════
-      // ✅ ضبط الـ AuthStateNotifier بالـ user_type الصح
-      // عشان الـ router ما يوجهش على /home بالغلط
-      // ═══════════════════════════════════════════════════════
-      AuthStateNotifier.instance.setLoggedIn(
-        isLoggedIn: true,
-        role:
-            type, // institution | charity | restaurant | hotel | business | ...
-        isActive: isActive,
-      );
-
+      setState(() {
+        _errorMessage = _isCharity
+            ? 'البريد الإلكتروني أو كود الجمعية غير صحيح'
+            : 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+      });
+    } catch (error) {
+      debugPrint('❌ Partner login error: $error');
       if (!mounted) return;
-
-      // ═══════════════════════════════════════════════════════
-      // ✅ التوجيه حسب النوع
-      // ═══════════════════════════════════════════════════════
-      if (type == 'charity') {
-        context.go(AppRouter.charityHome);
-        return;
-      }
-
-      if (type == 'restaurant') {
-        context.go(AppRouter.restaurantHome);
-        return;
-      }
-
-      // ✅ أي نوع تاني (institution / hotel / business / supermarket /
-      // bakery / cafe / company / أي نوع جديد) → المؤسسات
-      context.go(AppRouter.institutionsHome);
-    } on AuthException catch (_) {
-      if (!mounted) return;
-      setState(
-          () => _errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة');
-    } catch (e) {
-      debugPrint('❌ institution login error: $e');
-      if (!mounted) return;
-      setState(() => _errorMessage = 'حصلت مشكلة، حاول مرة أخرى');
+      setState(() {
+        _errorMessage = 'حصلت مشكلة أثناء تسجيل الدخول، حاول مرة أخرى';
+      });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
+  }
+
+  Future<void> _loginAsCharity(
+    SupabaseClient client,
+    String email,
+    String accessCode,
+  ) async {
+    final rpcResult = await client.rpc(
+      'check_charity_fixed_code_by_email',
+      params: {
+        'p_email': email,
+        'p_access_code': accessCode,
+      },
+    );
+
+    final result = rpcResult is Map
+        ? Map<String, dynamic>.from(rpcResult)
+        : <String, dynamic>{};
+
+    if (result['allowed'] != true) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = result['message']?.toString() ??
+            'البريد الإلكتروني أو كود الجمعية غير صحيح';
+      });
+      return;
+    }
+
+    // الـ RPC يتحقق من كود الجمعية، لكن Flutter يحتاج Session حقيقية.
+    // لذلك يجب أن يكون accessCode هو كلمة مرور حساب Auth للجمعية أيضًا.
+    final response = await client.auth.signInWithPassword(
+      email: email,
+      password: accessCode,
+    );
+
+    final authUser = response.user;
+    if (authUser == null) {
+      throw const AuthException(
+          'تم التحقق من الكود ولكن تعذر إنشاء جلسة الجمعية');
+    }
+
+    // الـ RPC فحص السجل وأعاد user_id بالفعل.
+    // لا نعيد استعلام charities هنا؛ قد تمنعه RLS رغم نجاح الـ RPC.
+    final rpcUserId = result['user_id']?.toString();
+    final rpcCharityId = result['charity_id']?.toString();
+
+    if (rpcUserId == null || rpcCharityId == null || rpcUserId != authUser.id) {
+      await _rejectSession(
+        'بيانات الجمعية لا تتطابق مع حساب الدخول. تواصل مع الدعم.',
+      );
+      return;
+    }
+
+    final status = result['status']?.toString().toLowerCase() ?? 'pending';
+
+    if (status == 'rejected') {
+      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة جُود.');
+      return;
+    }
+
+    if (status == 'suspended' || status == 'inactive') {
+      await _rejectSession('تم إيقاف حساب الجمعية. برجاء التواصل مع الدعم.');
+      return;
+    }
+
+    if (status == 'pending') {
+      await _rejectSession('حساب الجمعية ما زال تحت المراجعة.');
+      return;
+    }
+
+    if (status != 'approved' && status != 'active') {
+      await _rejectSession('لا يمكن الدخول بحساب الجمعية حاليًا.');
+      return;
+    }
+
+    AuthStateNotifier.instance.setLoggedIn(
+      isLoggedIn: true,
+      role: 'charity',
+      isActive: true,
+      authResolved: true,
+    );
+
+    if (!mounted) return;
+    context.go(AppRouter.charityHome);
+  }
+
+  Future<void> _loginAsInstitution(
+    SupabaseClient client,
+    String authUserId,
+  ) async {
+    final institution = await client
+        .from('institutions')
+        .select('id, user_id, name, institution_type, status')
+        .eq('user_id', authUserId)
+        .maybeSingle();
+
+    if (institution == null) {
+      await client.auth.signOut();
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'هذا الحساب غير مربوط بمؤسسة. لو أنت جمعية اختَر تبويب الجمعيات.';
+      });
+      return;
+    }
+
+    final status = institution['status']?.toString().toLowerCase() ?? 'pending';
+
+    if (status == 'rejected') {
+      await _rejectSession(
+        'تم رفض طلب المؤسسة. برجاء التواصل مع إدارة جُود.',
+      );
+      return;
+    }
+
+    if (status == 'suspended' || status == 'inactive') {
+      await _rejectSession(
+        'تم إيقاف حساب المؤسسة. برجاء التواصل مع الدعم.',
+      );
+      return;
+    }
+
+    if (status == 'pending') {
+      await _rejectSession('حساب المؤسسة ما زال تحت المراجعة.');
+      return;
+    }
+
+    if (status != 'approved' && status != 'active') {
+      await _rejectSession('لا يمكن الدخول بحساب المؤسسة حاليًا.');
+      return;
+    }
+
+    final institutionType =
+        institution['institution_type']?.toString().toLowerCase() ??
+            'institution';
+
+    AuthStateNotifier.instance.setLoggedIn(
+      isLoggedIn: true,
+      role: institutionType,
+      isActive: true,
+      authResolved: true,
+    );
+
+    if (!mounted) return;
+
+    if (institutionType == 'restaurant') {
+      context.go(AppRouter.restaurantHome);
+    } else {
+      context.go(AppRouter.institutionsHome);
+    }
+  }
+
+  Future<void> _rejectSession(String message) async {
+    await Supabase.instance.client.auth.signOut();
+    if (!mounted) return;
+    setState(() => _errorMessage = message);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -225,10 +332,12 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'تسجيل دخول المؤسسات',
+                      Text(
+                        _isCharity
+                            ? 'تسجيل دخول الجمعيات'
+                            : 'تسجيل دخول المؤسسات',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: _ink,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
@@ -236,7 +345,9 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'ادخل ببيانات حسابك اللي اتعمل لمؤسستك من فريق لقمة',
+                        _isCharity
+                            ? 'ادخل ببريد الجمعية والكود الثابت المخصص لها'
+                            : 'ادخل ببيانات المؤسسة التي أنشأها لك فريق جُود',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _inkSoft.withValues(alpha: 0.75),
@@ -245,6 +356,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                         ),
                       ),
                       const SizedBox(height: 28),
+                      _buildModeSelector(),
+                      const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
@@ -317,14 +430,18 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                                 },
                               ),
                               const SizedBox(height: 16),
-                              _buildLabel('كلمة المرور'),
+                              _buildLabel(_isCharity
+                                  ? 'الكود الثابت للجمعية'
+                                  : 'كلمة المرور'),
                               const SizedBox(height: 6),
                               TextFormField(
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 textDirection: TextDirection.ltr,
                                 decoration: _inputDecoration(
-                                  hint: '••••••••',
+                                  hint: _isCharity
+                                      ? 'أدخل كود الجمعية'
+                                      : '••••••••',
                                   icon: Icons.lock_outline_rounded,
                                   suffix: IconButton(
                                     onPressed: () => setState(() =>
@@ -396,7 +513,9 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'حسابات المؤسسات بتتعمل من فريق لقمة مباشرة. لو لسه معندكش حساب، تواصل معانا.',
+                                _isCharity
+                                    ? 'حسابات الجمعيات بتتراجع وتتعتمد من فريق جُود. لا يتم إرسال OTP.'
+                                    : 'حسابات المؤسسات بتتعمل من فريق جُود مباشرة. لو لسه معندكش حساب، تواصل معانا.',
                                 style: TextStyle(
                                   color: _inkSoft.withValues(alpha: 0.65),
                                   fontSize: 11.5,
@@ -413,6 +532,87 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _inkSoft.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _modeButton(
+              label: 'مؤسسة / محل',
+              icon: Icons.storefront_rounded,
+              selected: !_isCharity,
+              onTap: () => setState(() {
+                _isCharity = false;
+                _errorMessage = null;
+              }),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _modeButton(
+              label: 'جمعية',
+              icon: Icons.volunteer_activism_rounded,
+              selected: _isCharity,
+              onTap: () => setState(() {
+                _isCharity = true;
+                _errorMessage = null;
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modeButton({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: _loading ? null : onTap,
+      borderRadius: BorderRadius.circular(11),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? _inkSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? Colors.white : _inkSoft,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? Colors.white : _inkSoft,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

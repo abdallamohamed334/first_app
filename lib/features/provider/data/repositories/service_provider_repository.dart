@@ -210,6 +210,7 @@ class ServiceProviderRepository {
   // ═══════════════════════════════════════════════════════════
   Future<Either<String, String>> sendProviderOtp({
     required String phone,
+    String loginMode = 'provider',
   }) async {
     try {
       final cleanPhone = _cleanPhoneIntl(phone);
@@ -218,11 +219,16 @@ class ServiceProviderRepository {
         return const Left('رقم الهاتف غير صحيح');
       }
 
-      debugPrint('📤 [Provider OTP] Sending to $cleanPhone');
+      debugPrint(
+        '📤 [Provider OTP] Sending to $cleanPhone (loginMode=$loginMode)',
+      );
 
       final response = await _client.functions.invoke(
         'send-otp',
-        body: {'phone': cleanPhone},
+        body: {
+          'phone': cleanPhone,
+          'loginMode': loginMode,
+        },
       );
 
       final data = _asMap(response.data);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,28 +8,72 @@ class CharityInstitutionDonationsRepository {
   CharityInstitutionDonationsRepository({SupabaseClient? client})
       : _client = client ?? SupabaseService().client;
 
-  Future<List<Map<String, dynamic>>> listMyDonations() async {
-    final charity = await _client
-        .from('charities')
-        .select('id')
-        .eq('user_id', _client.auth.currentUser!.id)
-        .eq('status', 'active')
-        .maybeSingle();
-    final charityId = charity?['id']?.toString();
-    if (charityId == null || charityId.isEmpty) {
-      throw const FormatException('لا توجد جمعية نشطة مرتبطة بالحساب');
+  Future<String> _currentCharityId() async {
+    final userId = _client.auth.currentUser?.id;
+
+    if (userId == null || userId.isEmpty) {
+      throw const FormatException('يجب تسجيل الدخول أولًا');
     }
+
+    final raw = await _client.rpc('get_my_charity_context');
+    final data =
+        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+
+    final charityId = data['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = data['user_id']?.toString().trim() ?? '';
+
+    debugPrint(
+      '🔎 [InstitutionDonations] '
+      'allowed=${data['allowed']} '
+      'charityId=$charityId '
+      'rpcUserId=$rpcUserId '
+      'currentUser=$userId '
+      'status=${data['status']}',
+    );
+
+    if (data['allowed'] != true ||
+        charityId.isEmpty ||
+        rpcUserId.isEmpty ||
+        rpcUserId != userId) {
+      throw FormatException(
+        data['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب',
+      );
+    }
+
+    return charityId;
+  }
+
+  Future<List<Map<String, dynamic>>> listMyDonations() async {
+    final charityId = await _currentCharityId();
 
     final rows = await _client
         .from('institution_charity_donations')
         .select('*, institutions(id, name, institution_type, logo_url)')
         .eq('charity_id', charityId)
         .order('created_at', ascending: false);
+
     return rows
         .whereType<Map>()
         .map((row) => Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
+
+  /// الاسم الذي تستخدمه صفحة تبرعات المؤسسات.
+  Future<List<Map<String, dynamic>>> listCharityVolunteers() async {
+    await _currentCharityId();
+
+    final raw = await _client.rpc('list_my_charity_volunteers_manage');
+    if (raw is! List) return const <Map<String, dynamic>>[];
+
+    return raw
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  /// اسم بديل للتوافق مع الصفحات القديمة.
+  Future<List<Map<String, dynamic>>> getCharityVolunteers() =>
+      listCharityVolunteers();
 
   Future<void> acceptDonation(String donationId, bool accept) async {
     await _rpc('institution_accept_charity_donation', {
@@ -58,9 +103,9 @@ class CharityInstitutionDonationsRepository {
   }
 
   Future<Map<String, dynamic>> generatePickupCode(String donationId) async {
-    return _rpcMap('institution_generate_pickup_code', {
-      'p_donation_id': donationId.trim(),
-    });
+    final result = await _client.rpc('institution_generate_pickup_code',
+        params: {'p_donation_id': donationId.trim()});
+    return _mapSuccessfulResult(result);
   }
 
   Future<void> verifyPickupCode({
@@ -81,18 +126,35 @@ class CharityInstitutionDonationsRepository {
 
   Future<void> _rpc(String name, Map<String, dynamic> params) async {
     final result = await _client.rpc(name, params: params);
-    if (result is Map && result['success'] == true) return;
-    throw const FormatException('تعذر تنفيذ العملية حاليًا');
+
+    if (result == null) return;
+    if (result is Map) {
+      final data = Map<String, dynamic>.from(result);
+      if (data['success'] == true ||
+          data['ok'] == true ||
+          data['error'] == null) {
+        return;
+      }
+      throw FormatException(
+        data['message']?.toString() ??
+            data['error']?.toString() ??
+            'تعذر تنفيذ العملية حاليًا',
+      );
+    }
   }
 
-  Future<Map<String, dynamic>> _rpcMap(
-    String name,
-    Map<String, dynamic> params,
-  ) async {
-    final result = await _client.rpc(name, params: params);
-    if (result is Map && result['success'] == true) {
-      return Map<String, dynamic>.from(result);
+  Map<String, dynamic> _mapSuccessfulResult(dynamic result) {
+    if (result is Map) {
+      final data = Map<String, dynamic>.from(result);
+      if (data['success'] == false || data['ok'] == false) {
+        throw FormatException(
+          data['message']?.toString() ??
+              data['error']?.toString() ??
+              'تعذر تنفيذ العملية حاليًا',
+        );
+      }
+      return data;
     }
-    throw const FormatException('تعذر تنفيذ العملية حاليًا');
+    throw const FormatException('استجابة غير متوقعة من الخادم');
   }
 }

@@ -75,18 +75,34 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
       );
     }
 
-    final charity = await _client
-        .from('charities')
-        .select('id, name, status, is_verified')
-        .eq('user_id', authId)
-        .maybeSingle();
-    if (charity == null) {
-      return const _WorkspaceSnapshot.blocked(
-        'لا توجد جمعية مرتبطة بهذا الحساب. استخدم مساحة الحساب الصحيحة.',
+    // استخدم RPC الآمن الذي يعتمد على auth.uid() بدل القراءة المباشرة
+    // من charities، لأن RLS قد تمنع القراءة رغم صحة ربط الحساب.
+    final rawCharity = await _client.rpc('get_my_charity_context');
+    final charity = rawCharity is Map
+        ? Map<String, dynamic>.from(rawCharity)
+        : <String, dynamic>{};
+
+    if (charity['allowed'] != true) {
+      return _WorkspaceSnapshot.blocked(
+        charity['message']?.toString() ??
+            'لا توجد جمعية مرتبطة بهذا الحساب. استخدم مساحة الحساب الصحيحة.',
       );
     }
 
-    final charityId = charity['id'].toString();
+    final charityId = charity['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = charity['user_id']?.toString().trim() ?? '';
+
+    debugPrint(
+      '🔎 [CharityWorkspace] allowed=${charity['allowed']} '
+      'charityId=$charityId rpcUserId=$rpcUserId authId=$authId '
+      'status=${charity['status']}',
+    );
+
+    if (charityId.isEmpty || rpcUserId != authId) {
+      return const _WorkspaceSnapshot.blocked(
+        'بيانات الجمعية لا تتطابق مع حساب الدخول. تواصل مع الدعم.',
+      );
+    }
 
     // ✅ جلب البيانات بالتوازي
     final results = await Future.wait([

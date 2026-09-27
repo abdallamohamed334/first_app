@@ -51,19 +51,27 @@ class _CharityVolunteersManagementPageState
       throw StateError('انتهت جلسة الجمعية، يرجى تسجيل الدخول مرة أخرى');
     }
 
-    final charity = await _client
-        .from('charities')
-        .select('id')
-        .eq('user_id', authUserId)
-        .maybeSingle();
+    final charityContext = await _client.rpc('get_my_charity_context');
+    final charity = charityContext is Map
+        ? Map<String, dynamic>.from(charityContext)
+        : <String, dynamic>{};
+    final charityId = charity['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = charity['user_id']?.toString().trim() ?? '';
 
-    if (charity == null) {
-      throw StateError('لا توجد جمعية مرتبطة بالحساب الحالي');
+    if (charity['allowed'] != true ||
+        charityId.isEmpty ||
+        rpcUserId != authUserId) {
+      throw StateError(
+        charity['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب الحالي',
+      );
     }
 
     final response = await _client.rpc(
-      'list_my_charity_volunteers_manage_with_identity',
-      params: {'p_charity_id': charity['id']},
+      'list_my_current_charity_volunteers',
+    );
+
+    debugPrint(
+      '🧪 [VolunteerList] charityId=$charityId response=$response',
     );
 
     return (response as List)
@@ -359,6 +367,12 @@ class _CharityVolunteersManagementPageState
     });
 
     try {
+      final saveUserId = _client.auth.currentUser?.id ?? '';
+      final saveContext = await _client.rpc('get_my_charity_context');
+      debugPrint(
+        '🧪 [VolunteerSave:start] user=$saveUserId '
+        'context=$saveContext hasNewAvatar=${selectedAvatar != null}',
+      );
       String? avatarUrl = volunteer?['avatar_url']?.toString();
       if (selectedAvatar != null && selectedAvatarBytes != null) {
         final bytes = selectedAvatarBytes!;
@@ -369,18 +383,23 @@ class _CharityVolunteersManagementPageState
         if (authUserId == null || authUserId.isEmpty) {
           throw Exception('انتهت جلسة الجمعية');
         }
-        final charity = await _client
-            .from('charities')
-            .select('id')
-            .eq('user_id', authUserId)
-            .eq('status', 'active')
-            .maybeSingle();
-        final charityId = charity?['id']?.toString();
-        if (charityId == null || charityId.isEmpty) {
-          throw Exception('لا توجد جمعية نشطة مرتبطة بالحساب');
+        final charityContext = await _client.rpc('get_my_charity_context');
+        final charity = charityContext is Map
+            ? Map<String, dynamic>.from(charityContext)
+            : <String, dynamic>{};
+        final charityId = charity['charity_id']?.toString().trim() ?? '';
+        final rpcUserId = charity['user_id']?.toString().trim() ?? '';
+        if (charity['allowed'] != true ||
+            charityId.isEmpty ||
+            rpcUserId != authUserId) {
+          throw Exception(
+            charity['message']?.toString() ??
+                'لا توجد جمعية مرتبطة بالحساب الحالي',
+          );
         }
         final path =
-            'charity-volunteers/$charityId/${DateTime.now().microsecondsSinceEpoch}.$extension';
+            '$charityId/${DateTime.now().microsecondsSinceEpoch}.$extension';
+        debugPrint('🧪 [VolunteerAvatar] uploadPath=$path');
         await _client.storage.from('avatars').uploadBinary(
               path,
               bytes,
@@ -398,6 +417,14 @@ class _CharityVolunteersManagementPageState
         'p_national_id': nationalIdController.text.trim(),
         'p_avatar_url': avatarUrl,
       };
+
+      // تشخيص نهائي قبل استدعاء دالة الإنشاء/التعديل.
+      final currentUserId = _client.auth.currentUser?.id ?? '';
+      final currentContext = await _client.rpc('get_my_charity_context');
+      debugPrint(
+        '🧪 [VolunteerSave] user=$currentUserId '
+        'context=$currentContext params=$params',
+      );
       if (volunteer == null) {
         await _client.rpc(
           'create_my_charity_volunteer_with_identity',

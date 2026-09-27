@@ -47,20 +47,26 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
       throw Exception('هذه الصفحة متاحة لحسابات الجمعيات فقط');
     }
 
-    final charity = await client
-        .from('charities')
-        .select(
-          'id, name, logo, image_url, logo_url, description, phone, email, address, status, is_verified',
-        )
-        .eq('user_id', authId)
-        .maybeSingle();
-    if (charity == null) {
-      throw Exception('لا توجد جمعية مرتبطة بهذا الحساب');
+    final rawCharity = await client.rpc('get_my_charity_profile');
+    final charity = rawCharity is Map
+        ? Map<String, dynamic>.from(rawCharity)
+        : <String, dynamic>{};
+
+    debugPrint(
+      '🔎 [CharityProfile] allowed=${charity['allowed']} '
+      'charityId=${charity['id']} userId=${charity['user_id']} '
+      'authId=$authId status=${charity['status']}',
+    );
+
+    if (charity['allowed'] != true || charity['id'] == null) {
+      throw Exception(
+        charity['message']?.toString() ?? 'لا توجد جمعية مرتبطة بهذا الحساب',
+      );
     }
 
     return {
       'user': Map<String, dynamic>.from(user ?? const {}),
-      'charity': Map<String, dynamic>.from(charity),
+      'charity': charity,
     };
   }
 
@@ -82,10 +88,10 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
       if (authId == null || authId.isEmpty) {
         throw StateError('انتهت الجلسة الحالية');
       }
-      await Supabase.instance.client
-          .from('charities')
-          .update({'logo': url, 'logo_url': url, 'image_url': url}).eq(
-              'user_id', authId);
+      await Supabase.instance.client.rpc(
+        'update_my_charity_logo',
+        params: {'p_logo_url': url},
+      );
       if (!mounted) return;
       setState(() {
         _uploadingImage = false;

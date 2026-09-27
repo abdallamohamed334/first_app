@@ -32,15 +32,26 @@ class SeparateCharityDonationRepository {
     if (userId == null || userId.isEmpty) {
       throw const FormatException('يجب تسجيل الدخول أولًا');
     }
-    final row = await _client
-        .from('charities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
-    final id = row?['id']?.toString().trim() ?? '';
-    if (id.isEmpty) {
-      throw const FormatException('لا توجد جمعية نشطة مرتبطة بالحساب');
+
+    final raw = await _client.rpc('get_my_charity_context');
+    final row =
+        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final id = row['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = row['user_id']?.toString().trim() ?? '';
+
+    debugPrint(
+      '🔎 [CharityContext] allowed=${row['allowed']} '
+      'charityId=$id rpcUserId=$rpcUserId currentUser=$userId '
+      'status=${row['status']}',
+    );
+
+    if (row['allowed'] != true ||
+        id.isEmpty ||
+        rpcUserId.isEmpty ||
+        rpcUserId != userId) {
+      throw FormatException(
+        row['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب',
+      );
     }
     return id;
   }
@@ -190,16 +201,30 @@ class SeparateCharityDonationRepository {
 
   Future<String> _charityIdForCurrentUser() async {
     final userId = await _currentUserId();
-    final row = await _client
-        .from('charities')
-        .select('id, status')
-        .eq('user_id', userId)
-        .maybeSingle();
-    if (row == null) throw Exception('لا توجد جمعية مرتبطة بالحساب');
-    if (row['status']?.toString() != 'active') {
-      throw Exception('حساب الجمعية ما زال قيد المراجعة');
+
+    // RPC يعمل بـ security definer ويستخدم auth.uid(),
+    // لذلك لا يعتمد على قراءة جدول charities عبر RLS.
+    final raw = await _client.rpc('get_my_charity_context');
+    final row =
+        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final id = row['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = row['user_id']?.toString().trim() ?? '';
+
+    debugPrint(
+      '🔎 [CharityContext] allowed=${row['allowed']} '
+      'charityId=$id rpcUserId=$rpcUserId currentUser=$userId '
+      'status=${row['status']}',
+    );
+
+    if (row['allowed'] != true ||
+        id.isEmpty ||
+        rpcUserId.isEmpty ||
+        rpcUserId != userId) {
+      throw Exception(
+        row['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب',
+      );
     }
-    return row['id'].toString();
+    return id;
   }
 
   Future<String> _myCharityId() async => _charityIdForCurrentUser();
