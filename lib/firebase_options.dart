@@ -7,6 +7,7 @@ class DefaultFirebaseOptions {
     if (kIsWeb) {
       return web;
     }
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
         return android;
@@ -21,7 +22,7 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // ✅ Android
+  // Android: keep the existing Android Firebase app unchanged.
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
     appId: '1:898976071862:android:8572454f3a6cb2004ae617',
@@ -30,18 +31,17 @@ class DefaultFirebaseOptions {
     storageBucket: 'flutter-app-45f07.firebasestorage.app',
   );
 
-  // ✅ iOS (للتوافق)
+  // iOS: values from GoogleService-Info.plist for com.jood.app.
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
-    appId: '1:898976071862:ios:8572454f3a6cb2004ae617',
+    apiKey: 'AIzaSyD4NwdnUQ_NkhrkjDxWRZQgauW4NEyipc',
+    appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',
     storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    iosClientId: '898976071862-xxxxxxxx.apps.googleusercontent.com',
-    iosBundleId: 'com.example.first_app',
+    iosBundleId: 'com.jood.app',
   );
 
-  // ✅ Web (للتوافق)
+  // Web: keep the existing Web Firebase app unchanged.
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
     appId: '1:898976071862:web:8572454f3a6cb2004ae617',
@@ -52,14 +52,14 @@ class DefaultFirebaseOptions {
     measurementId: 'G-XXXXXXXX',
   );
 
-  // ✅ macOS (للتوافق)
+  // macOS compatibility configuration.
+  // Register a separate macOS Firebase app before using Firebase on macOS.
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
-    appId: '1:898976071862:ios:8572454f3a6cb2004ae617',
+    apiKey: 'AIzaSyD4NwdnUQ_NkhrkjDxWRZQgauuW4NEyipc',
+    appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',
     storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    iosClientId: '898976071862-xxxxxxxx.apps.googleusercontent.com',
-    iosBundleId: 'com.example.first_app',
+    iosBundleId: 'com.jood.app',
   );
 }
