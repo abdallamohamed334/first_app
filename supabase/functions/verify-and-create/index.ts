@@ -238,10 +238,28 @@ serve(async (req) => {
 
     // ── لو مقدم خدمة ──
     if (requestedRole === "provider") {
-      const { error: providerError } = await adminClient
-        .from("service_providers")
-        .upsert(
-          {
+      const { data: existingProvider, error: providerLookupError } =
+        await adminClient
+          .from("service_providers")
+          .select("id")
+          .eq("user_id", finalUserId)
+          .maybeSingle();
+
+      if (providerLookupError) {
+        console.error("⚠️ Provider lookup error:", JSON.stringify(providerLookupError));
+        return err("تعذر تحميل ملف مزود الخدمة");
+      }
+
+      // Login must never create a partial provider row. Registration carries
+      // categoryId; a login without an existing profile gets a clear response.
+      if (!existingProvider && !profile.categoryId) {
+        return err("الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.");
+      }
+
+      if (!existingProvider) {
+        const { error: providerError } = await adminClient
+          .from("service_providers")
+          .insert({
             user_id: finalUserId,
             category_id: profile.categoryId,
             provider_type: profile.providerType || "individual",
@@ -256,19 +274,17 @@ serve(async (req) => {
             service_areas: profile.serviceAreas || [],
             pricing_type: profile.pricingType || "market",
             price_from: profile.priceFrom,
-            // Provider approval is an admin workflow, never a client-controlled signup result.
             verification_status: "pending",
-            // Pending providers may reach the pending-review screen; actual
-            // provider features remain guarded by verification_status.
+            // Pending providers may reach the review screen; features remain
+            // guarded by verification_status.
             is_active: true,
             is_available: true,
-          },
-          { onConflict: "user_id" },
-        );
+          });
 
-      if (providerError) {
-        console.error("⚠️ Provider error:", JSON.stringify(providerError));
-        return err("تعذر إنشاء ملف مزود الخدمة");
+        if (providerError) {
+          console.error("⚠️ Provider error:", JSON.stringify(providerError));
+          return err("تعذر إنشاء ملف مزود الخدمة");
+        }
       }
     }
 
