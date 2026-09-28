@@ -243,7 +243,6 @@ serve(async (req) => {
         .upsert(
           {
             user_id: finalUserId,
-            submitted_by: finalUserId,
             category_id: profile.categoryId,
             provider_type: profile.providerType || "individual",
             display_name: profile.name || cleanPhone,
@@ -259,7 +258,9 @@ serve(async (req) => {
             price_from: profile.priceFrom,
             // Provider approval is an admin workflow, never a client-controlled signup result.
             verification_status: "pending",
-            is_active: false,
+            // Pending providers may reach the pending-review screen; actual
+            // provider features remain guarded by verification_status.
+            is_active: true,
             is_available: true,
           },
           { onConflict: "user_id" },
