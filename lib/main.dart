@@ -47,13 +47,19 @@ Future<void> main() async {
 
   final envLoaded = await _loadEnvSafely();
 
-  final firebaseReady = await _initializeFirebaseSafely();
+  final firebaseReady = await _initializeFirebaseSafely().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () {
+      debugPrint('Firebase startup timed out; continuing without blocking UI');
+      return false;
+    },
+  );
 
   if (firebaseReady) {
     try {
       await loqmaAppCheck().activate(
         webRecaptchaSiteKey: dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY'],
-      );
+      ).timeout(const Duration(seconds: 3));
 
       debugPrint('Firebase App Check activated');
     } catch (error, stack) {
@@ -80,7 +86,7 @@ Future<void> main() async {
     await Supabase.initialize(
       url: supabaseUrl ?? '',
       anonKey: supabaseAnonKey ?? '',
-    );
+    ).timeout(const Duration(seconds: 5));
 
     debugPrint('Supabase initialized successfully');
 
@@ -98,47 +104,43 @@ Future<void> main() async {
   // ✅ تهيئة الـ ThemeNotifier قبل بدء التطبيق
   ThemeNotifier.isDarkMode.value = isDarkMode;
 
+  runApp(MyApp(initialIsDarkMode: isDarkMode));
+  unawaited(_initializePostLaunchServices(firebaseReady));
+}
+
+Future<void> _initializePostLaunchServices(bool firebaseReady) async {
   try {
     final supabaseService = SupabaseService();
-
-    await supabaseService.initializeFcmForCurrentUser(
-      onNotificationTap: (data) async {
-        final notificationType = data['type']?.toString();
-
-        if (notificationType != null && notificationType.trim().isNotEmpty) {
-          try {
-            await loqmaAnalytics().notificationOpened(
-              notificationType: notificationType,
-            );
-          } catch (error, stack) {
-            debugPrint('Notification analytics failed: $error');
-            debugPrintStack(stackTrace: stack);
-          }
-        }
-      },
-    );
-
+    await supabaseService
+        .initializeFcmForCurrentUser(
+          onNotificationTap: (data) async {
+            final notificationType = data['type']?.toString();
+            if (notificationType != null && notificationType.trim().isNotEmpty) {
+              try {
+                await loqmaAnalytics().notificationOpened(
+                  notificationType: notificationType,
+                );
+              } catch (error, stack) {
+                debugPrint('Notification analytics failed: $error');
+                debugPrintStack(stackTrace: stack);
+              }
+            }
+          },
+        )
+        .timeout(const Duration(seconds: 8));
     if (firebaseReady) {
-      try {
-        await loqmaAnalytics().appOpen();
-      } catch (error, stack) {
-        debugPrint('Analytics appOpen failed: $error');
-        debugPrintStack(stackTrace: stack);
-      }
+      await loqmaAnalytics().appOpen().timeout(const Duration(seconds: 3));
     }
   } catch (error, stack) {
-    debugPrint('Notification initialization failed: $error');
+    debugPrint('Post-launch notification initialization failed: $error');
     debugPrintStack(stackTrace: stack);
   }
-
   try {
     initNotificationInjection();
   } catch (error, stack) {
     debugPrint('Notification injection failed: $error');
     debugPrintStack(stackTrace: stack);
   }
-
-  runApp(MyApp(initialIsDarkMode: isDarkMode));
 }
 
 // ═══════════════════════════════════════════════════════════════
