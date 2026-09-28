@@ -146,6 +146,9 @@ class VolunteerPodium extends StatelessWidget {
       2: '🥈',
       3: '🥉',
     };
+    final displayName = volunteer.name.trim();
+    final initial =
+        displayName.isEmpty ? '?' : displayName.substring(0, 1).toUpperCase();
 
     return SizedBox(
       width: 100,
@@ -166,7 +169,7 @@ class VolunteerPodium extends StatelessWidget {
             backgroundColor: colorScheme.primary.withAlpha(25),
             child: volunteer.avatarUrl == null
                 ? Text(
-                    volunteer.name[0].toUpperCase(),
+                    initial,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
