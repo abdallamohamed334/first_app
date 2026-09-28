@@ -573,12 +573,15 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   // CATEGORY CHIPS
   // ═══════════════════════════════════════════════════════════
   Future<void> _openCategoryPicker() async {
-    final queryController = TextEditingController();
+    // The sheet can still be reversing its close animation after the Future
+    // completes. Keep the search value local instead of disposing a controller
+    // while the TextField is still attached to the widget tree.
+    var query = '';
     await showModalBottomSheet<void>(
       context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent,
       builder: (sheetContext) => StatefulBuilder(builder: (context, setSheetState) {
-        final query = queryController.text.trim().toLowerCase();
-        final filtered = _categories.where((cat) => (cat['name_ar']?.toString() ?? '').toLowerCase().contains(query)).toList();
+        final normalizedQuery = query.trim().toLowerCase();
+        final filtered = _categories.where((cat) => (cat['name_ar']?.toString() ?? '').toLowerCase().contains(normalizedQuery)).toList();
         return Container(
           height: MediaQuery.of(context).size.height * .7,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -588,7 +591,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
             const SizedBox(height: 16),
             const Text('فلترة حسب التصنيف', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _darkGreen)),
             const SizedBox(height: 12),
-            TextField(controller: queryController, autofocus: true, onChanged: (_) => setSheetState(() {}), decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, color: _green), hintText: 'ابحث عن تصنيف...', filled: true, fillColor: _greenSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
+            TextField(autofocus: true, onChanged: (value) => setSheetState(() => query = value), decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, color: _green), hintText: 'ابحث عن تصنيف...', filled: true, fillColor: _greenSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
             const SizedBox(height: 10),
             Expanded(child: ListView.separated(itemCount: filtered.length + 1, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
               if (index == 0) return Material(color: Colors.transparent, child: ListTile(title: const Text('كل التصنيفات', style: TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == null ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = null); Navigator.pop(sheetContext); _loadNeeds(refresh: true); }));
@@ -599,7 +602,6 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
         );
       }),
     );
-    queryController.dispose();
   }
 
   Widget _buildCategoryChips() {
