@@ -1,5 +1,5 @@
--- Expand symbolic community offers from a 10 km radius to a governorate-sized radius.
--- 70 km covers the Gharbia governorate from Tanta while retaining distance ordering.
+-- Expand symbolic community offers to a governorate-sized radius.
+-- Haversine is used instead of PostGIS because this project does not have SRID 4326 registered.
 
 CREATE OR REPLACE FUNCTION public.get_nearby_community_offers(
   p_latitude double precision,
@@ -46,10 +46,11 @@ BEGIN
     co.latitude::double precision, co.longitude::double precision,
     co.status, co.created_at, co.updated_at, co.expires_at,
     co.phone, co.whatsapp, co.category_id,
-    ST_Distance(
-      ST_SetSRID(ST_MakePoint(co.longitude, co.latitude), 4326)::geography,
-      ST_SetSRID(ST_MakePoint(p_longitude, p_latitude), 4326)::geography
-    ) AS distance_meters
+    (6371000 * 2 * asin(sqrt(
+      power(sin(radians(co.latitude - p_latitude) / 2), 2) +
+      cos(radians(p_latitude)) * cos(radians(co.latitude)) *
+      power(sin(radians(co.longitude - p_longitude) / 2), 2)
+    ))) AS distance_meters
   FROM public.community_offers co
   WHERE co.status = 'available'
     AND co.listing_type = 'symbolic_sale'
@@ -65,11 +66,11 @@ BEGIN
           AND bu.blocked_id = co.owner_id
       )
     )
-    AND ST_DWithin(
-      ST_SetSRID(ST_MakePoint(co.longitude, co.latitude), 4326)::geography,
-      ST_SetSRID(ST_MakePoint(p_longitude, p_latitude), 4326)::geography,
-      70000
-    )
+    AND (6371000 * 2 * asin(sqrt(
+      power(sin(radians(co.latitude - p_latitude) / 2), 2) +
+      cos(radians(p_latitude)) * cos(radians(co.latitude)) *
+      power(sin(radians(co.longitude - p_longitude) / 2), 2)
+    ))) <= 70000
   ORDER BY distance_meters ASC, co.created_at DESC
   LIMIT LEAST(GREATEST(p_limit, 1), 100)
   OFFSET GREATEST(p_offset, 0);
