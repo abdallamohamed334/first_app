@@ -40,6 +40,63 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
   Map<String, dynamic> get offer => _offer;
 
+  String get _categorySlug =>
+      (offer['category'] ?? offer['category_slug'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+
+  String get _categoryName {
+    final stored = (offer['category_name_ar'] ?? offer['category_name'])
+        ?.toString()
+        .trim();
+    if (stored != null && stored.isNotEmpty) return stored;
+    const names = {
+      'cars': 'سيارات',
+      'cars-parts': 'قطع غيار سيارات',
+      'mobiles': 'موبايلات',
+      'electronics': 'إلكترونيات',
+      'real-estate': 'عقارات',
+      'apartments': 'شقق وعقارات',
+      'furniture': 'أثاث',
+      'clothing': 'ملابس',
+    };
+    return names[_categorySlug] ?? 'منتج';
+  }
+
+  IconData get _categoryIcon {
+    if (_categorySlug.contains('car') || _categorySlug.contains('vehicle')) {
+      return Icons.directions_car_rounded;
+    }
+    if (_categorySlug.contains('mobile') ||
+        _categorySlug.contains('phone') ||
+        _categorySlug.contains('tablet')) {
+      return Icons.phone_android_rounded;
+    }
+    if (_categorySlug.contains('real') ||
+        _categorySlug.contains('property') ||
+        _categorySlug.contains('apartment')) {
+      return Icons.home_work_rounded;
+    }
+    if (_categorySlug.contains('furniture')) return Icons.chair_rounded;
+    return Icons.category_rounded;
+  }
+
+  String get _attributesTitle {
+    if (_categorySlug.contains('car') || _categorySlug.contains('vehicle')) {
+      return 'مواصفات السيارة';
+    }
+    if (_categorySlug.contains('mobile') || _categorySlug.contains('phone')) {
+      return 'مواصفات الموبايل';
+    }
+    if (_categorySlug.contains('real') ||
+        _categorySlug.contains('property') ||
+        _categorySlug.contains('apartment')) {
+      return 'مواصفات العقار';
+    }
+    return 'مواصفات $_categoryName';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -122,7 +179,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       try {
         final userData = await Supabase.instance.client
             .from('users')
-            .select('phone, whatsapp')
+            .select('phone, whatsapp, name, avatar_url, created_at')
             .eq('id', finalOwnerId)
             .maybeSingle();
 
@@ -132,6 +189,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
           if (phone.isEmpty) phone = userPhone;
           if (whatsapp.isEmpty) whatsapp = userWhatsapp;
+          _offer['owner_name'] ??= userData['name']?.toString();
+          _offer['avatar_url'] ??= userData['avatar_url']?.toString();
+          _offer['owner_created_at'] ??= userData['created_at']?.toString();
         }
       } catch (e) {
         debugPrint('❌ [Details] fetch users error: $e');
@@ -232,7 +292,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       // 3) نجيب الـ attributes نفسها
       final attributesRaw = await client
           .from('marketplace_attributes')
-          .select('id, slug, name_ar, input_type, icon, sort_order')
+            .select('id, slug, name_ar, input_type')
           .inFilter('id', attributeIds);
 
       final attributes = (attributesRaw as List)
@@ -299,7 +359,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
           'slug': attr['slug']?.toString() ?? '',
           'name_ar': attr['name_ar']?.toString() ?? '',
           'input_type': attr['input_type']?.toString() ?? '',
-          'icon': attr['icon']?.toString(),
+          'icon': null,
           'sort_order': (attr['sort_order'] as num?)?.toInt() ?? 0,
           'value': displayValue,
         });
@@ -815,11 +875,11 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.groups_rounded,
+                              Icon(_categoryIcon,
                                   size: 13, color: colors.primary),
                               const SizedBox(width: 5),
                               Text(
-                                'عرض مجتمعي',
+                                'عرض $_categoryName',
                                 style: TextStyle(
                                   color: colors.primary,
                                   fontSize: 11,
@@ -946,7 +1006,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                     // ✅ المواصفات الديناميكية
                     // ═══════════════════════════════════════════
                     if (_loadingAttributes) ...[
-                      _premiumSectionTitle('المواصفات', Icons.tune_rounded),
+                      _premiumSectionTitle(_attributesTitle, _categoryIcon),
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
@@ -969,7 +1029,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       ),
                       const SizedBox(height: 24),
                     ] else if (_marketplaceAttributes.isNotEmpty) ...[
-                      _premiumSectionTitle('المواصفات', Icons.tune_rounded),
+                      _premiumSectionTitle(_attributesTitle, _categoryIcon),
                       const SizedBox(height: 10),
                       _attributesCard(colors),
                       const SizedBox(height: 24),
