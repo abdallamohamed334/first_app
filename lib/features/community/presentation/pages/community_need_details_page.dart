@@ -486,6 +486,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     final need = _need!;
     final title = need['title']?.toString() ?? 'احتياج';
     final categoryName = need['category_name_ar']?.toString() ?? 'عام';
+    final imageUrl = need['image_url']?.toString();
     final urgency = need['urgency']?.toString() ?? 'normal';
     final urgencyData = _urgencyData(urgency);
     final expiresAt = _parseDate(need['expires_at']);
@@ -574,6 +575,19 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   ],
                 ),
                 const SizedBox(height: 14),
+                if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Image.network(
+                      imageUrl,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 Text(
                   title,
                   maxLines: 2,

@@ -2846,6 +2846,7 @@ class _NeedCard extends StatelessWidget {
     final city = need['city']?.toString() ?? '';
     final urgency = need['urgency']?.toString() ?? 'normal';
     final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
+    final imageUrl = need['image_url']?.toString();
 
     final urgencyData = _urgencyData(urgency);
 
@@ -2881,6 +2882,16 @@ class _NeedCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
+                  if (imageUrl != null && imageUrl.isNotEmpty)
+                    Positioned.fill(
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  if (imageUrl != null && imageUrl.isNotEmpty)
+                    Positioned.fill(child: Container(color: Colors.black26)),
                   Positioned(
                     left: -20,
                     bottom: -20,

@@ -572,88 +572,51 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   // ═══════════════════════════════════════════════════════════
   // CATEGORY CHIPS
   // ═══════════════════════════════════════════════════════════
-  Widget _buildCategoryChips() {
-    return SizedBox(
-      height: 42,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          if (i == 0) {
-            final isAll = _selectedCategoryId == null;
-            return _buildChip(
-              label: 'الكل',
-              selected: isAll,
-              onTap: () {
-                setState(() => _selectedCategoryId = null);
-                _loadNeeds(refresh: true);
-              },
-            );
-          }
-
-          final cat = _categories[i - 1];
-          final catId = cat['id']?.toString() ?? '';
-          final catName = cat['name_ar']?.toString() ?? '';
-          final isSelected = _selectedCategoryId == catId;
-
-          return _buildChip(
-            label: catName,
-            selected: isSelected,
-            onTap: () {
-              setState(() {
-                _selectedCategoryId = isSelected ? null : catId;
-              });
-              _loadNeeds(refresh: true);
-            },
-          );
-        },
-      ),
+  Future<void> _openCategoryPicker() async {
+    final queryController = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(builder: (context, setSheetState) {
+        final query = queryController.text.trim().toLowerCase();
+        final filtered = _categories.where((cat) => (cat['name_ar']?.toString() ?? '').toLowerCase().contains(query)).toList();
+        return Container(
+          height: MediaQuery.of(context).size.height * .7,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          child: Column(children: [
+            Container(width: 42, height: 4, decoration: BoxDecoration(color: _muted.withValues(alpha: .3), borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 16),
+            const Text('فلترة حسب التصنيف', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _darkGreen)),
+            const SizedBox(height: 12),
+            TextField(controller: queryController, autofocus: true, onChanged: (_) => setSheetState(() {}), decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, color: _green), hintText: 'ابحث عن تصنيف...', filled: true, fillColor: _greenSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
+            const SizedBox(height: 10),
+            Expanded(child: ListView.separated(itemCount: filtered.length + 1, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
+              if (index == 0) return ListTile(title: const Text('كل التصنيفات', style: TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == null ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = null); Navigator.pop(sheetContext); _loadNeeds(refresh: true); });
+              final cat = filtered[index - 1]; final id = cat['id']?.toString() ?? ''; final name = cat['name_ar']?.toString() ?? '';
+              return ListTile(title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == id ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = id); Navigator.pop(sheetContext); _loadNeeds(refresh: true); });
+            }))
+          ]),
+        );
+      }),
     );
+    queryController.dispose();
   }
 
-  Widget _buildChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: selected ? _green : Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: selected ? _green : const Color(0xFFE5EFE9),
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: _green.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : _darkGreen,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
+  Widget _buildCategoryChips() {
+    String? selected;
+    for (final category in _categories) {
+      if (category['id']?.toString() == _selectedCategoryId) {
+        selected = category['name_ar']?.toString();
+        break;
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: OutlinedButton.icon(
+        onPressed: _openCategoryPicker,
+        icon: const Icon(Icons.tune_rounded, size: 18),
+        label: Text(selected == null ? 'اختار التصنيف للفلترة' : 'التصنيف: $selected'),
+        style: OutlinedButton.styleFrom(foregroundColor: _green, backgroundColor: Colors.white, side: BorderSide(color: selected == null ? const Color(0xFFE5EFE9) : _green), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
       ),
     );
   }
@@ -988,6 +951,7 @@ class _NeedCard extends StatelessWidget {
     final city = need['city']?.toString() ?? '';
     final requesterName = need['requester_name']?.toString() ?? 'مستخدم';
     final requesterAvatar = need['requester_avatar']?.toString();
+    final imageUrl = need['image_url']?.toString();
     final contactCount = (need['contact_count'] as num?)?.toInt() ?? 0;
     final createdAt = _parseDate(need['created_at']);
     final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
@@ -1036,7 +1000,16 @@ class _NeedCard extends StatelessWidget {
                           color: _greenSoft,
                           borderRadius: BorderRadius.circular(13),
                         ),
-                        child: Icon(catIcon, color: _green, size: 22),
+                        child: imageUrl != null && imageUrl.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(13),
+                                child: Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(catIcon, color: _green, size: 22),
+                                ),
+                              )
+                            : Icon(catIcon, color: _green, size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(

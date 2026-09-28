@@ -1,6 +1,7 @@
 // lib/features/community/data/repositories/community_needs_repository.dart
 
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CommunityNeedsRepository {
@@ -28,6 +29,7 @@ class CommunityNeedsRepository {
     // ✅ بيانات التواصل
     String? contactPhone,
     String? contactWhatsapp,
+    String? imageUrl,
   }) async {
     final authUser = _client.auth.currentUser;
 
@@ -81,6 +83,7 @@ class CommunityNeedsRepository {
             // ✅ بيانات التواصل
             'contact_phone': cleanPhone,
             'contact_whatsapp': cleanWhatsapp,
+            'image_url': imageUrl,
             'status': 'active',
           })
           .select()
@@ -129,6 +132,31 @@ class CommunityNeedsRepository {
       debugPrint('❌ listNeeds error: $error');
       return [];
     }
+  }
+
+  /// Uploads a reference image into a user-owned path. Storage policies
+  /// validate the first path segment against auth.uid().
+  Future<String> uploadNeedImage(XFile image) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('يجب تسجيل الدخول أولًا');
+
+    final extension = image.path.split('.').last.toLowerCase();
+    final safeExtension = const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)
+        ? extension
+        : 'jpg';
+    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
+    final contentType = safeExtension == 'png'
+        ? 'image/png'
+        : safeExtension == 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+
+    await _client.storage.from('community-needs').uploadBinary(
+          path,
+          await image.readAsBytes(),
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+    return _client.storage.from('community-needs').getPublicUrl(path);
   }
 
   // ============================================================
@@ -244,6 +272,7 @@ class CommunityNeedsRepository {
     String? categoryId,
     String? categorySlug,
     String? categoryNameAr,
+    String? imageUrl,
   }) async {
     try {
       final payload = <String, dynamic>{};
@@ -264,6 +293,7 @@ class CommunityNeedsRepository {
       if (categoryNameAr != null) {
         payload['category_name_ar'] = categoryNameAr;
       }
+      if (imageUrl != null) payload['image_url'] = imageUrl;
 
       if (payload.isEmpty) return true;
 

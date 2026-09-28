@@ -1,7 +1,10 @@
 // lib/features/community/presentation/pages/add_community_need_page.dart
 
 import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 
@@ -31,6 +34,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
   final _whatsappController = TextEditingController();
 
   final _repository = CommunityNeedsRepository();
+  final _imagePicker = ImagePicker();
 
   // ─────────────── الألوان ───────────────
   static const _green = Color(0xFF0B7650);
@@ -88,6 +92,8 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
 
   // ✅ المدينة (من الـ picker)
   String? _selectedCity;
+  XFile? _selectedImage;
+  String? _existingImageUrl;
 
   bool get _isEditMode => widget.isEditMode;
 
@@ -122,6 +128,41 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     _selectedCategoryId = data['category_id']?.toString();
     _selectedCategorySlug = data['category_slug']?.toString();
     _selectedCategoryName = data['category_name_ar']?.toString();
+    _existingImageUrl = data['image_url']?.toString();
+  }
+
+  Future<void> _pickImage() async {
+    final image = await _imagePicker.pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1600);
+    if (image != null && mounted) setState(() => _selectedImage = image);
+  }
+
+  Future<void> _openCategoryPicker() async {
+    final queryController = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, useSafeArea: true, backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(builder: (context, setSheetState) {
+        final query = queryController.text.trim().toLowerCase();
+        final filtered = _categories.where((cat) => (cat['name_ar']?.toString() ?? '').toLowerCase().contains(query)).toList();
+        return Container(
+          height: MediaQuery.of(context).size.height * .72,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+          child: Column(children: [
+            Container(width: 42, height: 4, decoration: BoxDecoration(color: _muted.withValues(alpha: .3), borderRadius: BorderRadius.circular(4))),
+            const SizedBox(height: 16),
+            const Text('اختار نوع الاحتياج', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: _darkGreen)),
+            const SizedBox(height: 12),
+            TextField(controller: queryController, onChanged: (_) => setSheetState(() {}), autofocus: true, decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, color: _green), hintText: 'ابحث في التصنيفات...', filled: true, fillColor: _greenSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
+            const SizedBox(height: 12),
+            Expanded(child: ListView.separated(itemCount: filtered.length, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
+              final cat = filtered[index]; final id = cat['id']?.toString() ?? ''; final name = cat['name_ar']?.toString() ?? ''; final selected = id == _selectedCategoryId;
+              return ListTile(leading: CircleAvatar(backgroundColor: selected ? _green : _greenSoft, child: Icon(_categoryIcon(name), color: selected ? Colors.white : _green, size: 19)), title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: selected ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() { _selectedCategoryId = id; _selectedCategorySlug = cat['slug']?.toString(); _selectedCategoryName = name; }); Navigator.pop(sheetContext); });
+            }))
+          ]),
+        );
+      }),
+    );
+    queryController.dispose();
   }
 
   @override
@@ -209,6 +250,10 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     setState(() => _isSubmitting = true);
 
     try {
+      var imageUrl = _existingImageUrl;
+      if (_selectedImage != null) {
+        imageUrl = await _repository.uploadNeedImage(_selectedImage!);
+      }
       if (_isEditMode) {
         final success = await _repository.updateNeed(
           needId: widget.needId!,
@@ -223,6 +268,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
           categoryId: _selectedCategoryId,
           categorySlug: _selectedCategorySlug,
           categoryNameAr: _selectedCategoryName,
+          imageUrl: imageUrl,
         );
 
         if (!mounted) return;
@@ -252,6 +298,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
             : _addressController.text.trim(),
         contactPhone: _phoneController.text.trim(),
         contactWhatsapp: _whatsappController.text.trim(),
+        imageUrl: imageUrl,
       );
 
       if (!mounted) return;
@@ -306,6 +353,8 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                   child: Column(
                     children: [
                       _buildCategorySection(),
+                      const SizedBox(height: 14),
+                      _buildImageSection(),
                       const SizedBox(height: 14),
                       _buildDetailsSection(),
                       const SizedBox(height: 14),
@@ -460,29 +509,48 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                   padding: EdgeInsets.all(20),
                   child: Text('لا توجد تصنيفات'),
                 )
-              : Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _categories.map((cat) {
-                    final id = cat['id']?.toString() ?? '';
-                    final name = cat['name_ar']?.toString() ?? '';
-                    final selected = _selectedCategoryId == id;
+              : _buildCategoryPickerField(),
+    );
+  }
 
-                    return _buildChoiceChip(
-                      label: name,
-                      icon: _categoryIcon(name),
-                      color: _green,
-                      selected: selected,
-                      onTap: () {
-                        setState(() {
-                          _selectedCategoryId = id;
-                          _selectedCategorySlug = cat['slug']?.toString();
-                          _selectedCategoryName = name;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+  Widget _buildCategoryPickerField() {
+    final selected = _selectedCategoryName?.trim().isNotEmpty == true;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _openCategoryPicker,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(color: const Color(0xFFF8FBF9), borderRadius: BorderRadius.circular(14), border: Border.all(color: selected ? _green : const Color(0xFFE0EBE5), width: selected ? 1.5 : 1)),
+          child: Row(children: [Icon(selected ? _categoryIcon(_selectedCategoryName!) : Icons.search_rounded, color: _green), const SizedBox(width: 12), Expanded(child: Text(selected ? _selectedCategoryName! : 'ابحث واختر التصنيف', style: TextStyle(color: selected ? _darkGreen : _muted, fontWeight: FontWeight.w800))), const Icon(Icons.keyboard_arrow_down_rounded, color: _green)]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageSection() {
+    final hasExisting = _existingImageUrl != null && _existingImageUrl!.isNotEmpty;
+    final hasImage = _selectedImage != null || hasExisting;
+    return _buildCard(
+      icon: Icons.image_outlined,
+      title: 'صورة توضيحية (اختياري)',
+      subtitle: 'صوّر الحاجة أو أضف صورة شبه اللي بتدور عليها',
+      child: InkWell(
+        onTap: _pickImage,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 150, width: double.infinity,
+          decoration: BoxDecoration(color: _greenSoft, borderRadius: BorderRadius.circular(16), border: Border.all(color: _green.withValues(alpha: .2))),
+          clipBehavior: Clip.antiAlias,
+          child: hasImage
+              ? Stack(fit: StackFit.expand, children: [
+                  _selectedImage != null ? Image.file(File(_selectedImage!.path), fit: BoxFit.cover) : Image.network(_existingImageUrl!, fit: BoxFit.cover),
+                  Positioned(top: 8, left: 8, child: IconButton(onPressed: () => setState(() { _selectedImage = null; _existingImageUrl = null; }), style: IconButton.styleFrom(backgroundColor: Colors.black54, foregroundColor: Colors.white), icon: const Icon(Icons.close_rounded))),
+                ])
+              : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.add_photo_alternate_outlined, color: _green, size: 40), SizedBox(height: 8), Text('اضغط لإضافة صورة', style: TextStyle(color: _green, fontWeight: FontWeight.w800))]),
+        ),
+      ),
     );
   }
 
