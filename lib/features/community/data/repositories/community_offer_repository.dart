@@ -1,6 +1,7 @@
 // lib/features/community/data/repositories/community_offer_repository.dart
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -1578,13 +1579,33 @@ class CommunityOfferRepository {
     required String userId,
     required XFile image,
   }) async {
-    final bytes = await image.readAsBytes();
+    var bytes = await image.readAsBytes();
 
     if (bytes.isEmpty) {
       throw Exception('الصورة المختارة فارغة');
     }
 
-    final extension = _extension(image.name);
+    var extension = _extension(image.name);
+
+    // Supabase Storage لا يقبل image/heic أو image/heif في هذا الـ bucket.
+    // نحول الصورة على الجهاز إلى JPEG بدل رفع bytes بصيغة MIME خاطئة.
+    if (extension == 'heic' || extension == 'heif') {
+      if (kIsWeb) {
+        throw Exception('صيغة HEIC غير مدعومة على الويب. اختر JPG أو PNG.');
+      }
+      final converted = await FlutterImageCompress.compressWithFile(
+        image.path,
+        format: CompressFormat.jpeg,
+        quality: 88,
+        minWidth: 1600,
+        minHeight: 1600,
+      );
+      if (converted == null || converted.isEmpty) {
+        throw Exception('تعذر تحويل صورة HEIC إلى JPEG');
+      }
+      bytes = converted;
+      extension = 'jpg';
+    }
 
     final fileName = '${DateTime.now().microsecondsSinceEpoch}_'
         '${Object.hash(image.name, bytes.length).abs()}'
