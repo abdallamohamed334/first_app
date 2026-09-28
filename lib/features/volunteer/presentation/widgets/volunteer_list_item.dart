@@ -16,6 +16,7 @@ class VolunteerListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final avatarUrl = volunteer.avatarUrl?.trim() ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -42,10 +43,10 @@ class VolunteerListItem extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor: colorScheme.primary.withAlpha(20),
-            backgroundImage: volunteer.avatarUrl != null
-                ? NetworkImage(volunteer.avatarUrl!)
+            backgroundImage: avatarUrl.isNotEmpty
+                ? NetworkImage(avatarUrl)
                 : null,
-            child: volunteer.avatarUrl == null
+            child: avatarUrl.isEmpty
                 ? Text(
                     volunteer.name.isNotEmpty
                         ? volunteer.name[0].toUpperCase()

@@ -960,12 +960,10 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                               radius: 15,
                               backgroundColor:
                                   colors.primary.withValues(alpha: .12),
-                              backgroundImage: (_ownerAvatar != null &&
-                                      _ownerAvatar!.isNotEmpty)
-                                  ? NetworkImage(_ownerAvatar!)
+                              backgroundImage: (_ownerAvatar ?? '').isNotEmpty
+                                  ? NetworkImage(_ownerAvatar ?? '')
                                   : null,
-                              child: (_ownerAvatar == null ||
-                                      _ownerAvatar!.isEmpty)
+                              child: (_ownerAvatar ?? '').isEmpty
                                   ? const Icon(Icons.person_rounded,
                                       size: 17, color: Color(0xFF87909A))
                                   : null,
@@ -1069,11 +1067,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                     const SizedBox(height: 26),
 
                     // ─── التقييمات
-                    Row(
-                      children: [
-                        _premiumSectionTitle('التقييمات', Icons.star_rounded),
-                      ],
-                    ),
+                    _premiumSectionTitle('التقييمات', Icons.star_rounded),
                     const SizedBox(height: 12),
 
                     if (!_isOwner)

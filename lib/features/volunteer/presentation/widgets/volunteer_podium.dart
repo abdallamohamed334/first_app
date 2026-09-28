@@ -149,6 +149,7 @@ class VolunteerPodium extends StatelessWidget {
     final displayName = volunteer.name.trim();
     final initial =
         displayName.isEmpty ? '?' : displayName.substring(0, 1).toUpperCase();
+    final avatarUrl = volunteer.avatarUrl?.trim() ?? '';
 
     return SizedBox(
       width: 100,
@@ -163,11 +164,11 @@ class VolunteerPodium extends StatelessWidget {
           // ✅ Avatar
           CircleAvatar(
             radius: 28,
-            backgroundImage: volunteer.avatarUrl != null
-                ? NetworkImage(volunteer.avatarUrl!)
+            backgroundImage: avatarUrl.isNotEmpty
+                ? NetworkImage(avatarUrl)
                 : null,
             backgroundColor: colorScheme.primary.withAlpha(25),
-            child: volunteer.avatarUrl == null
+            child: avatarUrl.isEmpty
                 ? Text(
                     initial,
                     style: TextStyle(
