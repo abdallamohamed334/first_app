@@ -17,6 +17,8 @@ class StorageService {
     if (cleanUserId.isEmpty) return null;
 
     try {
+      final authUserId = _client.auth.currentUser?.id;
+      if (authUserId == null || authUserId != cleanUserId) return null;
       final extension = _extensionFor(imageFile.name);
       final contentType = _contentTypeFor(extension);
       final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -25,6 +27,7 @@ class StorageService {
       final path = '$cleanUserId/avatar_$stamp.$extension';
       final bytes = await imageFile.readAsBytes();
       if (bytes.isEmpty) return null;
+      if (bytes.length > 5 * 1024 * 1024) return null;
 
       await _client.storage.from('avatars').uploadBinary(
             path,
