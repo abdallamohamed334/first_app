@@ -89,3 +89,10 @@
 2. Supabase لا يسمح لمالك المشروع بتعديل جدول PostGIS المملوك للإضافة `spatial_ref_sys` أو دوال `st_estimatedextent`؛ لذلك تظهر هذه العناصر فقط في Advisor، ولا تمس جداول التطبيق. معالجة ذلك تحتاج إعدادًا إداريًا من لوحة Supabase/الدعم أو نقل PostGIS إلى schema مخصص.
 3. ما زالت هناك تحذيرات Advisor حول دوال `SECURITY DEFINER` التي يستدعيها المستخدم المسجل. لا يمكن سحب صلاحيتها عشوائيًا دون كسر RPCs التطبيق؛ يلزم اختبار كل RPC حسب الدور ثم تحويل غير الضروري إلى `SECURITY INVOKER` أو سحب `EXECUTE` منه.
 4. يجب اختبار مسارات التسجيل، OTP، الطلبات، الإشعارات، والـwebhooks بحسابات test منفصلة قبل الإنتاج، خصوصًا بعد تضييق قراءة جدول `users`.
+
+## تحديث إصلاح رفع صور تبرعات الجمعيات — 2026-09-28
+
+- سبب خطأ `can_manage_charity_avatar_uuid_path` كان أن التطبيق يرفع صور التبرع إلى مسار غير متوافق مع سياسة `direct_donation_images_owner_insert`، كما كان يستدعي الرفع دون تمرير `charityId` فينتج مسار `user/legacy`.
+- تم توحيد المسار إلى `direct/<donor-user-id>/<charity-id>/<file>` وتمرير معرّف الجمعية من صفحة الإرسال.
+- تم تطبيق هجرة `harden_avatar_bucket_limits` على Supabase لضبط bucket `avatars` إلى 10 MB وصيغ الصور فقط: JPEG/JPG/PNG/WebP.
+- تم منع Android release من استخدام debug signing؛ البناء الإنتاجي يفشل عمدًا إذا لم تُحقن بيانات توقيع حقيقية من بيئة CI.

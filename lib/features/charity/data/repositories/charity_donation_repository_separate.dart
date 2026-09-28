@@ -97,13 +97,18 @@ class SeparateCharityDonationRepository {
 
   Future<List<String>> uploadDonationImages(
     List<XFile> images, {
-    String? charityId,
+    required String charityId,
   }) async {
     final userId = await _currentUserId();
-    final cleanCharityId = charityId?.trim();
-    final folder = cleanCharityId == null || cleanCharityId.isEmpty
-        ? '$userId/legacy'
-        : '$userId/$cleanCharityId';
+    final cleanCharityId = charityId.trim();
+    if (cleanCharityId.isEmpty) {
+      throw const FormatException('الجمعية المختارة غير صالحة');
+    }
+
+    // Storage policy: direct/<donor-user-id>/<charity-id>/<file>.
+    // Keeping both UUIDs in the path prevents a donor from uploading into a
+    // different charity namespace and matches direct_donation_images_*.
+    final folder = 'direct/$userId/$cleanCharityId';
     final paths = <String>[];
 
     try {

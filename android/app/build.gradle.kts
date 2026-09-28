@@ -25,11 +25,34 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            // Production credentials must come from CI/local environment, not Git.
+            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
+            val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
+            if (keystorePath.isNullOrBlank() ||
+                keystorePassword.isNullOrBlank() ||
+                keyAliasValue.isNullOrBlank() ||
+                keyPasswordValue.isNullOrBlank()
+            ) {
+                throw GradleException(
+                    "Release signing is not configured. Set ANDROID_KEYSTORE_PATH, " +
+                        "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and " +
+                        "ANDROID_KEY_PASSWORD in the build environment."
+                )
+            }
+            storeFile = file(keystorePath)
+            storePassword = keystorePassword
+            keyAlias = keyAliasValue
+            keyPassword = keyPasswordValue
+        }
+    }
+
     buildTypes {
         release {
-            // Temporary signing configuration for local release testing.
-            // Replace with your real release keystore before publishing.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

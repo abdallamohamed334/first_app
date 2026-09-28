@@ -84,7 +84,10 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     }
     setState(() => _busy = true);
     try {
-      final imageUrls = await _repository.uploadDonationImages(_images);
+      final imageUrls = await _repository.uploadDonationImages(
+        _images,
+        charityId: _charity!.id,
+      );
       debugPrint('✅ DONATION IMAGE PATHS: $imageUrls');
       if (imageUrls.isEmpty) {
         throw Exception('لم يتم رفع صور التبرع');
