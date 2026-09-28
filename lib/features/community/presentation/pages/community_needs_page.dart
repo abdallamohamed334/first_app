@@ -591,9 +591,9 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
             TextField(controller: queryController, autofocus: true, onChanged: (_) => setSheetState(() {}), decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded, color: _green), hintText: 'ابحث عن تصنيف...', filled: true, fillColor: _greenSoft, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
             const SizedBox(height: 10),
             Expanded(child: ListView.separated(itemCount: filtered.length + 1, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
-              if (index == 0) return ListTile(title: const Text('كل التصنيفات', style: TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == null ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = null); Navigator.pop(sheetContext); _loadNeeds(refresh: true); });
+              if (index == 0) return Material(color: Colors.transparent, child: ListTile(title: const Text('كل التصنيفات', style: TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == null ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = null); Navigator.pop(sheetContext); _loadNeeds(refresh: true); }));
               final cat = filtered[index - 1]; final id = cat['id']?.toString() ?? ''; final name = cat['name_ar']?.toString() ?? '';
-              return ListTile(title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == id ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = id); Navigator.pop(sheetContext); _loadNeeds(refresh: true); });
+              return Material(color: Colors.transparent, child: ListTile(title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == id ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = id); Navigator.pop(sheetContext); _loadNeeds(refresh: true); }));
             }))
           ]),
         );
