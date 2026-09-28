@@ -296,7 +296,7 @@ class SupabaseService {
       final hasProvider = provider != null;
       Map<String, dynamic>? institution;
       try {
-        institution = await _client
+        institution = await client
             .from('institutions')
             .select('institution_type, status')
             .eq('user_id', user.id)

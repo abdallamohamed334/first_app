@@ -599,7 +599,7 @@ class AuthRepository {
                   true)
               ? profile!['user_type'].toString().trim().toLowerCase()
               : (profile?['role']?.toString().trim().toLowerCase() ??
-                  'user'))));
+                  'user')));
 
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();
