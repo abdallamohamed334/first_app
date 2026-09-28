@@ -32,6 +32,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
   final _whatsappController = TextEditingController();
+  final _categorySearchController = TextEditingController();
 
   final _repository = CommunityNeedsRepository();
   final _imagePicker = ImagePicker();
@@ -139,16 +140,15 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
   }
 
   Future<void> _openCategoryPicker() async {
-    final queryController = TextEditingController();
-    try {
-      final selectedCategory = await showModalBottomSheet<Map<String, dynamic>>(
+    _categorySearchController.clear();
+    final selectedCategory = await showModalBottomSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
         backgroundColor: Colors.transparent,
         builder: (sheetContext) => StatefulBuilder(
           builder: (context, setSheetState) {
-            final query = queryController.text.trim().toLowerCase();
+            final query = _categorySearchController.text.trim().toLowerCase();
             final filtered = _categories
                 .where((cat) => (cat['name_ar']?.toString() ?? '')
                     .toLowerCase()
@@ -182,7 +182,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                   ),
                   const SizedBox(height: 12),
                   TextField(
-                    controller: queryController,
+                    controller: _categorySearchController,
                     onChanged: (_) => setSheetState(() {}),
                     autofocus: true,
                     decoration: InputDecoration(
@@ -239,22 +239,19 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
         ),
       );
 
-      if (!mounted || selectedCategory == null) return;
-      final id = selectedCategory['slug']?.toString().trim() ?? '';
-      final slug = selectedCategory['slug']?.toString().trim() ?? '';
-      final name = selectedCategory['name_ar']?.toString().trim() ?? '';
-      if (id.isEmpty || slug.isEmpty || name.isEmpty) {
-        _message('بيانات التصنيف غير مكتملة، اختر تصنيفًا آخر');
-        return;
-      }
-      setState(() {
-        _selectedCategoryId = id;
-        _selectedCategorySlug = slug;
-        _selectedCategoryName = name;
-      });
-    } finally {
-      queryController.dispose();
+    if (!mounted || selectedCategory == null) return;
+    final id = selectedCategory['slug']?.toString().trim() ?? '';
+    final slug = selectedCategory['slug']?.toString().trim() ?? '';
+    final name = selectedCategory['name_ar']?.toString().trim() ?? '';
+    if (id.isEmpty || slug.isEmpty || name.isEmpty) {
+      _message('بيانات التصنيف غير مكتملة، اختر تصنيفًا آخر');
+      return;
     }
+    setState(() {
+      _selectedCategoryId = id;
+      _selectedCategorySlug = slug;
+      _selectedCategoryName = name;
+    });
   }
 
   @override
@@ -265,6 +262,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     _addressController.dispose();
     _phoneController.dispose();
     _whatsappController.dispose();
+    _categorySearchController.dispose();
     super.dispose();
   }
 
