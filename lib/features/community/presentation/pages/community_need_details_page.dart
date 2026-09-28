@@ -577,19 +577,20 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                if (imageUrl != null && imageUrl.isNotEmpty) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      imageUrl,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? Image.network(
+                          imageUrl,
+                          height: 178,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _buildCategoryImage(categoryName),
+                        )
+                      : _buildCategoryImage(categoryName),
+                ),
+                const SizedBox(height: 14),
                 Text(
                   title,
                   maxLines: 2,
@@ -1497,4 +1498,31 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       ),
     );
   }
+
+  Widget _buildCategoryImage(String categoryName) {
+    return Container(
+      height: 178,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primary, _primaryDark],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 52),
+          const SizedBox(height: 10),
+          Text(
+            categoryName,
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

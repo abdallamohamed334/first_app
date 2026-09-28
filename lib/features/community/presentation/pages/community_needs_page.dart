@@ -990,6 +990,32 @@ class _NeedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: imageUrl != null && imageUrl.isNotEmpty
+                        ? Stack(
+                            children: [
+                              Image.network(
+                                imageUrl,
+                                width: double.infinity,
+                                height: 156,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _needImageFallback(catIcon),
+                              ),
+                              Positioned(
+                                top: 10,
+                                right: 10,
+                                child: _imageBadge(
+                                  icon: Icons.photo_camera_rounded,
+                                  label: 'صورة الاحتياج',
+                                ),
+                              ),
+                            ],
+                          )
+                        : _needImageFallback(catIcon),
+                  ),
+                  const SizedBox(height: 14),
                   Row(
                     children: [
                       Container(
@@ -1240,6 +1266,41 @@ class _NeedCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _needImageFallback(IconData icon) {
+    return Container(
+      width: double.infinity,
+      height: 156,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_greenSoft, Color(0xFFD6EFE3)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: _green, size: 52),
+    );
+  }
+
+  Widget _imageBadge({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 13),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
 }
 
 // ═══════════════════════════════════════════════════════════

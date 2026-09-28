@@ -653,6 +653,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }) {
     final id = need['id']?.toString() ?? '';
     final title = need['title']?.toString() ?? 'احتياج';
+    final imageUrl = need['image_url']?.toString();
     final categoryName = (need['category_name_ar'] ?? need['need_category'])
             ?.toString() ??
         'احتياج آخر';
@@ -697,6 +698,30 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? Stack(
+                          children: [
+                            Image.network(
+                              imageUrl,
+                              width: double.infinity,
+                              height: 148,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _myNeedImageFallback(categoryName),
+                            ),
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: _myNeedImageBadge(),
+                            ),
+                          ],
+                        )
+                      : _myNeedImageFallback(categoryName),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Row(
@@ -1176,4 +1201,46 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
         return ('نشط', 'نشط', _green);
     }
   }
+
+  Widget _myNeedImageFallback(String categoryName) {
+    return Container(
+      width: double.infinity,
+      height: 148,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_greenSoft, Color(0xFFD6EFE3)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.volunteer_activism_rounded, color: _green, size: 38),
+          const SizedBox(height: 6),
+          Text(categoryName, style: const TextStyle(color: _green, fontSize: 11, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
+  Widget _myNeedImageBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.photo_camera_rounded, color: Colors.white, size: 13),
+          SizedBox(width: 4),
+          Text('صورة الاحتياج', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+
 }
