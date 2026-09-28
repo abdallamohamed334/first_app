@@ -286,6 +286,10 @@ class ServiceProviderRepository {
             'role': 'provider',
             'name': displayName.isEmpty ? 'مزود خدمة' : displayName,
             'phone': cleanPhone,
+            // Required for a new service_providers row. Omit it for login so
+            // an existing provider profile is not overwritten accidentally.
+            if (categoryId.trim().isNotEmpty) 'categoryId': categoryId.trim(),
+            if (providerType.trim().isNotEmpty) 'providerType': providerType.trim(),
             if (city != null && city.isNotEmpty) 'city': city,
           },
         },

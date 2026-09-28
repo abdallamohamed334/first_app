@@ -195,6 +195,24 @@ serve(async (req) => {
       return err("تعذر تحديد المستخدم");
     }
 
+    // users has a trigger that keeps role and user_type in sync. Set both
+    // explicitly; otherwise user_type defaults to "user" and provider
+    // registration is rejected by the database guard.
+    const { data: conflictRow } = await adminClient
+      .from("users")
+      .select("id")
+      .eq("phone", cleanPhone)
+      .maybeSingle();
+    if (conflictRow?.id && conflictRow.id !== finalUserId) {
+      const { error: conflictDeleteError } = await adminClient
+        .from("users")
+        .delete()
+        .eq("id", conflictRow.id);
+      if (conflictDeleteError) {
+        console.error("⚠️ Phone conflict cleanup failed:", JSON.stringify(conflictDeleteError));
+      }
+    }
+
     // ═══════════════════════════════════════════════════════════
     // ✅ 6. نتأكد إن public.users فيه سجل (upsert)
     // ═══════════════════════════════════════════════════════════
@@ -205,6 +223,7 @@ serve(async (req) => {
         name: profile.name || "",
         city: profile.city || "طنطا",
         role: requestedRole,
+        user_type: requestedRole,
         is_phone_verified: true,
       },
       { onConflict: "id" },
@@ -248,6 +267,7 @@ serve(async (req) => {
 
       if (providerError) {
         console.error("⚠️ Provider error:", JSON.stringify(providerError));
+        return err("تعذر إنشاء ملف مزود الخدمة");
       }
     }
 
