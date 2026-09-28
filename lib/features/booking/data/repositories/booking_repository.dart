@@ -23,7 +23,6 @@ class BookingRepository {
     if (cleanUserId.isEmpty) return const <Booking>[];
 
     try {
-      await _expireOverdueBookings();
       final response = await _supabase.client
           .from('offer_requests')
           .select(_bookingSelect)
@@ -291,14 +290,6 @@ class BookingRepository {
     } catch (error) {
       _log('CANCEL BOOKING', error);
       return false;
-    }
-  }
-
-  Future<void> _expireOverdueBookings() async {
-    try {
-      await _supabase.client.rpc('expire_overdue_food_offers');
-    } catch (error) {
-      _log('EXPIRE BOOKINGS', error);
     }
   }
 

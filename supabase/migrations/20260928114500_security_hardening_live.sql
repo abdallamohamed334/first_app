@@ -88,6 +88,45 @@ BEGIN
   END LOOP;
 END $$;
 
+CREATE OR REPLACE FUNCTION public.reserve_food_offer(
+  p_offer_id uuid, p_user_id uuid, p_quantity integer DEFAULT 1
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $function$
+DECLARE v_remaining integer; v_request_id uuid;
+BEGIN
+  IF auth.uid() IS NULL OR auth.uid() <> p_user_id THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'UNAUTHORIZED');
+  END IF;
+  IF p_quantity IS NULL OR p_quantity < 1 OR p_quantity > 100 THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'INVALID_QUANTITY');
+  END IF;
+  SELECT quantity - reserved_quantity INTO v_remaining
+  FROM public.food_offers
+  WHERE id = p_offer_id AND deleted_at IS NULL AND status = 'available'
+    AND is_paused = false AND expiry_time > now() FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'OFFER_UNAVAILABLE');
+  END IF;
+  IF v_remaining < p_quantity THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'INSUFFICIENT_QUANTITY', 'remaining', v_remaining);
+  END IF;
+  INSERT INTO public.offer_requests (offer_id, user_id, status, quantity)
+  VALUES (p_offer_id, p_user_id, 'pending', p_quantity) RETURNING id INTO v_request_id;
+  UPDATE public.food_offers
+  SET reserved_quantity = reserved_quantity + p_quantity,
+      status = CASE WHEN reserved_quantity + p_quantity >= quantity THEN 'reserved' ELSE status END,
+      updated_at = now()
+  WHERE id = p_offer_id;
+  RETURN jsonb_build_object('ok', true, 'request_id', v_request_id);
+END;
+$function$;
+GRANT EXECUTE ON FUNCTION public.reserve_food_offer(uuid, uuid, integer) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.reserve_food_offer(uuid, uuid, integer) FROM anon, PUBLIC;
+
 CREATE OR REPLACE FUNCTION public.claim_delivery_task(
   p_task_id uuid, p_user_id uuid
 )

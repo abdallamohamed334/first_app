@@ -704,11 +704,8 @@ class SupabaseService {
   // FOOD OFFERS
   // ═══════════════════════════════════════════════════════════
   Future<void> _expireOverdueFoodOffers() async {
-    try {
-      await client.rpc('expire_overdue_food_offers');
-    } catch (e) {
-      debugPrint('⚠️ Expiry cleanup skipped: $e');
-    }
+    // Expiry is a backend responsibility; never let a client invoke the
+    // SECURITY DEFINER maintenance RPC as a side effect of reading offers.
   }
 
   Future<List<Map<String, dynamic>>> getFoodOffers() async {

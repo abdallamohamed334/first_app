@@ -80,10 +80,6 @@ class _HomePageState extends State<HomePage> {
     final authUser = client.auth.currentUser;
     if (authUser == null) return;
     try {
-      try {
-        await client.rpc('expire_overdue_food_bookings');
-      } catch (_) {}
-
       final rows = await client
           .from('offer_requests')
           .select('''
