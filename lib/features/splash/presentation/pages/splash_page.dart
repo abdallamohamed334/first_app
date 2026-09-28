@@ -126,7 +126,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       try {
         final userData = await client
             .from('users')
-            .select('role, user_type, name, city')
+            .select('role, user_type, name, city, latitude, longitude')
             .eq('id', session.user.id)
             .maybeSingle();
 
@@ -199,11 +199,17 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           providerStatus: providerStatus,
           institutionStatus: institutionStatus,
           isActive: isActive,
+          authResolved: true,
         );
 
         // ✅ التوجيه حسب الحالة
-        nextLocation =
-            AuthStateNotifier.instance.homeRoute ?? AppRouter.userTypeSelection;
+        final hasLocation = userData?['latitude'] is num &&
+            userData?['longitude'] is num;
+        final resolvedHome = AuthStateNotifier.instance.homeRoute ??
+            AppRouter.userTypeSelection;
+        nextLocation = role == 'user' && !hasLocation
+            ? AppRouter.map
+            : resolvedHome;
       } catch (error) {
         debugPrint('⚠️ [Splash] could not resolve role: $error');
         // لو الجلسة موجودة بس الـ query فشل → نروح Home

@@ -230,8 +230,8 @@ class _MapPageState extends State<MapPage> {
         return;
       }
 
-      final dbLat = userData['latitude'] as double?;
-      final dbLng = userData['longitude'] as double?;
+      final dbLat = (userData['latitude'] as num?)?.toDouble();
+      final dbLng = (userData['longitude'] as num?)?.toDouble();
 
       if (dbLat != null && dbLng != null) {
         print('📍 [MapPage] Location already in database: $dbLat, $dbLng');
@@ -325,8 +325,8 @@ class _MapPageState extends State<MapPage> {
         throw Exception('لم يتم العثور على بيانات المستخدم بعد التحديث');
       }
 
-      final savedLat = updatedUser['latitude'] as double?;
-      final savedLng = updatedUser['longitude'] as double?;
+      final savedLat = (updatedUser['latitude'] as num?)?.toDouble();
+      final savedLng = (updatedUser['longitude'] as num?)?.toDouble();
 
       if (savedLat == null || savedLng == null) {
         throw Exception('البيانات المحفوظة غير مكتملة');

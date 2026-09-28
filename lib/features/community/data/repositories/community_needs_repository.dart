@@ -109,6 +109,9 @@ class CommunityNeedsRepository {
     String? search,
     int limit = 30,
     int offset = 0,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 30,
   }) async {
     try {
       final response = await _client.rpc(
@@ -119,6 +122,9 @@ class CommunityNeedsRepository {
           'p_search': search,
           'p_limit': limit,
           'p_offset': offset,
+          'p_latitude': latitude,
+          'p_longitude': longitude,
+          'p_radius_km': radiusKm,
         },
       );
 

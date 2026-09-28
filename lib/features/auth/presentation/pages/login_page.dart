@@ -710,7 +710,16 @@ class _LoginPageState extends State<LoginPage>
     }
 
     if (type == 'user') {
-      context.go(AppRouter.home);
+      final profile = await SupabaseService()
+          .client
+          .from('users')
+          .select('latitude, longitude')
+          .eq('id', user.id)
+          .maybeSingle();
+      final hasLocation = profile?['latitude'] is num &&
+          profile?['longitude'] is num;
+      if (!mounted) return;
+      context.go(hasLocation ? AppRouter.home : AppRouter.map);
       return;
     }
 

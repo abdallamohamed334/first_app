@@ -158,15 +158,22 @@ class _UserHomePageState extends State<UserHomePage> {
       final data = await SupabaseService()
           .client
           .from('users')
-          .select('lat, lng, city')
+          .select('latitude, longitude, city')
           .eq('id', authUser.id)
           .maybeSingle();
 
       if (data == null || !mounted) return;
 
-      final lat = (data['lat'] as num?)?.toDouble();
-      final lng = (data['lng'] as num?)?.toDouble();
+      final lat = (data['latitude'] as num?)?.toDouble();
+      final lng = (data['longitude'] as num?)?.toDouble();
       final city = (data['city'] as String?)?.trim();
+
+      if (lat == null || lng == null) {
+        if (mounted) {
+          context.go('/map');
+        }
+        return;
+      }
 
       setState(() {
         _userLat = lat;
@@ -219,7 +226,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   List<InstitutionOffer> _sortByDistance(List<InstitutionOffer> offers) {
     if (_userLat == null || _userLng == null || offers.isEmpty) {
-      return offers;
+      return const <InstitutionOffer>[];
     }
 
     final withDist = <MapEntry<InstitutionOffer, double>>[];
@@ -227,10 +234,11 @@ class _UserHomePageState extends State<UserHomePage> {
       final (lat, lng) = _extractLatLng(o);
       if (lat == null || lng == null) continue;
       final d = _distanceKm(_userLat!, _userLng!, lat, lng);
+      if (d > _AppFeatures.nearbyRadiusKm) continue;
       withDist.add(MapEntry(o, d));
     }
 
-    if (withDist.isEmpty) return offers;
+    if (withDist.isEmpty) return const <InstitutionOffer>[];
 
     withDist.sort((a, b) => a.value.compareTo(b.value));
     return withDist.map((e) => e.key).toList(growable: false);
@@ -250,10 +258,7 @@ class _UserHomePageState extends State<UserHomePage> {
     for (final offer in offers) {
       final (lat, lng) = _extractCommunityLatLng(offer);
 
-      // لو العرض مالوش إحداثيات → نسيبه (بس نحدده للمسافة)
       if (lat == null || lng == null) {
-        // نسيبه بدون ترتيب (هنستخدم عدد كبير)
-        withDist.add(MapEntry(offer, double.infinity));
         continue;
       }
 
@@ -305,7 +310,12 @@ class _UserHomePageState extends State<UserHomePage> {
     if (mounted) setState(() => _loadingNeeds = true);
 
     try {
-      final needs = await _needsRepository.listNeeds(limit: 10);
+      final needs = await _needsRepository.listNeeds(
+        limit: 10,
+        latitude: _userLat,
+        longitude: _userLng,
+        radiusKm: _AppFeatures.nearbyRadiusKm,
+      );
       if (!mounted) return;
       setState(() => _communityNeeds = needs);
       debugPrint('✅ Loaded communityNeeds: ${needs.length}');
