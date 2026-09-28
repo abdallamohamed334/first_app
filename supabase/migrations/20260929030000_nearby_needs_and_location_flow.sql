@@ -66,7 +66,7 @@ AS $$
     CASE WHEN p_latitude IS NOT NULL AND p_longitude IS NOT NULL
       THEN CASE WHEN n.latitude IS NULL OR n.longitude IS NULL THEN 1 ELSE 0 END
       ELSE 0 END,
-    distance_km NULLS LAST,
+    25 NULLS LAST,
     CASE n.urgency WHEN 'urgent' THEN 1 WHEN 'high' THEN 2
       WHEN 'normal' THEN 3 WHEN 'low' THEN 4 ELSE 5 END,
     n.created_at DESC
