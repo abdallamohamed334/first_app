@@ -653,7 +653,9 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   }) {
     final id = need['id']?.toString() ?? '';
     final title = need['title']?.toString() ?? 'احتياج';
-    final categoryName = need['category_name_ar']?.toString() ?? 'عام';
+    final categoryName = (need['category_name_ar'] ?? need['need_category'])
+            ?.toString() ??
+        'احتياج آخر';
     final urgency = need['urgency']?.toString() ?? 'normal';
     final status = need['status']?.toString() ?? 'active';
     final contactCount = (need['contact_count'] as num?)?.toInt() ?? 0;

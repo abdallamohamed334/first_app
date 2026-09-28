@@ -123,8 +123,11 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
       _selectedCity = cityValue;
     }
 
-    _selectedCategoryId = data['category_id']?.toString();
-    _selectedCategorySlug = data['category_slug']?.toString();
+    _selectedCategoryId =
+        (data['need_category'] ?? data['category_slug'] ?? data['category_id'])
+            ?.toString();
+    _selectedCategorySlug =
+        (data['need_category'] ?? data['category_slug'])?.toString();
     _selectedCategoryName = data['category_name_ar']?.toString();
     _existingImageUrl = data['image_url']?.toString();
   }
@@ -201,10 +204,12 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (_, index) {
                         final cat = filtered[index];
-                        final id = cat['id']?.toString().trim() ?? '';
+                        final id = cat['slug']?.toString().trim() ?? '';
                         final name = cat['name_ar']?.toString().trim() ?? '';
                         final selected = id == _selectedCategoryId;
-                        return ListTile(
+                        return Material(
+                          color: Colors.transparent,
+                          child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: selected ? _green : _greenSoft,
                             child: Icon(
@@ -222,6 +227,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                                   color: _green)
                               : null,
                           onTap: () => Navigator.pop(sheetContext, cat),
+                          ),
                         );
                       },
                     ),
@@ -234,7 +240,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
       );
 
       if (!mounted || selectedCategory == null) return;
-      final id = selectedCategory['id']?.toString().trim() ?? '';
+      final id = selectedCategory['slug']?.toString().trim() ?? '';
       final slug = selectedCategory['slug']?.toString().trim() ?? '';
       final name = selectedCategory['name_ar']?.toString().trim() ?? '';
       if (id.isEmpty || slug.isEmpty || name.isEmpty) {
@@ -269,8 +275,8 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     try {
       final rows = await SupabaseService()
           .client
-          .from('community_categories')
-          .select('id, slug, name_ar')
+          .from('community_need_categories')
+          .select('slug, name_ar, icon')
           .eq('is_active', true)
           .order('sort_order');
 

@@ -101,8 +101,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
     try {
       final rows = await SupabaseService()
           .client
-          .from('community_categories')
-          .select('id, slug, name_ar')
+          .from('community_need_categories')
+          .select('slug, name_ar, icon')
           .eq('is_active', true)
           .order('sort_order');
 
@@ -592,7 +592,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
             const SizedBox(height: 10),
             Expanded(child: ListView.separated(itemCount: filtered.length + 1, separatorBuilder: (_, __) => const Divider(height: 1), itemBuilder: (_, index) {
               if (index == 0) return Material(color: Colors.transparent, child: ListTile(title: const Text('كل التصنيفات', style: TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == null ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = null); Navigator.pop(sheetContext); _loadNeeds(refresh: true); }));
-              final cat = filtered[index - 1]; final id = cat['id']?.toString() ?? ''; final name = cat['name_ar']?.toString() ?? '';
+              final cat = filtered[index - 1]; final id = cat['slug']?.toString() ?? ''; final name = cat['name_ar']?.toString() ?? '';
               return Material(color: Colors.transparent, child: ListTile(title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)), trailing: _selectedCategoryId == id ? const Icon(Icons.check_circle_rounded, color: _green) : null, onTap: () { setState(() => _selectedCategoryId = id); Navigator.pop(sheetContext); _loadNeeds(refresh: true); }));
             }))
           ]),
@@ -605,7 +605,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   Widget _buildCategoryChips() {
     String? selected;
     for (final category in _categories) {
-      if (category['id']?.toString() == _selectedCategoryId) {
+      if (category['slug']?.toString() == _selectedCategoryId) {
         selected = category['name_ar']?.toString();
         break;
       }

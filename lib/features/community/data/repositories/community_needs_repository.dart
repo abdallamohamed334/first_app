@@ -69,7 +69,7 @@ class CommunityNeedsRepository {
           .from('community_needs')
           .insert({
             'requester_id': authUser.id,
-            'category_id': categoryId,
+            'need_category': categorySlug,
             'category_slug': categorySlug,
             'category_name_ar': categoryNameAr,
             'title': cleanTitle,
@@ -112,9 +112,9 @@ class CommunityNeedsRepository {
   }) async {
     try {
       final response = await _client.rpc(
-        'list_community_needs',
+        'list_community_needs_v2',
         params: {
-          'p_category_id': categoryId,
+          'p_need_category': categoryId,
           'p_city': city,
           'p_search': search,
           'p_limit': limit,
@@ -287,8 +287,8 @@ class CommunityNeedsRepository {
       if (contactWhatsapp != null) {
         payload['contact_whatsapp'] = contactWhatsapp.trim();
       }
-      // ✅ التصنيف
-      if (categoryId != null) payload['category_id'] = categoryId;
+      // ✅ تصنيف الاحتياج مستقل عن تصنيفات العروض
+      if (categorySlug != null) payload['need_category'] = categorySlug;
       if (categorySlug != null) payload['category_slug'] = categorySlug;
       if (categoryNameAr != null) {
         payload['category_name_ar'] = categoryNameAr;

@@ -485,7 +485,9 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   Widget _buildHero() {
     final need = _need!;
     final title = need['title']?.toString() ?? 'احتياج';
-    final categoryName = need['category_name_ar']?.toString() ?? 'عام';
+    final categoryName = (need['category_name_ar'] ?? need['need_category'])
+            ?.toString() ??
+        'احتياج آخر';
     final imageUrl = need['image_url']?.toString();
     final urgency = need['urgency']?.toString() ?? 'normal';
     final urgencyData = _urgencyData(urgency);
