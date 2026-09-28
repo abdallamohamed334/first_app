@@ -1,7 +1,8 @@
 // lib/features/community/data/repositories/community_offer_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart'
+    as image_compress;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -1593,9 +1594,9 @@ class CommunityOfferRepository {
       if (kIsWeb) {
         throw Exception('صيغة HEIC غير مدعومة على الويب. اختر JPG أو PNG.');
       }
-      final converted = await FlutterImageCompress.compressWithFile(
+      final converted = await image_compress.FlutterImageCompress.compressWithFile(
         image.path,
-        format: CompressFormat.jpeg,
+        format: image_compress.CompressFormat.jpeg,
         quality: 88,
         minWidth: 1600,
         minHeight: 1600,
