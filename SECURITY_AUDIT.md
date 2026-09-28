@@ -67,3 +67,25 @@
 ## الحكم النهائي
 
 **لا أنصح بالإطلاق الآن.** الإصلاحات تمنع أخطر مسارات الاستغلال الموجودة في الكود، لكن يلزم أولًا إعداد release signing، ضبط أسرار Supabase والـ webhooks، مراجعة RLS على المشروع الفعلي، ثم تشغيل build واختبارات staging أمنية قبل نشر التطبيق.
+
+
+## تحديث التدقيق الحي — 2026-09-28
+
+تم تنفيذ الإصلاحات مباشرة على مشروع Supabase المتصل `gsrhoqdtcyfdmvgahqvl`:
+
+- تفعيل RLS على `users`, `food_offers`, `offer_requests`, `notifications`.
+- تقييد قراءة `users` للمستخدم نفسه بدل كشف كل بيانات المستخدمين، مع منع تعديل `id` وحقول الصلاحيات عبر سياسة التحديث.
+- منع العميل من إنشاء الإشعارات؛ الإنشاء أصبح backend-only، مع السماح للمستخدم بقراءة وتحديث إشعاراته فقط.
+- سحب تنفيذ دوال `public` من `anon`، وتثبيت `search_path = public, pg_temp` للدوال المملوكة للمشروع.
+- تحويل الـviews التالية إلى `security_invoker`: `active_food_offers`, `active_institution_offers`, `home_offers`, `open_service_requests`, `published_service_reviews`.
+- تفعيل RLS على `direct_charity_points_awards` و`business_capabilities`.
+- نشر نسخ محصنة من: `send-otp` v6، `send-whatsapp` v3، `verify-and-create` v12، `send-push-notification` v27، `notify-provider-approved` v6، `notify-new-charity-donation` v19.
+- الـwebhooks الداخلية أصبحت ترفض الطلبات بدون `x-internal-function-secret` أو `x-notification-secret` مطابق للـsecret المخزن.
+- تم التحقق أن قيم `public.users.password` غير موجودة حاليًا (`0` صفوف غير فارغة)، لكن يظل العمود legacy ويجب حذفه بعد التأكد من عدم استخدامه في أي نسخة قديمة من التطبيق.
+
+## المتبقي قبل الإطلاق
+
+1. يجب التأكد من وجود الأسرار التالية في Supabase Secrets؛ لا يتم إرسالها عبر الدردشة: `INTERNAL_FUNCTION_SECRET`, `NOTIFICATION_INTERNAL_SECRET`, `WAPILOT_TOKEN`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `GOOGLE_SERVICE_ACCOUNT`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
+2. Supabase لا يسمح لمالك المشروع بتعديل جدول PostGIS المملوك للإضافة `spatial_ref_sys` أو دوال `st_estimatedextent`؛ لذلك تظهر هذه العناصر فقط في Advisor، ولا تمس جداول التطبيق. معالجة ذلك تحتاج إعدادًا إداريًا من لوحة Supabase/الدعم أو نقل PostGIS إلى schema مخصص.
+3. ما زالت هناك تحذيرات Advisor حول دوال `SECURITY DEFINER` التي يستدعيها المستخدم المسجل. لا يمكن سحب صلاحيتها عشوائيًا دون كسر RPCs التطبيق؛ يلزم اختبار كل RPC حسب الدور ثم تحويل غير الضروري إلى `SECURITY INVOKER` أو سحب `EXECUTE` منه.
+4. يجب اختبار مسارات التسجيل، OTP، الطلبات، الإشعارات، والـwebhooks بحسابات test منفصلة قبل الإنتاج، خصوصًا بعد تضييق قراءة جدول `users`.
