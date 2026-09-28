@@ -56,8 +56,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   // ═══════════════════════════════════════════════════════════
   bool _isExpiringSoon = false;
 
-  /// التاريخ الافتراضي لما يختار "قريب ينتهي"
-  DateTime _expiresAt = DateTime.now().add(const Duration(days: 3));
+  /// الصلاحية القصوى التي يسمح بها مسار إنشاء عروض المؤسسات.
+  static const Duration _maxOfferLifetime = Duration(hours: 12);
+
+  /// التاريخ الافتراضي لما يختار "قريب ينتهي".
+  DateTime _expiresAt = DateTime.now().add(_maxOfferLifetime);
 
   bool _saving = false;
 
@@ -176,12 +179,15 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   }
 
   Future<void> _chooseExpiryDate() async {
-    final selected = await showDatePicker(
+    final now = DateTime.now();
+    final selected = await showTimePicker(
       context: context,
-      initialDate: _expiresAt,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      helpText: 'اختر تاريخ انتهاء العرض',
+      initialTime: TimeOfDay.fromDateTime(
+        _expiresAt.isAfter(now)
+            ? _expiresAt
+            : now.add(const Duration(hours: 1)),
+      ),
+      helpText: 'اختر وقت انتهاء العرض اليوم',
       cancelText: 'إلغاء',
       confirmText: 'تأكيد',
       builder: (context, child) => Theme(
@@ -196,15 +202,25 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       ),
     );
     if (!mounted || selected == null) return;
-    setState(() {
-      _expiresAt = DateTime(
-        selected.year,
-        selected.month,
-        selected.day,
-        23,
-        59,
-        59,
+    var candidate = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      selected.hour,
+      selected.minute,
+    );
+    if (candidate.isBefore(now)) {
+      candidate = candidate.add(const Duration(days: 1));
+    }
+    if (candidate.isAfter(now.add(_maxOfferLifetime))) {
+      _showMessage(
+        'اختر وقتًا خلال 12 ساعة من الآن',
+        error: true,
       );
+      return;
+    }
+    setState(() {
+      _expiresAt = candidate;
     });
   }
 
@@ -263,9 +279,18 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
-    // ✅ لو "قريب ينتهي" → نتأكد إن التاريخ مش في الماضي
-    if (_isExpiringSoon && _expiresAt.isBefore(DateTime.now())) {
+    // قاعدة البيانات تسمح بحد أقصى 12 ساعة من وقت النشر.
+    final now = DateTime.now();
+    final maxExpiresAt = now.add(_maxOfferLifetime);
+    if (_isExpiringSoon && _expiresAt.isBefore(now)) {
       _showMessage('تاريخ الانتهاء لا يمكن أن يكون في الماضي', error: true);
+      return;
+    }
+    if (_isExpiringSoon && _expiresAt.isAfter(maxExpiresAt)) {
+      _showMessage(
+        'لا يمكن أن تتجاوز صلاحية العرض 12 ساعة من وقت النشر',
+        error: true,
+      );
       return;
     }
 
@@ -281,13 +306,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
       final location = _pickupLocationController.text.trim();
 
-      // ═══════════════════════════════════════════════════════
-      // ✅ لو "منتج جديد/عادي" → نبعت تاريخ بعيد (سنة من الآن)
-      //    لو "قريب ينتهي" → نبعت التاريخ المختار
-      // ═══════════════════════════════════════════════════════
+      // ✅ كلا النوعين يلتزمان بالحد الذي يفرضه RPC في قاعدة البيانات.
       final expiresAtToSend = _isExpiringSoon
           ? _expiresAt.toUtc()
-          : DateTime.now().add(const Duration(days: 365)).toUtc();
+          : now.add(_maxOfferLifetime).toUtc();
 
       await _repository.createOffer(
         institutionId: widget.institutionId,
