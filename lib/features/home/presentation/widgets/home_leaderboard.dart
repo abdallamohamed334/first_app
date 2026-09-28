@@ -22,6 +22,7 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
   }
 
   Future<void> _loadTopVolunteers() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       final supabase = SupabaseService().client;
@@ -32,12 +33,14 @@ class _HomeLeaderboardState extends State<HomeLeaderboard> {
           .order('points', ascending: false)
           .limit(5);
 
+      if (!mounted) return;
       setState(() {
         _topVolunteers = List<Map<String, dynamic>>.from(response);
         _isLoading = false;
       });
     } catch (e) {
       print('❌ Error loading leaderboard: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }

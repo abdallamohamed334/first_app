@@ -9,6 +9,7 @@ import 'package:loqma/core/services/storage_service.dart';
 
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/profile_bloc.dart';
@@ -311,38 +312,71 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           const SizedBox(height: 14),
 
-          // ✅ زر احتياجاتي بس
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const MyCommunityNeedsPage(),
+          Row(
+            children: [
+              Expanded(
+                child: _profileActionButton(
+                  context,
+                  icon: Icons.volunteer_activism_rounded,
+                  label: 'احتياجاتي',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyCommunityNeedsPage(),
+                    ),
+                  ),
                 ),
               ),
-              icon: const Icon(
-                Icons.volunteer_activism_rounded,
-                size: 18,
-              ),
-              label: const Text(
-                'احتياجاتي',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CommunityMyRequestsPage(),
+                    ),
+                  ),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 18),
+                  label: const Text(
+                    'طلباتي',
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colors.primary,
+                    side: BorderSide(color: colors.primary.withAlpha(100)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.primary,
-                foregroundColor: colors.onPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _profileActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: colors.primary,
+        foregroundColor: colors.onPrimary,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }

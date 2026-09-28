@@ -400,17 +400,39 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
   }
 
-  Future<String?> _getMarketplaceCategoryIdBySlug(String slug) async {
-    if (slug.isEmpty) return null;
+  Future<String?> _getMarketplaceCategoryId({
+    required String categoryId,
+    required String slug,
+  }) async {
+    if (categoryId.isEmpty || slug.isEmpty) return null;
     try {
-      final response = await Supabase.instance.client
+      final client = Supabase.instance.client;
+
+      // The community and marketplace category records intentionally share
+      // the same UUID. Prefer that exact relationship instead of resolving
+      // by slug, because slugs can be renamed or duplicated in old data.
+      final byId = await client
           .from('marketplace_categories')
-          .select('id')
-          .eq('slug', slug)
+          .select('id, slug')
+          .eq('id', categoryId)
           .eq('is_active', true)
           .maybeSingle();
-      if (response == null) return null;
-      return response['id']?.toString();
+
+      if (byId != null && byId['slug']?.toString() == slug) {
+        return byId['id']?.toString();
+      }
+
+      // Backward-compatible fallback for databases created before the shared
+      // category IDs were introduced.
+      final bySlug = await client
+          .from('marketplace_categories')
+          .select('id, slug')
+          .eq('slug', slug)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+      return bySlug?['id']?.toString();
     } catch (error) {
       debugPrint('⚠️ Failed to load marketplace category: $error');
       return null;
@@ -463,7 +485,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       _prefillApplied = false;
     });
 
-    final marketplaceCategoryId = await _getMarketplaceCategoryIdBySlug(slug);
+    final marketplaceCategoryId = await _getMarketplaceCategoryId(
+      categoryId: value,
+      slug: slug,
+    );
 
     if (!mounted || requestId != _categoryRequestId) return;
 
@@ -1380,7 +1405,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           Text(
             _isEditMode
                 ? 'خد بالك: أي تعديل هيتطبق فورًا على العرض الظاهر للمستخدمين.'
-                : 'اعرض الأشياء الزائدة عندك للبيع بسعر رمزي ليستفيد منها شخص قريب منك.',
+                : 'اعرض الأشياء الزائدة عندك بسعر مميز ليستفيد منها شخص قريب منك.',
             style: TextStyle(
               color: colors.onPrimary.withValues(alpha: 0.8),
               fontSize: 13,
@@ -1638,7 +1663,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               Expanded(
                   child: _field(
                       _priceController,
-                      _isCars ? 'السعر' : 'السعر الرمزي بالجنيه',
+                      _isCars ? 'السعر المطلوب' : 'السعر المميز بالجنيه',
                       _isCars ? 'مثال: 100000' : 'مثال: 100',
                       Icons.payments_outlined,
                       requiredField: true,

@@ -259,13 +259,6 @@ class SupabaseService {
         debugPrint('⚠️ Provider enrichment skipped: $e');
       }
 
-      // ✅ مزامنة الدور النهائي قبل أن يقرر الـ router الصفحة.
-      await _syncAuthStateForUser(
-        user: user,
-        profile: response,
-        provider: provider,
-      );
-
       if (role == 'institution') {
         try {
           final inst = await adminClient

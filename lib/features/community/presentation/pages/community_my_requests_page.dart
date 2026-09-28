@@ -201,15 +201,17 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _background,
+        backgroundColor: colors.surface,
         appBar: AppBar(
-            title: const Text('طلباتي من الملابس والأثاث'),
+            title: const Text('طلباتي'),
             centerTitle: true,
-            backgroundColor: _background,
-            foregroundColor: _darkGreen,
+            backgroundColor: colors.surface,
+            foregroundColor: colors.onSurface,
+            surfaceTintColor: Colors.transparent,
             elevation: 0,
             actions: [
               IconButton(
@@ -309,15 +311,15 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
                   selected: active,
                   onSelected: (_) => setState(() => _filter = key),
                   label: Text(filters[key]!),
-                  selectedColor: const Color(0xFFDDF3E8),
-                  backgroundColor: Colors.white,
+                  selectedColor: colors.primaryContainer,
+                  backgroundColor: colors.surfaceContainerHighest,
                   checkmarkColor: _green,
                   labelStyle: TextStyle(
-                      color: active ? _green : const Color(0xFF5F786C),
+                      color: active ? colors.onPrimaryContainer : colors.onSurfaceVariant,
                       fontWeight: FontWeight.w800,
                       fontSize: 11),
                   side: BorderSide(
-                      color: active ? _green : const Color(0xFFE0EBE5)),
+                      color: active ? colors.primary : colors.outlineVariant),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20)));
             }));
@@ -340,9 +342,11 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
         margin: const EdgeInsets.only(bottom: 13),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(21),
-            border: Border.all(color: const Color(0xFFE1ECE6)),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
             boxShadow: [
               BoxShadow(
                   color: Colors.black.withAlpha(8),

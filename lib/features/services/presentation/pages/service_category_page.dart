@@ -137,24 +137,14 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Theme(
-        data: ThemeData.dark().copyWith(
-          scaffoldBackgroundColor: _bg,
-          colorScheme: const ColorScheme.dark(
-            primary: _primaryRed,
-            surface: _bg,
-            onSurface: _textPrimary,
-          ),
-        ),
-        child: Scaffold(
-          backgroundColor: _bg,
-          appBar: _buildAppBar(),
-          body: Column(
-            children: [
-              _buildFilters(),
-              Expanded(child: _buildBody()),
-            ],
-          ),
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        appBar: _buildAppBar(),
+        body: Column(
+          children: [
+            _buildFilters(),
+            Expanded(child: _buildBody()),
+          ],
         ),
       ),
     );

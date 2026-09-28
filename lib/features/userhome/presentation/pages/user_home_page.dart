@@ -92,11 +92,11 @@ class _UserHomePageState extends State<UserHomePage> {
   Timer? _bannerTimer;
 
   // ───────── ألوان الديزاين ─────────
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _primaryRedDark = Color(0xFF8E0F14);
+  static const Color _bg = Color(0xFF101B19);
+  static const Color _card = Color(0xFF182824);
+  static const Color _cardSoft = Color(0xFF243A34);
+  static const Color _primaryRed = Color(0xFF27A982);
+  static const Color _primaryRedDark = Color(0xFF14745C);
   static const Color _textPrimary = Colors.white;
   static const Color _textSecondary = Color(0xFFAAAAAA);
   static const Color _border = Color(0x14FFFFFF);
@@ -383,16 +383,7 @@ class _UserHomePageState extends State<UserHomePage> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Theme(
-        data: ThemeData.dark().copyWith(
-          scaffoldBackgroundColor: _bg,
-          colorScheme: const ColorScheme.dark(
-            primary: _primaryRed,
-            surface: _bg,
-            onSurface: _textPrimary,
-          ),
-        ),
-        child: BlocConsumer<UserHomeBloc, UserHomeState>(
+      child: BlocConsumer<UserHomeBloc, UserHomeState>(
           listener: (context, state) {
             if (state is UserHomeError) {
               ScaffoldMessenger.of(context)
@@ -420,7 +411,6 @@ class _UserHomePageState extends State<UserHomePage> {
             return const _LoadingHome();
           },
         ),
-      ),
     );
   }
 
@@ -1954,7 +1944,10 @@ class _UserHomePageState extends State<UserHomePage> {
         if (!_AppFeatures.showRestaurants && restaurantIds.contains(catId)) {
           return false;
         }
-        return catId.isNotEmpty && !restaurantIds.contains(catId);
+        // Institution offers created before category assignment may have a
+        // null category. Keep them visible in the supermarket/institutions
+        // feed instead of silently dropping them.
+        return !restaurantIds.contains(catId);
       }).toList(growable: false);
 
       final foodOffers = filtered

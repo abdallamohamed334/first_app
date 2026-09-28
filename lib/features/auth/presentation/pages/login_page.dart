@@ -37,12 +37,12 @@ class _LoginPageState extends State<LoginPage>
   bool _isCheckingAutoLogin = true;
 
   // ── ألوان (هوية "وِصلة" الخضراء)
-  static const _bg = Color(0xFFF4F8F6);
-  static const _primary = Color(0xFF0B7650);
-  static const _primaryLight = Color(0xFF25B77C);
-  static const _darkGreen = Color(0xFF123F31);
+  static const _bg = Color(0xFFF5FBF8);
+  static const _primary = Color(0xFF0B6B64);
+  static const _primaryLight = Color(0xFF9AD83D);
+  static const _darkGreen = Color(0xFF063F3A);
   static const _red = Color(0xFFD64545);
-  static const _cardBorder = Color(0xFFE1ECE7);
+  static const _cardBorder = Color(0xFFDDEEE7);
 
   @override
   void initState() {
@@ -171,7 +171,7 @@ class _LoginPageState extends State<LoginPage>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFF4F8F6), Color(0xFFE9F5EF)],
+                colors: [Color(0xFFF5FBF8), Color(0xFFE8F7F0)],
               ),
             ),
           ),
@@ -181,12 +181,12 @@ class _LoginPageState extends State<LoginPage>
           Positioned(
             top: -90,
             right: -70,
-            child: _glowCircle(220, const Color(0xFF8DD6B4)),
+            child: _glowCircle(220, const Color(0xFF8EDDD1)),
           ),
           Positioned(
             bottom: -100,
             left: -60,
-            child: _glowCircle(250, const Color(0xFFC9EBDD)),
+            child: _glowCircle(250, const Color(0xFFDDF4A9)),
           ),
         ],
       ),
@@ -262,14 +262,14 @@ class _LoginPageState extends State<LoginPage>
       children: [
         ScaleTransition(
           scale: _logoScaleAnimation,
-          child: const _LoginLogo(size: 92),
+          child: const _LoginLogo(size: 104),
         ),
         const SizedBox(height: 20),
         const Text(
           'مرحبًا بعودتك 👋',
           style: TextStyle(
             color: _darkGreen,
-            fontSize: 29,
+            fontSize: 30,
             fontWeight: FontWeight.w900,
             letterSpacing: -0.3,
           ),
@@ -296,13 +296,13 @@ class _LoginPageState extends State<LoginPage>
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(34),
         border: Border.all(color: _cardBorder),
         boxShadow: [
           BoxShadow(
             color: _primary.withValues(alpha: 0.08),
-            blurRadius: 34,
-            offset: const Offset(0, 16),
+            blurRadius: 38,
+            offset: const Offset(0, 18),
           ),
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -793,25 +793,30 @@ class _LoginLogo extends StatelessWidget {
     return Container(
       width: size,
       height: size,
+      padding: EdgeInsets.all(size * 0.085),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0B7650), Color(0xFF25B77C)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.32),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.34),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0B7650).withValues(alpha: 0.35),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
+            color: const Color(0xFF0B6B64).withValues(alpha: 0.2),
+            blurRadius: 30,
+            spreadRadius: 4,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Icon(
-        Icons.volunteer_activism_rounded,
-        size: size * 0.48,
-        color: Colors.white,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(size * 0.27),
+        child: Image.asset(
+          'assets/images/wasla_logo.png',
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) => Icon(
+            Icons.volunteer_activism_rounded,
+            size: size * 0.48,
+            color: const Color(0xFF0B6B64),
+          ),
+        ),
       ),
     );
   }
@@ -824,7 +829,7 @@ class _DotPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF0B7650).withValues(alpha: 0.045)
+      ..color = const Color(0xFF0B6B64).withValues(alpha: 0.045)
       ..style = PaintingStyle.fill;
 
     const spacing = 46.0;

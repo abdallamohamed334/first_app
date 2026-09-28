@@ -15,6 +15,7 @@ import 'home_state.dart';
 @injectable
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final SupabaseService _supabaseService;
+  bool _isLoadingHome = false;
 
   HomeBloc()
       : _supabaseService = SupabaseService(),
@@ -28,6 +29,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     HomeInitialized event,
     Emitter<HomeState> emit,
   ) async {
+    if (_isLoadingHome) return;
+    _isLoadingHome = true;
     emit(const HomeLoading());
 
     try {
@@ -71,6 +74,8 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
       ));
     } catch (e) {
       emit(const HomeError('تعذر تحميل بيانات الصفحة الرئيسية حاليًا'));
+    } finally {
+      _isLoadingHome = false;
     }
   }
 
