@@ -69,9 +69,13 @@ Future<void> main() async {
 
   if (firebaseReady) {
     try {
-      await loqmaAppCheck().activate(
-        webRecaptchaSiteKey: dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY'],
-      ).timeout(const Duration(seconds: 3));
+      await loqmaAppCheck()
+          .activate(
+            webRecaptchaSiteKey: envLoaded
+                ? dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY']
+                : null,
+          )
+          .timeout(const Duration(seconds: 3));
 
       debugPrint('Firebase App Check activated');
     } catch (error, stack) {
@@ -84,9 +88,12 @@ Future<void> main() async {
     );
   }
 
-  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? _defaultSupabaseUrl;
-  final supabaseAnonKey =
-      dotenv.env['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey;
+  final supabaseUrl = envLoaded
+      ? (dotenv.env['SUPABASE_URL'] ?? _defaultSupabaseUrl)
+      : _defaultSupabaseUrl;
+  final supabaseAnonKey = envLoaded
+      ? (dotenv.env['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey)
+      : _defaultSupabasePublishableKey;
 
   if (!envLoaded &&
       (_defaultSupabaseUrl.isEmpty || _defaultSupabasePublishableKey.isEmpty)) {
@@ -98,8 +105,8 @@ Future<void> main() async {
 
   try {
     await Supabase.initialize(
-      url: supabaseUrl ?? '',
-      anonKey: supabaseAnonKey ?? '',
+      url: supabaseUrl,
+      publishableKey: supabaseAnonKey,
     ).timeout(const Duration(seconds: 5));
 
     debugPrint('Supabase initialized successfully');
@@ -125,23 +132,21 @@ Future<void> main() async {
 Future<void> _initializePostLaunchServices(bool firebaseReady) async {
   try {
     final supabaseService = SupabaseService();
-    await supabaseService
-        .initializeFcmForCurrentUser(
-          onNotificationTap: (data) async {
-            final notificationType = data['type']?.toString();
-            if (notificationType != null && notificationType.trim().isNotEmpty) {
-              try {
-                await loqmaAnalytics().notificationOpened(
-                  notificationType: notificationType,
-                );
-              } catch (error, stack) {
-                debugPrint('Notification analytics failed: $error');
-                debugPrintStack(stackTrace: stack);
-              }
-            }
-          },
-        )
-        .timeout(const Duration(seconds: 8));
+    await supabaseService.initializeFcmForCurrentUser(
+      onNotificationTap: (data) async {
+        final notificationType = data['type']?.toString();
+        if (notificationType != null && notificationType.trim().isNotEmpty) {
+          try {
+            await loqmaAnalytics().notificationOpened(
+              notificationType: notificationType,
+            );
+          } catch (error, stack) {
+            debugPrint('Notification analytics failed: $error');
+            debugPrintStack(stackTrace: stack);
+          }
+        }
+      },
+    ).timeout(const Duration(seconds: 8));
     if (firebaseReady) {
       await loqmaAnalytics().appOpen().timeout(const Duration(seconds: 3));
     }
@@ -237,10 +242,8 @@ void _attachAuthStateSync() {
           .toString()
           .trim()
           .toLowerCase();
-      final institutionType = institution?['institution_type']
-          ?.toString()
-          .trim()
-          .toLowerCase();
+      final institutionType =
+          institution?['institution_type']?.toString().trim().toLowerCase();
       final resolvedRole = provider != null
           ? 'provider'
           : (institutionType == null || institutionType.isEmpty
