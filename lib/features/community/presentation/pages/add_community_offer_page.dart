@@ -119,7 +119,94 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       _categorySlug == 'cars' ||
       _categorySlug == 'cars-parts' ||
       _categorySlug == 'passenger-cars' ||
-      _categorySlug == 'trucks';
+      _categorySlug == 'trucks' ||
+      (_categorySlug ?? '').contains('vehicle') ||
+      (_categoryNameAr ?? '').contains('سيار');
+  bool get _isRealEstate =>
+      (_categorySlug ?? '').contains('real-estate') ||
+      (_categorySlug ?? '').contains('property') ||
+      (_categorySlug ?? '').contains('apartments') ||
+      (_categoryNameAr ?? '').contains('عقار');
+
+  String get _priceLabel {
+    if (_isCars) return 'سعر السيارة بالجنيه';
+    if (_isRealEstate) return 'السعر المطلوب بالجنيه';
+    return 'السعر المميز بالجنيه';
+  }
+
+  String get _priceHint {
+    if (_isCars) return 'مثال: 350000';
+    if (_isRealEstate) return 'مثال: 1500000';
+    return 'مثال: 100';
+  }
+
+  String get _titleHint {
+    if (_isCars) return 'مثال: تويوتا كورولا 2020 بحالة ممتازة';
+    if (_isRealEstate) return 'مثال: شقة 120 متر في طنطا';
+    return 'مثال: جاكت شتوي بحالة ممتازة';
+  }
+
+  String get _descriptionHint {
+    if (_isCars) {
+      return 'اذكر الماركة والموديل، سنة الصنع، العداد، الحالة، وأي تفاصيل أو عيوب.';
+    }
+    if (_isRealEstate) {
+      return 'اذكر المساحة، عدد الغرف، المكان، التشطيب وأي تفاصيل مهمة.';
+    }
+    return 'اكتب الحالة بالتفصيل، العيوب، المقاس أو أي ملاحظات مهمة...';
+  }
+
+  IconData get _categoryIcon {
+    if (_isCars) return Icons.directions_car_filled_rounded;
+    if (_isRealEstate) return Icons.home_work_rounded;
+    return Icons.category_rounded;
+  }
+
+  String _attributeLabel(MarketplaceAttribute attribute) {
+    switch (attribute.slug.toLowerCase()) {
+      case 'brand':
+        return _isCars ? 'ماركة السيارة' : 'الماركة';
+      case 'model':
+        return _isCars ? 'موديل السيارة' : 'الموديل';
+      case 'year':
+        return _isCars ? 'سنة الصنع' : 'السنة';
+      case 'mileage':
+        return 'عداد الكيلومترات';
+      case 'condition':
+        return _isCars ? 'حالة السيارة' : 'الحالة';
+      case 'body_type':
+        return 'نوع السيارة';
+      case 'fuel_type':
+        return 'نوع الوقود';
+      case 'transmission':
+        return 'ناقل الحركة';
+      case 'color':
+        return _isCars ? 'لون السيارة' : 'اللون';
+      case 'area':
+        return 'المساحة بالمتر';
+      case 'rooms':
+        return 'عدد الغرف';
+      case 'bathrooms':
+        return 'عدد الحمامات';
+      default:
+        return attribute.nameAr;
+    }
+  }
+
+  String _attributeHint(MarketplaceAttribute attribute) {
+    switch (attribute.slug.toLowerCase()) {
+      case 'model':
+        return _isCars ? 'مثال: Corolla أو Elantra' : 'اكتب الموديل';
+      case 'mileage':
+        return 'مثال: 80000';
+      case 'year':
+        return 'مثال: 2020';
+      case 'brand':
+        return _isCars ? 'مثال: Toyota أو Hyundai' : 'اكتب الماركة';
+      default:
+        return 'أدخل ${_attributeLabel(attribute)}';
+    }
+  }
   bool get _isEditMode => widget.isEditMode;
   int get _totalImages => _keptImagePaths.length + _newImages.length;
 
@@ -854,17 +941,17 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       if (attribute.inputType == 'select') {
         if (optionId == null || optionId.isEmpty) {
-          return 'اختر ${attribute.nameAr}';
+          return 'اختر ${_attributeLabel(attribute)}';
         }
       } else {
         if (value == null || value.trim().isEmpty) {
-          return 'أدخل ${attribute.nameAr}';
+          return 'أدخل ${_attributeLabel(attribute)}';
         }
         if (attribute.inputType == 'number' ||
             attribute.inputType == 'decimal') {
           final number = num.tryParse(value.trim());
           if (number == null || !number.isFinite || number <= 0) {
-            return 'أدخل ${attribute.nameAr} بشكل صحيح';
+            return 'أدخل ${_attributeLabel(attribute)} بشكل صحيح';
           }
         }
       }
@@ -1639,10 +1726,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _field(_titleController, 'عنوان العرض',
-              'مثال: جاكت شتوي بحالة ممتازة', Icons.title_rounded,
+              _titleHint, Icons.title_rounded,
               requiredField: true),
           const SizedBox(height: 12),
           _buildCategorySelector(colors),
+          if (_categoryId != null) ...[
+            const SizedBox(height: 12),
+            _buildCategoryContext(colors),
+          ],
           if (_categoryId == null) ...[
             const SizedBox(height: 10),
             _helperBanner(
@@ -1656,15 +1747,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           Row(
             children: [
               Expanded(
-                  child: _field(_quantityController, 'الكمية', '1',
+                  child: _field(_quantityController, _isCars ? 'عدد السيارات' : 'الكمية', '1',
                       Icons.inventory_2_outlined,
                       requiredField: true, numeric: true, integerOnly: true)),
               const SizedBox(width: 10),
               Expanded(
                   child: _field(
                       _priceController,
-                      _isCars ? 'السعر المطلوب' : 'السعر المميز بالجنيه',
-                      _isCars ? 'مثال: 100000' : 'مثال: 100',
+                      _priceLabel,
+                      _priceHint,
                       Icons.payments_outlined,
                       requiredField: true,
                       numeric: true)),
@@ -1678,8 +1769,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             textInputAction: TextInputAction.newline,
             decoration: _decoration(
                 'الوصف والتفاصيل', Icons.description_outlined,
-                hint:
-                    'اكتب الحالة بالتفصيل، العيوب، المقاس أو أي ملاحظات مهمة...'),
+                hint: _descriptionHint),
             validator: (value) => value == null || value.trim().length < 10
                 ? 'اكتب وصفًا مختصرًا وواضحًا'
                 : null,
@@ -1724,6 +1814,70 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                         height: 1.45,
                         color: colors.onSurfaceVariant))
               ])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryContext(ColorScheme colors) {
+    final name = _currentCategoryName.isEmpty ? 'التصنيف المختار' : _currentCategoryName;
+    final title = _isCars
+        ? 'بيانات السيارة المطلوبة'
+        : _isRealEstate
+            ? 'بيانات العقار المطلوبة'
+            : 'بيانات $name';
+    final subtitle = _isCars
+        ? 'اكتب تفاصيل السيارة بدقة؛ ستظهر حقول الماركة والموديل والسنة والعداد والحالة حسب التصنيف.'
+        : _isRealEstate
+            ? 'أدخل تفاصيل العقار المناسبة للتصنيف حتى يصل عرضك للأشخاص المهتمين.'
+            : 'الحقول التالية متخصصة في $name، ولن تظهر لك متطلبات لا تخص اختيارك.';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primary.withValues(alpha: .13),
+            colors.primary.withValues(alpha: .045),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.primary.withValues(alpha: .22)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Icon(_categoryIcon, color: colors.onPrimary, size: 22),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        color: colors.onSurface,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 11.5,
+                        height: 1.5)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1898,7 +2052,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'خصائص $_currentCategoryName',
+                  _isCars ? 'بيانات السيارة' : 'خصائص $_currentCategoryName',
                   style: TextStyle(
                     color: colors.onSurface,
                     fontSize: 13.5,
@@ -1979,7 +2133,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final hintText = isLoadingOptions
           ? 'جاري تحميل الخيارات...'
           : hasOptions
-              ? 'اختر ${attribute.nameAr}'
+              ? 'اختر ${_attributeLabel(attribute)}'
               : 'لا توجد خيارات متاحة';
 
       return Column(
@@ -1991,7 +2145,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ),
             initialValue: safeSelectedId,
             isExpanded: true,
-            decoration: _decoration(attribute.nameAr, Icons.tune_rounded),
+            decoration: _decoration(_attributeLabel(attribute), Icons.tune_rounded),
             hint: Text(
               hintText,
               style: TextStyle(
@@ -2008,7 +2162,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             validator: attribute.isRequired && !isDisabled
                 ? (value) {
                     if (value == null || value.isEmpty) {
-                      return 'اختر ${attribute.nameAr}';
+                      return 'اختر ${_attributeLabel(attribute)}';
                     }
                     return null;
                   }
@@ -2037,9 +2191,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         initialValue: selectedValue,
         isDecimal: attribute.inputType == 'decimal',
         decoration: _decoration(
-          attribute.nameAr,
+          _attributeLabel(attribute),
           Icons.numbers_rounded,
-          hint: _numberHint(attribute.slug),
+          hint: _attributeHint(attribute),
         ).copyWith(suffixText: _numberSuffix(attribute.slug)),
         onChanged: (value) {
           _saveMarketplaceValue(attribute: attribute, value: value);
@@ -2053,11 +2207,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       attribute: attribute,
       initialValue: selectedValue,
       decoration: _decoration(
-        attribute.nameAr,
+        _attributeLabel(attribute),
         Icons.edit_outlined,
         hint: isItemType
             ? 'مثال: مزهرية، لوحة، جهاز...'
-            : 'أدخل ${attribute.nameAr}',
+            : _attributeHint(attribute),
       ),
       onChanged: (value) {
         _saveMarketplaceValue(attribute: attribute, value: value);

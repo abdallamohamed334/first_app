@@ -221,11 +221,10 @@ class CommunityOfferRepository {
     for (final attribute in marketplaceAttributes) {
       final attributeId = attribute['attribute_id']?.toString().trim();
       final optionId = attribute['option_id']?.toString().trim();
+      final valueText = attribute['value_text']?.toString().trim();
+      final valueNumber = attribute['value_number'];
 
-      if (attributeId == null ||
-          attributeId.isEmpty ||
-          optionId == null ||
-          optionId.isEmpty) {
+      if (attributeId == null || attributeId.isEmpty) {
         if (kDebugMode) {
           debugPrint(
             '⚠️ Skipping incomplete marketplace attribute: '
@@ -238,7 +237,9 @@ class CommunityOfferRepository {
 
       cleanMarketplaceAttributes.add({
         'attribute_id': attributeId,
-        'option_id': optionId,
+        'option_id': optionId?.isEmpty == true ? null : optionId,
+        'value_text': valueText?.isEmpty == true ? null : valueText,
+        'value_number': valueNumber,
       });
     }
 
@@ -637,17 +638,18 @@ class CommunityOfferRepository {
     for (final attribute in marketplaceAttributes) {
       final attributeId = attribute['attribute_id']?.toString().trim();
       final optionId = attribute['option_id']?.toString().trim();
+      final valueText = attribute['value_text']?.toString().trim();
+      final valueNumber = attribute['value_number'];
 
-      if (attributeId == null ||
-          attributeId.isEmpty ||
-          optionId == null ||
-          optionId.isEmpty) {
+      if (attributeId == null || attributeId.isEmpty) {
         continue;
       }
 
       cleanMarketplaceAttributes.add({
         'attribute_id': attributeId,
-        'option_id': optionId,
+        'option_id': optionId?.isEmpty == true ? null : optionId,
+        'value_text': valueText?.isEmpty == true ? null : valueText,
+        'value_number': valueNumber,
       });
     }
 
