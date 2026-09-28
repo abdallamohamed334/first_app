@@ -11,6 +11,8 @@ ALTER TABLE public.business_capabilities ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS users_read_authenticated ON public.users;
 DROP POLICY IF EXISTS "Users can update own data" ON public.users;
+DROP POLICY IF EXISTS users_select_own ON public.users;
+DROP POLICY IF EXISTS users_update_own ON public.users;
 CREATE POLICY users_select_own ON public.users
   FOR SELECT TO authenticated USING (id = auth.uid());
 CREATE POLICY users_update_own ON public.users
@@ -22,6 +24,8 @@ DROP POLICY IF EXISTS "Users can insert their notifications" ON public.notificat
 DROP POLICY IF EXISTS "Users can insert their own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
+DROP POLICY IF EXISTS notifications_select_own ON public.notifications;
+DROP POLICY IF EXISTS notifications_update_own ON public.notifications;
 CREATE POLICY notifications_select_own ON public.notifications
   FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY notifications_update_own ON public.notifications
