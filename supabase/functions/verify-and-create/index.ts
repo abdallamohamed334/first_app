@@ -6,13 +6,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const adminClient = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
 const anonClient = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_ANON_KEY")!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
+  { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
 const corsHeaders = {
@@ -31,10 +31,23 @@ serve(async (req) => {
     const body = await req.json();
     const { phone, code, profile } = body;
 
-    console.log("📥 Request:", JSON.stringify({ phone, code, profile }));
+    // Never log OTPs, profile PII, or other authentication material.
 
-    if (!phone || !code || !profile) {
-      return err("بيانات ناقصة");
+    if (
+      !phone ||
+      !code ||
+      !profile ||
+      typeof profile !== "object" ||
+      Array.isArray(profile)
+    ) {
+      return err("بيانات ناقصة", 400);
+    }
+    const requestedRole =
+      typeof profile.role === "string"
+        ? profile.role.trim().toLowerCase()
+        : "user";
+    if (!["user", "provider", "institution"].includes(requestedRole)) {
+      return err("نوع الحساب غير مدعوم", 400);
     }
 
     // ✅ 1. نظّف الرقم
@@ -42,7 +55,12 @@ serve(async (req) => {
     if (cleanPhone.startsWith("0")) cleanPhone = "20" + cleanPhone.slice(1);
     else if (cleanPhone.length === 10) cleanPhone = "20" + cleanPhone;
 
-    console.log("📞 Clean phone:", cleanPhone);
+    if (
+      !/^20\d{10}$/.test(cleanPhone) ||
+      !/^\d{6}$/.test(String(code).trim())
+    ) {
+      return err("بيانات التحقق غير صحيحة", 400);
+    }
 
     // ✅ 2. تحقق من الكود
     const { data: otp, error: otpFetchError } = await adminClient
@@ -81,7 +99,11 @@ serve(async (req) => {
 
     // ✅ 4. المفاتيح الداخلية
     const internalEmail = `${cleanPhone}@loqma.local`;
-    const internalPassword = `Loqma_${cleanPhone}_2025`;
+    const passwordBytes = new Uint8Array(32);
+    crypto.getRandomValues(passwordBytes);
+    const internalPassword = Array.from(passwordBytes, (value) =>
+      value.toString(16).padStart(2, "0"),
+    ).join("");
 
     // ═══════════════════════════════════════════════════════════
     // 🎯 الخطوة 5: تحديد الـ user النهائي
@@ -124,7 +146,7 @@ serve(async (req) => {
           email_confirm: true,
           user_metadata: {
             phone: cleanPhone,
-            role: profile.role || "user",
+            role: requestedRole,
             name: profile.name || "",
           },
         });
@@ -150,7 +172,7 @@ serve(async (req) => {
           }
 
           const found = listData?.users?.find(
-            (u: any) => u.email === internalEmail
+            (u: any) => u.email === internalEmail,
           );
 
           if (found) {
@@ -164,7 +186,7 @@ serve(async (req) => {
         }
 
         if (!finalUserId) {
-          return err("تعذر إنشاء الحساب: " + authError.message);
+          return err("تعذر إنشاء الحساب");
         }
       }
     }
@@ -176,29 +198,27 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // ✅ 6. نتأكد إن public.users فيه سجل (upsert)
     // ═══════════════════════════════════════════════════════════
-    const { error: upsertError } = await adminClient
-      .from("users")
-      .upsert(
-        {
-          id: finalUserId,
-          phone: cleanPhone,
-          name: profile.name || "",
-          city: profile.city || "طنطا",
-          role: profile.role || "user",
-          is_phone_verified: true,
-        },
-        { onConflict: "id" }
-      );
+    const { error: upsertError } = await adminClient.from("users").upsert(
+      {
+        id: finalUserId,
+        phone: cleanPhone,
+        name: profile.name || "",
+        city: profile.city || "طنطا",
+        role: requestedRole,
+        is_phone_verified: true,
+      },
+      { onConflict: "id" },
+    );
 
     if (upsertError) {
       console.error("❌ User upsert error:", JSON.stringify(upsertError));
-      return err("تعذر حفظ البيانات: " + upsertError.message);
+      return err("تعذر حفظ بيانات الحساب");
     }
 
     console.log("✅ User row upserted");
 
     // ── لو مقدم خدمة ──
-    if (profile.role === "provider") {
+    if (requestedRole === "provider") {
       const { error: providerError } = await adminClient
         .from("service_providers")
         .upsert(
@@ -218,11 +238,12 @@ serve(async (req) => {
             service_areas: profile.serviceAreas || [],
             pricing_type: profile.pricingType || "market",
             price_from: profile.priceFrom,
-            verification_status: "approved",
-            is_active: true,
+            // Provider approval is an admin workflow, never a client-controlled signup result.
+            verification_status: "pending",
+            is_active: false,
             is_available: true,
           },
-          { onConflict: "user_id" }
+          { onConflict: "user_id" },
         );
 
       if (providerError) {
@@ -271,26 +292,23 @@ serve(async (req) => {
           id: finalUserId,
           phone: cleanPhone,
           name: profile.name,
-          role: profile.role || "user",
+          role: requestedRole,
         },
       }),
       {
-        status: 200,
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (e) {
     console.error("💥 Error:", e);
-    return err(e.message || "خطأ غير متوقع");
+    return err("خطأ غير متوقع");
   }
 });
 
-function err(message: string) {
-  return new Response(
-    JSON.stringify({ success: false, error: message }),
-    {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
-  );
+function err(message: string, status = 200) {
+  return new Response(JSON.stringify({ success: false, error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }

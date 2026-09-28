@@ -49,6 +49,25 @@ serve(async (req) => {
       return errorResponse("رقم الهاتف غير صحيح", 400);
     }
 
+    // Prevent OTP spam across function instances using the database as the source of truth.
+    const { data: recentOtp, error: recentOtpError } = await supabase
+      .from("otp_codes")
+      .select("created_at")
+      .eq("phone", cleanPhone)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recentOtpError) {
+      console.error("recent OTP lookup failed", recentOtpError.code);
+      return errorResponse("تعذر تجهيز كود التحقق", 500);
+    }
+    if (
+      recentOtp?.created_at &&
+      Date.now() - new Date(recentOtp.created_at).getTime() < 60_000
+    ) {
+      return errorResponse("انتظر دقيقة قبل طلب كود جديد", 429);
+    }
+
     // افحص الحالة قبل حذف أو إنشاء أو إرسال أي OTP.
     const { data: access, error: accessError } = await supabase.rpc(
       "check_phone_access",
@@ -64,9 +83,7 @@ serve(async (req) => {
     }
 
     if (!access || access.allowed !== true) {
-      console.warn(
-        `OTP blocked: phone=${cleanPhone}, mode=${loginMode}, reason=${access?.reason}`,
-      );
+      console.warn(`OTP blocked: mode=${loginMode}, reason=${access?.reason}`);
 
       return new Response(
         JSON.stringify({
@@ -92,17 +109,17 @@ serve(async (req) => {
       return errorResponse("تعذر تجهيز كود التحقق", 500);
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const random = new Uint32Array(1);
+    crypto.getRandomValues(random);
+    const code = String(random[0] % 1_000_000).padStart(6, "0");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const { error: insertError } = await supabase
-      .from("otp_codes")
-      .insert({
-        phone: cleanPhone,
-        code,
-        expires_at: expiresAt,
-        verified: false,
-      });
+    const { error: insertError } = await supabase.from("otp_codes").insert({
+      phone: cleanPhone,
+      code,
+      expires_at: expiresAt,
+      verified: false,
+    });
 
     if (insertError) {
       console.error("Insert OTP error:", insertError);
@@ -143,7 +160,7 @@ serve(async (req) => {
       return errorResponse("تعذر إرسال الكود، حاول تاني", 502);
     }
 
-    console.log(`OTP sent to ${cleanPhone} for mode=${loginMode}`);
+    console.log(`OTP sent for mode=${loginMode}`);
 
     return new Response(
       JSON.stringify({
@@ -181,11 +198,8 @@ function normalizeEgyptianPhone(input: string): string | null {
 }
 
 function errorResponse(message: string, status = 400) {
-  return new Response(
-    JSON.stringify({ success: false, error: message }),
-    {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    },
-  );
+  return new Response(JSON.stringify({ success: false, error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }

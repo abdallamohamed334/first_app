@@ -39,6 +39,14 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders() });
   }
 
+  const expectedSecret = Deno.env.get("INTERNAL_FUNCTION_SECRET")?.trim();
+  const providedSecret = req.headers.get("x-internal-function-secret")?.trim();
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   try {
     const { p_user_id, p_email, p_name, p_phone } = await req.json();
 

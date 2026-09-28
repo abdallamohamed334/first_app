@@ -48,7 +48,7 @@ async function sendWhatsApp(
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${WHATSAPP_TOKEN}`,
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -84,6 +84,15 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const expectedSecret = Deno.env.get("INTERNAL_FUNCTION_SECRET")?.trim();
+  const providedSecret = req.headers.get("x-internal-function-secret")?.trim();
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const payload = await req.json();
 
@@ -96,7 +105,11 @@ serve(async (req) => {
     if (record.verification_status !== "approved") {
       console.log("⏭️ Not approved, skipping");
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "not approved" }),
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "not approved",
+        }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
@@ -107,7 +120,11 @@ serve(async (req) => {
     if (oldRecord.verification_status === "approved") {
       console.log("⏭️ Already was approved, skipping");
       return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "already approved" }),
+        JSON.stringify({
+          success: true,
+          skipped: true,
+          reason: "already approved",
+        }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },

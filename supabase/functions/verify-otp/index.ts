@@ -5,12 +5,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, apikey, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -19,6 +20,14 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const expectedSecret = Deno.env.get("INTERNAL_FUNCTION_SECRET")?.trim();
+  const providedSecret = req.headers.get("x-internal-function-secret")?.trim();
+  if (!expectedSecret || providedSecret !== expectedSecret) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   try {
     const { phone, code } = await req.json();
 
@@ -103,7 +112,7 @@ serve(async (req) => {
         {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        },
       );
     }
 
@@ -118,7 +127,7 @@ serve(async (req) => {
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   } catch (e) {
     console.error("Error:", e);
@@ -127,11 +136,8 @@ serve(async (req) => {
 });
 
 function errorResponse(message: string) {
-  return new Response(
-    JSON.stringify({ success: false, error: message }),
-    {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
-  );
+  return new Response(JSON.stringify({ success: false, error: message }), {
+    status: 400,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
