@@ -1,4 +1,4 @@
-package com.example.loqma
+package com.jood.app
 
 import io.flutter.embedding.android.FlutterActivity
 

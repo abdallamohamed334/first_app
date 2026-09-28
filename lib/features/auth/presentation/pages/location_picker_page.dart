@@ -164,7 +164,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                         TileLayer(
                           urlTemplate:
                               'https://api.mapbox.com/styles/v1/$_mapboxStyle/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxToken',
-                          userAgentPackageName: 'com.example.first_app',
+                          userAgentPackageName: 'com.jood.app',
                           tileProvider: CancellableNetworkTileProvider(),
                           maxZoom: 19,
                         ),
