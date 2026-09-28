@@ -40,6 +40,18 @@ import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
 
+// Supabase publishable credentials are safe for a client application. They
+// are available as dart-defines for CI and have a public fallback so a fresh
+// checkout can run without a local .env file.
+const _defaultSupabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: 'https://gsrhoqdtcyfdmvgahqvl.supabase.co',
+);
+const _defaultSupabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_ANON_KEY',
+  defaultValue: 'sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH',
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -72,10 +84,12 @@ Future<void> main() async {
     );
   }
 
-  final supabaseUrl = dotenv.env['SUPABASE_URL'];
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? _defaultSupabaseUrl;
+  final supabaseAnonKey =
+      dotenv.env['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey;
 
-  if (!envLoaded || supabaseUrl == null || supabaseAnonKey == null) {
+  if (!envLoaded &&
+      (_defaultSupabaseUrl.isEmpty || _defaultSupabasePublishableKey.isEmpty)) {
     debugPrint(
       '⚠️ SUPABASE_URL / SUPABASE_ANON_KEY missing from environment. '
       'Check that .env was bundled correctly for this build.',
