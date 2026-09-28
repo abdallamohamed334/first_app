@@ -62,14 +62,10 @@ class VolunteerBloc extends Bloc<VolunteerEvent, VolunteerState> {
     DateTime? filterDate,
   ) async {
     try {
-      // ✅ جلب المتطوعين من جدول users مع الترتيب حسب النقاط
-      var query = _supabaseService.client
-          .from('users')
-          .select('id, name, avatar_url, points, level')
-          .eq('user_type', 'user')
-          .eq('is_active', true);
-
-      final response = await query.order('points', ascending: false);
+      // القراءة المباشرة من users تخضع لـ RLS وقد تعيد المستخدم الحالي فقط.
+      // الـ RPC يعرض حقول لوحة المتطوعين العامة فقط وبشكل آمن.
+      final response = await _supabaseService.client
+          .rpc('list_public_volunteers');
 
       final volunteers = <VolunteerModel>[];
       for (var i = 0; i < response.length; i++) {

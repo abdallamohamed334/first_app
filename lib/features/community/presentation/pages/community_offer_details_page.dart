@@ -97,6 +97,21 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     return 'مواصفات $_categoryName';
   }
 
+  Color get _categoryAccent {
+    if (_categorySlug.contains('car') || _categorySlug.contains('vehicle')) {
+      return const Color(0xFF315CFF);
+    }
+    if (_categorySlug.contains('mobile') || _categorySlug.contains('phone')) {
+      return const Color(0xFF7B4DFF);
+    }
+    if (_categorySlug.contains('real') ||
+        _categorySlug.contains('property') ||
+        _categorySlug.contains('apartment')) {
+      return const Color(0xFF00897B);
+    }
+    return const Color(0xFFE95D4E);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -782,7 +797,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final colors = ColorScheme.fromSeed(
-      seedColor: const Color(0xFFE95D4E),
+      seedColor: _categoryAccent,
       brightness: Brightness.light,
       surface: const Color(0xFFF7F8FA),
     );
@@ -794,17 +809,17 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: colors,
-        scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+      scaffoldBackgroundColor: const Color(0xFFF5F6FB),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F8FA),
+        backgroundColor: const Color(0xFFF5F6FB),
         extendBody: true,
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             // ─── SliverAppBar
             SliverAppBar(
-              expandedHeight: 390,
+              expandedHeight: 430,
               pinned: true,
               elevation: 0,
               scrolledUnderElevation: 0,
@@ -834,8 +849,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             SliverToBoxAdapter(
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF7F8FA),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(34)),
+                  color: Color(0xFFF5F6FB),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
                   boxShadow: [
                     BoxShadow(
                       color: Color(0x14000000),
@@ -1343,28 +1358,33 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   }
 
   Widget _premiumSectionTitle(String title, IconData icon) {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
-          width: 34,
-          height: 34,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFFFFE9E5), Color(0xFFFFF5F2)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            ),
-            borderRadius: BorderRadius.circular(11),
+            color: colors.primary.withValues(alpha: .11),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colors.primary.withValues(alpha: .16)),
           ),
-          child: Icon(icon, color: const Color(0xFFE95D4E), size: 18),
+          child: Icon(icon, color: colors.primary, size: 20),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Text(
           title,
           style: const TextStyle(
-            color: Color(0xFF15171A),
-            fontSize: 18,
+            color: Color(0xFF20233A),
+            fontSize: 19,
             fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            height: 1,
+            color: colors.primary.withValues(alpha: .12),
           ),
         ),
       ],
