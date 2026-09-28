@@ -38,6 +38,7 @@ class SessionAwareBlocScope extends StatefulWidget {
 
 class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
   late final SupabaseClient _client;
+  late final Widget _providers;
   StreamSubscription<AuthState>? _authSubscription;
   Future<String?>? _identityFuture;
   String? _identityUserId;
@@ -48,6 +49,40 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
   void initState() {
     super.initState();
     _client = Supabase.instance.client;
+    // Keep the provider widget identity stable. Recreating MultiBlocProvider
+    // from build() while an auth/identity callback rebuilds this scope can
+    // make Flutter detach inherited dependents during a frame, triggering
+    // the `_dependents.isEmpty` assertion on otherwise unrelated screens.
+    _providers = MultiBlocProvider(
+      providers: [
+        BlocProvider<BusinessDashboardBloc>(
+          create: (_) => BusinessDashboardBloc(
+            BusinessRepository(widget.service),
+            widget.service,
+          ),
+        ),
+        BlocProvider<CharityBloc>(
+          create: (_) => CharityBloc(),
+        ),
+        BlocProvider<MapBloc>(
+          create: (_) => MapBloc(
+            locationService: null,
+          ),
+        ),
+        BlocProvider<VolunteerBloc>(
+          create: (_) => VolunteerBloc(widget.service),
+        ),
+        BlocProvider<NotificationBloc>(
+          create: (_) => sl<NotificationBloc>(),
+        ),
+        BlocProvider<BookingBloc>(
+          create: (_) => BookingBloc(
+            BookingRepository(widget.service),
+          ),
+        ),
+      ],
+      child: widget.child,
+    );
     FirebaseMessagingService.instance.initialize();
 
     _authSubscription = _client.auth.onAuthStateChange.listen((authState) {
@@ -114,37 +149,6 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
     // Every provider remains at the same position for the entire app life.
     // HomeBloc and ProfileBloc are intentionally not repeated here because
     // main.dart already owns those two providers.
-    final providers = MultiBlocProvider(
-      providers: [
-        BlocProvider<BusinessDashboardBloc>(
-          create: (_) => BusinessDashboardBloc(
-            BusinessRepository(widget.service),
-            widget.service,
-          ),
-        ),
-        BlocProvider<CharityBloc>(
-          create: (_) => CharityBloc(),
-        ),
-        BlocProvider<MapBloc>(
-          create: (_) => MapBloc(
-            locationService: null,
-          ),
-        ),
-        BlocProvider<VolunteerBloc>(
-          create: (_) => VolunteerBloc(widget.service),
-        ),
-        BlocProvider<NotificationBloc>(
-          create: (_) => sl<NotificationBloc>(),
-        ),
-        BlocProvider<BookingBloc>(
-          create: (_) => BookingBloc(
-            BookingRepository(widget.service),
-          ),
-        ),
-      ],
-      child: widget.child,
-    );
-
     final isUnknownAccount =
         _identityUserId != null && !_identityLoading && _identityType == null;
 
@@ -156,7 +160,7 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          providers,
+          _providers,
           if (isUnknownAccount) const _UnknownAccountOverlay(),
         ],
       ),
