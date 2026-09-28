@@ -111,7 +111,7 @@ class CommunityNeedsRepository {
     int offset = 0,
     double? latitude,
     double? longitude,
-    double radiusKm = 30,
+    double radiusKm = 70,
   }) async {
     try {
       final response = await _client.rpc(

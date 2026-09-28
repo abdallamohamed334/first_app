@@ -473,7 +473,7 @@ class _MapPageState extends State<MapPage> {
                   TileLayer(
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.وِصلة.app',
+                    userAgentPackageName: 'com.wasla.app',
                   ),
                   if (_selectedLocation != null)
                     MarkerLayer(

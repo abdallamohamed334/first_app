@@ -13,7 +13,7 @@ CREATE FUNCTION public.list_community_needs_v2(
   p_offset integer DEFAULT 0,
   p_latitude double precision DEFAULT NULL,
   p_longitude double precision DEFAULT NULL,
-  p_radius_km double precision DEFAULT 30
+  p_radius_km double precision DEFAULT 70
 )
 RETURNS TABLE(
   id uuid, requester_id uuid, requester_name text, requester_avatar text,
@@ -55,7 +55,6 @@ AS $$
     AND (p_search IS NULL OR p_search = ''
       OR n.title ILIKE '%' || p_search || '%'
       OR n.description ILIKE '%' || p_search || '%')
-    AND n.requester_id != auth.uid()
     AND (
       p_latitude IS NULL OR p_longitude IS NULL
       OR (n.latitude IS NOT NULL AND n.longitude IS NOT NULL
@@ -63,7 +62,7 @@ AS $$
         power(sin(radians(n.latitude - p_latitude) / 2), 2) +
         cos(radians(p_latitude)) * cos(radians(n.latitude)) *
         power(sin(radians(n.longitude - p_longitude) / 2), 2)
-        )) <= COALESCE(p_radius_km, 30))
+        )) <= COALESCE(p_radius_km, 70))
     )
   ORDER BY
     CASE WHEN p_latitude IS NOT NULL AND p_longitude IS NOT NULL

@@ -48,8 +48,8 @@ class _AppFeatures {
   static const bool showRestaurants = false;
   static const bool showUrgentSection = false;
 
-  /// ✅ أقصى مسافة (كم) لعرض العروض القريبة في قسم "شراء بسعر رمزي"
-  static const double nearbyRadiusKm = 30.0;
+  /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
+  static const double nearbyRadiusKm = 70.0;
 }
 
 enum _HomeMode { buy, services }
