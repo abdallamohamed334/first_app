@@ -2571,21 +2571,24 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: colors.primary.withValues(alpha: 0.18)),
       ),
-      child: CheckboxListTile(
-        value: _termsAccepted,
-        onChanged: (value) {
-          setState(() => _termsAccepted = value ?? false);
-        },
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: EdgeInsets.zero,
-        tileColor: Colors.transparent,
-        title: Text(
-          'أؤكد أن البيانات والصور التي أضفتها صحيحة، وأنني أوضحت حالة المنتج وأي عيوب موجودة به.',
-          style: TextStyle(
-            color: colors.onSurface,
-            fontSize: 12,
-            height: 1.5,
-            fontWeight: FontWeight.w600,
+      child: Material(
+        color: Colors.transparent,
+        child: CheckboxListTile(
+          value: _termsAccepted,
+          onChanged: (value) {
+            setState(() => _termsAccepted = value ?? false);
+          },
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+          tileColor: Colors.transparent,
+          title: Text(
+            'أؤكد أن البيانات والصور التي أضفتها صحيحة، وأنني أوضحت حالة المنتج وأي عيوب موجودة به.',
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 12,
+              height: 1.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ),

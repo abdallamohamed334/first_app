@@ -92,6 +92,7 @@ class CommunityOfferRepository {
     final cleanDescription = description.trim();
     final cleanCategoryId = categoryId.trim();
     final cleanCategorySlug = categorySlug.trim();
+    final cleanCondition = _normalizeCondition(itemCondition);
     final cleanLocation = pickupLocation.trim();
     final cleanPhone = contactPhone.trim();
     final cleanWhatsapp = whatsapp?.trim();
@@ -149,7 +150,7 @@ class CommunityOfferRepository {
       'needs_repair',
     };
 
-    if (!allowedConditions.contains(itemCondition)) {
+    if (!allowedConditions.contains(cleanCondition)) {
       throw Exception(
         'حالة المنتج غير صحيحة',
       );
@@ -318,7 +319,7 @@ class CommunityOfferRepository {
         'category_id': cleanCategoryId,
         'marketplace_category_id': cleanMarketplaceCategoryId,
         'listing_type': 'symbolic_sale',
-        'item_condition': itemCondition,
+        'item_condition': cleanCondition,
         'quantity': quantity,
         'price': price,
         'image': uploadedUrls.isEmpty ? null : uploadedUrls.first,
@@ -514,6 +515,7 @@ class CommunityOfferRepository {
     final cleanDescription = description.trim();
     final cleanCategoryId = categoryId.trim();
     final cleanCategorySlug = categorySlug.trim();
+    final cleanCondition = _normalizeCondition(itemCondition);
     final cleanLocation = pickupLocation.trim();
     final cleanPhone = contactPhone.trim();
     final cleanWhatsapp = whatsapp?.trim();
@@ -557,7 +559,7 @@ class CommunityOfferRepository {
       'needs_repair',
     };
 
-    if (!allowedConditions.contains(itemCondition)) {
+    if (!allowedConditions.contains(cleanCondition)) {
       throw Exception(
         'حالة المنتج غير صحيحة',
       );
@@ -725,7 +727,7 @@ class CommunityOfferRepository {
         'category': cleanCategorySlug,
         'category_id': cleanCategoryId,
         'marketplace_category_id': cleanMarketplaceCategoryId,
-        'item_condition': itemCondition,
+        'item_condition': cleanCondition,
         'quantity': quantity,
         'price': price,
         'image': finalSignedUrls.isEmpty ? null : finalSignedUrls.first,
@@ -877,6 +879,19 @@ class CommunityOfferRepository {
   // ============================================================
   // ✅ HELPER: التحقق من رقم الهاتف المصري
   // ============================================================
+  String _normalizeCondition(String value) {
+    final normalized = value.trim().toLowerCase();
+    const aliases = {
+      'new_item': 'new',
+      'brand_new': 'new',
+      'excellent': 'very_good',
+      'very-good': 'very_good',
+      'needs-repair': 'needs_repair',
+      'repair': 'needs_repair',
+    };
+    return aliases[normalized] ?? normalized;
+  }
+
   bool _isValidEgyptianPhone(String phone) {
     final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
     if (cleaned.length != 11) return false;
