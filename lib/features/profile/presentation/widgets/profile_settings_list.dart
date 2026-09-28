@@ -61,9 +61,14 @@ class ProfileSettingsList extends StatelessWidget {
             icon:
                 isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
             title: 'الوضع الداكن',
-            trailingWidget: Switch.adaptive(
-              value: isDarkMode,
-              onChanged: onDarkModeChanged,
+            // التبديل يتم من onTap الخاص بالصف. منع الـ Switch من استقبال
+            // اللمسة يمنع استدعاء onDarkModeChanged مرتين (Switch + ListTile)
+            // وإعادة بناء MaterialApp أثناء نفس gesture.
+            trailingWidget: IgnorePointer(
+              child: Switch.adaptive(
+                value: isDarkMode,
+                onChanged: (_) {},
+              ),
             ),
             onTap: () {
               onDarkModeChanged(!isDarkMode);
