@@ -290,6 +290,7 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
       ]));
 
   Widget _buildFilters() {
+    final colors = Theme.of(context).colorScheme;
     final filters = {
       'all': 'الكل',
       'pending': 'في الانتظار',
