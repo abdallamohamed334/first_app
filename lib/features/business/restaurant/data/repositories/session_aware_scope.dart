@@ -38,7 +38,7 @@ class SessionAwareBlocScope extends StatefulWidget {
 
 class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
   late final SupabaseClient _client;
-  late final Widget _providers;
+  Widget? _providers;
   StreamSubscription<AuthState>? _authSubscription;
   Future<String?>? _identityFuture;
   String? _identityUserId;
@@ -53,7 +53,31 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
     // from build() while an auth/identity callback rebuilds this scope can
     // make Flutter detach inherited dependents during a frame, triggering
     // the `_dependents.isEmpty` assertion on otherwise unrelated screens.
-    _providers = MultiBlocProvider(
+    _providers = _createProviders();
+    FirebaseMessagingService.instance.initialize();
+
+    _authSubscription = _client.auth.onAuthStateChange.listen((authState) {
+      final userId = authState.session?.user.id;
+      if (userId == _identityUserId &&
+          authState.event != AuthChangeEvent.signedOut) {
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _startIdentityLookup(userId);
+      });
+    });
+
+    final userId = _client.auth.currentUser?.id;
+    _identityUserId = userId;
+    _identityLoading = userId != null;
+    _identityFuture = userId == null ? null : _resolveIdentityType(userId);
+    _identityFuture?.then(_onIdentityResolved);
+  }
+
+  Widget _createProviders() {
+    return MultiBlocProvider(
       providers: [
         BlocProvider<BusinessDashboardBloc>(
           create: (_) => BusinessDashboardBloc(
@@ -83,26 +107,6 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
       ],
       child: widget.child,
     );
-    FirebaseMessagingService.instance.initialize();
-
-    _authSubscription = _client.auth.onAuthStateChange.listen((authState) {
-      final userId = authState.session?.user.id;
-      if (userId == _identityUserId &&
-          authState.event != AuthChangeEvent.signedOut) {
-        return;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _startIdentityLookup(userId);
-      });
-    });
-
-    final userId = _client.auth.currentUser?.id;
-    _identityUserId = userId;
-    _identityLoading = userId != null;
-    _identityFuture = userId == null ? null : _resolveIdentityType(userId);
-    _identityFuture?.then(_onIdentityResolved);
   }
 
   void _startIdentityLookup(String? userId) {
@@ -151,6 +155,10 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
     // main.dart already owns those two providers.
     final isUnknownAccount =
         _identityUserId != null && !_identityLoading && _identityType == null;
+    // A hot reload can preserve a State object created before _providers was
+    // introduced. Lazily initialize the nullable field instead of relying on
+    // late initialization, while retaining a stable provider identity.
+    final providers = _providers ??= _createProviders();
 
     // Keep the provider subtree in the same position even when showing the
     // account warning. Only the overlay changes; providers are never moved or
@@ -160,7 +168,7 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          _providers,
+          providers,
           if (isUnknownAccount) const _UnknownAccountOverlay(),
         ],
       ),
