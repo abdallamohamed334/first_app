@@ -33,6 +33,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _children = [];
+  bool _openingCategory = false;
 
   @override
   void initState() {
@@ -231,6 +232,8 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
   }
 
   Future<void> _openSubCategory(String id, String name, String slug) async {
+    if (_openingCategory || id.isEmpty) return;
+    _openingCategory = true;
     // ✅ نشوف لو الفرع ده عنده فروع تانية
     bool hasChildren = false;
     try {
@@ -250,7 +253,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
 
     if (hasChildren) {
       // ✅ عنده فروع → SubCategoriesPage تانية
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SubCategoriesPage(
             parentId: id,
@@ -259,19 +262,19 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
           ),
         ),
       );
-      return;
-    }
-
-    // ✅ مفيش فروع → CategoryOffersPage
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CategoryOffersPage(
-          categoryId: id,
-          categoryName: name,
-          categorySlug: slug,
+    } else {
+      // ✅ مفيش فروع → CategoryOffersPage
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CategoryOffersPage(
+            categoryId: id,
+            categoryName: name,
+            categorySlug: slug,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    if (mounted) _openingCategory = false;
   }
 
   Widget _buildEmpty() {

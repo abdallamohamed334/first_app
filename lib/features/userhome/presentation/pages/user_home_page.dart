@@ -106,6 +106,7 @@ class _UserHomePageState extends State<UserHomePage> {
   static const Color _purple = Color(0xFF6651B5);
 
   static const Set<String> _hiddenCategoryKeys = {};
+  bool _openingCategory = false;
 
   static bool get restaurantsEnabled => _AppFeatures.showRestaurants;
 
@@ -1905,6 +1906,9 @@ class _UserHomePageState extends State<UserHomePage> {
     final name = category['name_ar']?.toString() ?? '';
     final slug = (category['slug']?.toString() ?? '').trim();
 
+    if (id.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final isRestaurant = _isRestaurantCategory(category);
 
     final isGrocery = slug.startsWith('grocery') ||
@@ -1972,6 +1976,8 @@ class _UserHomePageState extends State<UserHomePage> {
     String name,
     String slug,
   ) async {
+    if (_openingCategory || id.isEmpty) return;
+    _openingCategory = true;
     bool hasChildren = false;
     try {
       final response = await SupabaseService()
@@ -1991,7 +1997,7 @@ class _UserHomePageState extends State<UserHomePage> {
     if (!mounted) return;
 
     if (hasChildren) {
-      Navigator.of(context).push(
+      await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => SubCategoriesPage(
             parentId: id,
@@ -2000,18 +2006,18 @@ class _UserHomePageState extends State<UserHomePage> {
           ),
         ),
       );
-      return;
-    }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CategoryOffersPage(
-          categoryId: id,
-          categoryName: name,
-          categorySlug: slug,
+    } else {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CategoryOffersPage(
+            categoryId: id,
+            categoryName: name,
+            categorySlug: slug,
+          ),
         ),
-      ),
-    );
+      );
+    }
+    if (mounted) _openingCategory = false;
   }
 
   FoodOffer _institutionToFoodOffer(
