@@ -164,6 +164,12 @@ class MarketplaceBloc extends Bloc<MarketplaceEvent, MarketplaceState> {
       debugPrint('🟢 [Bloc] ⚠️ Attribute not in list — skipping');
       return;
     }
+    if (event.attribute.slug.trim().isEmpty ||
+        event.value.trim().isEmpty ||
+        event.optionId.trim().isEmpty) {
+      debugPrint('🟢 [Bloc] ⚠️ Invalid filter selection — skipping');
+      return;
+    }
 
     if (state.categoryId == null || state.categoryId!.isEmpty) return;
 

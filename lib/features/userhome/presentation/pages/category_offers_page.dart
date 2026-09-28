@@ -633,13 +633,14 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
     if (state.attributes.isEmpty) return const [];
 
     const allowedSlugs = {'condition', 'brand'};
+    final seenSlugs = <String>{};
 
-    return state.attributes
-        .where(
-          (attr) =>
-              attr.inputType == 'select' && allowedSlugs.contains(attr.slug),
-        )
-        .toList();
+    return state.attributes.where((attr) {
+      final slug = attr.slug.trim();
+      return attr.inputType == 'select' &&
+          allowedSlugs.contains(slug) &&
+          seenSlugs.add(slug);
+    }).toList(growable: false);
   }
 
   Widget _buildOffersSection(BuildContext context) {

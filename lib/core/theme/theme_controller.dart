@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeController extends ChangeNotifier {
-  static const String _themeKey = 'is_dark_mode';
+  // يجب أن يطابق المفتاح المستخدم في main.dart و ProfilePage.
+  static const String _themeKey = 'isDarkMode';
 
   bool _isDarkMode = false;
 

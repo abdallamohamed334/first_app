@@ -514,6 +514,14 @@ class InstitutionsRepository {
       );
     }
 
+    // يتوافق هذا التحقق مع قيد RPC حتى يظهر الخطأ للمستخدم قبل طلب الشبكة.
+    final maxExpiresAt = DateTime.now().toUtc().add(const Duration(hours: 12));
+    if (expiresAt.toUtc().isAfter(maxExpiresAt)) {
+      throw const FormatException(
+        'صلاحية العرض لا تتجاوز 12 ساعة من الآن',
+      );
+    }
+
     final ownedInstitution = await _client
         .from('institutions')
         .select('id, status')
