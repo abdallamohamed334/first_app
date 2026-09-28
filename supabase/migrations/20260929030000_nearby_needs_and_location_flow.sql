@@ -1,6 +1,9 @@
 -- Nearby community needs and location-aware home feed.
 -- The app stores user coordinates in users.latitude/longitude.
-DROP FUNCTION IF EXISTS public.list_community_needs_v2(text, text, text, integer, integer);
+DROP FUNCTION IF EXISTS public.list_community_needs_v2(
+  text, text, text, integer, integer,
+  double precision, double precision, double precision
+);
 
 CREATE FUNCTION public.list_community_needs_v2(
   p_need_category text DEFAULT NULL,
