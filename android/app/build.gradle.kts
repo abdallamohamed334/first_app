@@ -25,34 +25,45 @@ android {
         versionName = flutter.versionName
     }
 
+    // Production credentials must come from CI/local environment, not Git.
+    // Do not fail during Gradle configuration: Flutter debug builds must work
+    // on developer devices without access to the production keystore.
+    val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
+    val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
+    val releaseSigningConfigured = !keystorePath.isNullOrBlank() &&
+        !keystorePassword.isNullOrBlank() &&
+        !keyAliasValue.isNullOrBlank() &&
+        !keyPasswordValue.isNullOrBlank()
+
     signingConfigs {
-        create("release") {
-            // Production credentials must come from CI/local environment, not Git.
-            val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-            val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-            val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
-            val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
-            if (keystorePath.isNullOrBlank() ||
-                keystorePassword.isNullOrBlank() ||
-                keyAliasValue.isNullOrBlank() ||
-                keyPasswordValue.isNullOrBlank()
-            ) {
-                throw GradleException(
-                    "Release signing is not configured. Set ANDROID_KEYSTORE_PATH, " +
-                        "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and " +
-                        "ANDROID_KEY_PASSWORD in the build environment."
-                )
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(keystorePath!!)
+                storePassword = keystorePassword
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
             }
-            storeFile = file(keystorePath)
-            storePassword = keystorePassword
-            keyAlias = keyAliasValue
-            keyPassword = keyPasswordValue
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
+    // Fail only when a release task is actually requested, never for `flutter run`.
+    gradle.taskGraph.whenReady {
+        if (!releaseSigningConfigured && allTasks.any { it.name.contains("Release") }) {
+            throw GradleException(
+                "Release signing is not configured. Set ANDROID_KEYSTORE_PATH, " +
+                    "ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and " +
+                    "ANDROID_KEY_PASSWORD in the build environment."
+            )
         }
     }
 }
