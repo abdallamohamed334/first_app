@@ -57,36 +57,16 @@ Future<void> main() async {
 
   _installGlobalErrorHandlers();
 
-  final envLoaded = await _loadEnvSafely();
-
-  final firebaseReady = await _initializeFirebaseSafely().timeout(
-    const Duration(seconds: 5),
+  // Load only the small, local configuration needed before the first frame.
+  // Firebase/Remote Config is intentionally initialized after runApp so a
+  // slow network cannot leave the user on the native gray launch window.
+  final envLoaded = await _loadEnvSafely().timeout(
+    const Duration(seconds: 2),
     onTimeout: () {
-      debugPrint('Firebase startup timed out; continuing without blocking UI');
+      debugPrint('Environment loading timed out; using bundled defaults');
       return false;
     },
   );
-
-  if (firebaseReady) {
-    try {
-      await loqmaAppCheck()
-          .activate(
-            webRecaptchaSiteKey: envLoaded
-                ? dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY']
-                : null,
-          )
-          .timeout(const Duration(seconds: 3));
-
-      debugPrint('Firebase App Check activated');
-    } catch (error, stack) {
-      debugPrint('Firebase App Check activation failed: $error');
-      debugPrintStack(stackTrace: stack);
-    }
-  } else {
-    debugPrint(
-      'Firebase is not ready. Skipping Firebase App Check activation.',
-    );
-  }
 
   final supabaseUrl = envLoaded
       ? (dotenv.env['SUPABASE_URL'] ?? _defaultSupabaseUrl)
@@ -120,13 +100,45 @@ Future<void> main() async {
     debugPrintStack(stackTrace: stack);
   }
 
-  final isDarkMode = await _loadThemePreferenceSafely();
+  final isDarkMode = await _loadThemePreferenceSafely().timeout(
+    const Duration(seconds: 2),
+    onTimeout: () => false,
+  );
 
   // ✅ تهيئة الـ ThemeNotifier قبل بدء التطبيق
   ThemeNotifier.isDarkMode.value = isDarkMode;
 
   runApp(MyApp(initialIsDarkMode: isDarkMode));
-  unawaited(_initializePostLaunchServices(firebaseReady));
+  unawaited(_initializePostLaunchServicesAfterStartup(envLoaded));
+}
+
+Future<void> _initializePostLaunchServicesAfterStartup(bool envLoaded) async {
+  var firebaseReady = false;
+  try {
+    firebaseReady = await _initializeFirebaseSafely().timeout(
+      const Duration(seconds: 8),
+      onTimeout: () {
+        debugPrint('Firebase startup timed out; continuing without blocking UI');
+        return false;
+      },
+    );
+
+    if (firebaseReady) {
+      await loqmaAppCheck()
+          .activate(
+            webRecaptchaSiteKey: envLoaded
+                ? dotenv.env['FIREBASE_WEB_RECAPTCHA_V3_SITE_KEY']
+                : null,
+          )
+          .timeout(const Duration(seconds: 3));
+      debugPrint('Firebase App Check activated');
+    }
+  } catch (error, stack) {
+    debugPrint('Post-start Firebase initialization failed: $error');
+    debugPrintStack(stackTrace: stack);
+  }
+
+  await _initializePostLaunchServices(firebaseReady);
 }
 
 Future<void> _initializePostLaunchServices(bool firebaseReady) async {
