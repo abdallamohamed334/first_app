@@ -5,6 +5,19 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 
+double? _providerDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString().trim());
+}
+
+int? _providerInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  final text = value.toString().trim();
+  return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+}
+
 class ProviderReviewsPage extends StatefulWidget {
   const ProviderReviewsPage({super.key});
 
@@ -139,8 +152,8 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
   }
 
   Widget _buildRatingSummary() {
-    final rating = (_stats?['rating_avg'] as num?)?.toDouble() ?? 0;
-    final count = (_stats?['total_reviews'] as num?)?.toInt() ?? 0;
+    final rating = _providerDouble(_stats?['rating_avg']) ?? 0;
+    final count = _providerInt(_stats?['total_reviews']) ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -288,7 +301,7 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
         'عميل';
     final avatarUrl = user is Map ? user['avatar_url']?.toString() : null;
     final isAnonymous = review['is_anonymous'] as bool? ?? false;
-    final rating = (review['rating'] as num?)?.toInt() ?? 0;
+    final rating = _providerInt(review['rating']) ?? 0;
     final comment = review['comment']?.toString() ?? '';
     final createdAtRaw = review['created_at']?.toString() ?? '';
     final createdAt = DateTime.tryParse(createdAtRaw);

@@ -41,7 +41,7 @@ class ServiceReview {
       requestId: map['request_id']?.toString() ?? '',
       fromUserId: map['from_user_id']?.toString() ?? '',
       toProviderId: map['to_provider_id']?.toString() ?? '',
-      rating: (map['rating'] as num?)?.toInt() ?? 0,
+      rating: _asInt(map['rating']) ?? 0,
       comment: map['comment']?.toString(),
       images: _stringList(map['images']),
       tags: _stringList(map['tags']),
@@ -50,6 +50,13 @@ class ServiceReview {
       userName: map['user_name']?.toString(),
       userAvatar: map['user_avatar']?.toString(),
     );
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    final text = value.toString().trim();
+    return int.tryParse(text) ?? double.tryParse(text)?.toInt();
   }
 
   static List<String> _stringList(dynamic value) {

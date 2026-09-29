@@ -7,6 +7,19 @@ import 'package:loqma/features/provider/data/repositories/service_provider_repos
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
 import 'package:loqma/routes/app_router.dart';
 
+double? _dashboardDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString().trim());
+}
+
+int? _dashboardInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  final text = value.toString().trim();
+  return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+}
+
 class ProviderDashboardPage extends StatefulWidget {
   const ProviderDashboardPage({super.key});
 
@@ -675,7 +688,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
     final total = _stats?['total_jobs'] ?? 0;
     final completed = _stats?['completed_jobs'] ?? 0;
     final reviews = _stats?['total_reviews'] ?? 0;
-    final rating = (_stats?['rating_avg'] as num?)?.toDouble() ?? 0;
+    final rating = _dashboardDouble(_stats?['rating_avg']) ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -893,8 +906,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   // Rating Card
   // ══════════════════════════════════════════════════════════
   Widget _buildRatingCard() {
-    final rating = (_stats?['rating_avg'] as num?)?.toDouble() ?? 0;
-    final reviews = (_stats?['total_reviews'] as num?)?.toInt() ?? 0;
+    final rating = _dashboardDouble(_stats?['rating_avg']) ?? 0;
+    final reviews = _dashboardInt(_stats?['total_reviews']) ?? 0;
 
     return InkWell(
       onTap: () => context.push(AppRouter.providerReviews),

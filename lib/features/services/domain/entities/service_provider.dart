@@ -1,7 +1,6 @@
 // lib/features/services/domain/entities/service_provider.dart
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 
 class ServiceProvider {
   final String id;
@@ -126,22 +125,7 @@ class ServiceProvider {
   }
 
   factory ServiceProvider.fromMap(Map<String, dynamic> map) {
-    // ═══════════════════════════════════════════════════════════
-    // 🐛 DEBUG
-    // ═══════════════════════════════════════════════════════════
-    debugPrint('═══════════════════════════════════════════');
-    debugPrint('🔍 RAW KEY: portfolio_images');
-    debugPrint('   Value: ${map['portfolio_images']}');
-    debugPrint('   Type: ${map['portfolio_images'].runtimeType}');
-    debugPrint('   isNull: ${map['portfolio_images'] == null}');
-    debugPrint('   isList: ${map['portfolio_images'] is List}');
-    debugPrint('   isString: ${map['portfolio_images'] is String}');
-    debugPrint('🔍 ALL KEYS: ${map.keys.toList()}');
-    debugPrint('═══════════════════════════════════════════');
-
     final portfolio = _parseImages(map['portfolio_images']);
-
-    debugPrint('✅ portfolio parsed: ${portfolio.length} صور');
 
     return ServiceProvider(
       id: map['id']?.toString() ?? '',
@@ -153,7 +137,7 @@ class ServiceProvider {
       providerType: map['provider_type']?.toString() ?? 'individual',
       displayName: map['display_name']?.toString() ?? '',
       bio: map['bio']?.toString(),
-      experienceYears: (map['experience_years'] as num?)?.toInt(),
+      experienceYears: _asInt(map['experience_years']),
       skills: _stringList(map['skills']),
       profileImageUrl: _parseImageUrl(map['profile_image_url']),
       coverImageUrl: _parseImageUrl(map['cover_image_url']),
@@ -161,11 +145,11 @@ class ServiceProvider {
       city: map['city']?.toString(),
       address: map['address']?.toString(),
       serviceAreas: _stringList(map['service_areas']),
-      latitude: (map['latitude'] as num?)?.toDouble(),
-      longitude: (map['longitude'] as num?)?.toDouble(),
-      maxDistanceKm: (map['max_distance_km'] as num?)?.toInt() ?? 15,
+      latitude: _asDouble(map['latitude']),
+      longitude: _asDouble(map['longitude']),
+      maxDistanceKm: _asInt(map['max_distance_km']) ?? 15,
       pricingType: map['pricing_type']?.toString() ?? 'market',
-      priceFrom: (map['price_from'] as num?)?.toDouble(),
+      priceFrom: _asDouble(map['price_from']),
       priceCurrency: map['price_currency']?.toString() ?? 'EGP',
       acceptsInstallments: map['accepts_installments'] as bool? ?? false,
       phone: map['phone']?.toString(),
@@ -173,21 +157,34 @@ class ServiceProvider {
       email: map['email']?.toString(),
       website: map['website']?.toString(),
       companyLegalName: map['company_legal_name']?.toString(),
-      employeesCount: (map['employees_count'] as num?)?.toInt(),
-      foundedYear: (map['founded_year'] as num?)?.toInt(),
+      employeesCount: _asInt(map['employees_count']),
+      foundedYear: _asInt(map['founded_year']),
       branches: _parseBranches(map['branches']),
       verificationStatus: map['verification_status']?.toString() ?? 'pending',
       isActive: map['is_active'] as bool? ?? true,
       isAvailable: map['is_available'] as bool? ?? true,
       availabilityNote: map['availability_note']?.toString(),
-      totalJobs: (map['total_jobs'] as num?)?.toInt() ?? 0,
-      completedJobs: (map['completed_jobs'] as num?)?.toInt() ?? 0,
-      volunteerJobs: (map['volunteer_jobs'] as num?)?.toInt() ?? 0,
-      ratingAvg: (map['rating_avg'] as num?)?.toDouble() ?? 0,
-      totalReviews: (map['total_reviews'] as num?)?.toInt() ?? 0,
+      totalJobs: _asInt(map['total_jobs']) ?? 0,
+      completedJobs: _asInt(map['completed_jobs']) ?? 0,
+      volunteerJobs: _asInt(map['volunteer_jobs']) ?? 0,
+      ratingAvg: _asDouble(map['rating_avg']) ?? 0,
+      totalReviews: _asInt(map['total_reviews']) ?? 0,
       ownerName: map['owner_name']?.toString(),
       ownerAvatar: map['owner_avatar']?.toString(),
     );
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().trim());
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    final text = value.toString().trim();
+    return int.tryParse(text) ?? double.tryParse(text)?.toInt();
   }
 
   // ═══════════════════════════════════════════════════════════

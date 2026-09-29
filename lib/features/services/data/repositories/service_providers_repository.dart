@@ -1,7 +1,6 @@
 // lib/features/services/data/repositories/service_providers_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/domain/entities/service_review.dart';
@@ -10,7 +9,7 @@ class ServiceProvidersRepository {
   final _client = SupabaseService().client;
 
   // ═══════════════════════════════════════════════════════════
-  // جلب مقدمي خدمة في تصنيف معين — مقفول على طنطا
+  // جلب مقدمي الخدمة المنشورين في التصنيف
   // ═══════════════════════════════════════════════════════════
   Future<List<ServiceProvider>> listByCategory({
     required String categoryId,
@@ -23,9 +22,7 @@ class ServiceProvidersRepository {
       var query = _client
           .from('published_service_providers')
           .select()
-          .eq('category_id', categoryId)
-          // ✅ قفل على المدينة
-          .eq('city', AppConfig.defaultCity);
+          .eq('category_id', categoryId);
 
       if (providerType != null && providerType.isNotEmpty) {
         query = query.eq('provider_type', providerType);
@@ -48,8 +45,7 @@ class ServiceProvidersRepository {
           .map((r) => ServiceProvider.fromMap(Map<String, dynamic>.from(r)))
           .toList();
 
-      debugPrint(
-          '✅ Loaded providers in ${AppConfig.defaultCity}: ${list.length}');
+      debugPrint('✅ Loaded providers in category $categoryId: ${list.length}');
       return list;
     } catch (e) {
       debugPrint('❌ listByCategory error: $e');
@@ -67,8 +63,7 @@ class ServiceProvidersRepository {
       final rows = await _client
           .from('published_service_providers')
           .select('service_areas')
-          .eq('category_id', categoryId)
-          .eq('city', AppConfig.defaultCity);
+          .eq('category_id', categoryId);
 
       final Set<String> areas = {};
       for (final row in rows) {

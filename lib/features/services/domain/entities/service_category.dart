@@ -42,8 +42,15 @@ class ServiceCategory {
       supportsCompany: map['supports_company'] as bool? ?? true,
       defaultPricing: map['default_pricing']?.toString() ?? 'market',
       isActive: map['is_active'] as bool? ?? true,
-      sortOrder: (map['sort_order'] as num?)?.toInt() ?? 0,
+      sortOrder: _asInt(map['sort_order']) ?? 0,
     );
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    final text = value.toString().trim();
+    return int.tryParse(text) ?? double.tryParse(text)?.toInt();
   }
 
   Map<String, dynamic> toMap() => {

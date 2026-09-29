@@ -6,6 +6,19 @@ import 'package:go_router/go_router.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
 
+double? _providerProfileDouble(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString().trim());
+}
+
+int? _providerProfileInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  final text = value.toString().trim();
+  return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+}
+
 class ProviderPublicProfilePage extends StatefulWidget {
   const ProviderPublicProfilePage({super.key});
 
@@ -164,8 +177,8 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
     final areas = (_provider?['service_areas'] as List?) ?? [];
     final portfolio = (_provider?['portfolio_images'] as List?) ?? [];
 
-    final rating = (_stats?['rating_avg'] as num?)?.toDouble() ?? 0;
-    final reviews = (_stats?['total_reviews'] as num?)?.toInt() ?? 0;
+    final rating = _providerProfileDouble(_stats?['rating_avg']) ?? 0;
+    final reviews = _providerProfileInt(_stats?['total_reviews']) ?? 0;
 
     return Container(
       decoration: BoxDecoration(
