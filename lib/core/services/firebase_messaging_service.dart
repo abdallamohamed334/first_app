@@ -15,7 +15,9 @@ class FirebaseMessagingService {
 
   static final FirebaseMessagingService instance = FirebaseMessagingService._();
 
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // Do not resolve FirebaseMessaging while the singleton is being created;
+  // the login page can be built before Firebase.initializeApp completes.
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 

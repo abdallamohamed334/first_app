@@ -17,14 +17,22 @@ class FcmNotificationService {
     FirebaseMessaging? messaging,
     FlutterLocalNotificationsPlugin? localNotifications,
     FirebaseAnalytics? analytics,
-  })  : _messaging = messaging ?? FirebaseMessaging.instance,
+  })  : _messagingOverride = messaging,
         _localNotifications =
             localNotifications ?? FlutterLocalNotificationsPlugin(),
-        _analytics = analytics ?? FirebaseAnalytics.instance;
+        _analyticsOverride = analytics;
 
-  final FirebaseMessaging _messaging;
+  final FirebaseMessaging? _messagingOverride;
   final FlutterLocalNotificationsPlugin _localNotifications;
-  final FirebaseAnalytics _analytics;
+  final FirebaseAnalytics? _analyticsOverride;
+
+  // Resolve Firebase only when a notification operation is actually used.
+  // Login/OTP must remain usable while Firebase is still starting in Debug.
+  FirebaseMessaging get _messaging =>
+      _messagingOverride ?? FirebaseMessaging.instance;
+
+  FirebaseAnalytics get _analytics =>
+      _analyticsOverride ?? FirebaseAnalytics.instance;
 
   StreamSubscription<RemoteMessage>? _foregroundSubscription;
   StreamSubscription<RemoteMessage>? _openedAppSubscription;
