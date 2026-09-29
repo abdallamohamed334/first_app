@@ -149,6 +149,10 @@ enabled = true
 max_buckets = 10
 max_indexes = 5
 
+# OTP is requested before a user has an authenticated session.
+[functions.send-otp]
+verify_jwt = false
+
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
