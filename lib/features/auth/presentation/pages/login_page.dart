@@ -491,21 +491,14 @@ class _LoginPageState extends State<LoginPage>
   Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
     final local = _normalizeEgyptianPhone(phone);
     final intl = _intlPhone(local);
-    final variants = <String>{local, intl, '+$intl'}
-        .where((value) => value.isNotEmpty)
-        .toList();
-    final filters = <String>[];
-    for (final value in variants) {
-      filters.add('phone.eq.$value');
-      filters.add('whatsapp.eq.$value');
-    }
+    if (intl.isEmpty) return null;
 
-    final rows = await SupabaseService()
-        .client
-        .from('service_providers')
-        .select('id, user_id, verification_status, is_active, display_name')
-        .or(filters.join(','))
-        .limit(1);
+    // Direct anon SELECT on service_providers is intentionally revoked.
+    // Use the restricted RPC that exposes only provider-routing fields.
+    final rows = await SupabaseService().client.rpc(
+      'find_provider_by_phone',
+      params: {'p_phone': intl},
+    );
 
     if (rows is List && rows.isNotEmpty && rows.first is Map) {
       return Map<String, dynamic>.from(rows.first as Map);

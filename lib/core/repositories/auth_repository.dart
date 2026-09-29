@@ -145,31 +145,14 @@ class AuthRepository {
   // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
     final raw = phone.replaceAll(RegExp(r'[^\d]'), '');
-    final variants = <String>{raw};
+    if (raw.isEmpty) return null;
 
-    if (raw.startsWith('0') && raw.length == 11) {
-      variants.add('20${raw.substring(1)}');
-      variants.add('+20${raw.substring(1)}');
-    }
-    if (raw.startsWith('20') && raw.length == 12) {
-      variants.add('0${raw.substring(2)}');
-      variants.add('+$raw');
-    }
-
-    final valid = variants.where((value) => value.isNotEmpty).toList();
-    if (valid.isEmpty) return null;
-
-    final filters = <String>[];
-    for (final value in valid) {
-      filters.add('phone.eq.$value');
-      filters.add('whatsapp.eq.$value');
-    }
-
-    final rows = await _supabase.client
-        .from('service_providers')
-        .select('id, verification_status, is_active, display_name')
-        .or(filters.join(','))
-        .limit(1);
+    // service_providers is intentionally not readable by anon. The narrowly
+    // scoped SECURITY DEFINER RPC returns only login-routing state.
+    final rows = await _supabase.client.rpc(
+      'find_provider_by_phone',
+      params: {'p_phone': raw},
+    );
 
     if (rows is List && rows.isNotEmpty && rows.first is Map) {
       return Map<String, dynamic>.from(rows.first as Map);
