@@ -39,6 +39,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   final _expCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
   final _websiteCtrl = TextEditingController();
   final _priceFromCtrl = TextEditingController();
@@ -100,6 +101,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
     _expCtrl.dispose();
     _cityCtrl.dispose();
     _addressCtrl.dispose();
+    _phoneCtrl.dispose();
     _whatsappCtrl.dispose();
     _websiteCtrl.dispose();
     _priceFromCtrl.dispose();
@@ -129,6 +131,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _governorate = provider['governorate']?.toString();
           _selectedCity = provider['city']?.toString();
           _addressCtrl.text = provider['address']?.toString() ?? '';
+          _phoneCtrl.text = provider['phone']?.toString() ?? '';
           _whatsappCtrl.text = provider['whatsapp']?.toString() ?? '';
           _websiteCtrl.text = provider['website']?.toString() ?? '';
           _priceFromCtrl.text = provider['price_from']?.toString() ?? '';
@@ -620,6 +623,20 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                       title: 'التواصل',
                       icon: Icons.contact_phone_rounded,
                       children: [
+                        _field(
+                          controller: _phoneCtrl,
+                          label: 'رقم الهاتف المسجل',
+                          hint: 'رقم الهاتف',
+                          icon: Icons.phone_locked_rounded,
+                          keyboardType: TextInputType.phone,
+                          readOnly: true,
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'رقم الهاتف مرتبط بحساب تسجيل الدخول ولا يمكن تغييره من البروفايل.',
+                          style: TextStyle(color: _inkSoft, fontSize: 11),
+                        ),
+                        const SizedBox(height: 12),
                         _field(
                           controller: _whatsappCtrl,
                           label: 'رقم الواتساب',
@@ -1220,10 +1237,12 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
     bool required = false,
+    bool readOnly = false,
   }) {
     return TextField(
       controller: controller,
-      enabled: !_profileLocked,
+      enabled: !_profileLocked && !readOnly,
+      readOnly: readOnly,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,

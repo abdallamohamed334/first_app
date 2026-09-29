@@ -66,6 +66,9 @@ class ServiceProviderRepository {
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
 
+    if (raw.contains('provider_phone_immutable')) {
+      return 'رقم الهاتف مرتبط بحساب تسجيل الدخول ولا يمكن تغييره من البروفايل.';
+    }
     if (raw.contains('already') ||
         raw.contains('exists') ||
         raw.contains('duplicate') ||
