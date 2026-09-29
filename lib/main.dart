@@ -258,6 +258,10 @@ void _attachAuthStateSync() {
           .toString()
           .trim()
           .toLowerCase();
+      final profileComplete = AuthStateNotifier.isCompleteUserProfile(
+        profile,
+        role: profileRole,
+      );
       final institutionType =
           institution?['institution_type']?.toString().trim().toLowerCase();
       final resolvedRole = provider != null
@@ -288,6 +292,7 @@ void _attachAuthStateSync() {
         providerStatus: providerStatus,
         institutionStatus: institutionStatus,
         isActive: isActive,
+        userProfileComplete: profileComplete,
         authResolved: true,
       );
 

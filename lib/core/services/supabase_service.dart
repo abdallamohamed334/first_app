@@ -331,6 +331,10 @@ class SupabaseService {
           (institution == null ||
               institutionStatus == 'active' ||
               institutionStatus == 'approved');
+      final profileComplete = AuthStateNotifier.isCompleteUserProfile(
+        profile,
+        role: resolvedRole,
+      );
 
       debugPrint(
         '✅ [Auth Sync] role=$resolvedRole '
@@ -346,6 +350,7 @@ class SupabaseService {
         providerStatus: providerStatus,
         institutionStatus: institutionStatus,
         isActive: active,
+        userProfileComplete: profileComplete,
         authResolved: true,
       );
     } catch (error, stack) {

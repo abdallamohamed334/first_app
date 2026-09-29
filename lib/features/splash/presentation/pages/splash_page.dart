@@ -154,6 +154,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         final role = institutionType == null || institutionType.isEmpty
             ? profileRole
             : institutionType;
+        final profileComplete = AuthStateNotifier.isCompleteUserProfile(
+          userData,
+          role: role,
+        );
 
         debugPrint('🔴 [Splash] role=$role');
 
@@ -199,16 +203,15 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           providerStatus: providerStatus,
           institutionStatus: institutionStatus,
           isActive: isActive,
+          userProfileComplete: profileComplete,
           authResolved: true,
         );
 
         // ✅ التوجيه حسب الحالة
-        final hasLocation = userData?['latitude'] is num &&
-            userData?['longitude'] is num;
         final resolvedHome = AuthStateNotifier.instance.homeRoute ??
             AppRouter.userTypeSelection;
-        nextLocation = role == 'user' && !hasLocation
-            ? AppRouter.map
+        nextLocation = role == 'user' && !profileComplete
+            ? AppRouter.login
             : resolvedHome;
       } catch (error) {
         debugPrint('⚠️ [Splash] could not resolve role: $error');
@@ -216,8 +219,9 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         AuthStateNotifier.instance.setLoggedIn(
           isLoggedIn: true,
           role: 'user',
+          userProfileComplete: false,
         );
-        nextLocation = AppRouter.home;
+        nextLocation = AppRouter.login;
       }
     } else {
       // 3) مفيش جلسة → نفحص الـ onboarding

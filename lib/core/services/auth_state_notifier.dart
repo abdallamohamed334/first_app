@@ -24,6 +24,31 @@ class AuthStateNotifier extends ChangeNotifier {
   bool get isActive => _isActive;
   bool get userProfileComplete => _userProfileComplete;
 
+  /// Keeps startup, OTP, and auth-listener routing decisions consistent.
+  /// A regular user must have identity, contact, address, city, and map
+  /// coordinates before the router is allowed to open the home feed.
+  static bool isCompleteUserProfile(
+    Map<String, dynamic>? profile, {
+    required String role,
+  }) {
+    if (role != 'user') return true;
+    final row = profile ?? const <String, dynamic>{};
+    final name = row['name']?.toString().trim() ?? '';
+    final email = row['email']?.toString().trim() ?? '';
+    final city = row['city']?.toString().trim() ?? '';
+    final address = row['address']?.toString().trim() ?? '';
+    final latitude = row['latitude'];
+    final longitude = row['longitude'];
+
+    return name.length >= 3 &&
+        name != 'مستخدم وِصلة' &&
+        email.isNotEmpty &&
+        city.isNotEmpty &&
+        address.isNotEmpty &&
+        latitude is num &&
+        longitude is num;
+  }
+
   String? get homeRoute {
     if (!_isLoggedIn || !_isResolved || _isSyncing) return null;
 
