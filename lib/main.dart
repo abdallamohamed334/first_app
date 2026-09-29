@@ -215,7 +215,8 @@ void _attachAuthStateSync() {
       final results = await Future.wait<dynamic>([
         client
             .from('users')
-            .select('user_type, role, is_active')
+            .select(
+                'user_type, role, is_active, name, email, phone, governorate, city, address, gender, latitude, longitude')
             .eq('id', userId)
             .maybeSingle(),
         client.rpc(

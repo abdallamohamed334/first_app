@@ -1374,8 +1374,11 @@ class SupabaseService {
     required String userId,
     required String name,
     String? phone,
+    String? whatsapp,
+    String? governorate,
     String? city,
     String? address,
+    String? gender,
     String? avatarUrl,
     double? lat, // ✅
     double? lng, // ✅
@@ -1387,8 +1390,15 @@ class SupabaseService {
       };
 
       if (phone != null && phone.isNotEmpty) data['phone'] = phone;
+      if (whatsapp != null && whatsapp.isNotEmpty) {
+        data['whatsapp'] = whatsapp;
+      }
+      if (governorate != null && governorate.isNotEmpty) {
+        data['governorate'] = governorate;
+      }
       if (city != null && city.isNotEmpty) data['city'] = city;
       if (address != null && address.isNotEmpty) data['address'] = address;
+      if (gender != null && gender.isNotEmpty) data['gender'] = gender;
       if (avatarUrl != null && avatarUrl.isNotEmpty) {
         data['avatar_url'] = avatarUrl;
       }

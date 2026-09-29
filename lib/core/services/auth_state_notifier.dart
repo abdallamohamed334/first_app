@@ -35,16 +35,22 @@ class AuthStateNotifier extends ChangeNotifier {
     final row = profile ?? const <String, dynamic>{};
     final name = row['name']?.toString().trim() ?? '';
     final email = row['email']?.toString().trim() ?? '';
+    final phone = row['phone']?.toString().trim() ?? '';
+    final governorate = row['governorate']?.toString().trim() ?? '';
     final city = row['city']?.toString().trim() ?? '';
     final address = row['address']?.toString().trim() ?? '';
+    final gender = row['gender']?.toString().trim() ?? '';
     final latitude = row['latitude'];
     final longitude = row['longitude'];
 
     return name.length >= 3 &&
         name != 'مستخدم وِصلة' &&
         email.isNotEmpty &&
+        phone.isNotEmpty &&
+        governorate.isNotEmpty &&
         city.isNotEmpty &&
         address.isNotEmpty &&
+        gender.isNotEmpty &&
         latitude is num &&
         longitude is num;
   }

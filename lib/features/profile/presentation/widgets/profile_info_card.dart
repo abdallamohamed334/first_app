@@ -13,6 +13,9 @@ class ProfileInfoCard extends StatelessWidget {
       (Icons.person_outline_rounded, 'الاسم', _value(user.name)),
       (Icons.email_outlined, 'البريد الإلكتروني', _value(user.email)),
       (Icons.phone_outlined, 'رقم الهاتف', _value(user.phone)),
+      (Icons.chat_rounded, 'رقم الواتساب', _value(user.whatsapp)),
+      (Icons.wc_rounded, 'الجنس', _gender(user.gender)),
+      (Icons.map_outlined, 'المحافظة', _value(user.governorate)),
       (Icons.location_city_rounded, 'المدينة', _value(user.city)),
       (Icons.location_on_outlined, 'العنوان', _value(user.address)),
     ];
@@ -68,6 +71,17 @@ class ProfileInfoCard extends StatelessWidget {
   String _value(String? value) {
     final clean = value?.trim() ?? '';
     return clean.isEmpty ? 'غير محدد' : clean;
+  }
+
+  String _gender(String? value) {
+    switch (value?.trim().toLowerCase()) {
+      case 'male':
+        return 'ذكر';
+      case 'female':
+        return 'أنثى';
+      default:
+        return 'غير محدد';
+    }
   }
 }
 

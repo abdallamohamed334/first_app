@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
@@ -37,6 +38,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
 
@@ -46,7 +49,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
   XFile? _avatarFile;
   String? _avatarUrl;
+  String? _selectedGovernorate;
   String? _selectedCity;
+  String? _selectedGender;
   bool _saving = false;
 
   // ✅ إحداثيات الموقع
@@ -60,35 +65,30 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   static const _darkGreen = Color(0xFF123F31);
   static const _red = Color(0xFFD64545);
 
-  static const _cities = [
-    'طنطا',
-    'القاهرة',
-    'الجيزة',
-    'الإسكندرية',
-    'المنصورة',
-    'بورسعيد',
-    'السويس',
-    'الإسماعيلية',
-    'أسوان',
-    'الأقصر',
-    'أسيوط',
-    'الفيوم',
-    'بني سويف',
-    'المنيا',
-    'سوهاج',
-    'قنا',
-  ];
-
   @override
   void initState() {
     super.initState();
     _nameCtrl.text = widget.user.name ?? '';
     _emailCtrl.text = widget.user.email ?? '';
+    _phoneCtrl.text = widget.user.phone ?? '';
+    _whatsappCtrl.text = widget.user.whatsapp ?? '';
     _avatarUrl = widget.user.avatarUrl;
+    _selectedGovernorate = widget.user.governorate;
+    if (_selectedGovernorate == null ||
+        !EgyptLocations.governorates.containsKey(_selectedGovernorate)) {
+      for (final entry in EgyptLocations.governorates.entries) {
+        if (entry.value.contains(widget.user.city)) {
+          _selectedGovernorate = entry.key;
+          break;
+        }
+      }
+    }
     _selectedCity = widget.user.city;
-    if (_selectedCity != null && !_cities.contains(_selectedCity)) {
+    if (_selectedCity != null &&
+        !EgyptLocations.citiesFor(_selectedGovernorate).contains(_selectedCity)) {
       _selectedCity = null;
     }
+    _selectedGender = widget.user.gender;
     _lat = widget.initialLat ?? widget.user.lat;
     _lng = widget.initialLng ?? widget.user.lng;
   }
@@ -97,6 +97,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _addressCtrl.dispose();
     _bioCtrl.dispose();
     super.dispose();
@@ -249,6 +251,18 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       _showError('اختار المدينة');
       return;
     }
+    if (_selectedGovernorate == null || _selectedGovernorate!.isEmpty) {
+      _showError('اختار المحافظة');
+      return;
+    }
+    if (_selectedGender == null || _selectedGender!.isEmpty) {
+      _showError('اختار الجنس');
+      return;
+    }
+    if (_phoneCtrl.text.trim().isEmpty) {
+      _showError('اكتب رقم الهاتف');
+      return;
+    }
     if (_lat == null || _lng == null) {
       _showError('حدّد موقعك على الخريطة علشان نعرضلك العروض القريبة');
       return;
@@ -272,10 +286,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       await _supabase.updateProfile(
         userId: widget.user.id,
         name: _nameCtrl.text.trim(),
-        phone: widget.user.phone,
+        phone: _phoneCtrl.text.trim(),
+        whatsapp: _whatsappCtrl.text.trim().isEmpty
+            ? null
+            : _whatsappCtrl.text.trim(),
+        governorate: _selectedGovernorate,
         city: _selectedCity,
         address:
             _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+        gender: _selectedGender,
         avatarUrl: avatarUrl,
         lat: _lat,
         lng: _lng,
@@ -438,7 +457,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── المدينة
+                    // ── المحافظة ثم المدينة التابعة لها
+                    _buildLabel('المحافظة *'),
+                    _buildGovernorateDropdown(),
+                    const SizedBox(height: 16),
+
                     _buildLabel('المدينة *'),
                     _buildCityDropdown(),
                     const SizedBox(height: 16),
@@ -465,6 +488,32 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                         return null;
                       },
                     ),
+                    const SizedBox(height: 16),
+
+                    // ── الهاتف والواتساب
+                    _buildLabel('رقم الهاتف *'),
+                    _buildField(
+                      controller: _phoneCtrl,
+                      hint: '01xxxxxxxxx',
+                      icon: Icons.phone_rounded,
+                      keyboard: TextInputType.phone,
+                      validator: (v) => (v?.trim().length ?? 0) < 10
+                          ? 'اكتب رقم هاتف صحيح'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildLabel('رقم الواتساب (اختياري)'),
+                    _buildField(
+                      controller: _whatsappCtrl,
+                      hint: '01xxxxxxxxx',
+                      icon: Icons.chat_rounded,
+                      keyboard: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── الجنس
+                    _buildLabel('الجنس *'),
+                    _buildGenderDropdown(),
                     const SizedBox(height: 16),
 
                     // ── العنوان
@@ -749,7 +798,52 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     );
   }
 
+  Widget _buildGovernorateDropdown() {
+    return _buildDropdownShell(
+      icon: Icons.map_outlined,
+      hint: 'اختار محافظتك',
+      value: _selectedGovernorate,
+      items: EgyptLocations.names,
+      onChanged: (value) => setState(() {
+        _selectedGovernorate = value;
+        _selectedCity = null;
+      }),
+    );
+  }
+
+  Widget _buildGenderDropdown() {
+    return _buildDropdownShell(
+      icon: Icons.wc_rounded,
+      hint: 'اختار الجنس',
+      value: _selectedGender,
+      items: const ['male', 'female'],
+      labels: const {'male': 'ذكر', 'female': 'أنثى'},
+      onChanged: (value) => setState(() => _selectedGender = value),
+    );
+  }
+
   Widget _buildCityDropdown() {
+    return _buildDropdownShell(
+      icon: Icons.location_city_rounded,
+      hint: _selectedGovernorate == null
+          ? 'اختار المحافظة أولًا'
+          : 'اختار مدينتك',
+      value: _selectedCity,
+      items: EgyptLocations.citiesFor(_selectedGovernorate),
+      onChanged: _selectedGovernorate == null
+          ? null
+          : (value) => setState(() => _selectedCity = value),
+    );
+  }
+
+  Widget _buildDropdownShell({
+    required IconData icon,
+    required String hint,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?>? onChanged,
+    Map<String, String> labels = const {},
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -758,17 +852,16 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: _selectedCity,
+          value: items.contains(value) ? value : null,
           isExpanded: true,
           dropdownColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           hint: Row(
             children: [
-              const Icon(Icons.location_city_rounded,
-                  color: _primary, size: 20),
+              Icon(icon, color: _primary, size: 20),
               const SizedBox(width: 10),
               Text(
-                'اختار مدينتك',
+                hint,
                 style: TextStyle(
                   color: Colors.black.withValues(alpha: 0.35),
                   fontSize: 13,
@@ -777,11 +870,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
             ],
           ),
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _primary),
-          items: _cities.map((c) {
+          items: items.map((c) {
             return DropdownMenuItem<String>(
               value: c,
               child: Text(
-                c,
+                labels[c] ?? c,
                 style: const TextStyle(
                   color: _darkGreen,
                   fontSize: 14,
@@ -790,7 +883,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
               ),
             );
           }).toList(),
-          onChanged: (v) => setState(() => _selectedCity = v),
+          onChanged: onChanged,
         ),
       ),
     );

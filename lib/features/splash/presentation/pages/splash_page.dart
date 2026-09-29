@@ -126,7 +126,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       try {
         final userData = await client
             .from('users')
-            .select('role, user_type, name, city, latitude, longitude')
+            .select(
+                'role, user_type, name, email, phone, governorate, city, address, gender, latitude, longitude')
             .eq('id', session.user.id)
             .maybeSingle();
 

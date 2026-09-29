@@ -545,7 +545,7 @@ class AuthRepository {
       final profile = await _supabase.client
           .from('users')
           .select(
-              'user_type, role, is_active, name, email, city, address, latitude, longitude')
+              'user_type, role, is_active, name, email, phone, governorate, city, address, gender, latitude, longitude')
           .eq('id', userId)
           .maybeSingle();
 
@@ -594,15 +594,10 @@ class AuthRepository {
               institutionStatus == 'active' ||
               institutionStatus == 'approved');
 
-      final profileName = profile?['name']?.toString().trim() ?? '';
-      final profileComplete = resolvedRole != 'user' ||
-          (profileName.length >= 3 &&
-              profileName != 'مستخدم وِصلة' &&
-              profile?['email']?.toString().trim().isNotEmpty == true &&
-              profile?['city']?.toString().trim().isNotEmpty == true &&
-              profile?['address']?.toString().trim().isNotEmpty == true &&
-              profile?['latitude'] is num &&
-              profile?['longitude'] is num);
+      final profileComplete = AuthStateNotifier.isCompleteUserProfile(
+        profile,
+        role: resolvedRole,
+      );
 
       debugPrint(
         '✅ [Auth Sync] role=$resolvedRole '

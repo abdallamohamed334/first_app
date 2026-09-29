@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/constants/egypt_locations.dart';
 import '../../../../core/models/user_model.dart';
 import '../../../../core/services/storage_service.dart';
 import '../bloc/profile_bloc.dart';
@@ -23,26 +24,42 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
   final _picker = ImagePicker();
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _whatsappController;
   late final TextEditingController _cityController;
   late final TextEditingController _addressController;
 
   XFile? _selectedImage;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _selectedGovernorate;
+  String? _selectedGender;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.user.name);
     _phoneController = TextEditingController(text: widget.user.phone ?? '');
+    _whatsappController =
+        TextEditingController(text: widget.user.whatsapp ?? '');
     _cityController = TextEditingController(text: widget.user.city ?? '');
     _addressController = TextEditingController(text: widget.user.address ?? '');
+    _selectedGovernorate = widget.user.governorate;
+    if (_selectedGovernorate == null) {
+      for (final entry in EgyptLocations.governorates.entries) {
+        if (entry.value.contains(widget.user.city)) {
+          _selectedGovernorate = entry.key;
+          break;
+        }
+      }
+    }
+    _selectedGender = widget.user.gender;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _whatsappController.dispose();
     _cityController.dispose();
     _addressController.dispose();
     super.dispose();
@@ -106,10 +123,46 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 12),
-                _field(
-                  controller: _cityController,
+                _dropdown(
+                  label: 'المحافظة',
+                  icon: Icons.map_outlined,
+                  value: _selectedGovernorate,
+                  items: EgyptLocations.names,
+                  onChanged: (value) => setState(() {
+                    _selectedGovernorate = value;
+                    _cityController.clear();
+                  }),
+                ),
+                const SizedBox(height: 12),
+                _dropdown(
                   label: 'المدينة',
                   icon: Icons.location_city_outlined,
+                  value: EgyptLocations.citiesFor(_selectedGovernorate)
+                          .contains(_cityController.text)
+                      ? _cityController.text
+                      : null,
+                  items: EgyptLocations.citiesFor(_selectedGovernorate),
+                  onChanged: _selectedGovernorate == null
+                      ? null
+                      : (value) => setState(
+                            () => _cityController.text = value ?? '',
+                          ),
+                ),
+                const SizedBox(height: 12),
+                _dropdown(
+                  label: 'الجنس',
+                  icon: Icons.wc_rounded,
+                  value: _selectedGender,
+                  items: const ['male', 'female'],
+                  labels: const {'male': 'ذكر', 'female': 'أنثى'},
+                  onChanged: (value) => setState(() => _selectedGender = value),
+                ),
+                const SizedBox(height: 12),
+                _field(
+                  controller: _whatsappController,
+                  label: 'رقم الواتساب',
+                  icon: Icons.chat_rounded,
+                  keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 12),
                 _field(
@@ -252,6 +305,34 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
     );
   }
 
+  Widget _dropdown({
+    required String label,
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?>? onChanged,
+    Map<String, String> labels = const {},
+  }) {
+    return DropdownButtonFormField<String>(
+      value: items.contains(value) ? value : null,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      items: items
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(labels[item] ?? item),
+            ),
+          )
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
   Future<void> _pickImage() async {
     try {
       final image = await _picker.pickImage(
@@ -294,8 +375,11 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
       context.read<ProfileBloc>().add(ProfileUpdateUser(
             name: _nameController.text,
             phone: _phoneController.text,
+            whatsapp: _whatsappController.text,
+            governorate: _selectedGovernorate,
             city: _cityController.text,
             address: _addressController.text,
+            gender: _selectedGender,
             avatarUrl: avatarUrl,
           ));
       Navigator.pop(context);

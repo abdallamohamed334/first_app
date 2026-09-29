@@ -13,12 +13,18 @@ class UserProfileSetupFlow {
     final name = user.name.trim();
     final hasName = name.length >= 3 && name != 'مستخدم وِصلة';
     final hasEmail = user.email?.trim().isNotEmpty == true;
+    final hasPhone = user.phone?.trim().isNotEmpty == true;
+    final hasGovernorate = user.governorate?.trim().isNotEmpty == true;
     final hasCity = user.city?.trim().isNotEmpty == true;
     final hasAddress = user.address?.trim().isNotEmpty == true;
+    final hasGender = user.gender?.trim().isNotEmpty == true;
     return !hasName ||
         !hasEmail ||
+        !hasPhone ||
+        !hasGovernorate ||
         !hasCity ||
         !hasAddress ||
+        !hasGender ||
         !user.hasCoordinates;
   }
 

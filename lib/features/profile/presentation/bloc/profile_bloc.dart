@@ -113,8 +113,11 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
             ? event.name!.trim()
             : user.name,
         phone: _optional(event.phone),
+        whatsapp: _optional(event.whatsapp),
+        governorate: _optional(event.governorate),
         city: _optional(event.city),
         address: _optional(event.address),
+        gender: _optional(event.gender),
         avatarUrl: _optional(event.avatarUrl),
       );
       emit(ProfileUpdated(user: updatedUser));

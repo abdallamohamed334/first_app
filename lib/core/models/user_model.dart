@@ -16,8 +16,11 @@ class UserModel extends Equatable {
   final int tasksCompleted;
   final bool isVerified;
   final bool isPhoneVerified;
+  final String? governorate;
   final String? city;
   final String? address;
+  final String? gender;
+  final String? whatsapp;
 
   // ✅ في Dart بنسميهم lat/lng (سهلة)، بس في DB: latitude/longitude
   final double? lat;
@@ -43,8 +46,11 @@ class UserModel extends Equatable {
     this.tasksCompleted = 0,
     this.isVerified = false,
     this.isPhoneVerified = false,
+    this.governorate,
     this.city,
     this.address,
+    this.gender,
+    this.whatsapp,
     this.lat,
     this.lng,
     required this.createdAt,
@@ -72,8 +78,11 @@ class UserModel extends Equatable {
       tasksCompleted: _toInt(json['tasks_completed']),
       isVerified: _toBool(json['is_verified']),
       isPhoneVerified: _toBool(json['is_phone_verified']),
+      governorate: _nullableString(json['governorate']),
       city: _nullableString(json['city']),
       address: _nullableString(json['address']),
+      gender: _nullableString(json['gender']),
+      whatsapp: _nullableString(json['whatsapp']),
       // ✅ بنقرأ من latitude/longitude
       lat: _toDouble(json['latitude']),
       lng: _toDouble(json['longitude']),
@@ -101,8 +110,11 @@ class UserModel extends Equatable {
       'tasks_completed': tasksCompleted,
       'is_verified': isVerified,
       'is_phone_verified': isPhoneVerified,
+      'governorate': governorate,
       'city': city,
       'address': address,
+      'gender': gender,
+      'whatsapp': whatsapp,
       // ✅ بنكتب في latitude/longitude
       'latitude': lat,
       'longitude': lng,
@@ -174,8 +186,11 @@ class UserModel extends Equatable {
     int? tasksCompleted,
     bool? isVerified,
     bool? isPhoneVerified,
+    String? governorate,
     String? city,
     String? address,
+    String? gender,
+    String? whatsapp,
     double? lat,
     double? lng,
     DateTime? lastActive,
@@ -195,8 +210,11 @@ class UserModel extends Equatable {
       tasksCompleted: tasksCompleted ?? this.tasksCompleted,
       isVerified: isVerified ?? this.isVerified,
       isPhoneVerified: isPhoneVerified ?? this.isPhoneVerified,
+      governorate: governorate ?? this.governorate,
       city: city ?? this.city,
       address: address ?? this.address,
+      gender: gender ?? this.gender,
+      whatsapp: whatsapp ?? this.whatsapp,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       createdAt: createdAt,
@@ -223,8 +241,11 @@ class UserModel extends Equatable {
         tasksCompleted,
         isVerified,
         isPhoneVerified,
+        governorate,
         city,
         address,
+        gender,
+        whatsapp,
         lat,
         lng,
         createdAt,

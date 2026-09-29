@@ -15,20 +15,35 @@ class ProfileStarted extends ProfileEvent {
 class ProfileUpdateUser extends ProfileEvent {
   final String? name;
   final String? phone;
+  final String? whatsapp;
+  final String? governorate;
   final String? city;
   final String? address;
+  final String? gender;
   final String? avatarUrl;
 
   const ProfileUpdateUser({
     this.name,
     this.phone,
+    this.whatsapp,
+    this.governorate,
     this.city,
     this.address,
+    this.gender,
     this.avatarUrl,
   });
 
   @override
-  List<Object?> get props => [name, phone, city, address, avatarUrl];
+  List<Object?> get props => [
+        name,
+        phone,
+        whatsapp,
+        governorate,
+        city,
+        address,
+        gender,
+        avatarUrl,
+      ];
 }
 
 class ProfileUploadAvatar extends ProfileEvent {
