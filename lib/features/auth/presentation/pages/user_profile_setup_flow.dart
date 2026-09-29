@@ -5,7 +5,6 @@ import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
     as user_home;
 
 import 'complete_profile_page.dart';
-import 'user_location_setup_page.dart';
 
 class UserProfileSetupFlow {
   const UserProfileSetupFlow._();
@@ -29,16 +28,6 @@ class UserProfileSetupFlow {
     String role = 'user',
   }) async {
     if (role.toLowerCase() != 'user') return;
-
-    if (!user.hasCoordinates) {
-      await Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => UserLocationSetupPage(user: user),
-        ),
-        (_) => false,
-      );
-      return;
-    }
 
     if (needsProfile(user)) {
       await Navigator.of(context).pushAndRemoveUntil(

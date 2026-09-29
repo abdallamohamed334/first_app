@@ -6,6 +6,8 @@ import 'package:loqma/core/theme/theme_notifier.dart';
 
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/storage_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
 
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
@@ -184,6 +186,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     user: state.user,
                   ),
 
+                  const SizedBox(height: 14),
+
+                  _buildLocationAction(
+                    context,
+                    state.user,
+                  ),
+
                   const SizedBox(height: 22),
 
                   ProfileAchievements(
@@ -311,7 +320,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           const SizedBox(height: 14),
-
           Row(
             children: [
               Expanded(
@@ -415,6 +423,87 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildLocationAction(BuildContext context, UserModel user) {
+    final colors = Theme.of(context).colorScheme;
+    final hasLocation = user.hasCoordinates;
+
+    return Card(
+      elevation: 0,
+      color: colors.primaryContainer.withAlpha(70),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: colors.primary.withAlpha(45)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: CircleAvatar(
+          backgroundColor: colors.primary.withAlpha(28),
+          child: Icon(Icons.location_on_rounded, color: colors.primary),
+        ),
+        title: Text(
+          hasLocation ? 'تعديل موقعك' : 'أضف موقعك',
+          style: const TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(
+          hasLocation
+              ? 'حدّث موقعك لعرض الخدمات والعروض الأقرب لك'
+              : 'أضف موقعك لتحصل على نتائج قريبة منك',
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+        onTap: () => _pickAndSaveLocation(user),
+      ),
+    );
+  }
+
+  Future<void> _pickAndSaveLocation(UserModel user) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LocationPickerPage(
+          initialLat: user.lat,
+          initialLng: user.lng,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    final lat = (result['lat'] as num?)?.toDouble();
+    final lng = (result['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return;
+
+    try {
+      await SupabaseService().updateProfile(
+        userId: user.id,
+        name: user.name,
+        phone: user.phone,
+        city: user.city,
+        address: user.address,
+        avatarUrl: user.avatarUrl,
+        lat: lat,
+        lng: lng,
+      );
+      if (!mounted) return;
+      context.read<ProfileBloc>().add(const ProfileStarted());
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تحديث موقعك بنجاح'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      debugPrint('❌ profile location update error: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر حفظ الموقع حاليًا'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Future<void> _pickAndUploadAvatar(
