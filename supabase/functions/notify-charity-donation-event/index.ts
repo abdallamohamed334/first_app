@@ -71,7 +71,7 @@ Deno.serve(async (request) => {
     const message = messageFor(status, String(donation.title ?? "تبرع"));
 
     for (const recipientId of recipients) {
-      await admin.from("notifications").insert({
+      const { error: notificationError } = await admin.from("notifications").insert({
         user_id: recipientId,
         title: message.title,
         body: message.body,
@@ -80,6 +80,9 @@ Deno.serve(async (request) => {
         reference_type: "charity_donation",
         is_read: false,
       });
+      if (notificationError) {
+        console.error("notification_insert_failed", notificationError.message);
+      }
     }
 
     let whatsappSent = false;
@@ -99,18 +102,23 @@ Deno.serve(async (request) => {
           `رقم التبرع داخل التطبيق: ${requestId}`,
           "افتح تطبيق وِصلة لمراجعة التبرع واتخاذ الإجراء.",
         ].join("\n");
-        whatsappSent = await sendWhatsApp(charityPhone, donationMessage);
+        whatsappSent = await sendWhatsApp(charityPhone, donationMessage, authorization);
       }
     }
 
-    const pushResults = await Promise.all(
-      recipients.map((recipientId) => sendPush(recipientId, message.title, message.body, {
-        type: "charity_donation_status",
-        reference_id: requestId,
-        reference_type: "charity_donation",
-        status,
-      })),
-    );
+    const pushResults = await Promise.all(recipients.map(async (recipientId) => {
+      try {
+        return await sendPush(recipientId, message.title, message.body, {
+          type: "charity_donation_status",
+          reference_id: requestId,
+          reference_type: "charity_donation",
+          status,
+        });
+      } catch (error) {
+        console.error("push_delivery_failed", error instanceof Error ? error.message : "unknown");
+        return false;
+      }
+    }));
 
     return json({
       success: true,
@@ -154,15 +162,17 @@ function messageFor(status: string, title: string) {
   return map[status] ?? { title: "تحديث التبرع", body: `تم تحديث حالة «${title}». افتح التطبيق للتفاصيل.` };
 }
 
-async function sendWhatsApp(phone: string, message: string) {
-  const token = Deno.env.get("WAPILOT_TOKEN")?.trim();
-  if (!token) return false;
+async function sendWhatsApp(phone: string, message: string, authorization: string) {
   const cleanPhone = normalizePhone(phone);
   if (!cleanPhone) return false;
-  const response = await fetch("https://api.wapilot.net/api/v2/instance5127/send-message", {
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ to: cleanPhone, text: message }),
+    headers: {
+      Authorization: authorization,
+      apikey: anonKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ to: cleanPhone, message }),
   });
   await response.text();
   return response.ok;

@@ -33,6 +33,7 @@ class SeparateCharityDonationRepository {
         'notify-charity-donation-event',
         body: {'requestId': requestId.trim(), 'event': event},
       );
+      debugPrint('📨 Donation notification result: ${response.data}');
       if (response.data is Map && response.data['success'] != true) {
         debugPrint('⚠️ donation notification rejected: ${response.data}');
       }
