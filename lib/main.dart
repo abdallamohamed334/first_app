@@ -206,11 +206,15 @@ void _attachAuthStateSync() {
             .select('user_type, role, is_active')
             .eq('id', userId)
             .maybeSingle(),
-        client
-            .from('service_providers')
-            .select('id, verification_status, is_active')
-            .eq('user_id', userId)
-            .maybeSingle(),
+        client.rpc(
+          'get_provider_auth_state',
+          params: {'p_user_id': userId},
+        ).then((rows) {
+          if (rows is List && rows.isNotEmpty) {
+            return Map<String, dynamic>.from(rows.first as Map);
+          }
+          return null;
+        }),
       ]);
 
       // تجاهل نتيجة Listener قديمة لو وصل حدث أحدث أثناء الاستعلام.

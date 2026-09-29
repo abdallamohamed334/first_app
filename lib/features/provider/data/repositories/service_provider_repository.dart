@@ -60,6 +60,9 @@ class ServiceProviderRepository {
     return null;
   }
 
+  static const _profileCompletionColumns =
+      'profile_image_url,bio,city,service_areas,whatsapp,phone,experience_years,skills';
+
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
 
@@ -138,7 +141,10 @@ class ServiceProviderRepository {
 
     // 6️⃣ سنوات الخبرة
     final exp = provider['experience_years'];
-    if (exp == null || (exp is int && exp < 1)) {
+    final experienceYears = exp is num
+        ? exp.toInt()
+        : int.tryParse(exp?.toString().trim() ?? '');
+    if (experienceYears == null || experienceYears < 1) {
       missing.add('سنوات الخبرة');
     }
 
@@ -161,29 +167,11 @@ class ServiceProviderRepository {
     required String phone,
   }) async {
     try {
-      final intl = _cleanPhoneIntl(phone);
-      final local = _cleanPhone(phone);
-
-      final variants = <String>{
-        intl,
-        local,
-        '+$intl',
-        '+$local',
-      }.where((v) => v.isNotEmpty).toList();
-
-      debugPrint('🔍 [Provider] Checking phone variants: $variants');
-
-      final orParts = <String>[];
-      for (final v in variants) {
-        orParts.add('phone.eq.$v');
-        orParts.add('whatsapp.eq.$v');
-      }
-      final orQuery = orParts.join(',');
-
-      final rows = await _client.from('service_providers').select('''
-            *,
-            categories:category_id (id, name_ar, slug, icon)
-          ''').or(orQuery).limit(1);
+      // Keep the pre-OTP login lookup limited to the fields it needs.
+      final rows = await _client.rpc(
+        'find_provider_by_phone',
+        params: {'p_phone': phone},
+      );
 
       if (rows.isEmpty) {
         debugPrint('🔍 [Provider] No provider found for this phone');
@@ -319,10 +307,16 @@ class ServiceProviderRepository {
       // امنع الـ router من اتخاذ قرار قبل تحميل حالة مزود الخدمة.
       AuthStateNotifier.instance.beginSync();
 
-      final existing = await _client.from('service_providers').select('''
-            *,
-            categories:category_id (id, name_ar, slug, icon)
-          ''').eq('user_id', userId).maybeSingle();
+      // The edge function has just completed OTP and created the session.
+      // Use the narrow auth-state RPC here to avoid a transient RLS failure
+      // while the client session event is still propagating.
+      final existingRows = await _client.rpc(
+        'get_provider_auth_state',
+        params: {'p_user_id': userId},
+      );
+      final existing = existingRows is List && existingRows.isNotEmpty
+          ? Map<String, dynamic>.from(existingRows.first as Map)
+          : null;
 
       if (existing != null) {
         final status = existing['verification_status']?.toString() ?? 'pending';
@@ -555,13 +549,27 @@ class ServiceProviderRepository {
     required String type,
   }) async {
     try {
+      const allowedTypes = {'profile', 'cover', 'portfolio'};
+      const allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
+      if (!allowedTypes.contains(type)) {
+        return const Left('نوع الصورة غير صحيح');
+      }
       final ext = imagePath.split('.').last.toLowerCase();
+      if (!allowedExtensions.contains(ext)) {
+        return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
+      }
       final fileName =
           '$userId/${type}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
       debugPrint('📤 [Provider] Uploading $type: $fileName');
 
       final file = File(imagePath);
+      if (!await file.exists()) {
+        return const Left('ملف الصورة غير موجود');
+      }
+      if (await file.length() > 10 * 1024 * 1024) {
+        return const Left('حجم الصورة يجب ألا يتجاوز 10 ميجابايت');
+      }
 
       await _client.storage.from('provider-images').upload(
             fileName,
@@ -600,7 +608,7 @@ class ServiceProviderRepository {
       if (isAvailable) {
         final providerRow = await _client
             .from('service_providers')
-            .select()
+            .select(_profileCompletionColumns)
             .eq('id', providerId)
             .maybeSingle();
 

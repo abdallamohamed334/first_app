@@ -258,7 +258,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           type: 'portfolio',
         );
         await result.fold(
-          (err) async {},
+          (err) async => throw Exception(err),
           (url) async {
             uploadedPortfolio.add(url);
           },

@@ -7,6 +7,18 @@ import 'package:loqma/features/services/domain/entities/service_review.dart';
 
 class ServiceProvidersRepository {
   final _client = SupabaseService().client;
+  static const _publicProviderColumns = '''
+    id, category_id, provider_type, display_name, bio,
+    experience_years, skills, profile_image_url, cover_image_url,
+    portfolio_images, city, address, service_areas, latitude, longitude,
+    max_distance_km, pricing_type, price_from, price_currency,
+    accepts_installments, phone, whatsapp, email, website,
+    company_legal_name, founded_year, employees_count, branches,
+    verification_status, is_active, is_available, availability_note,
+    total_jobs, completed_jobs, cancelled_jobs, volunteer_jobs,
+    rating_avg, total_reviews, response_time_minutes, created_at, updated_at,
+    category_name, category_icon, category_slug, owner_name, owner_avatar
+  ''';
 
   // ═══════════════════════════════════════════════════════════
   // جلب مقدمي الخدمة المنشورين في التصنيف
@@ -21,7 +33,7 @@ class ServiceProvidersRepository {
     try {
       var query = _client
           .from('published_service_providers')
-          .select()
+          .select(_publicProviderColumns)
           .eq('category_id', categoryId);
 
       if (providerType != null && providerType.isNotEmpty) {
@@ -92,7 +104,7 @@ class ServiceProvidersRepository {
     try {
       final row = await _client
           .from('published_service_providers')
-          .select()
+          .select(_publicProviderColumns)
           .eq('id', id)
           .maybeSingle();
 
