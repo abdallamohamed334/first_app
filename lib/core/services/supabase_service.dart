@@ -57,7 +57,10 @@ class SupabaseService {
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
-  final FcmNotificationService _fcmNotifications = FcmNotificationService();
+  FcmNotificationService? _fcmNotifications;
+
+  FcmNotificationService get fcmNotifications =>
+      _fcmNotifications ??= FcmNotificationService();
 
   SupabaseClient get client => Supabase.instance.client;
   SupabaseClient get adminClient => client;
@@ -89,8 +92,8 @@ class SupabaseService {
       debugPrint('[FCM] logout cleanup skipped: $error');
     }
 
-    await _fcmNotifications.dispose();
-    await _fcmNotifications.unregister();
+    await fcmNotifications.dispose();
+    await fcmNotifications.unregister();
     await client.auth.signOut(scope: SignOutScope.local);
 
     // ✅ الأهم: ننضف الـ AuthStateNotifier عشان ما يفضلش عالق
@@ -114,8 +117,8 @@ class SupabaseService {
     if (cleanUserId.isEmpty) return;
 
     try {
-      await _fcmNotifications.dispose();
-      await _fcmNotifications.initialize(
+      await fcmNotifications.dispose();
+      await fcmNotifications.initialize(
         webVapidKey: webVapidKey,
         onTokenChanged: (token) => upsertFcmDevice(
           userId: cleanUserId,
@@ -199,7 +202,7 @@ class SupabaseService {
 
   Future<String?> _readCurrentFcmTokenSafely() async {
     try {
-      return await _fcmNotifications.currentToken();
+      return await fcmNotifications.currentToken();
     } catch (error) {
       debugPrint('[FCM] current token unavailable: $error');
       return null;
@@ -1271,7 +1274,7 @@ class SupabaseService {
       final user = client.auth.currentUser;
       if (user == null) return;
 
-      final fcmToken = await _fcmNotifications.currentToken();
+      final fcmToken = await fcmNotifications.currentToken();
       if (fcmToken == null || fcmToken.isEmpty) return;
 
       final deviceName = await _getDeviceName();

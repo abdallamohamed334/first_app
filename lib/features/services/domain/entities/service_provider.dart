@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 class ServiceProvider {
   final String id;
   final String userId;
