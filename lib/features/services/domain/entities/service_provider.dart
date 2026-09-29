@@ -22,9 +22,11 @@ class ServiceProvider {
   final String? coverImageUrl;
   final List<String> portfolioImages;
 
+  final String? governorate;
   final String? city;
   final String? address;
   final List<String> serviceAreas;
+  final List<String> availableDays;
   final double? latitude;
   final double? longitude;
   final int maxDistanceKm;
@@ -77,9 +79,11 @@ class ServiceProvider {
     this.profileImageUrl,
     this.coverImageUrl,
     this.portfolioImages = const [],
+    this.governorate,
     this.city,
     this.address,
     this.serviceAreas = const [],
+    this.availableDays = const [],
     this.latitude,
     this.longitude,
     this.maxDistanceKm = 15,
@@ -144,9 +148,11 @@ class ServiceProvider {
       profileImageUrl: _parseImageUrl(map['profile_image_url']),
       coverImageUrl: _parseImageUrl(map['cover_image_url']),
       portfolioImages: portfolio,
+      governorate: map['governorate']?.toString(),
       city: map['city']?.toString(),
       address: map['address']?.toString(),
       serviceAreas: _stringList(map['service_areas']),
+      availableDays: _stringList(map['available_days']),
       latitude: _asDouble(map['latitude']),
       longitude: _asDouble(map['longitude']),
       maxDistanceKm: _asInt(map['max_distance_km']) ?? 15,

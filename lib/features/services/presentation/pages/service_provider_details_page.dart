@@ -276,6 +276,22 @@ class _ServiceProviderDetailsPageState
                         const SizedBox(height: 18),
                       ],
 
+                      if (p.availableDays.isNotEmpty) ...[
+                        _buildSection(
+                          title: 'مواعيد العمل',
+                          icon: Icons.event_available_rounded,
+                          child: Text(
+                            p.availableDays.join('، '),
+                            style: const TextStyle(
+                              color: _textPrimary,
+                              fontSize: 13,
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+
                       // ── صور من الشغل
                       if (p.portfolioImages.isNotEmpty) ...[
                         _buildSection(
@@ -780,6 +796,12 @@ class _ServiceProviderDetailsPageState
           color: priceColor,
           highlight: true,
         ),
+        if (p.governorate != null && p.governorate!.isNotEmpty)
+          _infoPill(
+            icon: Icons.map_rounded,
+            label: p.governorate!,
+            color: _blue,
+          ),
         if (p.city != null && p.city!.isNotEmpty)
           _infoPill(
             icon: Icons.location_on_rounded,

@@ -6,6 +6,7 @@ import 'package:loqma/features/services/data/repositories/service_providers_repo
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceCategoryPage extends StatefulWidget {
@@ -27,9 +28,13 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   String? _providerType; // null = all | individual | company
   String? _pricingType; // null = all | free | symbolic | market
   String? _area; // ✅ جديد — المنطقة المختارة
+  String? _governorate;
+  String? _city;
 
   List<ServiceProvider> _providers = [];
   List<String> _availableAreas = []; // ✅ المناطق المتاحة
+  List<String> _availableGovernorates = [];
+  List<String> _availableCities = [];
   bool _loading = true;
   String? _error;
 
@@ -63,8 +68,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     }
 
     try {
-      // 1) نجيب المناطق المتاحة
+      // 1) نجيب المناطق والمحافظات المتاحة
       final areas = await _repository.getAvailableAreas(
+        categoryId: widget.category.id,
+      );
+      final governorates = await _repository.getAvailableGovernorates(
         categoryId: widget.category.id,
       );
 
@@ -74,11 +82,15 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         providerType: _providerType,
         pricingType: _pricingType,
         area: _area,
+        governorate: _governorate,
+        city: _city,
       );
 
       if (!mounted) return;
       setState(() {
         _availableAreas = areas;
+        _availableGovernorates = governorates;
+        _availableCities = const [];
         _providers = list;
         _loading = false;
       });
@@ -107,6 +119,8 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         providerType: _providerType,
         pricingType: _pricingType,
         area: _area,
+        governorate: _governorate,
+        city: _city,
       );
       if (!mounted) return;
       setState(() {
@@ -129,6 +143,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
       _providerType = null;
       _pricingType = null;
       _area = null;
+      _governorate = null;
+      _city = null;
+      _availableCities = const [];
     });
     _reloadProviders();
   }
@@ -328,6 +345,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
           ),
 
+          if (_availableGovernorates.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _locationFilters(),
+          ],
+
           // ✅ ── فلتر المنطقة (يظهر بس لما يكون فيه مناطق)
           if (_availableAreas.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -391,6 +413,93 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _locationFilters() {
+    return Row(
+      children: [
+        Expanded(
+          child: _locationDropdown(
+            hint: 'كل المحافظات',
+            icon: Icons.map_rounded,
+            value: _governorate,
+            items: _availableGovernorates,
+            onChanged: (value) async {
+              setState(() {
+                _governorate = value;
+                _city = null;
+                _availableCities = const [];
+              });
+              if (value != null) {
+                final cities = await _repository.getAvailableCities(
+                  categoryId: widget.category.id,
+                  governorate: value,
+                );
+                if (mounted) setState(() => _availableCities = cities);
+              }
+              _reloadProviders();
+            },
+          ),
+        ),
+        if (_governorate != null && _availableCities.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: _locationDropdown(
+              hint: 'كل المدن',
+              icon: Icons.location_city_rounded,
+              value: _city,
+              items: _availableCities,
+              onChanged: (value) {
+                setState(() => _city = value);
+                _reloadProviders();
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _locationDropdown({
+    required String hint,
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Row(
+            children: [
+              Icon(icon, size: 15, color: _textSecondary),
+              const SizedBox(width: 6),
+              Text(hint,
+                  style: const TextStyle(color: _textSecondary, fontSize: 11)),
+            ],
+          ),
+          dropdownColor: _cardSoft,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded,
+              color: _textSecondary),
+          style: const TextStyle(
+              color: _textPrimary, fontSize: 11.5, fontWeight: FontWeight.w700),
+          items: items
+              .map((item) =>
+                  DropdownMenuItem<String>(value: item, child: Text(item)))
+              .toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }

@@ -159,6 +159,7 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
   Widget _buildPreviewCard() {
     final name = _provider?['display_name']?.toString() ?? 'مزود خدمة';
     final bio = _provider?['bio']?.toString() ?? '';
+    final governorate = _provider?['governorate']?.toString() ?? '';
     final city = _provider?['city']?.toString() ?? '';
     final address = _provider?['address']?.toString() ?? '';
     final exp = _provider?['experience_years']?.toString() ?? '0';
@@ -175,6 +176,7 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
 
     final skills = (_provider?['skills'] as List?) ?? [];
     final areas = (_provider?['service_areas'] as List?) ?? [];
+    final availableDays = (_provider?['available_days'] as List?) ?? [];
     final portfolio = (_provider?['portfolio_images'] as List?) ?? [];
 
     final rating = _providerProfileDouble(_stats?['rating_avg']) ?? 0;
@@ -405,11 +407,24 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
                 ],
 
                 // Location
-                if (city.isNotEmpty || address.isNotEmpty) ...[
+                if (governorate.isNotEmpty ||
+                    city.isNotEmpty ||
+                    address.isNotEmpty) ...[
                   _infoRow(
                     Icons.location_on_rounded,
                     'الموقع',
-                    [city, address].where((e) => e.isNotEmpty).join('، '),
+                    [governorate, city, address]
+                        .where((e) => e.isNotEmpty)
+                        .join('، '),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                if (availableDays.isNotEmpty) ...[
+                  _infoRow(
+                    Icons.event_available_rounded,
+                    'الأيام المتاحة',
+                    availableDays.map((e) => e.toString()).join('، '),
                   ),
                   const SizedBox(height: 8),
                 ],

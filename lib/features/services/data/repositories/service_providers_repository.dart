@@ -10,7 +10,7 @@ class ServiceProvidersRepository {
   static const _publicProviderColumns = '''
     id, category_id, provider_type, display_name, bio,
     experience_years, skills, profile_image_url, cover_image_url,
-    portfolio_images, city, address, service_areas, latitude, longitude,
+    portfolio_images, governorate, city, address, service_areas, available_days, latitude, longitude,
     max_distance_km, pricing_type, price_from, price_currency,
     accepts_installments, phone, whatsapp, email, website,
     company_legal_name, founded_year, employees_count, branches,
@@ -28,6 +28,8 @@ class ServiceProvidersRepository {
     String? providerType,
     String? pricingType,
     String? area, // ✅ جديد — فلتر المنطقة
+    String? governorate,
+    String? city,
     int limit = 50,
   }) async {
     try {
@@ -41,6 +43,13 @@ class ServiceProvidersRepository {
       }
       if (pricingType != null && pricingType.isNotEmpty) {
         query = query.eq('pricing_type', pricingType);
+      }
+
+      if (governorate != null && governorate.isNotEmpty) {
+        query = query.eq('governorate', governorate);
+      }
+      if (city != null && city.isNotEmpty) {
+        query = query.eq('city', city);
       }
 
       // ✅ فلتر المنطقة — يتحقق إن المزود بيخدم المنطقة دي
@@ -87,8 +96,7 @@ class ServiceProvidersRepository {
           .limit(limit);
 
       return (rows as List)
-          .map((row) =>
-              ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
+          .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
           .where((provider) => provider.isVerified && provider.isAvailable)
           .toList(growable: false);
     } catch (e) {
@@ -125,6 +133,52 @@ class ServiceProvidersRepository {
       return list;
     } catch (e) {
       debugPrint('❌ getAvailableAreas error: $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> getAvailableGovernorates({
+    required String categoryId,
+  }) async {
+    try {
+      final rows = await _client
+          .from('published_service_providers')
+          .select('governorate')
+          .eq('category_id', categoryId)
+          .not('governorate', 'is', null);
+      final values = rows
+          .map((row) => row['governorate']?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      return values;
+    } catch (e) {
+      debugPrint('❌ getAvailableGovernorates error: $e');
+      return [];
+    }
+  }
+
+  Future<List<String>> getAvailableCities({
+    required String categoryId,
+    required String governorate,
+  }) async {
+    try {
+      final rows = await _client
+          .from('published_service_providers')
+          .select('city')
+          .eq('category_id', categoryId)
+          .eq('governorate', governorate)
+          .not('city', 'is', null);
+      final values = rows
+          .map((row) => row['city']?.toString().trim() ?? '')
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      return values;
+    } catch (e) {
+      debugPrint('❌ getAvailableCities error: $e');
       return [];
     }
   }

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/core/constants/egypt_locations.dart';
 
 class ProviderEditProfilePage extends StatefulWidget {
   const ProviderEditProfilePage({super.key});
@@ -42,12 +43,25 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   final _websiteCtrl = TextEditingController();
   final _priceFromCtrl = TextEditingController();
 
+  static const _days = [
+    'السبت',
+    'الأحد',
+    'الإثنين',
+    'الثلاثاء',
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+  ];
+
   bool _loading = true;
   bool _saving = false;
 
   Map<String, dynamic>? _provider;
   List<String> _skills = [];
   List<String> _serviceAreas = [];
+  String? _governorate;
+  String? _selectedCity;
+  List<String> _availableDays = [];
   String? _pricingType = 'market';
   bool _acceptsInstallments = false;
 
@@ -102,6 +116,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _bioCtrl.text = provider['bio']?.toString() ?? '';
           _expCtrl.text = provider['experience_years']?.toString() ?? '0';
           _cityCtrl.text = provider['city']?.toString() ?? '';
+          _governorate = provider['governorate']?.toString();
+          _selectedCity = provider['city']?.toString();
           _addressCtrl.text = provider['address']?.toString() ?? '';
           _whatsappCtrl.text = provider['whatsapp']?.toString() ?? '';
           _websiteCtrl.text = provider['website']?.toString() ?? '';
@@ -126,6 +142,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           final rawAreas = provider['service_areas'];
           if (rawAreas is List) {
             _serviceAreas = rawAreas.map((e) => e.toString()).toList();
+          }
+          final rawDays = provider['available_days'];
+          if (rawDays is List) {
+            _availableDays = rawDays.map((e) => e.toString()).toList();
           }
 
           _loading = false;
@@ -215,6 +235,15 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       return;
     }
 
+    if (_governorate == null || _selectedCity == null) {
+      _snack('اختار المحافظة والمدينة الأول', error: true);
+      return;
+    }
+    if (_availableDays.isEmpty) {
+      _snack('اختار يوم متاح واحد على الأقل', error: true);
+      return;
+    }
+
     setState(() => _saving = true);
 
     final userId =
@@ -278,9 +307,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         bio: _bioCtrl.text.trim(),
         experienceYears: int.tryParse(_expCtrl.text.trim()) ?? 0,
         skills: _skills,
-        city: _cityCtrl.text.trim(),
+        governorate: _governorate,
+        city: _selectedCity,
         address: _addressCtrl.text.trim(),
         serviceAreas: _serviceAreas,
+        availableDays: _availableDays,
         pricingType: _pricingType,
         priceFrom: double.tryParse(_priceFromCtrl.text.trim()),
         acceptsInstallments: _acceptsInstallments,
@@ -378,13 +409,35 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                           required: true,
                         ),
                         const SizedBox(height: 12),
-                        _field(
-                          controller: _cityCtrl,
-                          label: 'المدينة *',
-                          hint: 'مثال: طنطا',
-                          icon: Icons.location_city_rounded,
-                          required: true,
+                        _locationDropdownField(
+                          label: 'المحافظة *',
+                          icon: Icons.map_rounded,
+                          value: _governorate,
+                          items: EgyptLocations.names,
+                          onChanged: (value) => setState(() {
+                            _governorate = value;
+                            _selectedCity = null;
+                          }),
                         ),
+                        const SizedBox(height: 12),
+                        _locationDropdownField(
+                          label: 'المدينة *',
+                          icon: Icons.location_city_rounded,
+                          value: _selectedCity,
+                          items: [
+                            ...EgyptLocations.citiesFor(_governorate),
+                            if (_selectedCity != null &&
+                                !EgyptLocations.citiesFor(_governorate)
+                                    .contains(_selectedCity))
+                              _selectedCity!,
+                          ],
+                          onChanged: (value) => setState(() {
+                            _selectedCity = value;
+                            _cityCtrl.text = value ?? '';
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                        _daysPicker(),
                         const SizedBox(height: 12),
                         _field(
                           controller: _bioCtrl,
@@ -560,6 +613,73 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   // ══════════════════════════════════════════════════════════
   // Images Section
   // ══════════════════════════════════════════════════════════
+  Widget _locationDropdownField({
+    required String label,
+    required IconData icon,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: _blue),
+        filled: true,
+        fillColor: _bg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      items: items
+          .map((item) => DropdownMenuItem<String>(
+                value: item,
+                child: Text(item),
+              ))
+          .toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _daysPicker() {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: 'الأيام المتاحة للعمل *',
+        prefixIcon: const Icon(Icons.event_available_rounded, color: _blue),
+        filled: true,
+        fillColor: _bg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: _days.map((day) {
+          final selected = _availableDays.contains(day);
+          return FilterChip(
+            label: Text(day, style: const TextStyle(fontSize: 11)),
+            selected: selected,
+            onSelected: (value) => setState(() {
+              if (value) {
+                _availableDays = [..._availableDays, day];
+              } else {
+                _availableDays =
+                    _availableDays.where((item) => item != day).toList();
+              }
+            }),
+            selectedColor: _blue.withValues(alpha: 0.18),
+            checkmarkColor: _blue,
+            side: BorderSide(color: _blue.withValues(alpha: 0.2)),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildImagesSection() {
     final currentTotal = _portfolioImages.length + _newPortfolioImages.length;
     final canAddMore = currentTotal < _maxPortfolioImages;

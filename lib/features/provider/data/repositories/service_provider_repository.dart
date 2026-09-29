@@ -61,7 +61,7 @@ class ServiceProviderRepository {
   }
 
   static const _profileCompletionColumns =
-      'profile_image_url,bio,city,service_areas,whatsapp,phone,experience_years,skills';
+      'profile_image_url,bio,governorate,city,service_areas,available_days,whatsapp,phone,experience_years,skills';
 
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
@@ -126,6 +126,16 @@ class ServiceProviderRepository {
       missing.add('المدينة');
     }
 
+    final governorate = provider['governorate']?.toString().trim() ?? '';
+    if (governorate.isEmpty) {
+      missing.add('المحافظة');
+    }
+
+    final availableDays = provider['available_days'];
+    if (availableDays is! List || availableDays.isEmpty) {
+      missing.add('يوم متاح واحد على الأقل');
+    }
+
     // 4️⃣ مناطق الخدمة
     final areas = provider['service_areas'];
     if (areas is! List || areas.isEmpty) {
@@ -141,9 +151,8 @@ class ServiceProviderRepository {
 
     // 6️⃣ سنوات الخبرة
     final exp = provider['experience_years'];
-    final experienceYears = exp is num
-        ? exp.toInt()
-        : int.tryParse(exp?.toString().trim() ?? '');
+    final experienceYears =
+        exp is num ? exp.toInt() : int.tryParse(exp?.toString().trim() ?? '');
     if (experienceYears == null || experienceYears < 1) {
       missing.add('سنوات الخبرة');
     }
@@ -277,7 +286,8 @@ class ServiceProviderRepository {
             // Required for a new service_providers row. Omit it for login so
             // an existing provider profile is not overwritten accidentally.
             if (categoryId.trim().isNotEmpty) 'categoryId': categoryId.trim(),
-            if (providerType.trim().isNotEmpty) 'providerType': providerType.trim(),
+            if (providerType.trim().isNotEmpty)
+              'providerType': providerType.trim(),
             if (city != null && city.isNotEmpty) 'city': city,
           },
         },
@@ -473,8 +483,10 @@ class ServiceProviderRepository {
     int? experienceYears,
     List<String>? skills,
     String? city,
+    String? governorate,
     String? address,
     List<String>? serviceAreas,
+    List<String>? availableDays,
     double? latitude,
     double? longitude,
     double? maxDistanceKm,
@@ -499,8 +511,10 @@ class ServiceProviderRepository {
       if (experienceYears != null) data['experience_years'] = experienceYears;
       if (skills != null) data['skills'] = skills;
       if (city != null) data['city'] = city.trim();
+      if (governorate != null) data['governorate'] = governorate.trim();
       if (address != null) data['address'] = address.trim();
       if (serviceAreas != null) data['service_areas'] = serviceAreas;
+      if (availableDays != null) data['available_days'] = availableDays;
       if (latitude != null) data['latitude'] = latitude;
       if (longitude != null) data['longitude'] = longitude;
       if (maxDistanceKm != null) data['max_distance_km'] = maxDistanceKm;
