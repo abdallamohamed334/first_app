@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dartz/dartz.dart' as dartz;
 import 'package:go_router/go_router.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/models/user_model.dart';
@@ -572,7 +573,12 @@ class _LoginPageState extends State<LoginPage>
   // ═══════════════════════════════════════════════════════════
   Future<void> _checkAutoLogin() async {
     try {
-      final result = await _authRepo.getSessionWithUserType();
+      // A stale/offline Supabase session must not keep the login page on the
+      // loading screen forever. The user can still start a fresh OTP flow.
+      final result = await _authRepo.getSessionWithUserType().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => const dartz.Left('انتهت مهلة فحص الجلسة'),
+      );
       await result.fold(
         (error) async {
           debugPrint('ℹ️ No auto-login: $error');
@@ -596,6 +602,10 @@ class _LoginPageState extends State<LoginPage>
     } catch (e) {
       debugPrint('❌ Auto-login error: $e');
       if (mounted) setState(() => _isCheckingAutoLogin = false);
+    } finally {
+      if (mounted && _isCheckingAutoLogin) {
+        setState(() => _isCheckingAutoLogin = false);
+      }
     }
   }
 
