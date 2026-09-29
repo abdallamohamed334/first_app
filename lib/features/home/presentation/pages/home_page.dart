@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/donation/presentation/pages/offer_details_page.dart';
-import 'package:loqma/features/home/presentation/pages/Open%20volunteer%20donations%20home%20section.dart';
+import 'Open volunteer donations home section.dart';
 import 'package:loqma/features/home/presentation/pages/all_offers_page.dart';
 import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
 import 'package:loqma/features/home/presentation/pages/symbolic_purchase_page.dart';

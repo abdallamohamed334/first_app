@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../../core/services/supabase_service.dart';
-import '../../../../core/services/analytics_service.dart';
-import '../../../../core/services/fcm_notification_service.dart';
-import '../../../../core/services/auth_state_notifier.dart'; // ✅
-import '../../../../core/utils/validators.dart';
+import '../services/supabase_service.dart';
+import '../services/analytics_service.dart';
+import '../services/fcm_notification_service.dart';
+import '../services/auth_state_notifier.dart'; // ✅
+import '../utils/validators.dart';
 
 class AuthRepository {
   final SupabaseService _supabase;

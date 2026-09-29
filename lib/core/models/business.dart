@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:equatable/equatable.dart';
 
 import 'business_type.dart';
-import '../../../features/business/domain/entities/business_capability.dart';
+import '../../features/business/domain/entities/business_capability.dart';
 
 class Business extends Equatable {
   final String id;
