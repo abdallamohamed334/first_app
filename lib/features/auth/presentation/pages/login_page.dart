@@ -14,6 +14,7 @@ import 'package:loqma/core/services/firebase_messaging_service.dart';
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
 import 'otp_verify_page.dart';
+import 'user_profile_setup_flow.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -569,9 +570,9 @@ class _LoginPageState extends State<LoginPage>
       // A stale/offline Supabase session must not keep the login page on the
       // loading screen forever. The user can still start a fresh OTP flow.
       final result = await _authRepo.getSessionWithUserType().timeout(
-        const Duration(seconds: 5),
-        onTimeout: () => const dartz.Left('انتهت مهلة فحص الجلسة'),
-      );
+            const Duration(seconds: 5),
+            onTimeout: () => const dartz.Left('انتهت مهلة فحص الجلسة'),
+          );
       await result.fold(
         (error) async {
           debugPrint('ℹ️ No auto-login: $error');
@@ -713,16 +714,8 @@ class _LoginPageState extends State<LoginPage>
     }
 
     if (type == 'user') {
-      final profile = await SupabaseService()
-          .client
-          .from('users')
-          .select('latitude, longitude')
-          .eq('id', user.id)
-          .maybeSingle();
-      final hasLocation = profile?['latitude'] is num &&
-          profile?['longitude'] is num;
       if (!mounted) return;
-      context.go(hasLocation ? AppRouter.home : AppRouter.map);
+      await UserProfileSetupFlow.open(context, user, role: type);
       return;
     }
 

@@ -18,11 +18,15 @@ import 'package:loqma/features/institutions/presentation/pages/institutions_home
 class CompleteProfilePage extends StatefulWidget {
   final UserModel user;
   final String role;
+  final double? initialLat;
+  final double? initialLng;
 
   const CompleteProfilePage({
     super.key,
     required this.user,
     required this.role,
+    this.initialLat,
+    this.initialLng,
   });
 
   @override
@@ -85,8 +89,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     if (_selectedCity != null && !_cities.contains(_selectedCity)) {
       _selectedCity = null;
     }
-    _lat = widget.user.lat;
-    _lng = widget.user.lng;
+    _lat = widget.initialLat ?? widget.user.lat;
+    _lng = widget.initialLng ?? widget.user.lng;
   }
 
   @override
@@ -445,7 +449,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     const SizedBox(height: 16),
 
                     // ── الإيميل
-                    _buildLabel('الإيميل (اختياري)'),
+                    _buildLabel('الإيميل *'),
                     _buildField(
                       controller: _emailCtrl,
                       hint: 'example@mail.com',
@@ -453,7 +457,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       keyboard: TextInputType.emailAddress,
                       validator: (v) {
                         final t = v?.trim() ?? '';
-                        if (t.isEmpty) return null;
+                        if (t.isEmpty) return 'الإيميل مطلوب';
                         if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                             .hasMatch(t)) {
                           return 'إيميل غير صحيح';
@@ -464,11 +468,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     const SizedBox(height: 16),
 
                     // ── العنوان
-                    _buildLabel('العنوان (اختياري)'),
+                    _buildLabel('العنوان *'),
                     _buildField(
                       controller: _addressCtrl,
                       hint: 'شارع البحر، طنطا',
                       icon: Icons.location_on_rounded,
+                      validator: (v) => (v?.trim().length ?? 0) < 3
+                          ? 'اكتب عنوانك بالتفصيل'
+                          : null,
                     ),
                     const SizedBox(height: 16),
 

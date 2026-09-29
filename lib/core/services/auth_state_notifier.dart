@@ -13,6 +13,7 @@ class AuthStateNotifier extends ChangeNotifier {
   String? _providerStatus;
   String? _institutionStatus;
   bool _isActive = true;
+  bool _userProfileComplete = true;
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isSyncing => _isSyncing;
@@ -21,6 +22,7 @@ class AuthStateNotifier extends ChangeNotifier {
   String? get providerStatus => _providerStatus;
   String? get institutionStatus => _institutionStatus;
   bool get isActive => _isActive;
+  bool get userProfileComplete => _userProfileComplete;
 
   String? get homeRoute {
     if (!_isLoggedIn || !_isResolved || _isSyncing) return null;
@@ -82,6 +84,7 @@ class AuthStateNotifier extends ChangeNotifier {
         }
         return '/institutions-home';
       case 'user':
+        return _userProfileComplete ? '/home' : '/login';
       case 'admin':
         return '/home';
       default:
@@ -108,6 +111,7 @@ class AuthStateNotifier extends ChangeNotifier {
     String? providerStatus,
     String? institutionStatus,
     bool isActive = true,
+    bool userProfileComplete = true,
     bool authResolved = false,
   }) {
     final normalizedRole = _normalize(role);
@@ -121,6 +125,7 @@ class AuthStateNotifier extends ChangeNotifier {
         _providerStatus != normalizedStatus ||
         _institutionStatus != normalizedInstitutionStatus ||
         _isActive != isActive ||
+        _userProfileComplete != userProfileComplete ||
         _isSyncing != nextSyncing ||
         _isResolved != nextResolved;
 
@@ -129,6 +134,7 @@ class AuthStateNotifier extends ChangeNotifier {
     _providerStatus = isLoggedIn ? normalizedStatus : null;
     _institutionStatus = isLoggedIn ? normalizedInstitutionStatus : null;
     _isActive = isActive;
+    _userProfileComplete = userProfileComplete;
     _isSyncing = nextSyncing;
     _isResolved = nextResolved;
 
@@ -151,6 +157,7 @@ class AuthStateNotifier extends ChangeNotifier {
     _providerStatus = null;
     _institutionStatus = null;
     _isActive = true;
+    _userProfileComplete = true;
     debugPrint('🔔 [AuthState] cleared');
     notifyListeners();
   }

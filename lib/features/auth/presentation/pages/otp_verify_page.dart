@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/services/supabase_service.dart';
-import 'complete_profile_page.dart';
+import 'user_profile_setup_flow.dart';
 
 // ✅ Import صفحات الـ Home للأدوار المختلفة
 import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
@@ -133,39 +133,25 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
           final user = data['user'] as UserModel;
           final isNewUser = data['isNewUser'] == true;
 
-          final hasName = (user.name ?? '').trim().isNotEmpty;
-          final hasCity = (user.city ?? '').trim().isNotEmpty;
-          final needsProfile = isNewUser || !hasName || !hasCity;
-
           debugPrint(
             '✅ Verified. isNewUser=$isNewUser, '
-            'hasName=$hasName, hasCity=$hasCity',
+            'needsUserProfile=${UserProfileSetupFlow.needsProfile(user)}',
           );
 
           if (!mounted) return;
 
-          if (needsProfile) {
-            // 🆕 محتاج يكمّل بياناته
-            _snack('✅ تم التحقق، كمّل بياناتك');
-            await Future.delayed(const Duration(milliseconds: 600));
+          final role = widget.profile['role']?.toString() ?? 'user';
+          if (role.toLowerCase() == 'user') {
+            _snack('✅ تم التحقق');
+            await Future.delayed(const Duration(milliseconds: 500));
             if (!mounted) return;
-
-            // ✅ pushReplacement لأنها جزء من نفس الفلو
-            await Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CompleteProfilePage(
-                  user: user,
-                  role: widget.profile['role']?.toString() ?? 'user',
-                ),
-              ),
-            );
+            await UserProfileSetupFlow.open(context, user, role: role);
           } else {
             // ✅ مستخدم قديم ببيانات كاملة → Home مباشرة
             _snack('✅ تم تسجيل الدخول');
 
-            final role = user.type.value.toLowerCase();
-            debugPrint('🔴 [OTP] navigating to home for role: $role');
+            final resolvedRole = user.type.value.toLowerCase();
+            debugPrint('🔴 [OTP] navigating to home for role: $resolvedRole');
 
             await Future.delayed(const Duration(milliseconds: 400));
             if (!mounted) return;
@@ -179,7 +165,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
             // ═══════════════════════════════════════════════════
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                builder: (_) => _homePageForRole(role),
+                builder: (_) => _homePageForRole(resolvedRole),
               ),
               (route) => false, // ← يمسح كل الـ routes القديمة
             );

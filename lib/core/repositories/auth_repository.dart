@@ -544,7 +544,8 @@ class AuthRepository {
     try {
       final profile = await _supabase.client
           .from('users')
-          .select('user_type, role, is_active')
+          .select(
+              'user_type, role, is_active, name, email, city, address, latitude, longitude')
           .eq('id', userId)
           .maybeSingle();
 
@@ -566,23 +567,21 @@ class AuthRepository {
       }
 
       final hasProviderProfile = provider != null;
-      final institutionType = institution?['institution_type']
-          ?.toString()
-          .trim()
-          .toLowerCase();
+      final institutionType =
+          institution?['institution_type']?.toString().trim().toLowerCase();
       final resolvedRole = hasProviderProfile
           ? 'provider'
           : (institutionType != null && institutionType.isNotEmpty
               ? institutionType
               : ((profile?['user_type']
-                      ?.toString()
-                      .trim()
-                      .toLowerCase()
-                      .isNotEmpty ==
-                  true)
-              ? profile!['user_type'].toString().trim().toLowerCase()
-              : (profile?['role']?.toString().trim().toLowerCase() ??
-                  'user')));
+                          ?.toString()
+                          .trim()
+                          .toLowerCase()
+                          .isNotEmpty ==
+                      true)
+                  ? profile!['user_type'].toString().trim().toLowerCase()
+                  : (profile?['role']?.toString().trim().toLowerCase() ??
+                      'user')));
 
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();
@@ -594,6 +593,16 @@ class AuthRepository {
           (institution == null ||
               institutionStatus == 'active' ||
               institutionStatus == 'approved');
+
+      final profileName = profile?['name']?.toString().trim() ?? '';
+      final profileComplete = resolvedRole != 'user' ||
+          (profileName.length >= 3 &&
+              profileName != 'مستخدم وِصلة' &&
+              profile?['email']?.toString().trim().isNotEmpty == true &&
+              profile?['city']?.toString().trim().isNotEmpty == true &&
+              profile?['address']?.toString().trim().isNotEmpty == true &&
+              profile?['latitude'] is num &&
+              profile?['longitude'] is num);
 
       debugPrint(
         '✅ [Auth Sync] role=$resolvedRole '
@@ -609,6 +618,7 @@ class AuthRepository {
         providerStatus: providerStatus,
         institutionStatus: institutionStatus,
         isActive: active,
+        userProfileComplete: profileComplete,
         authResolved: true,
       );
     } catch (error, stack) {

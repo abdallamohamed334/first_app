@@ -210,6 +210,13 @@ class AppRouter {
         }
       }
 
+      // المستخدم العادي لا يصل للـ Home قبل اكتمال بياناته وموقعه.
+      // نسمح بصفحة الدخول فقط لأنها تفحص الجلسة وتفتح تدفق الإكمال المناسب.
+      if (auth.role == 'user' && !auth.userProfileComplete) {
+        if (loc == login) return null;
+        return login;
+      }
+
       // ══════════════════════════════════════════════════════════
       // ✅ مسجل دخول → لو على صفحة auth/ترحيب → نروح للـ home
       // ⚠️ ماعدا /institution-login: سيبها تتحكم بنفسها عشان
@@ -234,6 +241,9 @@ class AppRouter {
       }
 
       if (authPagesToRedirect.contains(loc)) {
+        if (auth.role == 'user' && !auth.userProfileComplete) {
+          return null;
+        }
         // ✅ لا تعيد التوجيه من صفحة دخول المؤسسات
         if (loc == '/institution-login') return null;
 

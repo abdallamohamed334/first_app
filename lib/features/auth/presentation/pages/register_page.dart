@@ -392,7 +392,7 @@ class _RegisterPageState extends State<RegisterPage> {
       final profile = <String, dynamic>{
         'name': name,
         'role': widget.role,
-        'city': 'طنطا',
+        if (_isProvider) 'city': 'طنطا',
       };
 
       // ✅ نبعت OTP عبر AuthRepository
