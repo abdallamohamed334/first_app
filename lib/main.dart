@@ -306,12 +306,13 @@ void _attachAuthStateSync() {
 
 Future<bool> _loadEnvSafely() async {
   try {
-    await dotenv.load();
+    // .env is optional in shipped builds; public Supabase defaults and
+    // dart-defines are used when the local developer file is absent.
+    await dotenv.load(isOptional: true);
     debugPrint('Environment variables loaded successfully');
     return true;
-  } catch (error, stack) {
-    debugPrint('Failed to load .env file: $error');
-    debugPrintStack(stackTrace: stack);
+  } catch (_) {
+    debugPrint('Optional .env not loaded; using bundled configuration');
     return false;
   }
 }

@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/firebase_options.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -42,6 +44,21 @@ class FirebaseMessagingService {
     if (_initialized) {
       await saveTokenForCurrentUser();
       return;
+    }
+
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    } catch (error) {
+      // main.dart may initialize Firebase concurrently. Do not touch
+      // FirebaseMessaging until an app is definitely available.
+      if (Firebase.apps.isEmpty) {
+        debugPrint('[FCM] Firebase is not ready; notifications skipped');
+        return;
+      }
     }
 
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
