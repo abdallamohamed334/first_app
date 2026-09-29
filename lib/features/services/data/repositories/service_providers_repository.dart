@@ -65,6 +65,38 @@ class ServiceProvidersRepository {
     }
   }
 
+  /// مزودون حقيقيون معتمدون، متاحون، بسعر رمزي وفي مدينة المستخدم.
+  /// المسافة الدقيقة تُحسب في طبقة العرض باستخدام إحداثيات المستخدم.
+  Future<List<ServiceProvider>> listNearbySymbolic({
+    required String city,
+    int limit = 60,
+  }) async {
+    try {
+      final cleanCity = city.trim();
+      if (cleanCity.isEmpty) return const <ServiceProvider>[];
+
+      final rows = await _client
+          .from('published_service_providers')
+          .select(_publicProviderColumns)
+          .eq('city', cleanCity)
+          .eq('pricing_type', 'symbolic')
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .order('rating_avg', ascending: false)
+          .order('total_reviews', ascending: false)
+          .limit(limit);
+
+      return (rows as List)
+          .map((row) =>
+              ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
+          .where((provider) => provider.isVerified && provider.isAvailable)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('❌ listNearbySymbolic error: $e');
+      return const <ServiceProvider>[];
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════
   // ✅ جلب المناطق المتاحة في تصنيف معين
   // ═══════════════════════════════════════════════════════════

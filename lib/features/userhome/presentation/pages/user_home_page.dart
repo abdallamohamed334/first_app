@@ -33,8 +33,11 @@ import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
 // ✅ خدمات
 import 'package:loqma/features/services/data/repositories/service_categories_repository.dart';
+import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 import 'package:loqma/features/services/domain/entities/service_category.dart';
+import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_category_page.dart';
+import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
@@ -69,6 +72,8 @@ class _UserHomePageState extends State<UserHomePage> {
   final CommunityNeedsRepository _needsRepository = CommunityNeedsRepository();
   final ServiceCategoriesRepository _serviceCategoriesRepository =
       ServiceCategoriesRepository();
+  final ServiceProvidersRepository _serviceProvidersRepository =
+      ServiceProvidersRepository();
 
   int _currentPage = 0;
   List<InstitutionOffer> _institutionOffers = [];
@@ -82,6 +87,8 @@ class _UserHomePageState extends State<UserHomePage> {
   _HomeMode _homeMode = _HomeMode.buy;
   List<ServiceCategory> _serviceCategories = [];
   bool _loadingServiceCategories = false;
+  List<ServiceProvider> _nearbySymbolicProviders = [];
+  bool _loadingNearbySymbolicProviders = false;
 
   // ✅ موقع المستخدم
   double? _userLat;
@@ -122,6 +129,7 @@ class _UserHomePageState extends State<UserHomePage> {
       await _loadUserLocation();
       if (!mounted) return;
 
+      _loadNearbySymbolicProviders();
       context.read<UserHomeBloc>().add(const UserHomeStarted());
       _loadInstitutionOffers();
       _loadCommunityNeeds();
@@ -186,6 +194,48 @@ class _UserHomePageState extends State<UserHomePage> {
       debugPrint('✅ [Location] Loaded: city=$_userCity, lat=$lat, lng=$lng');
     } catch (e) {
       debugPrint('❌ [Location] error: $e');
+    }
+  }
+
+  Future<void> _loadNearbySymbolicProviders() async {
+    if (_loadingNearbySymbolicProviders ||
+        _userLat == null ||
+        _userLng == null) {
+      return;
+    }
+    if (mounted) setState(() => _loadingNearbySymbolicProviders = true);
+
+    try {
+      final providers = await _serviceProvidersRepository.listNearbySymbolic(
+        city: _userCity,
+      );
+      if (!mounted) return;
+
+      final nearby = providers.where((provider) {
+        final lat = provider.latitude;
+        final lng = provider.longitude;
+        if (lat == null || lng == null) return false;
+        return _distanceKm(_userLat!, _userLng!, lat, lng) <=
+            _AppFeatures.nearbyRadiusKm;
+      }).toList();
+
+      nearby.sort((a, b) => _distanceKm(
+            _userLat!,
+            _userLng!,
+            a.latitude!,
+            a.longitude!,
+          ).compareTo(_distanceKm(
+            _userLat!,
+            _userLng!,
+            b.latitude!,
+            b.longitude!,
+          )));
+
+      setState(() => _nearbySymbolicProviders = nearby.take(10).toList());
+    } catch (e) {
+      debugPrint('❌ [Home] nearby symbolic providers error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingNearbySymbolicProviders = false);
     }
   }
 
@@ -355,6 +405,7 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadInstitutionOffers(),
       _loadCommunityNeeds(),
       _loadServiceCategories(),
+      _loadNearbySymbolicProviders(),
     ]);
   }
 
@@ -917,6 +968,7 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
         SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
+        SliverToBoxAdapter(child: _buildNearbySymbolicProviders()),
         if (_AppFeatures.showUrgentSection && _AppFeatures.showRestaurants)
           SliverToBoxAdapter(
               child: _buildUrgentSection(state.restaurantOffers)),
@@ -2227,6 +2279,65 @@ class _UserHomePageState extends State<UserHomePage> {
                 },
               ),
             ),
+    );
+  }
+
+  Widget _buildNearbySymbolicProviders() {
+    if (_loadingNearbySymbolicProviders && _nearbySymbolicProviders.isEmpty) {
+      return _section(
+        title: 'خدمات قريبة بسعر رمزي 🛠️',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: _primaryRed,
+            ),
+          ),
+        ),
+      );
+    }
+    if (_nearbySymbolicProviders.isEmpty) return const SizedBox.shrink();
+
+    return _section(
+      title: 'ناس قريبة تساعدك بسعر رمزي 🛠️',
+      trailing: Text(
+        _userCity,
+        style: TextStyle(
+          color: _textSecondary.withValues(alpha: 0.9),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      child: SizedBox(
+        height: 248,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: _nearbySymbolicProviders.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final provider = _nearbySymbolicProviders[index];
+            final distance = _distanceKm(
+              _userLat!,
+              _userLng!,
+              provider.latitude!,
+              provider.longitude!,
+            );
+            return _NearbySymbolicProviderCard(
+              provider: provider,
+              distanceKm: distance,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ServiceProviderDetailsPage(
+                    provider: provider,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -3940,6 +4051,156 @@ class _BottomNavItem extends StatelessWidget {
                   fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
                 ),
                 child: Text(label),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NearbySymbolicProviderCard extends StatelessWidget {
+  final ServiceProvider provider;
+  final double distanceKm;
+  final VoidCallback onTap;
+
+  const _NearbySymbolicProviderCard({
+    required this.provider,
+    required this.distanceKm,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = provider.profileImageUrl;
+    final distanceLabel = distanceKm < 1
+        ? '${(distanceKm * 1000).round()} متر'
+        : '${distanceKm.toStringAsFixed(1)} كم';
+
+    return SizedBox(
+      width: 218,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: _UserHomePageState._card,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _UserHomePageState._border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: SizedBox(
+                  height: 102,
+                  child: imageUrl == null || imageUrl.isEmpty
+                      ? Container(
+                          color: _UserHomePageState._cardSoft,
+                          child: const Icon(
+                            Icons.handyman_rounded,
+                            color: _UserHomePageState._primaryRed,
+                            size: 42,
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(
+                            color: _UserHomePageState._cardSoft,
+                            child: const Icon(
+                              Icons.handyman_rounded,
+                              color: _UserHomePageState._primaryRed,
+                              size: 42,
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      provider.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _UserHomePageState._textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      provider.categoryName ?? 'خدمات متنوعة',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _UserHomePageState._textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: _UserHomePageState._primaryRed,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          distanceLabel,
+                          style: const TextStyle(
+                            color: _UserHomePageState._textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.star_rounded,
+                            color: Color(0xFFFFC107), size: 15),
+                        const SizedBox(width: 2),
+                        Text(
+                          provider.ratingAvg > 0
+                              ? provider.ratingAvg.toStringAsFixed(1)
+                              : 'جديد',
+                          style: const TextStyle(
+                            color: _UserHomePageState._textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 9),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _UserHomePageState._primaryRed
+                            .withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        provider.pricingLabel,
+                        style: const TextStyle(
+                          color: _UserHomePageState._primaryRed,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
