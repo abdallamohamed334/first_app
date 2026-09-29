@@ -27,6 +27,21 @@ class SeparateCharityDonationRepository {
     return id;
   }
 
+  Future<void> _notifyDonationEvent(String requestId, String event) async {
+    try {
+      final response = await _client.functions.invoke(
+        'notify-charity-donation-event',
+        body: {'requestId': requestId.trim(), 'event': event},
+      );
+      if (response.data is Map && response.data['success'] != true) {
+        debugPrint('⚠️ donation notification rejected: ${response.data}');
+      }
+    } catch (error) {
+      // لا نفشل التبرع إذا كان مزود Push أو WhatsApp غير متاح مؤقتًا.
+      debugPrint('⚠️ donation notification failed: $error');
+    }
+  }
+
   Future<String> _currentCharityId() async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null || userId.isEmpty) {
@@ -181,7 +196,9 @@ class SeparateCharityDonationRepository {
         })
         .select()
         .single();
-    return Map<String, dynamic>.from(row);
+    final donation = Map<String, dynamic>.from(row);
+    await _notifyDonationEvent(donation['id']?.toString() ?? '', 'created');
+    return donation;
   }
 
   Future<List<Map<String, dynamic>>> getMyDonations() async {
@@ -399,6 +416,7 @@ class SeparateCharityDonationRepository {
           'p_open_to_volunteers': openToVolunteers,
         },
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -421,6 +439,7 @@ class SeparateCharityDonationRepository {
           'p_reason': reason?.trim(),
         },
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -449,6 +468,7 @@ class SeparateCharityDonationRepository {
           'p_external_phone': externalPhone?.trim(),
         },
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -465,6 +485,7 @@ class SeparateCharityDonationRepository {
         'mark_donor_ready',
         params: {'p_request_id': requestId.trim()},
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -487,6 +508,7 @@ class SeparateCharityDonationRepository {
           'p_code': code.trim(),
         },
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -503,6 +525,7 @@ class SeparateCharityDonationRepository {
         'volunteer_mark_in_transit',
         params: {'p_request_id': requestId.trim()},
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -528,6 +551,7 @@ class SeparateCharityDonationRepository {
         );
       }
 
+      await _notifyDonationEvent(requestId, 'status');
       return data;
     } catch (e) {
       throw Exception(_friendly(e));
@@ -545,6 +569,7 @@ class SeparateCharityDonationRepository {
         'volunteer_deliver_to_charity',
         params: {'p_request_id': requestId.trim()},
       );
+      await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
       throw Exception(_friendly(e));
@@ -803,6 +828,9 @@ class SeparateCharityDonationRepository {
                 'p_next_status': status,
               },
             );
+      if (!isRestaurantDonation) {
+        await _notifyDonationEvent(requestId, 'status');
+      }
       if (!isRestaurantDonation && notes != null && notes.trim().isNotEmpty) {
         await _client
             .from('charity_donation_requests')
@@ -838,6 +866,7 @@ class SeparateCharityDonationRepository {
         'volunteer_claim_charity_donation',
         params: {'p_request_id': requestId},
       );
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -849,6 +878,7 @@ class SeparateCharityDonationRepository {
         'volunteer_confirm_donor_pickup',
         params: {'p_request_id': requestId},
       );
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -860,6 +890,7 @@ class SeparateCharityDonationRepository {
         'volunteer_confirm_charity_delivery',
         params: {'p_request_id': requestId},
       );
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -892,6 +923,7 @@ class SeparateCharityDonationRepository {
       if (data['success'] != true) {
         throw Exception(data['error']?.toString() ?? 'كود الاستلام غير صحيح');
       }
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -922,6 +954,7 @@ class SeparateCharityDonationRepository {
       if (data['success'] != true) {
         throw Exception(data['error']?.toString() ?? 'تعذر إنشاء كود المتطوع');
       }
+      await _notifyDonationEvent(requestId, 'status');
       return data['charity_code']?.toString() ?? '';
     } catch (e) {
       throw Exception(_friendly(e));
@@ -978,6 +1011,7 @@ class SeparateCharityDonationRepository {
         'completed_at': DateTime.now().toIso8601String(),
         'charity_received_at': DateTime.now().toIso8601String(),
       }).eq('id', requestId);
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
