@@ -71,8 +71,18 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   List<String> _portfolioImages = [];
   XFile? _newProfileImage;
   XFile? _newCoverImage;
+  XFile? _newIdCardFront;
+  XFile? _newIdCardBack;
+  String? _idCardFrontPath;
+  String? _idCardBackPath;
   final List<XFile> _newPortfolioImages = [];
   final List<String> _removedPortfolioUrls = [];
+
+  bool get _profileLocked =>
+      (_provider?['profile_locked_at']?.toString().trim().isNotEmpty ??
+          false) ||
+      (_idCardFrontPath?.isNotEmpty == true &&
+          _idCardBackPath?.isNotEmpty == true);
 
   final _newSkillCtrl = TextEditingController();
   final _newAreaCtrl = TextEditingController();
@@ -128,6 +138,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
 
           _profileImageUrl = provider['profile_image_url']?.toString();
           _coverImageUrl = provider['cover_image_url']?.toString();
+          _idCardFrontPath = provider['id_card_front_url']?.toString();
+          _idCardBackPath = provider['id_card_back_url']?.toString();
 
           final rawPortfolio = provider['portfolio_images'];
           if (rawPortfolio is List) {
@@ -182,6 +194,26 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       setState(() => _newCoverImage = picked);
     } catch (e) {
       _snack('تعذر اختيار الصورة', error: true);
+    }
+  }
+
+  Future<void> _pickIdCard(String side) async {
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (picked == null) return;
+      setState(() {
+        if (side == 'front') {
+          _newIdCardFront = picked;
+        } else {
+          _newIdCardBack = picked;
+        }
+      });
+    } catch (_) {
+      _snack('تعذر اختيار صورة البطاقة', error: true);
     }
   }
 
@@ -243,6 +275,12 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       _snack('اختار يوم متاح واحد على الأقل', error: true);
       return;
     }
+    if (!_profileLocked &&
+        ((_newIdCardFront == null && (_idCardFrontPath?.isEmpty ?? true)) ||
+            (_newIdCardBack == null && (_idCardBackPath?.isEmpty ?? true)))) {
+      _snack('ارفع صورة البطاقة الأمامية والخلفية لإكمال التسجيل', error: true);
+      return;
+    }
 
     setState(() => _saving = true);
 
@@ -300,6 +338,29 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         ...uploadedPortfolio,
       ];
 
+      String? idCardFrontPath = _idCardFrontPath;
+      String? idCardBackPath = _idCardBackPath;
+      if (!_profileLocked) {
+        if (_newIdCardFront != null) {
+          final front = await _repo.uploadProviderIdentityDocument(
+            userId: userId,
+            imagePath: _newIdCardFront!.path,
+            side: 'front',
+          );
+          front.fold(
+              (err) => throw Exception(err), (path) => idCardFrontPath = path);
+        }
+        if (_newIdCardBack != null) {
+          final back = await _repo.uploadProviderIdentityDocument(
+            userId: userId,
+            imagePath: _newIdCardBack!.path,
+            side: 'back',
+          );
+          back.fold(
+              (err) => throw Exception(err), (path) => idCardBackPath = path);
+        }
+      }
+
       // ✅ حفظ البيانات
       final result = await _repo.updateProviderProfile(
         providerId: _provider!['id'].toString(),
@@ -320,6 +381,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         profileImageUrl: newProfileUrl,
         coverImageUrl: newCoverUrl,
         portfolioImages: finalPortfolio,
+        idCardFrontUrl: idCardFrontPath,
+        idCardBackUrl: idCardBackPath,
+        profileLocked: _profileLocked,
       );
 
       if (!mounted) return;
@@ -396,6 +460,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildImagesSection(),
+                    const SizedBox(height: 16),
+                    if (!_profileLocked)
+                      _buildIdentityDocumentsSection()
+                    else
+                      _buildLockedNotice(),
                     const SizedBox(height: 16),
                     _buildSection(
                       title: 'المعلومات الأساسية',
@@ -478,6 +547,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                             setState(() => _skills.remove(value));
                           },
                           color: _blue,
+                          editable: !_profileLocked,
                         ),
                       ],
                     ),
@@ -680,6 +750,82 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
     );
   }
 
+  Widget _buildIdentityDocumentsSection() {
+    return _buildSection(
+      title: 'إثبات الهوية — مطلوب مرة واحدة',
+      icon: Icons.badge_rounded,
+      children: [
+        Text(
+          'صور البطاقة محفوظة بشكل خاص ولن تظهر للمستخدمين.',
+          style:
+              TextStyle(color: _inkSoft.withValues(alpha: 0.75), fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+                child: _identityTile('front', 'وجه البطاقة', _newIdCardFront)),
+            const SizedBox(width: 10),
+            Expanded(
+                child: _identityTile('back', 'ظهر البطاقة', _newIdCardBack)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _identityTile(String side, String label, XFile? image) {
+    return InkWell(
+      onTap: () => _pickIdCard(side),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        height: 120,
+        decoration: BoxDecoration(
+          color: _bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _blue.withValues(alpha: 0.25)),
+        ),
+        child: image == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_a_photo_rounded, color: _blue, size: 28),
+                  const SizedBox(height: 8),
+                  Text(label,
+                      style: const TextStyle(color: _ink, fontSize: 12)),
+                ],
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Image.file(File(image.path), fit: BoxFit.cover),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildLockedNotice() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _primary.withValues(alpha: 0.2)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.lock_rounded, color: _primary),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'تم اعتماد بيانات التسجيل. يمكنك تعديل المحافظة والمدينة ومناطق الخدمة والأيام والصور فقط.',
+              style: TextStyle(color: _inkSoft, fontSize: 12, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildImagesSection() {
     final currentTotal = _portfolioImages.length + _newPortfolioImages.length;
     final canAddMore = currentTotal < _maxPortfolioImages;
@@ -786,7 +932,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _imageLabel('صورة الغلاف'),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: _pickCoverImage,
+            onTap: _profileLocked ? null : _pickCoverImage,
             child: Container(
               height: 130,
               decoration: BoxDecoration(
@@ -1077,6 +1223,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   }) {
     return TextField(
       controller: controller,
+      enabled: !_profileLocked,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLines: maxLines,
@@ -1125,6 +1272,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
     required ValueChanged<String> onAdd,
     required ValueChanged<String> onRemove,
     required Color color,
+    bool editable = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1134,6 +1282,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
             Expanded(
               child: TextField(
                 controller: controller,
+                enabled: editable,
                 style: const TextStyle(
                   color: _ink,
                   fontSize: 13.5,
@@ -1173,7 +1322,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
             ),
             const SizedBox(width: 8),
             InkWell(
-              onTap: () => onAdd(controller.text),
+              onTap: editable ? () => onAdd(controller.text) : null,
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: 48,
@@ -1220,7 +1369,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                     ),
                     const SizedBox(width: 6),
                     InkWell(
-                      onTap: () => onRemove(item),
+                      onTap: editable ? () => onRemove(item) : null,
                       child: Icon(Icons.close_rounded, color: color, size: 14),
                     ),
                   ],
@@ -1267,7 +1416,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         DropdownMenuItem(value: 'hourly', child: Text('بالساعة')),
         DropdownMenuItem(value: 'free', child: Text('مجاناً')),
       ],
-      onChanged: (v) => setState(() => _pricingType = v),
+      onChanged:
+          _profileLocked ? null : (v) => setState(() => _pricingType = v),
     );
   }
 
@@ -1297,7 +1447,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           ),
           Switch(
             value: value,
-            onChanged: onChanged,
+            onChanged: _profileLocked ? null : onChanged,
             activeThumbColor: _primary,
           ),
         ],

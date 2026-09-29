@@ -61,7 +61,7 @@ class ServiceProviderRepository {
   }
 
   static const _profileCompletionColumns =
-      'profile_image_url,bio,governorate,city,service_areas,available_days,whatsapp,phone,experience_years,skills';
+      'profile_image_url,bio,governorate,city,service_areas,available_days,id_card_front_url,id_card_back_url,whatsapp,phone,experience_years,skills';
 
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
@@ -134,6 +134,13 @@ class ServiceProviderRepository {
     final availableDays = provider['available_days'];
     if (availableDays is! List || availableDays.isEmpty) {
       missing.add('يوم متاح واحد على الأقل');
+    }
+
+    if ((provider['id_card_front_url']?.toString().trim() ?? '').isEmpty) {
+      missing.add('صورة البطاقة الأمامية');
+    }
+    if ((provider['id_card_back_url']?.toString().trim() ?? '').isEmpty) {
+      missing.add('صورة البطاقة الخلفية');
     }
 
     // 4️⃣ مناطق الخدمة
@@ -500,27 +507,35 @@ class ServiceProviderRepository {
     String? website,
     bool? isAvailable,
     String? availabilityNote,
+    String? idCardFrontUrl,
+    String? idCardBackUrl,
+    bool profileLocked = false,
   }) async {
     try {
       final data = <String, dynamic>{
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      if (displayName != null) data['display_name'] = displayName.trim();
-      if (bio != null) data['bio'] = bio.trim();
-      if (experienceYears != null) data['experience_years'] = experienceYears;
-      if (skills != null) data['skills'] = skills;
+      if (!profileLocked && displayName != null) {
+        data['display_name'] = displayName.trim();
+      }
+      if (!profileLocked && bio != null) data['bio'] = bio.trim();
+      if (!profileLocked && experienceYears != null) {
+        data['experience_years'] = experienceYears;
+      }
+      if (!profileLocked && skills != null) data['skills'] = skills;
       if (city != null) data['city'] = city.trim();
       if (governorate != null) data['governorate'] = governorate.trim();
-      if (address != null) data['address'] = address.trim();
+      if (!profileLocked && address != null) data['address'] = address.trim();
       if (serviceAreas != null) data['service_areas'] = serviceAreas;
       if (availableDays != null) data['available_days'] = availableDays;
       if (latitude != null) data['latitude'] = latitude;
       if (longitude != null) data['longitude'] = longitude;
       if (maxDistanceKm != null) data['max_distance_km'] = maxDistanceKm;
-      if (pricingType != null) data['pricing_type'] = pricingType;
-      if (priceFrom != null) data['price_from'] = priceFrom;
-      if (acceptsInstallments != null) {
+      if (!profileLocked && pricingType != null)
+        data['pricing_type'] = pricingType;
+      if (!profileLocked && priceFrom != null) data['price_from'] = priceFrom;
+      if (!profileLocked && acceptsInstallments != null) {
         data['accepts_installments'] = acceptsInstallments;
       }
       if (profileImageUrl != null) {
@@ -529,12 +544,23 @@ class ServiceProviderRepository {
       if (portfolioImages != null) {
         data['portfolio_images'] = portfolioImages;
       }
-      if (coverImageUrl != null) data['cover_image_url'] = coverImageUrl;
-      if (whatsapp != null) data['whatsapp'] = _cleanPhone(whatsapp);
-      if (website != null) data['website'] = website.trim();
+      if (!profileLocked && coverImageUrl != null)
+        data['cover_image_url'] = coverImageUrl;
+      if (!profileLocked && whatsapp != null)
+        data['whatsapp'] = _cleanPhone(whatsapp);
+      if (!profileLocked && website != null) data['website'] = website.trim();
       if (isAvailable != null) data['is_available'] = isAvailable;
       if (availabilityNote != null) {
         data['availability_note'] = availabilityNote.trim();
+      }
+      if (!profileLocked && idCardFrontUrl != null) {
+        data['id_card_front_url'] = idCardFrontUrl;
+      }
+      if (!profileLocked && idCardBackUrl != null) {
+        data['id_card_back_url'] = idCardBackUrl;
+      }
+      if (!profileLocked && idCardFrontUrl != null && idCardBackUrl != null) {
+        data['profile_locked_at'] = DateTime.now().toUtc().toIso8601String();
       }
 
       final row = await _client
@@ -602,6 +628,36 @@ class ServiceProviderRepository {
       return Right(url);
     } catch (error) {
       debugPrint('❌ [Provider] upload error: $error');
+      return Left(_friendlyError(error));
+    }
+  }
+
+  Future<Either<String, String>> uploadProviderIdentityDocument({
+    required String userId,
+    required String imagePath,
+    required String side,
+  }) async {
+    try {
+      const allowedSides = {'front', 'back'};
+      const allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
+      if (!allowedSides.contains(side)) {
+        return const Left('نوع البطاقة غير صحيح');
+      }
+      final ext = imagePath.split('.').last.toLowerCase();
+      if (!allowedExtensions.contains(ext)) {
+        return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
+      }
+      final file = File(imagePath);
+      if (!await file.exists()) return const Left('ملف الصورة غير موجود');
+      if (await file.length() > 10 * 1024 * 1024) {
+        return const Left('حجم صورة البطاقة يجب ألا يتجاوز 10 ميجابايت');
+      }
+      final path =
+          '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await _client.storage.from('provider-documents').upload(path, file);
+      return Right(path);
+    } catch (error) {
+      debugPrint('❌ [Provider] identity upload error: $error');
       return Left(_friendlyError(error));
     }
   }
