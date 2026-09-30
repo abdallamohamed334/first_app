@@ -1670,18 +1670,8 @@ class CommunityOfferRepository {
 
     final path = _storagePath(clean);
 
-    try {
-      return await _client.storage.from('community-offers').createSignedUrl(
-            path,
-            60 * 60 * 24,
-          );
-    } catch (error) {
-      if (kDebugMode) {
-        debugPrint('Failed to sign community image: $error');
-      }
-
-      return null;
-    }
+    // صور العروض عامة للعرض فقط؛ الرابط المباشر أسرع ويعمل للزائر غير المسجل.
+    return _client.storage.from('community-offers').getPublicUrl(path);
   }
 
   // ============================================================

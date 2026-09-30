@@ -995,7 +995,13 @@ class _UserHomePageState extends State<UserHomePage> {
                   else if (rows.isEmpty)
                     const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('لا توجد عروض استبدال قريبة حاليًا')))
                   else
-                    ...rows.take(6).map(_buildNearbySwapCard),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rows.length > 6 ? 6 : rows.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .68),
+                      itemBuilder: (context, index) => _buildNearbySwapCard(rows[index]),
+                    ),
                 ]);
               },
             ),
@@ -1009,13 +1015,19 @@ class _UserHomePageState extends State<UserHomePage> {
     final colors = Theme.of(context).colorScheme;
     final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: images.isEmpty ? CircleAvatar(backgroundColor: colors.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: colors.onPrimaryContainer)) : ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(images.first, width: 54, height: 54, fit: BoxFit.cover)),
-        title: Text('مطلوب: ${row['wanted_title']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-        subtitle: Text('${row['governorate'] ?? 'المحافظة غير محددة'}\n${row['description'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(child: Stack(fit: StackFit.expand, children: [
+            images.isEmpty
+                ? Container(color: colors.surfaceContainerHighest, child: Icon(Icons.swap_horiz_rounded, size: 52, color: colors.onSurfaceVariant))
+                : CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 720, maxWidthDiskCache: 720, fadeInDuration: const Duration(milliseconds: 120), placeholder: (_, __) => Container(color: colors.surfaceContainerHighest, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))), errorWidget: (_, __, ___) => Icon(Icons.image_not_supported_outlined, size: 42, color: colors.onSurfaceVariant)),
+            Positioned(top: 9, right: 9, child: Container(width: 34, height: 34, decoration: BoxDecoration(color: Colors.black.withValues(alpha: .72), shape: BoxShape.circle), child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20))),
+            Positioned(left: 0, right: 0, bottom: 0, child: Container(padding: const EdgeInsets.fromLTRB(9, 28, 9, 8), decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xDD000000)])), child: Text('مطلوب: ${row['wanted_title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)))),
+          ])),
+          Padding(padding: const EdgeInsets.fromLTRB(9, 8, 9, 10), child: Row(children: [CircleAvatar(radius: 11, backgroundColor: colors.primaryContainer, child: Icon(Icons.person_rounded, size: 13, color: colors.onPrimaryContainer)), const SizedBox(width: 5), Expanded(child: Text('${row['governorate'] ?? 'المحافظة'} • جديد', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700)))])),
+        ]),
       ),
     );
   }

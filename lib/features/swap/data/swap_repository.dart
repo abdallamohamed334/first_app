@@ -21,12 +21,16 @@ class SwapRepository {
     return _client.storage.from('swap-images').getPublicUrl(path);
   }
 
-  Future<List<Map<String, dynamic>>> listOpenListings({String? search}) async {
-    final rows = await _client.from('swap_listings').select('''
+  Future<List<Map<String, dynamic>>> listOpenListings({String? search, String? governorate}) async {
+    var query = _client.from('swap_listings').select('''
       id, owner_id, wanted_title, description, category, wanted_condition,
       city, governorate, latitude, longitude, images, status, expires_at,
       created_at, updated_at, users:owner_id(name, avatar_url)
-    ''').eq('status', 'open').gt('expires_at', DateTime.now().toUtc().toIso8601String()).order('created_at', ascending: false).limit(100);
+    ''').eq('status', 'open').gt('expires_at', DateTime.now().toUtc().toIso8601String());
+    if (governorate != null && governorate.trim().isNotEmpty) {
+      query = query.eq('governorate', governorate.trim());
+    }
+    final rows = await query.order('created_at', ascending: false).limit(100);
     final result = (rows as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
     final q = search?.trim().toLowerCase() ?? '';
     return q.isEmpty ? result : result.where((r) => '${r['wanted_title']} ${r['description']} ${r['category']}'.toLowerCase().contains(q)).toList();
