@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
 class SwapRepository {
   final SupabaseClient _client;
@@ -7,6 +8,25 @@ class SwapRepository {
 
   String get _uid => _client.auth.currentUser?.id ?? (throw Exception('يجب تسجيل الدخول أولًا'));
   String? get currentUserId => _client.auth.currentUser?.id;
+
+  Future<String> uploadListingImage(XFile image) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('يجب تسجيل الدخول أولًا');
+    final extension = image.path.split('.').last.toLowerCase();
+    final safeExtension = const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension) ? extension : 'jpg';
+    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
+    final contentType = safeExtension == 'png'
+        ? 'image/png'
+        : safeExtension == 'webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+    await _client.storage.from('swap-images').uploadBinary(
+          path,
+          await image.readAsBytes(),
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+    return _client.storage.from('swap-images').getPublicUrl(path);
+  }
 
   Future<List<Map<String, dynamic>>> listOpenListings({String? search}) async {
     var query = _client.from('swap_listings').select('''
@@ -45,6 +65,7 @@ class SwapRepository {
     required String wantedCondition,
     required String contactPhone,
     required String contactWhatsapp,
+    List<String> images = const [],
     String? city,
     String? governorate,
     double? latitude,
@@ -68,6 +89,7 @@ class SwapRepository {
       'wanted_condition': wantedCondition,
       'contact_phone': phone,
       'contact_whatsapp': whatsapp,
+      'images': images,
       'city': city?.trim().isEmpty == true ? null : city?.trim(),
       'governorate': governorate?.trim().isEmpty == true ? null : governorate?.trim(),
       'latitude': latitude,

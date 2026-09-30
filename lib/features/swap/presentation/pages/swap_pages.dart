@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:loqma/features/swap/data/swap_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -47,6 +50,8 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   final _phone = TextEditingController();
   final _whatsapp = TextEditingController();
   final _repo = SwapRepository();
+  final _picker = ImagePicker();
+  XFile? _image;
   String _condition = 'any';
   bool _busy = false;
 
@@ -64,6 +69,7 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
+      final imageUrl = _image == null ? null : await _repo.uploadListingImage(_image!);
       await _repo.createListing(
         wantedTitle: _title.text,
         description: _desc.text,
@@ -71,6 +77,7 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
         wantedCondition: _condition,
         contactPhone: _phone.text,
         contactWhatsapp: _whatsapp.text,
+        images: imageUrl == null ? const [] : [imageUrl],
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -78,6 +85,11 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _pickImage() async {
+    final image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1600);
+    if (image != null && mounted) setState(() => _image = image);
   }
 
   @override
@@ -124,6 +136,26 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(labelText: 'رقم واتساب', hintText: '01012345678'),
                 validator: (v) => v == null || v.trim().length < 8 ? 'أدخل رقم الواتساب' : null,
+              ),
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: _busy ? null : _pickImage,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 170,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Theme.of(context).colorScheme.outline),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _image == null
+                      ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Icon(Icons.add_a_photo_outlined, size: 38),
+                          SizedBox(height: 8),
+                          Text('إضافة صورة للشيء المراد استبداله'),
+                        ])
+                      : Image.file(File(_image!.path), fit: BoxFit.cover, width: double.infinity),
+                ),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
@@ -223,6 +255,7 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
                     ),
                   ),
                 ),
+                _SwapImageStrip(images: (r['images'] as List? ?? []).map((e) => e.toString()).toList()),
                 _ContactCard(phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()),
                 const SizedBox(height: 18),
                 if (!owner && r['status'] == 'open')
@@ -237,6 +270,29 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _SwapImageStrip extends StatelessWidget {
+  final List<String> images;
+  const _SwapImageStrip({required this.images});
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          images.first,
+          height: 220,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
         ),
       ),
     );
@@ -457,6 +513,7 @@ class _ListingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final user = row['users'] as Map?;
+    final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -465,7 +522,13 @@ class _ListingCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(children: [
-            CircleAvatar(backgroundColor: c.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: c.onPrimaryContainer)),
+            images.isNotEmpty
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(images.first, width: 58, height: 58, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => CircleAvatar(backgroundColor: c.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: c.onPrimaryContainer))),
+                  )
+                : CircleAvatar(backgroundColor: c.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: c.onPrimaryContainer)),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('مطلوب: ${row['wanted_title']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),

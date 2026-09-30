@@ -58,7 +58,7 @@ class _AppFeatures {
   static const double nearbyRadiusKm = 70.0;
 }
 
-enum _HomeMode { buy, services }
+enum _HomeMode { buy, swap, services }
 
 class UserHomePage extends StatefulWidget {
   const UserHomePage({super.key});
@@ -954,8 +954,36 @@ class _UserHomePageState extends State<UserHomePage> {
         onRefresh: _refresh,
         child: _homeMode == _HomeMode.buy
             ? _buildBuyContent(state)
-            : _buildServicesContent(),
+            : _homeMode == _HomeMode.swap
+                ? _buildSwapHomeContent()
+                : _buildServicesContent(),
       ),
+    );
+  }
+
+  Widget _buildSwapHomeContent() {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      slivers: [
+        SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildModeSwitcher()),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
+            child: Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(18),
+                leading: Icon(Icons.swap_horizontal_circle_rounded, size: 44, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                title: const Text('كل عروض الاستبدال', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                subtitle: const Padding(padding: EdgeInsets.only(top: 6), child: Text('شوف عروض الناس وأضف عرض استبدال جديد من زر الإضافة.')),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapListingsPage())),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1056,6 +1084,16 @@ class _UserHomePageState extends State<UserHomePage> {
                 label: 'شراء',
                 subtitle: 'أكل وعروض',
                 color: _primaryRed,
+              ),
+            ),
+            SizedBox(width: 4),
+            Expanded(
+              child: _buildModeTile(
+                mode: _HomeMode.swap,
+                icon: Icons.swap_horizontal_circle_rounded,
+                label: 'استبدال',
+                subtitle: 'بدّل حاجتك',
+                color: _green,
               ),
             ),
             SizedBox(width: 4),
