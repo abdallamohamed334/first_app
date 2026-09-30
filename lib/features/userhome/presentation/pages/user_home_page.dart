@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/theme/theme_notifier.dart';
 
 import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
@@ -101,18 +102,19 @@ class _UserHomePageState extends State<UserHomePage> {
   Timer? _bannerTimer;
 
   // ───────── ألوان الديزاين ─────────
-  static const Color _bg = Color(0xFF101B19);
-  static const Color _card = Color(0xFF182824);
-  static const Color _cardSoft = Color(0xFF243A34);
-  static const Color _primaryRed = Color(0xFF27A982);
-  static const Color _primaryRedDark = Color(0xFF14745C);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _border = Color(0x14FFFFFF);
-  static const Color _orange = Color(0xFFE28B00);
-  static const Color _green = Color(0xFF2E9B5C);
-  static const Color _blue = Color(0xFF3679C8);
-  static const Color _purple = Color(0xFF6651B5);
+  static bool get _isDark => ThemeNotifier.isDarkMode.value;
+  static Color get _bg => _isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+  static Color get _card => _isDark ? const Color(0xFF121212) : const Color(0xFFFFFFFF);
+  static Color get _cardSoft => _isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF2F2F2);
+  static Color get _primaryRed => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
+  static Color get _primaryRedDark => _isDark ? const Color(0xFFCCCCCC) : const Color(0xFF000000);
+  static Color get _textPrimary => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
+  static Color get _textSecondary => _isDark ? const Color(0xFFB8B8B8) : const Color(0xFF555555);
+  static Color get _border => _isDark ? const Color(0x33FFFFFF) : const Color(0x22000000);
+  static Color get _orange => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
+  static Color get _green => _isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222);
+  static Color get _blue => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
+  static Color get _purple => _isDark ? const Color(0xFFDDDDDD) : const Color(0xFF444444);
 
   static const Set<String> _hiddenCategoryKeys = {};
   bool _openingCategory = false;
@@ -492,7 +494,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   width: 96,
                   height: 96,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [_primaryRed, _primaryRedDark],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
@@ -506,11 +508,11 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.lock_outline_rounded,
+                  child: Icon(Icons.lock_outline_rounded,
                       size: 44, color: Colors.white),
                 ),
-                const SizedBox(height: 32),
-                const Text(
+                SizedBox(height: 32),
+                Text(
                   'أهلًا بيك في وِصلة 👋',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -519,8 +521,8 @@ class _UserHomePageState extends State<UserHomePage> {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 14),
-                const Text(
+                SizedBox(height: 14),
+                Text(
                   'سجّل دخولك علشان تكتشف العروض القريبة منك وتشارك في مجتمع وِصلة.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -529,7 +531,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     height: 1.6,
                   ),
                 ),
-                const SizedBox(height: 36),
+                SizedBox(height: 36),
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -543,7 +545,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'تسجيل الدخول',
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
@@ -571,15 +573,15 @@ class _UserHomePageState extends State<UserHomePage> {
                 Container(
                   width: 92,
                   height: 92,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: _card,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.cloud_off_rounded,
+                  child: Icon(Icons.cloud_off_rounded,
                       size: 42, color: _primaryRed),
                 ),
-                const SizedBox(height: 28),
-                const Text(
+                SizedBox(height: 28),
+                Text(
                   'حصلت مشكلة بسيطة',
                   style: TextStyle(
                     color: _textPrimary,
@@ -587,23 +589,23 @@ class _UserHomePageState extends State<UserHomePage> {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textSecondary,
                     height: 1.6,
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: 32),
                 ElevatedButton.icon(
                   onPressed: () {
                     context.read<UserHomeBloc>().add(const UserHomeStarted());
                   },
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('إعادة المحاولة'),
+                  icon: Icon(Icons.refresh_rounded),
+                  label: Text('إعادة المحاولة'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primaryRed,
                     foregroundColor: Colors.white,
@@ -700,7 +702,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       size: 22,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,19 +710,19 @@ class _UserHomePageState extends State<UserHomePage> {
                       children: [
                         Text(
                           isServices ? 'خدمات وِصلة' : 'أقسام وِصلة',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _textPrimary,
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
                             height: 1.1,
                           ),
                         ),
-                        const SizedBox(height: 3),
+                        SizedBox(height: 3),
                         Text(
                           isServices
                               ? 'محترفين في كل المجالات'
                               : 'تصفح كل فئات الشراء',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _textSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -754,7 +756,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         color: _primaryRed,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Expanded(
                       child: _buildCategoriesSwitcherTile(
                         mode: _HomeMode.services,
@@ -871,7 +873,7 @@ class _UserHomePageState extends State<UserHomePage> {
               size: 18,
               color: selected ? Colors.white : _textSecondary,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -885,7 +887,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 1),
+                SizedBox(height: 1),
                 Text(
                   '$count قسم',
                   style: TextStyle(
@@ -925,8 +927,8 @@ class _UserHomePageState extends State<UserHomePage> {
               size: 36,
             ),
           ),
-          const SizedBox(height: 18),
-          const Text(
+          SizedBox(height: 18),
+          Text(
             'مفيش أقسام متاحة دلوقتي',
             style: TextStyle(
               color: _textPrimary,
@@ -934,8 +936,8 @@ class _UserHomePageState extends State<UserHomePage> {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'جرّب تحدّث الصفحة بعد شوية',
             style: TextStyle(color: _textSecondary, fontSize: 12.5),
           ),
@@ -978,7 +980,7 @@ class _UserHomePageState extends State<UserHomePage> {
           SliverToBoxAdapter(
               child: _buildRestaurantSection(state.restaurantOffers)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.only(bottom: 26),
             child: HomeLeaderboard(),
@@ -986,7 +988,7 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
         SliverToBoxAdapter(
             child: _buildCommunitySection(state.communityOffers)),
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
   }
@@ -1006,10 +1008,10 @@ class _UserHomePageState extends State<UserHomePage> {
             child: Row(children: [
               Icon(Icons.swap_horizontal_circle_rounded,
                   size: 42, color: colors.onPrimaryContainer),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('استبدال شيء', style: TextStyle(color: colors.onPrimaryContainer, fontSize: 18, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text('انشر ما تريد واستقبل عروضًا مثل: لابتوب مقابل iPhone 11', style: TextStyle(color: colors.onPrimaryContainer)),
               ])),
               Icon(Icons.arrow_forward_ios_rounded, size: 18, color: colors.onPrimaryContainer),
@@ -1030,7 +1032,7 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildServicesSearchBar()),
         SliverToBoxAdapter(child: _buildServicesHeroBanner()),
         SliverToBoxAdapter(child: _buildServiceCategoriesGrid()),
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
   }
@@ -1056,7 +1058,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 color: _primaryRed,
               ),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Expanded(
               child: _buildModeTile(
                 mode: _HomeMode.services,
@@ -1120,7 +1122,7 @@ class _UserHomePageState extends State<UserHomePage> {
               size: 18,
               color: selected ? Colors.white : _textSecondary,
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -1134,7 +1136,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     height: 1.1,
                   ),
                 ),
-                const SizedBox(height: 1),
+                SizedBox(height: 1),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -1164,14 +1166,14 @@ class _UserHomePageState extends State<UserHomePage> {
           border: Border.all(color: _border, width: 1),
         ),
         child: TextField(
-          style: const TextStyle(color: _textPrimary, fontSize: 14.5),
+          style: TextStyle(color: _textPrimary, fontSize: 14.5),
           decoration: InputDecoration(
             hintText: 'دور على سباك، كهربائي، نجار...',
             hintStyle: TextStyle(
               color: _textSecondary.withValues(alpha: 0.7),
               fontSize: 13.5,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search_rounded,
               color: _textSecondary,
               size: 22,
@@ -1190,7 +1192,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: Container(
         height: 150,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
@@ -1231,7 +1233,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               ),
             ),
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1283,7 +1285,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildServiceCategoriesGrid() {
     if (_loadingServiceCategories && _serviceCategories.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
         child: Center(
           child: CircularProgressIndicator(color: _primaryRed),
@@ -1307,7 +1309,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 height: 22,
                 margin: const EdgeInsets.only(left: 10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: [_primaryRed, _primaryRedDark],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1315,7 +1317,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'كل الخدمات',
                   style: TextStyle(
@@ -1327,7 +1329,7 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1384,14 +1386,14 @@ class _UserHomePageState extends State<UserHomePage> {
                   size: 22,
                 ),
               ),
-              const SizedBox(height: 9),
+              SizedBox(height: 9),
               Flexible(
                 child: Text(
                   cat.nameAr,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -1426,8 +1428,8 @@ class _UserHomePageState extends State<UserHomePage> {
               size: 36,
             ),
           ),
-          const SizedBox(height: 18),
-          const Text(
+          SizedBox(height: 18),
+          Text(
             'مفيش خدمات متاحة دلوقتي',
             style: TextStyle(
               color: _textPrimary,
@@ -1435,8 +1437,8 @@ class _UserHomePageState extends State<UserHomePage> {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
-          const Text(
+          SizedBox(height: 6),
+          Text(
             'جرّب تحدّث الصفحة بعد شوية',
             style: TextStyle(color: _textSecondary, fontSize: 12.5),
           ),
@@ -1503,7 +1505,7 @@ class _UserHomePageState extends State<UserHomePage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [_primaryRed, _primaryRedDark],
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
@@ -1517,7 +1519,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               ],
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.restaurant_rounded, color: Colors.white, size: 16),
@@ -1534,8 +1536,8 @@ class _UserHomePageState extends State<UserHomePage> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          const Expanded(
+          SizedBox(width: 12),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -1580,19 +1582,19 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: _textPrimary, fontSize: 14.5),
+                style: TextStyle(color: _textPrimary, fontSize: 14.5),
                 decoration: InputDecoration(
                   hintText: 'دور على محل، أو حاجة...',
                   hintStyle: TextStyle(
                     color: _textSecondary.withValues(alpha: 0.7),
                     fontSize: 13.5,
                   ),
-                  prefixIcon: const Icon(Icons.search_rounded,
+                  prefixIcon: Icon(Icons.search_rounded,
                       color: _textSecondary, size: 22),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           onPressed: _searchController.clear,
-                          icon: const Icon(Icons.close_rounded,
+                          icon: Icon(Icons.close_rounded,
                               color: _textSecondary, size: 20),
                         )
                       : null,
@@ -1602,7 +1604,7 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Container(
             width: 52,
             height: 52,
@@ -1621,7 +1623,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   ),
                 );
               },
-              icon: const Icon(Icons.notifications_none_rounded,
+              icon: Icon(Icons.notifications_none_rounded,
                   color: _primaryRed, size: 22),
             ),
           ),
@@ -1647,19 +1649,19 @@ class _UserHomePageState extends State<UserHomePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.location_on_rounded,
+                Icon(Icons.location_on_rounded,
                     color: _primaryRed, size: 15),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(
                   _userCity,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 if (hasLocation) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1670,7 +1672,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         color: _green.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.near_me_rounded, color: _green, size: 10),
@@ -1733,7 +1735,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 : _buildFallbackBanner(),
           ),
           if (hasBanners && banners.length > 1) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(banners.length, (i) {
@@ -1771,7 +1773,7 @@ class _UserHomePageState extends State<UserHomePage> {
       fit: StackFit.expand,
       children: [
         Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
@@ -1803,7 +1805,7 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1852,7 +1854,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildCategoriesGrid(UserHomeLoaded state) {
     if (state.categoriesLoading && state.categories.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: CircularProgressIndicator(color: _primaryRed),
@@ -1869,7 +1871,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }).toList();
 
     if (categories.isEmpty) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
 
     final isScrollable = categories.length > 9;
@@ -1928,7 +1930,7 @@ class _UserHomePageState extends State<UserHomePage> {
     final name = category['name_ar']?.toString() ?? 'تصنيف';
     final iconName = category['icon']?.toString() ?? '';
 
-    if (id.isEmpty) return const SizedBox.shrink();
+    if (id.isEmpty) return SizedBox.shrink();
 
     return Material(
       color: _card,
@@ -1966,14 +1968,14 @@ class _UserHomePageState extends State<UserHomePage> {
                   size: 22,
                 ),
               ),
-              const SizedBox(height: 9),
+              SizedBox(height: 9),
               Flexible(
                 child: Text(
                   name,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -2239,7 +2241,7 @@ class _UserHomePageState extends State<UserHomePage> {
         .take(6)
         .toList(growable: false);
 
-    if (urgent.isEmpty) return const SizedBox.shrink();
+    if (urgent.isEmpty) return SizedBox.shrink();
 
     return _section(
       title: 'محتاجين سرعة 🔥',
@@ -2250,7 +2252,7 @@ class _UserHomePageState extends State<UserHomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           itemCount: urgent.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, __) => SizedBox(width: 12),
           itemBuilder: (context, index) {
             final offer = urgent[index];
             return _FoodOfferLargeCard(
@@ -2281,7 +2283,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   ),
                 );
               },
-              child: const Text(
+              child: Text(
                 'عرض الكل',
                 style: TextStyle(
                   color: _primaryRed,
@@ -2299,7 +2301,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: visible.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, __) => SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final offer = visible[index];
                   return _FoodOfferCard(
@@ -2316,7 +2318,7 @@ class _UserHomePageState extends State<UserHomePage> {
     if (_loadingNearbySymbolicProviders && _nearbySymbolicProviders.isEmpty) {
       return _section(
         title: 'خدمات قريبة بسعر رمزي 🛠️',
-        child: const Padding(
+        child: Padding(
           padding: EdgeInsets.symmetric(vertical: 28),
           child: Center(
             child: CircularProgressIndicator(
@@ -2327,7 +2329,7 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       );
     }
-    if (_nearbySymbolicProviders.isEmpty) return const SizedBox.shrink();
+    if (_nearbySymbolicProviders.isEmpty) return SizedBox.shrink();
 
     return _section(
       title: 'ناس قريبة تساعدك بسعر رمزي 🛠️',
@@ -2345,7 +2347,7 @@ class _UserHomePageState extends State<UserHomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           itemCount: _nearbySymbolicProviders.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, __) => SizedBox(width: 12),
           itemBuilder: (context, index) {
             final provider = _nearbySymbolicProviders[index];
             final distance = _distanceKm(
@@ -2384,7 +2386,7 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           );
         },
-        child: const Text(
+        child: Text(
           'عرض الكل',
           style: TextStyle(
             color: _primaryRed,
@@ -2394,7 +2396,7 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       ),
       child: _loadingNeeds && visible.isEmpty
-          ? const Padding(
+          ? Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(
                 child: SizedBox(
@@ -2415,7 +2417,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     scrollDirection: Axis.horizontal,
                     itemCount: visible.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    separatorBuilder: (_, __) => SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final need = visible[index];
                       return _NeedCard(
@@ -2446,7 +2448,7 @@ class _UserHomePageState extends State<UserHomePage> {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
@@ -2473,14 +2475,14 @@ class _UserHomePageState extends State<UserHomePage> {
                     color: Colors.white.withValues(alpha: 0.18),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.volunteer_activism_rounded,
                     color: Colors.white,
                     size: 26,
                   ),
                 ),
-                const SizedBox(width: 14),
-                const Expanded(
+                SizedBox(width: 14),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2506,7 +2508,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
@@ -2523,7 +2525,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     },
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: _NeedsActionPill(
                     icon: Icons.assignment_outlined,
@@ -2566,7 +2568,7 @@ class _UserHomePageState extends State<UserHomePage> {
             MaterialPageRoute(builder: (_) => const AddCommunityOfferPage()),
           );
         },
-        child: const Text(
+        child: Text(
           'أضف عرض',
           style: TextStyle(
             color: _primaryRed,
@@ -2590,7 +2592,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: nearby.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, __) => SizedBox(width: 12),
                 itemBuilder: (context, index) {
                   final offer = nearby[index];
                   return _CommunityOfferCard(
@@ -2622,7 +2624,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   height: 22,
                   margin: const EdgeInsets.only(left: 10),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [_primaryRed, _primaryRedDark],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -2633,7 +2635,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _textPrimary,
                       fontSize: 17.5,
                       fontWeight: FontWeight.w900,
@@ -2644,7 +2646,7 @@ class _UserHomePageState extends State<UserHomePage> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           child,
         ],
       ),
@@ -2667,18 +2669,18 @@ class _UserHomePageState extends State<UserHomePage> {
             Container(
               width: 54,
               height: 54,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _cardSoft,
                 shape: BoxShape.circle,
               ),
               child: Icon(icon,
                   color: _textSecondary.withValues(alpha: 0.7), size: 26),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(
               text,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _textSecondary,
                 fontSize: 13,
                 height: 1.5,
@@ -2754,7 +2756,7 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           ],
         ),
-        child: const Icon(Icons.add_rounded, size: 30),
+        child: Icon(Icons.add_rounded, size: 30),
       ),
     );
   }
@@ -2783,8 +2785,8 @@ class _UserHomePageState extends State<UserHomePage> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
+                  SizedBox(height: 18),
+                  Text(
                     'إنت عايز تعمل إيه؟',
                     style: TextStyle(
                       fontSize: 19,
@@ -2792,15 +2794,15 @@ class _UserHomePageState extends State<UserHomePage> {
                       color: _textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 6),
+                  Text(
                     'اختار من الخيارات',
                     style: TextStyle(
                       fontSize: 12.5,
                       color: _textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  SizedBox(height: 22),
                   _AddActionTile(
                     icon: Icons.volunteer_activism_rounded,
                     title: 'أتبرع بحاجة',
@@ -2814,7 +2816,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _AddActionTile(
                     icon: Icons.sell_rounded,
                     title: 'أبيع حاجة بسعر رمزي',
@@ -2828,7 +2830,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _AddActionTile(
                     icon: Icons.volunteer_activism_outlined,
                     title: 'أنا محتاج حاجة',
@@ -2965,7 +2967,7 @@ class _NeedsActionPill extends StatelessWidget {
                 size: 15,
                 color: filled ? const Color(0xFF3679C8) : Colors.white,
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Flexible(
                 child: Text(
                   label,
@@ -3031,7 +3033,7 @@ class _NeedCard extends StatelessWidget {
             Container(
               height: 80,
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
                   begin: Alignment.topRight,
@@ -3045,7 +3047,7 @@ class _NeedCard extends StatelessWidget {
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        errorBuilder: (_, __, ___) => SizedBox.shrink(),
                       ),
                     ),
                   if (imageUrl != null && imageUrl.isNotEmpty)
@@ -3074,7 +3076,7 @@ class _NeedCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Center(
+                  Center(
                     child: Icon(
                       Icons.volunteer_activism_rounded,
                       color: Colors.white,
@@ -3095,10 +3097,10 @@ class _NeedCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(urgencyData.$1, color: Colors.white, size: 10),
-                          const SizedBox(width: 3),
+                          SizedBox(width: 3),
                           Text(
                             urgencyData.$2,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 9,
                               fontWeight: FontWeight.w900,
@@ -3120,14 +3122,14 @@ class _NeedCard extends StatelessWidget {
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontSize: 13.5,
                       fontWeight: FontWeight.w900,
                       height: 1.3,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -3138,15 +3140,15 @@ class _NeedCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.local_offer_rounded,
+                        Icon(Icons.local_offer_rounded,
                             size: 10, color: _UserHomePageState._textSecondary),
-                        const SizedBox(width: 4),
+                        SizedBox(width: 4),
                         Flexible(
                           child: Text(
                             category,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _UserHomePageState._textSecondary,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -3156,7 +3158,7 @@ class _NeedCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(
                     children: [
                       if (city.isNotEmpty) ...[
@@ -3166,13 +3168,13 @@ class _NeedCard extends StatelessWidget {
                           color: _UserHomePageState._textSecondary
                               .withValues(alpha: 0.7),
                         ),
-                        const SizedBox(width: 3),
+                        SizedBox(width: 3),
                         Expanded(
                           child: Text(
                             city,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _UserHomePageState._textSecondary,
                               fontSize: 10.5,
                             ),
@@ -3189,7 +3191,7 @@ class _NeedCard extends StatelessWidget {
                         ),
                         child: Text(
                           'الكمية: $quantity',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Color(0xFF3679C8),
                             fontSize: 9.5,
                             fontWeight: FontWeight.w800,
@@ -3283,7 +3285,7 @@ class _FoodOfferLargeCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [Color(0xFFE28B00), Color(0xFFB77700)],
                         ),
                         borderRadius: BorderRadius.circular(100),
@@ -3295,7 +3297,7 @@ class _FoodOfferLargeCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: const Text(
+                      child: Text(
                         'عاجل 🔥',
                         style: TextStyle(
                           color: Colors.white,
@@ -3317,32 +3319,32 @@ class _FoodOfferLargeCard extends StatelessWidget {
                     offer.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     offer.businessName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.schedule_rounded,
+                      Icon(Icons.schedule_rounded,
                           size: 13, color: _UserHomePageState._primaryRed),
-                      const SizedBox(width: 4),
+                      SizedBox(width: 4),
                       Text(
                         offer.timeRemaining,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _UserHomePageState._primaryRed,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
@@ -3409,47 +3411,47 @@ class _FoodOfferCard extends StatelessWidget {
                 children: [
                   Text(
                     offer.priceDisplay,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._primaryRed,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     offer.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: 7),
                   Text(
                     offer.businessName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (offer.distanceMeters != null) ...[
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Row(
                       children: [
                         Icon(Icons.location_on_rounded,
                             size: 11,
                             color: _UserHomePageState._textSecondary
                                 .withValues(alpha: 0.7)),
-                        const SizedBox(width: 3),
+                        SizedBox(width: 3),
                         Text(
                           offer.distanceDisplay,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _UserHomePageState._textSecondary,
                             fontSize: 10.5,
                           ),
@@ -3495,7 +3497,7 @@ class _FoodImage extends StatelessWidget {
       fit: BoxFit.cover,
       placeholder: (_, __) => Container(
         color: _UserHomePageState._cardSoft,
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 22,
             height: 22,
@@ -3573,36 +3575,36 @@ class _CommunityOfferCard extends StatelessWidget {
                     children: [
                       Text(
                         price,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _UserHomePageState._primaryRed,
                           fontSize: 15,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _UserHomePageState._textPrimary,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (description.isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        SizedBox(height: 3),
                         Text(
                           description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _UserHomePageState._textSecondary,
                             fontSize: 12,
                           ),
                         ),
                       ],
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Row(
                         children: [
                           Container(
@@ -3614,7 +3616,7 @@ class _CommunityOfferCard extends StatelessWidget {
                             ),
                             child: Text(
                               category,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _UserHomePageState._textSecondary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -3622,10 +3624,10 @@ class _CommunityOfferCard extends StatelessWidget {
                             ),
                           ),
                           if (distance != null) ...[
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             Text(
                               distance,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _UserHomePageState._textSecondary,
                                 fontSize: 11,
                               ),
@@ -3634,7 +3636,7 @@ class _CommunityOfferCard extends StatelessWidget {
                         ],
                       ),
                       if (expiresAt != null) ...[
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         OfferExpiryHelper.buildBadge(
                           expiresAt: expiresAt,
                           compact: true,
@@ -3682,45 +3684,45 @@ class _CommunityOfferCard extends StatelessWidget {
                 children: [
                   Text(
                     price,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._primaryRed,
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  SizedBox(height: 5),
                   Text(
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 7),
+                  SizedBox(height: 7),
                   Text(
                     category,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   if (distance != null) ...[
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       distance,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _UserHomePageState._textSecondary,
                         fontSize: 10.5,
                       ),
                     ),
                   ],
                   if (expiresAt != null) ...[
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     OfferExpiryHelper.buildBadge(
                       expiresAt: expiresAt,
                       compact: true,
@@ -3833,11 +3835,11 @@ class _CommunityEmptyCard extends StatelessWidget {
                 color: _UserHomePageState._primaryRed.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.sell_rounded,
+              child: Icon(Icons.sell_rounded,
                   color: _UserHomePageState._primaryRed, size: 24),
             ),
-            const SizedBox(width: 14),
-            const Expanded(
+            SizedBox(width: 14),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3861,7 +3863,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             ElevatedButton(
               onPressed: onAdd,
               style: ElevatedButton.styleFrom(
@@ -3874,7 +3876,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('أضف',
+              child: Text('أضف',
                   style: TextStyle(fontWeight: FontWeight.w800)),
             ),
           ],
@@ -3903,7 +3905,7 @@ class _BannerImage extends StatelessWidget {
     if (imageUrl == null || imageUrl.isEmpty || imageUrl == 'null') {
       return Container(
         color: _UserHomePageState._cardSoft,
-        child: const Center(
+        child: Center(
           child: Icon(Icons.restaurant_menu_rounded,
               color: _UserHomePageState._textSecondary, size: 42),
         ),
@@ -3915,7 +3917,7 @@ class _BannerImage extends StatelessWidget {
       fit: BoxFit.cover,
       errorWidget: (_, __, ___) => Container(
         color: _UserHomePageState._cardSoft,
-        child: const Center(
+        child: Center(
           child: Icon(Icons.restaurant_menu_rounded,
               color: _UserHomePageState._textSecondary, size: 42),
         ),
@@ -3963,23 +3965,23 @@ class _AddActionTile extends StatelessWidget {
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 12,
                       height: 1.35,
@@ -3988,7 +3990,7 @@ class _AddActionTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_left_rounded,
+            Icon(Icons.chevron_left_rounded,
                 color: _UserHomePageState._textSecondary, size: 24),
           ],
         ),
@@ -4069,7 +4071,7 @@ class _BottomNavItem extends StatelessWidget {
                       : _UserHomePageState._textSecondary,
                 ),
               ),
-              const SizedBox(height: 3),
+              SizedBox(height: 3),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
@@ -4131,7 +4133,7 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
                   child: imageUrl == null || imageUrl.isEmpty
                       ? Container(
                           color: _UserHomePageState._cardSoft,
-                          child: const Icon(
+                          child: Icon(
                             Icons.handyman_rounded,
                             color: _UserHomePageState._primaryRed,
                             size: 42,
@@ -4142,7 +4144,7 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           errorWidget: (_, __, ___) => Container(
                             color: _UserHomePageState._cardSoft,
-                            child: const Icon(
+                            child: Icon(
                               Icons.handyman_rounded,
                               color: _UserHomePageState._primaryRed,
                               size: 42,
@@ -4160,48 +4162,48 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
                       provider.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _UserHomePageState._textPrimary,
                         fontSize: 14.5,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    SizedBox(height: 5),
                     Text(
                       provider.categoryName ?? 'خدمات متنوعة',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _UserHomePageState._textSecondary,
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 9),
+                    SizedBox(height: 9),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on_rounded,
                           color: _UserHomePageState._primaryRed,
                           size: 15,
                         ),
-                        const SizedBox(width: 3),
+                        SizedBox(width: 3),
                         Text(
                           distanceLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _UserHomePageState._textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         const Spacer(),
-                        const Icon(Icons.star_rounded,
+                        Icon(Icons.star_rounded,
                             color: Color(0xFFFFC107), size: 15),
-                        const SizedBox(width: 2),
+                        SizedBox(width: 2),
                         Text(
                           provider.ratingAvg > 0
                               ? provider.ratingAvg.toStringAsFixed(1)
                               : 'جديد',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _UserHomePageState._textSecondary,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -4209,7 +4211,7 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 9),
+                    SizedBox(height: 9),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 9,
@@ -4222,7 +4224,7 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
                       ),
                       child: Text(
                         provider.pricingLabel,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _UserHomePageState._primaryRed,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
@@ -4258,7 +4260,7 @@ class _LoadingHome extends StatelessWidget {
               width: 76,
               height: 76,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   colors: [
                     _UserHomePageState._primaryRed,
                     _UserHomePageState._primaryRedDark,
@@ -4276,11 +4278,11 @@ class _LoadingHome extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(Icons.volunteer_activism_rounded,
+              child: Icon(Icons.volunteer_activism_rounded,
                   color: Colors.white, size: 34),
             ),
-            const SizedBox(height: 24),
-            const SizedBox(
+            SizedBox(height: 24),
+            SizedBox(
               width: 26,
               height: 26,
               child: CircularProgressIndicator(
@@ -4288,8 +4290,8 @@ class _LoadingHome extends StatelessWidget {
                 color: _UserHomePageState._primaryRed,
               ),
             ),
-            const SizedBox(height: 18),
-            const Text(
+            SizedBox(height: 18),
+            Text(
               'وِصلة بتحضرلك الخير...',
               style: TextStyle(
                 color: _UserHomePageState._textSecondary,

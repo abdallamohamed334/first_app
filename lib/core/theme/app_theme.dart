@@ -6,32 +6,30 @@ class AppTheme {
 
   static const String fontFamily = 'IBM Plex Sans Arabic';
 
-  static const Color _lightBackground = Color(0xFFFBF9F9);
-  static const Color _lightText = Color(0xFF1B1C1C);
-  static const Color _darkBackground = Color(0xFF1B1C1C);
-  static const Color _darkText = Color(0xFFE3E2E2);
-  static const Color _green = Color(0xFF0D631B);
-  static const Color _lightGreen = Color(0xFF88D982);
-  static const Color _orange = Color(0xFF8B5000);
-  static const Color _lightOrange = Color(0xFFFFB870);
+  static const Color _lightBackground = Color(0xFFFFFFFF);
+  static const Color _lightText = Color(0xFF111111);
+  static const Color _darkBackground = Color(0xFF000000);
+  static const Color _darkText = Color(0xFFFFFFFF);
+  static const Color _black = Color(0xFF111111);
+  static const Color _white = Color(0xFFFFFFFF);
 
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: _green,
+      seedColor: _black,
       brightness: Brightness.light,
     ).copyWith(
-      primary: _green,
+      primary: _black,
       onPrimary: Colors.white,
-      secondary: _orange,
+      secondary: const Color(0xFF333333),
       onSecondary: Colors.white,
-      tertiary: const Color(0xFF006419),
+      tertiary: _black,
       onTertiary: Colors.white,
       error: const Color(0xFFBA1A1A),
       onError: Colors.white,
       surface: _lightBackground,
       onSurface: _lightText,
-      outline: const Color(0xFF707A6C),
-      outlineVariant: const Color(0xFFBFCABA),
+      outline: const Color(0xFF666666),
+      outlineVariant: const Color(0xFFD0D0D0),
     );
 
     return _baseTheme(
@@ -43,21 +41,21 @@ class AppTheme {
 
   static ThemeData dark() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: _lightGreen,
+      seedColor: _white,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: _lightGreen,
-      onPrimary: const Color(0xFF002204),
-      secondary: _lightOrange,
-      onSecondary: const Color(0xFF2C1600),
-      tertiary: const Color(0xFF98F994),
-      onTertiary: const Color(0xFF002204),
+      primary: _white,
+      onPrimary: _black,
+      secondary: const Color(0xFFDDDDDD),
+      onSecondary: _black,
+      tertiary: _white,
+      onTertiary: _black,
       error: const Color(0xFFFFB4AB),
       onError: const Color(0xFF690005),
       surface: _darkBackground,
       onSurface: _darkText,
-      outline: const Color(0xFF899383),
-      outlineVariant: const Color(0xFF40493D),
+      outline: const Color(0xFFAAAAAA),
+      outlineVariant: const Color(0xFF444444),
     );
 
     return _baseTheme(

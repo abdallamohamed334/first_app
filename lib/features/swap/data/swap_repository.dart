@@ -25,7 +25,8 @@ class SwapRepository {
     final row = await _client.from('swap_listings').select('''
       id, owner_id, wanted_title, description, category, wanted_condition,
       city, governorate, latitude, longitude, images, status, expires_at,
-      created_at, updated_at, users:owner_id(name, avatar_url)
+      contact_phone, contact_whatsapp, created_at, updated_at,
+      users:owner_id(name, avatar_url)
     ''').eq('id', id).single();
     final proposals = await _client.from('swap_proposals').select('''
       id, listing_id, proposer_id, offered_title, offered_description,
@@ -42,6 +43,8 @@ class SwapRepository {
     required String description,
     required String category,
     required String wantedCondition,
+    required String contactPhone,
+    required String contactWhatsapp,
     String? city,
     String? governorate,
     double? latitude,
@@ -49,8 +52,12 @@ class SwapRepository {
   }) async {
     final title = wantedTitle.trim();
     final body = description.trim();
+    final phone = _cleanPhone(contactPhone);
+    final whatsapp = _cleanPhone(contactWhatsapp);
     if (title.length < 3) throw Exception('اكتب الشيء المطلوب استبداله بوضوح');
     if (body.length < 10) throw Exception('الوصف يجب أن يكون 10 أحرف على الأقل');
+    if (!_isValidPhone(phone)) throw Exception('رقم الهاتف غير صحيح (مثال: 01012345678)');
+    if (!_isValidPhone(whatsapp)) throw Exception('رقم الواتساب غير صحيح (مثال: 01012345678)');
     if (latitude != null && (latitude < -90 || latitude > 90)) throw Exception('الموقع غير صحيح');
     if (longitude != null && (longitude < -180 || longitude > 180)) throw Exception('الموقع غير صحيح');
     final row = await _client.from('swap_listings').insert({
@@ -59,12 +66,22 @@ class SwapRepository {
       'description': body,
       'category': category.trim().isEmpty ? 'other' : category.trim(),
       'wanted_condition': wantedCondition,
+      'contact_phone': phone,
+      'contact_whatsapp': whatsapp,
       'city': city?.trim().isEmpty == true ? null : city?.trim(),
       'governorate': governorate?.trim().isEmpty == true ? null : governorate?.trim(),
       'latitude': latitude,
       'longitude': longitude,
     }).select().single();
     return Map<String, dynamic>.from(row);
+  }
+
+  String _cleanPhone(String value) =>
+      value.trim().replaceAll(RegExp(r'[^0-9+ ()-]'), '');
+
+  bool _isValidPhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.length >= 8 && digits.length <= 15;
   }
 
   Future<Map<String, dynamic>> createProposal({
@@ -101,7 +118,7 @@ class SwapRepository {
   Future<List<Map<String, dynamic>>> myListings() async {
     final rows = await _client.from('swap_listings').select('''
       id, owner_id, wanted_title, description, category, wanted_condition,
-      city, status, expires_at, created_at,
+      city, contact_phone, contact_whatsapp, status, expires_at, created_at,
       swap_proposals(id, proposer_id, offered_title, offered_description, offered_condition, status, created_at, users:proposer_id(name, avatar_url))
     ''').eq('owner_id', _uid).order('created_at', ascending: false);
     return (rows as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
