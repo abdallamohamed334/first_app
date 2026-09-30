@@ -39,6 +39,7 @@ import '../features/business/restaurant/presentation/pages/business_restaurant_p
 import '../features/charity/presentation/pages/charity_workspace_page.dart';
 
 import '../features/institutions/presentation/pages/institutions_home_page.dart';
+import '../features/swap/presentation/pages/swap_pages.dart';
 
 class AppRouter {
   // ═══════════════════════════════════════════════════════════
@@ -75,6 +76,7 @@ class AppRouter {
   static const String charities = '/charities';
   static const String offerDetails = '/offer/:id';
   static const String placeholder = '/placeholder';
+  static const String swaps = '/swaps';
 
   // ⚠️ Legacy
   static const String restaurantHome = '/restaurant-home';
@@ -475,6 +477,12 @@ class AppRouter {
           final id = state.pathParameters['id'] ?? '';
           return OfferDetailsPage(offer: {'id': id});
         },
+      ),
+
+      GoRoute(
+        path: swaps,
+        name: 'swaps',
+        builder: (context, state) => const SwapListingsPage(),
       ),
 
       // ─────────────────────────────────────────────

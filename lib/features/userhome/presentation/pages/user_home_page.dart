@@ -44,6 +44,7 @@ import 'package:loqma/features/userhome/presentation/pages/category_offers_page.
 import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
+import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات
@@ -968,6 +969,7 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
         SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
+        SliverToBoxAdapter(child: _buildSwapSection()),
         SliverToBoxAdapter(child: _buildNearbySymbolicProviders()),
         if (_AppFeatures.showUrgentSection && _AppFeatures.showRestaurants)
           SliverToBoxAdapter(
@@ -989,6 +991,34 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  Widget _buildSwapSection() {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+      child: Card(
+        color: colors.primaryContainer,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const SwapListingsPage())),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              Icon(Icons.swap_horizontal_circle_rounded,
+                  size: 42, color: colors.onPrimaryContainer),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('استبدال شيء', style: TextStyle(color: colors.onPrimaryContainer, fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 4),
+                Text('انشر ما تريد واستقبل عروضًا مثل: لابتوب مقابل iPhone 11', style: TextStyle(color: colors.onPrimaryContainer)),
+              ])),
+              Icon(Icons.arrow_forward_ios_rounded, size: 18, color: colors.onPrimaryContainer),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _buildServicesContent() {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(
