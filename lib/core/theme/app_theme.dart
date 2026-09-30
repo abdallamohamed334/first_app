@@ -6,9 +6,9 @@ class AppTheme {
 
   static const String fontFamily = 'IBM Plex Sans Arabic';
 
-  static const Color _lightBackground = Color(0xFFFFFFFF);
+  static const Color _lightBackground = Color(0xFFF8F8F7);
   static const Color _lightText = Color(0xFF111111);
-  static const Color _darkBackground = Color(0xFF000000);
+  static const Color _darkBackground = Color(0xFF101010);
   static const Color _darkText = Color(0xFFFFFFFF);
   static const Color _black = Color(0xFF111111);
   static const Color _white = Color(0xFFFFFFFF);
@@ -72,7 +72,7 @@ class AppTheme {
   }) {
     final isDark = brightness == Brightness.dark;
     final inputFill =
-        isDark ? scheme.surfaceContainerHighest : const Color(0xFFF4F1F1);
+        isDark ? scheme.surfaceContainerHighest : const Color(0xFFF0F0EE);
 
     return ThemeData(
       useMaterial3: true,

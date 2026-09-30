@@ -29,7 +29,32 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
           _IntroCard(color: c.primary), const SizedBox(height: 12),
           TextField(controller: _search, onSubmitted: (_) => _reload(), textInputAction: TextInputAction.search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'ابحث عن شيء مطلوب...')),
           const SizedBox(height: 16),
-          if (rows.isEmpty) const _StateMessage(title: 'لا توجد استبدالات منشورة حاليًا') else ...rows.map((r) => _ListingCard(row: r, onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: r['id'].toString()))); if (mounted) _reload(); })),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('عروض الاستبدال', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            Text('${rows.length} عرض', style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 10),
+          if (rows.isEmpty)
+            const _StateMessage(title: 'لا توجد استبدالات منشورة حاليًا')
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: rows.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 14,
+                childAspectRatio: .68,
+              ),
+              itemBuilder: (context, index) {
+                final r = rows[index];
+                return _ListingCard(row: r, onTap: () async {
+                  await Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: r['id'].toString())));
+                  if (mounted) _reload();
+                });
+              },
+            ),
         ]);
       })),
     ));
@@ -595,33 +620,51 @@ class _ListingCard extends StatelessWidget {
     final user = row['users'] as Map?;
     final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(children: [
-            images.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(images.first, width: 58, height: 58, fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => CircleAvatar(backgroundColor: c.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: c.onPrimaryContainer))),
-                  )
-                : CircleAvatar(backgroundColor: c.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: c.onPrimaryContainer)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('مطلوب: ${row['wanted_title']}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-              const SizedBox(height: 5),
-              Text(row['description']?.toString() ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 5),
-              Text('${user?['name'] ?? 'مستخدم'} • ${row['category'] ?? 'أخرى'}', style: TextStyle(color: c.onSurfaceVariant, fontSize: 12)),
-            ])),
-          ]),
-        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Stack(fit: StackFit.expand, children: [
+              images.isNotEmpty
+                  ? Image.network(images.first, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(c))
+                  : _imageFallback(c),
+              Positioned(
+                top: 9,
+                right: 9,
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: .72), shape: BoxShape.circle),
+                  child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 9),
+                  decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xDD000000)])),
+                  child: Text('مطلوب: ${row['wanted_title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
+                ),
+              ),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Row(children: [
+              CircleAvatar(radius: 12, backgroundColor: c.primaryContainer, child: Icon(Icons.person_rounded, size: 14, color: c.onPrimaryContainer)),
+              const SizedBox(width: 6),
+              Expanded(child: Text('${row['governorate'] ?? 'المحافظة'} • ${_conditionLabel(row['wanted_condition']?.toString())}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700))),
+            ]),
+          ),
+        ]),
       ),
     );
   }
+
+  Widget _imageFallback(ColorScheme c) => Container(color: c.surfaceContainerHighest, alignment: Alignment.center, child: Icon(Icons.swap_horiz_rounded, size: 52, color: c.onSurfaceVariant));
 }
 
 class _IntroCard extends StatelessWidget {
