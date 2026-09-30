@@ -46,6 +46,7 @@ import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.d
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
 import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
+import 'package:loqma/features/swap/data/swap_repository.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات
@@ -76,6 +77,8 @@ class _UserHomePageState extends State<UserHomePage> {
       ServiceCategoriesRepository();
   final ServiceProvidersRepository _serviceProvidersRepository =
       ServiceProvidersRepository();
+  final SwapRepository _swapRepository = SwapRepository();
+  Future<List<Map<String, dynamic>>>? _nearbySwapsFuture;
 
   int _currentPage = 0;
   List<InstitutionOffer> _institutionOffers = [];
@@ -970,20 +973,50 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
-            child: Card(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(18),
-                leading: Icon(Icons.swap_horizontal_circle_rounded, size: 44, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                title: const Text('كل عروض الاستبدال', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                subtitle: const Padding(padding: EdgeInsets.only(top: 6), child: Text('شوف عروض الناس وأضف عرض استبدال جديد من زر الإضافة.')),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapListingsPage())),
-              ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _nearbySwapsFuture ??= _swapRepository.listNearbyOpenListings(),
+              builder: (context, snapshot) {
+                final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Card(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(18),
+                      leading: Icon(Icons.swap_horizontal_circle_rounded, size: 44, color: Theme.of(context).colorScheme.onPrimaryContainer),
+                      title: const Text('استبدالات قريبة منك', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      subtitle: const Padding(padding: EdgeInsets.only(top: 6), child: Text('العروض الأقرب لموقعك، ويمكنك رؤية كل العروض من هنا.')),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapListingsPage())),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
+                  else if (rows.isEmpty)
+                    const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('لا توجد عروض استبدال قريبة حاليًا')))
+                  else
+                    ...rows.take(6).map(_buildNearbySwapCard),
+                ]);
+              },
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildNearbySwapCard(Map<String, dynamic> row) {
+    final colors = Theme.of(context).colorScheme;
+    final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: images.isEmpty ? CircleAvatar(backgroundColor: colors.primaryContainer, child: Icon(Icons.swap_horiz_rounded, color: colors.onPrimaryContainer)) : ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(images.first, width: 54, height: 54, fit: BoxFit.cover)),
+        title: Text('مطلوب: ${row['wanted_title']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text('${row['governorate'] ?? 'المحافظة غير محددة'}\n${row['description'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))),
+      ),
     );
   }
 
@@ -2865,6 +2898,19 @@ class _UserHomePageState extends State<UserHomePage> {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                             builder: (_) => const AddCommunityOfferPage()),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  _AddActionTile(
+                    icon: Icons.swap_horizontal_circle_rounded,
+                    title: 'استبدل حاجة',
+                    subtitle: 'عندي حاجة وعايز أبدلها بحاجة تانية',
+                    color: _blue,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const CreateSwapListingPage()),
                       );
                     },
                   ),

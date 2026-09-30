@@ -52,8 +52,16 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   final _repo = SwapRepository();
   final _picker = ImagePicker();
   XFile? _image;
+  String? _governorate;
   String _condition = 'any';
   bool _busy = false;
+
+  static const _governorates = [
+    'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'القليوبية',
+    'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد',
+    'الإسماعيلية', 'السويس', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط',
+    'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'مطروح', 'شمال سيناء', 'جنوب سيناء',
+  ];
 
   @override
   void dispose() {
@@ -78,6 +86,7 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
         contactPhone: _phone.text,
         contactWhatsapp: _whatsapp.text,
         images: imageUrl == null ? const [] : [imageUrl],
+        governorate: _governorate,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -136,6 +145,14 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(labelText: 'رقم واتساب', hintText: '01012345678'),
                 validator: (v) => v == null || v.trim().length < 8 ? 'أدخل رقم الواتساب' : null,
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: _governorate,
+                decoration: const InputDecoration(labelText: 'المحافظة', prefixIcon: Icon(Icons.location_on_outlined)),
+                items: _governorates.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+                onChanged: (value) => setState(() => _governorate = value),
+                validator: (value) => value == null ? 'اختار المحافظة' : null,
               ),
               const SizedBox(height: 14),
               InkWell(
@@ -410,8 +427,52 @@ class _ProposalSheetState extends State<_ProposalSheet> {
   }
 }
 
-class MySwapsPage extends StatefulWidget { const MySwapsPage({super.key}); @override State<MySwapsPage> createState() => _MySwapsPageState(); }
-class _MySwapsPageState extends State<MySwapsPage> with SingleTickerProviderStateMixin { final _repo = SwapRepository(); late TabController _tabs; late Future<List<Map<String, dynamic>>> _proposals; late Future<List<Map<String, dynamic>>> _listings; @override void initState() { super.initState(); _tabs = TabController(length: 2, vsync: this); _load(); } void _load() { _proposals = _repo.myProposals(); _listings = _repo.myListings(); if (mounted) setState(() {}); } @override void dispose() { _tabs.dispose(); super.dispose(); } @override Widget build(BuildContext context) { final c = Theme.of(context).colorScheme; return Directionality(textDirection: TextDirection.rtl, child: Scaffold(appBar: AppBar(title: const Text('استبدالاتي'), bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'عروضي'), Tab(text: 'إعلاناتي')], onTap: (_) => setState(() {}))), body: TabBarView(controller: _tabs, children: [_ProposalList(future: _proposals, repo: _repo, reload: _load), _ListingList(future: _listings, repo: _repo, reload: _load)]))); } }
+class MySwapsPage extends StatefulWidget {
+  const MySwapsPage({super.key});
+  @override State<MySwapsPage> createState() => _MySwapsPageState();
+}
+
+class _MySwapsPageState extends State<MySwapsPage> with SingleTickerProviderStateMixin {
+  final _repo = SwapRepository();
+  late final TabController _tabs;
+  late Future<List<Map<String, dynamic>>> _proposals;
+  late Future<List<Map<String, dynamic>>> _listings;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 3, vsync: this);
+    _load();
+  }
+
+  void _load() {
+    _proposals = _repo.myProposals();
+    _listings = _repo.myListings();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() { _tabs.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('استبدالاتي', style: TextStyle(fontWeight: FontWeight.w900)),
+          bottom: TabBar(controller: _tabs, tabs: const [Tab(text: 'عروضي'), Tab(text: 'النشطة'), Tab(text: 'المنتهية')]),
+        ),
+        body: TabBarView(controller: _tabs, children: [
+          _ProposalList(future: _proposals, repo: _repo, reload: _load),
+          _MyListingList(future: _listings, ended: false, repo: _repo, reload: _load),
+          _MyListingList(future: _listings, ended: true, repo: _repo, reload: _load),
+        ]),
+      ),
+    );
+  }
+}
+
 class _ProposalList extends StatelessWidget {
   final Future<List<Map<String, dynamic>>> future;
   final SwapRepository repo;
@@ -419,60 +480,79 @@ class _ProposalList extends StatelessWidget {
   const _ProposalList({required this.future, required this.repo, required this.reload});
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: future,
-      builder: (context, s) => _asyncList(s, (r) {
-        return Card(
-          child: ListTile(
-            leading: const Icon(Icons.call_made_rounded),
-            title: Text(r['offered_title']?.toString() ?? ''),
-            subtitle: Text('على: ${(r['swap_listings'] as Map?)?['wanted_title'] ?? ''}\nالحالة: ${_statusLabel(r['status'])}'),
-            isThreeLine: true,
-            trailing: r['status'] == 'pending'
-                ? IconButton(
-                    onPressed: () async {
-                      await repo.updateProposalStatus(proposalId: r['id'].toString(), status: 'withdrawn');
-                      reload();
-                    },
-                    icon: const Icon(Icons.undo_rounded),
-                  )
-                : null,
-          ),
-        );
-      }),
-    );
-  }
+  Widget build(BuildContext context) => _asyncList(future, (r) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    child: ListTile(
+      leading: CircleAvatar(backgroundColor: Theme.of(context).colorScheme.primaryContainer, child: const Icon(Icons.call_made_rounded)),
+      title: Text(r['offered_title']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text('على: ${(r['swap_listings'] as Map?)?['wanted_title'] ?? ''}\n${_statusLabel(r['status'])}'),
+      isThreeLine: true,
+      trailing: r['status'] == 'pending' ? IconButton(onPressed: () async { await repo.updateProposalStatus(proposalId: r['id'].toString(), status: 'withdrawn'); reload(); }, icon: const Icon(Icons.cancel_outlined)) : null,
+    ),
+  ));
 }
 
-class _ListingList extends StatelessWidget {
+class _MyListingList extends StatelessWidget {
   final Future<List<Map<String, dynamic>>> future;
+  final bool ended;
   final SwapRepository repo;
   final VoidCallback reload;
-  const _ListingList({required this.future, required this.repo, required this.reload});
+  const _MyListingList({required this.future, required this.ended, required this.repo, required this.reload});
+
+  bool _isEnded(Map<String, dynamic> row) {
+    final expires = DateTime.tryParse(row['expires_at']?.toString() ?? '');
+    return row['status'] != 'open' || (expires != null && !expires.isAfter(DateTime.now().toUtc()));
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: future,
-      builder: (context, s) => _asyncList(s, (r) {
-        final ps = (r['swap_proposals'] as List? ?? []).cast<Map<String, dynamic>>();
-        return Card(
-          child: ListTile(
-            title: Text(r['wanted_title']?.toString() ?? ''),
-            subtitle: Text('${ps.length} عرض مقابل\nالحالة: ${_statusLabel(r['status'])}'),
-            trailing: IconButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: r['id'].toString()))),
-              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: future,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+      if (snapshot.hasError) return const _StateMessage(title: 'تعذر تحميل استبدالاتك');
+      final rows = (snapshot.data ?? []).where((r) => _isEnded(r) == ended).toList();
+      if (rows.isEmpty) return _StateMessage(title: ended ? 'لا توجد استبدالات منتهية' : 'لا توجد استبدالات نشطة');
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (images.isNotEmpty) ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(images.first, height: 150, width: double.infinity, fit: BoxFit.cover)),
+                if (images.isNotEmpty) const SizedBox(height: 10),
+                Text(row['wanted_title']?.toString() ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 5),
+                Text('${row['governorate'] ?? 'المحافظة غير محددة'} • ${_statusLabel(_isEnded(row) ? 'expired' : row['status'])}'),
+                const SizedBox(height: 10),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  if (!ended) TextButton.icon(onPressed: () async { await repo.closeListing(row['id'].toString()); reload(); }, icon: const Icon(Icons.cancel_outlined), label: const Text('إلغاء الاستبدال')),
+                  if (ended) TextButton.icon(onPressed: () async { await repo.hideListing(row['id'].toString()); reload(); }, icon: const Icon(Icons.delete_outline), label: const Text('حذف من قائمتي')),
+                  const SizedBox(width: 4),
+                  OutlinedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))), child: const Text('التفاصيل')),
+                ]),
+              ]),
             ),
-          ),
-        );
-      }),
-    );
-  }
+          );
+        },
+      );
+    },
+  );
 }
 
-Widget _asyncList<T>(AsyncSnapshot<List<Map<String, dynamic>>> s, Widget Function(Map<String, dynamic>) item) { if (s.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator()); if (s.hasError) return const _StateMessage(title: 'تعذر تحميل البيانات'); final rows = s.data ?? []; return rows.isEmpty ? const _StateMessage(title: 'لا توجد استبدالات هنا') : ListView(padding: const EdgeInsets.all(16), children: rows.map(item).toList()); }
+Widget _asyncList(Future<List<Map<String, dynamic>>> future, Widget Function(Map<String, dynamic>) item) => FutureBuilder<List<Map<String, dynamic>>>(
+  future: future,
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+    if (snapshot.hasError) return const _StateMessage(title: 'تعذر تحميل البيانات');
+    final rows = snapshot.data ?? [];
+    return rows.isEmpty ? const _StateMessage(title: 'لا توجد استبدالات هنا') : ListView(padding: const EdgeInsets.all(16), children: rows.map(item).toList());
+  },
+);
 
 class _ProposalCard extends StatelessWidget {
   final Map<String, dynamic> proposal;
@@ -582,5 +662,5 @@ class _StateMessage extends StatelessWidget {
 }
 
 String _conditionLabel(String? v) => {'any': 'أي حالة', 'new': 'جديد', 'like_new': 'شبه جديد', 'good': 'جيد', 'used': 'مستعمل', 'needs_repair': 'يحتاج إصلاح'}[v] ?? 'غير محدد';
-String _statusLabel(Object? v) => {'pending': 'في الانتظار', 'accepted': 'مقبول', 'rejected': 'مرفوض', 'withdrawn': 'مسحوب', 'open': 'مفتوح', 'closed': 'مغلق'}[v?.toString()] ?? 'غير معروف';
+String _statusLabel(Object? v) => {'pending': 'في الانتظار', 'accepted': 'مقبول', 'rejected': 'مرفوض', 'withdrawn': 'مسحوب', 'open': 'مفتوح', 'closed': 'مغلق', 'cancelled': 'ملغي', 'expired': 'منتهي'}[v?.toString()] ?? 'غير معروف';
 void _toast(BuildContext context, Object e) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
