@@ -1,8 +1,17 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DefaultFirebaseOptions {
+  static String _env(String name) {
+    final value = dotenv.env[name] ?? String.fromEnvironment(name);
+    if (value.trim().isEmpty) {
+      throw StateError('$name is missing from the environment');
+    }
+    return value.trim();
+  }
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
@@ -23,8 +32,8 @@ class DefaultFirebaseOptions {
   }
 
   // Android: Firebase app registered for com.jood.app.
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: _env('FIREBASE_ANDROID_API_KEY'),
     appId: '1:898976071862:android:2dc21f643a0c8a3c4ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',
@@ -32,8 +41,8 @@ class DefaultFirebaseOptions {
   );
 
   // iOS: values from GoogleService-Info.plist for com.jood.app.
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyD4NwdnUQ_NkhrkjDxWRZQgauW4NEyipc',
+  static FirebaseOptions get ios => FirebaseOptions(
+    apiKey: _env('FIREBASE_IOS_API_KEY'),
     appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',
@@ -42,8 +51,8 @@ class DefaultFirebaseOptions {
   );
 
   // Web: keep the existing Web Firebase app unchanged.
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: _env('FIREBASE_WEB_API_KEY'),
     appId: '1:898976071862:web:8572454f3a6cb2004ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',
@@ -54,8 +63,8 @@ class DefaultFirebaseOptions {
 
   // macOS compatibility configuration.
   // Register a separate macOS Firebase app before using Firebase on macOS.
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyD4NwdnUQ_NkhrkjDxWRZQgauuW4NEyipc',
+  static FirebaseOptions get macos => FirebaseOptions(
+    apiKey: _env('FIREBASE_MACOS_API_KEY'),
     appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
     messagingSenderId: '898976071862',
     projectId: 'flutter-app-45f07',

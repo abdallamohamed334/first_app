@@ -15,6 +15,7 @@ MAIN = ROOT / "lib/main.dart"
 PROVIDER = ROOT / "lib/features/provider/data/repositories/service_provider_repository.dart"
 MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dart"
 LOAD_TEST = ROOT / "load_test.py"
+FIREBASE_OPTIONS = ROOT / "lib/firebase_options.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -30,6 +31,7 @@ def main() -> None:
     provider = PROVIDER.read_text()
     map_page = MAP_PAGE.read_text()
     load_test = LOAD_TEST.read_text()
+    firebase_options = FIREBASE_OPTIONS.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -54,6 +56,15 @@ def main() -> None:
     require(load_test, "os.environ.get(\"SUPABASE_ANON_KEY\"", "environment-based load-test key")
     if re.search(r"sb_(publishable|secret)_[A-Za-z0-9_-]{12,}", load_test):
         raise AssertionError("Supabase key is hardcoded in load_test.py")
+    for env_name in (
+        "FIREBASE_ANDROID_API_KEY",
+        "FIREBASE_IOS_API_KEY",
+        "FIREBASE_WEB_API_KEY",
+        "FIREBASE_MACOS_API_KEY",
+    ):
+        require(firebase_options, f"_env('{env_name}')", f"environment-based Firebase key: {env_name}")
+    if "AIza" in firebase_options:
+        raise AssertionError("Firebase API key is hardcoded in lib/firebase_options.dart")
     require(rpc_migration, "list_community_needs_v2", "authenticated-only community needs RPC")
     require(rpc_migration, "list_public_volunteers() FROM anon, PUBLIC", "authenticated-only volunteers RPC")
     for protected in ("id_card_front_url", "id_card_back_url", "profile_locked_at"):
