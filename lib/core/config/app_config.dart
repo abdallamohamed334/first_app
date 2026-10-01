@@ -18,6 +18,9 @@ class AppConfig {
   static String get supabaseUrl => _requiredEnv('SUPABASE_URL');
   static String get supabaseAnonKey => _requiredEnv('SUPABASE_ANON_KEY');
 
+  static String storagePublicUrl(String bucket, String path) =>
+      '${supabaseUrl}/storage/v1/object/public/$bucket/$path';
+
   // ═══════════════════════════════════════════════════════════
   // 🌍 البيئة
   // ═══════════════════════════════════════════════════════════
@@ -57,8 +60,8 @@ class AppConfig {
   // 🔐 Environment Variables
   // ═══════════════════════════════════════════════════════════
   static String _requiredEnv(String key) {
-    final value = dotenv.env[key]?.trim();
-    if (value == null || value.isEmpty) {
+    final value = (dotenv.env[key] ?? String.fromEnvironment(key)).trim();
+    if (value.isEmpty) {
       throw StateError(
         'Missing required environment variable: $key. '
         'Load the .env file before reading AppConfig.',

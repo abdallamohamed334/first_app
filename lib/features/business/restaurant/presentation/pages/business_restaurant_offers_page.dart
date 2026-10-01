@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:loqma/core/config/app_config.dart';
 
 import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
 import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
@@ -312,8 +313,7 @@ class _OfferCard extends StatelessWidget {
           path = path.substring(bucket.length + 1);
         }
         if (path.isNotEmpty) {
-          return 'https://gsrhoqdtcyfdmvgahqvl.supabase.co'
-              '/storage/v1/object/public/$bucket/$path';
+          return AppConfig.storagePublicUrl(bucket, path);
         }
       }
       return null;

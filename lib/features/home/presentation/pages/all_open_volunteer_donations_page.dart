@@ -1,6 +1,7 @@
 // lib/features/volunteer/presentation/pages/all_open_volunteer_donations_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
 
@@ -200,7 +201,7 @@ class _DonationCard extends StatelessWidget {
     const bucket = 'community-offers';
 
     try {
-      return 'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/$bucket/$path';
+      return AppConfig.storagePublicUrl(bucket, path);
     } catch (error) {
       debugPrint('❌ Volunteer image URL error: $error');
       return null;

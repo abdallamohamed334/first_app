@@ -1,6 +1,7 @@
 // lib/features/community/presentation/pages/offer_details_myoffers_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 
@@ -119,16 +120,13 @@ class _OfferDetailsMyOffersPageState extends State<OfferDetailsMyOffersPage> {
 
     // ✅ بناء الرابط من Supabase Storage
     // الصورة مخزنة في Bucket باسم community-offers
-    const baseUrl =
-        'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/community-offers/';
-
     // لو الـ path يبدأ بـ / نشيله
     String cleanPath = imagePath;
     if (cleanPath.startsWith('/')) {
       cleanPath = cleanPath.substring(1);
     }
 
-    return '$baseUrl$cleanPath';
+    return AppConfig.storagePublicUrl('community-offers', cleanPath);
   }
 
   @override

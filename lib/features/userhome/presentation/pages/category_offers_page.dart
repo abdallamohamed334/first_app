@@ -3,6 +3,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:loqma/core/config/app_config.dart';
 
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
@@ -1511,9 +1512,7 @@ class _SingleImage extends StatelessWidget {
       return raw;
     }
 
-    const supabaseUrl = 'https://gsrhoqdtcyfdmvgahqvl.supabase.co';
-
-    return '$supabaseUrl/storage/v1/object/public/community-offers/$raw';
+    return AppConfig.storagePublicUrl('community-offers', raw);
   }
 }
 

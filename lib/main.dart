@@ -44,7 +44,6 @@ bool _firebaseCrashlyticsReady = false;
 // --dart-define and is intentionally not committed to the repository.
 const _defaultSupabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
-  defaultValue: 'https://gsrhoqdtcyfdmvgahqvl.supabase.co',
 );
 const _defaultSupabasePublishableKey = String.fromEnvironment(
   'SUPABASE_ANON_KEY',

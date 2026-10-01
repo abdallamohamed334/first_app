@@ -65,6 +65,10 @@ def main() -> None:
         require(firebase_options, f"_env('{env_name}')", f"environment-based Firebase key: {env_name}")
     if "AIza" in firebase_options:
         raise AssertionError("Firebase API key is hardcoded in lib/firebase_options.dart")
+    for dart_file in ROOT.joinpath("lib").rglob("*.dart"):
+        dart_text = dart_file.read_text()
+        if "gsrhoqdtcyfdmvgahqvl.supabase.co" in dart_text:
+            raise AssertionError(f"Supabase URL is hardcoded in {dart_file}")
     require(rpc_migration, "list_community_needs_v2", "authenticated-only community needs RPC")
     require(rpc_migration, "list_public_volunteers() FROM anon, PUBLIC", "authenticated-only volunteers RPC")
     for protected in ("id_card_front_url", "id_card_back_url", "profile_locked_at"):

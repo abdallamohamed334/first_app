@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_config.dart';
 
 import '../models/user_model.dart';
 import '../models/community_stats.dart';
@@ -1781,9 +1782,7 @@ class SupabaseService {
       return '';
     }
 
-    const baseUrl =
-        'https://gsrhoqdtcyfdmvgahqvl.supabase.co/storage/v1/object/public/community-offers/';
-    return '$baseUrl$imagePath';
+    return AppConfig.storagePublicUrl('community-offers', imagePath);
   }
 
   Future<List<Map<String, dynamic>>> getOfferMedia(String offerId) async {
