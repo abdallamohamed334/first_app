@@ -12,6 +12,7 @@ import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
+import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/profile_bloc.dart';
@@ -158,17 +159,28 @@ class _ProfilePageState extends State<ProfilePage> {
                   36,
                 ),
                 children: [
-                  ProfileHeader(
-                    user: state.user,
-                    points: state.points,
-                    onEditPressed: () => _showEditDialog(
-                      context,
-                      state.user,
+                  Card(
+                    elevation: 0,
+                    color: colors.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      side: BorderSide(color: colors.outlineVariant.withAlpha(90)),
                     ),
-                    onAvatarPressed: () => _pickAndUploadAvatar(
-                      state.user.id,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
+                      child: ProfileHeader(
+                        user: state.user,
+                        points: state.points,
+                        onEditPressed: () => _showEditDialog(
+                          context,
+                          state.user,
+                        ),
+                        onAvatarPressed: () => _pickAndUploadAvatar(
+                          state.user.id,
+                        ),
+                        isUploading: _isUploading,
+                      ),
                     ),
-                    isUploading: _isUploading,
                   ),
 
                   const SizedBox(height: 22),
@@ -204,6 +216,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildCommunityActions(
                     context,
                   ),
+
+                  const SizedBox(height: 14),
+
+                  _buildSwapAction(context),
 
                   const SizedBox(height: 22),
 
@@ -283,6 +299,52 @@ class _ProfilePageState extends State<ProfilePage> {
   // ═══════════════════════════════════════════════════════════
   // Community Actions (احتياجاتي بس)
   // ═══════════════════════════════════════════════════════════
+
+  Widget _buildSwapAction(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Card(
+      elevation: 0,
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: colors.outlineVariant.withAlpha(90)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const MySwapsPage()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9BEA65).withAlpha(70),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.swap_horiz_rounded, color: Colors.black, size: 27),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('استبدالاتي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                    Text('تابع عروضك النشطة والمنتهية', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: colors.onSurfaceVariant),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildCommunityActions(
     BuildContext context,
