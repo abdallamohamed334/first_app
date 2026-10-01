@@ -433,11 +433,33 @@ class SwapDetailsPage extends StatefulWidget {
 class _SwapDetailsPageState extends State<SwapDetailsPage> {
   final _repo = SwapRepository();
   late Future<Map<String, dynamic>> _future;
+  bool _isFavorite = false;
 
   @override
   void initState() {
     super.initState();
     _future = _repo.getListing(widget.listingId);
+    _loadFavorite();
+  }
+
+  Future<void> _loadFavorite() async {
+    try {
+      final ids = await _repo.favoriteListingIds();
+      if (mounted) setState(() => _isFavorite = ids.contains(widget.listingId));
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFavorite() async {
+    final next = !_isFavorite;
+    setState(() => _isFavorite = next);
+    try {
+      await _repo.toggleFavorite(widget.listingId, next);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isFavorite = !next);
+        _toast(context, Exception('تعذر تحديث المفضلة'));
+      }
+    }
   }
 
   void _reload() => setState(() => _future = _repo.getListing(widget.listingId));
@@ -457,58 +479,87 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('تفاصيل الاستبدال')),
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
+          actions: [
+            IconButton(onPressed: () {}, icon: const Icon(Icons.flag_outlined)),
+            IconButton(onPressed: () {}, icon: const Icon(Icons.ios_share_rounded)),
+          ],
+        ),
+        bottomNavigationBar: FutureBuilder<Map<String, dynamic>>(
+          future: _future,
+          builder: (context, snap) {
+            if (!snap.hasData) return const SizedBox.shrink();
+            final owner = snap.data!['owner_id']?.toString() == _repo.currentUserId;
+            if (owner || snap.data!['status'] != 'open') return const SizedBox.shrink();
+            return SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(children: [
+                Expanded(child: FilledButton(onPressed: _addProposal, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(58), backgroundColor: const Color(0xFF9BEA65), foregroundColor: Colors.black), child: const Text('تبديل', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)))),
+                const SizedBox(width: 10),
+                IconButton.filledTonal(onPressed: () => _ContactCard.showContact(context, phone: snap.data!['contact_phone']?.toString(), whatsapp: snap.data!['contact_whatsapp']?.toString()), icon: const Icon(Icons.forum_outlined), style: IconButton.styleFrom(minimumSize: const Size(58, 58))),
+              ]),
+            );
+          },
+        ),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _future,
           builder: (context, snap) {
-            if (!snap.hasData) {
-              return Center(child: snap.hasError ? const Text('تعذر تحميل التفاصيل') : CircularProgressIndicator(color: c.primary));
-            }
+            if (!snap.hasData) return Center(child: snap.hasError ? const Text('تعذر تحميل التفاصيل') : CircularProgressIndicator(color: c.primary));
             final r = snap.data!;
             final proposals = (r['proposals'] as List? ?? []).cast<Map<String, dynamic>>();
             final owner = r['owner_id']?.toString() == _repo.currentUserId;
             final images = (r['images'] as List? ?? []).map((e) => e.toString()).toList();
             final user = r['users'] as Map?;
+            final title = r['wanted_title']?.toString() ?? 'عرض استبدال';
+            final location = r['city']?.toString().trim().isNotEmpty == true ? r['city'].toString() : (r['governorate']?.toString() ?? 'الموقع غير محدد');
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+              padding: const EdgeInsets.only(bottom: 22),
               children: [
-                _SwapImageStrip(images: images),
-                const SizedBox(height: 16),
-                Text(r['wanted_title']?.toString() ?? '', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 6),
-                Row(children: [
-                  Icon(Icons.location_on_outlined, size: 18, color: c.onSurfaceVariant),
-                  const SizedBox(width: 4),
-                  Text('${r['city'] ?? r['governorate'] ?? 'الموقع غير محدد'} • قريب منك', style: TextStyle(color: c.onSurfaceVariant, fontSize: 15)),
-                ]),
-                const SizedBox(height: 18),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(children: [
-                      CircleAvatar(radius: 27, backgroundColor: c.primary, child: Icon(Icons.person_rounded, color: c.onPrimary, size: 30)),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(user?['name']?.toString() ?? 'صاحب الإعلان', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                        Text(r['city']?.toString() ?? r['governorate']?.toString() ?? 'مستخدم', style: TextStyle(color: c.onSurfaceVariant)),
-                      ])),
-                      if (!owner) IconButton(onPressed: () => _ContactCard.showContact(context, phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()), icon: const Icon(Icons.chat_bubble_outline_rounded)),
-                    ]),
-                  ),
+                _DetailHero(images: images, category: r['category']?.toString() ?? 'إلكترونيات', isFavorite: _isFavorite, onFavorite: _toggleFavorite),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(title, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1)),
+                    const SizedBox(height: 8),
+                    Row(children: [Icon(Icons.location_on_outlined, size: 19, color: c.onSurfaceVariant), const SizedBox(width: 4), Text('$location • على بعد 5 كم', style: TextStyle(color: c.onSurfaceVariant, fontSize: 16))]),
+                    const SizedBox(height: 18),
+                    Card(
+                      color: c.surface,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(children: [
+                          Row(children: [
+                            CircleAvatar(radius: 27, backgroundColor: c.primary, backgroundImage: (user?['avatar_url']?.toString().isNotEmpty == true) ? NetworkImage(user!['avatar_url'].toString()) : null, child: (user?['avatar_url']?.toString().isNotEmpty == true) ? null : Icon(Icons.person_rounded, color: c.onPrimary, size: 30)),
+                            const SizedBox(width: 12),
+                            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(user?['name']?.toString() ?? 'صاحب الإعلان', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), Text(location, style: TextStyle(color: c.onSurfaceVariant))])),
+                            Icon(Icons.chevron_left_rounded, color: c.onSurfaceVariant),
+                          ]),
+                          if (!owner) ...[
+                            const SizedBox(height: 14),
+                            Align(alignment: AlignmentDirectional.centerStart, child: Text('مراسلة ${user?['name']?.toString() ?? 'صاحب الإعلان'}', style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w700))),
+                            const SizedBox(height: 8),
+                            InkWell(onTap: () => _ContactCard.showContact(context, phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()), borderRadius: BorderRadius.circular(26), child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9), decoration: BoxDecoration(border: Border.all(color: c.outlineVariant), borderRadius: BorderRadius.circular(26)), child: Row(children: [Expanded(child: Text('أهلًا، المنتج ده لسه موجود؟ 👋', style: TextStyle(color: c.onSurface, fontSize: 15))), Container(width: 38, height: 38, decoration: const BoxDecoration(color: Color(0xFF9BEA65), shape: BoxShape.circle), child: const Icon(Icons.arrow_back_rounded, color: Colors.black))]))),
+                            const SizedBox(height: 7),
+                            Align(alignment: AlignmentDirectional.centerStart, child: Text('ابدأ محادثة مع ${user?['name']?.toString() ?? 'صاحب الإعلان'}', style: TextStyle(color: c.onSurfaceVariant, fontSize: 12))),
+                          ],
+                        ]),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                    _DetailsSection(title: 'وصف المنتج', child: Text(r['description']?.toString() ?? '', style: const TextStyle(fontSize: 17, height: 1.55))),
+                    _DetailsSection(title: 'حالة المنتج', child: Text(_conditionLabel(r['wanted_condition']?.toString()), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+                    _DetailsSection(title: 'القسم', child: Wrap(spacing: 8, runSpacing: 8, children: [Chip(label: Text(r['category']?.toString() ?? 'أخرى')), const Chip(label: Text('استبدال'))])),
+                    if (r['contact_phone'] != null || r['contact_whatsapp'] != null) _ContactCard(phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()),
+                    const SizedBox(height: 18),
+                    Text('العروض المقترحة (${proposals.length})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 8),
+                    if (proposals.isEmpty) const _StateMessage(title: 'لم يضف أحد عرضًا مقابلًا بعد') else ...proposals.map((p) => _ProposalCard(proposal: p, isOwner: owner, repo: _repo, onChanged: _reload)),
+                  ]),
                 ),
-                const SizedBox(height: 18),
-                _DetailsSection(title: 'وصف المنتج', child: Text(r['description']?.toString() ?? '', style: const TextStyle(fontSize: 16, height: 1.55))),
-                _DetailsSection(title: 'حالة المنتج', child: Text(_conditionLabel(r['wanted_condition']?.toString()), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700))),
-                _DetailsSection(title: 'القسم', child: Wrap(spacing: 8, runSpacing: 8, children: [Chip(label: Text(r['category']?.toString() ?? 'أخرى')), Chip(label: Text('استبدال'))])),
-                _ContactCard(phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()),
-                const SizedBox(height: 18),
-                Text('العروض المقترحة (${proposals.length})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                if (proposals.isEmpty) const _StateMessage(title: 'لم يضف أحد عرضًا مقابلًا بعد') else ...proposals.map((p) => _ProposalCard(proposal: p, isOwner: owner, repo: _repo, onChanged: _reload)),
-                if (!owner && r['status'] == 'open') ...[
-                  const SizedBox(height: 18),
-                  SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _addProposal, icon: const Icon(Icons.swap_horiz_rounded), label: const Text('تبديل'))),
-                ],
               ],
             );
           },
@@ -516,6 +567,36 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
       ),
     );
   }
+}
+
+class _DetailHero extends StatelessWidget {
+  final List<String> images;
+  final String category;
+  final bool isFavorite;
+  final VoidCallback onFavorite;
+  const _DetailHero({required this.images, required this.category, required this.isFavorite, required this.onFavorite});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+      child: SizedBox(
+        height: 390,
+        child: Stack(fit: StackFit.expand, children: [
+        images.isNotEmpty
+            ? CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 1200, maxWidthDiskCache: 1200, placeholder: (_, __) => Center(child: CircularProgressIndicator(color: c.primary)), errorWidget: (_, __, ___) => _fallback(c))
+            : _fallback(c),
+        Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black.withValues(alpha: .28), Colors.transparent, Colors.black.withValues(alpha: .55)])))),
+        Positioned(left: 18, bottom: 18, child: Material(color: Colors.black.withValues(alpha: .60), borderRadius: BorderRadius.circular(22), child: InkWell(onTap: onFavorite, borderRadius: BorderRadius.circular(22), child: Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9), child: Row(children: [Icon(isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: isFavorite ? Colors.redAccent : Colors.white, size: 24), const SizedBox(width: 8), const Text('المفضلة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700))]))))),
+        Positioned(bottom: 18, right: 18, child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9), decoration: BoxDecoration(color: Colors.black.withValues(alpha: .58), borderRadius: BorderRadius.circular(22)), child: Text(category, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)))),
+        if (images.length > 1) Positioned(bottom: 64, right: 20, child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: Colors.black.withValues(alpha: .58), borderRadius: BorderRadius.circular(20)), child: Text('1 / ${images.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)))),
+        ]),
+      ),
+    );
+  }
+
+  Widget _fallback(ColorScheme c) => Container(color: c.surfaceContainerHighest, alignment: Alignment.center, child: Icon(Icons.swap_horiz_rounded, size: 70, color: c.onSurfaceVariant));
 }
 
 class _SwapImageStrip extends StatelessWidget {
