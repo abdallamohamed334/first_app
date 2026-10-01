@@ -48,7 +48,7 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
 
   Future<_SwapFeed> _load() async {
     final rows = await _repo.listOpenListings(search: _search.text, governorate: _governorate);
-    final nearby = await _repo.listNearbyOpenListings(search: _search.text);
+    final nearby = await _repo.listNearbyOpenListings(search: _search.text, governorate: _governorate);
     final recent = await _repo.recentlyViewedListings();
     final favorites = await _repo.favoriteListingIds();
     return _SwapFeed(
@@ -148,9 +148,20 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
                     Expanded(child: DropdownButtonFormField<String>(
                       value: _governorate,
                       isExpanded: true,
-                      decoration: const InputDecoration(prefixIcon: Icon(Icons.location_on_outlined), labelText: 'المحافظة'),
-                      items: [const DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')), ..._governorates.map((g) => DropdownMenuItem(value: g, child: Text(g)))],
-                      onChanged: (value) { _governorate = value; _reload(); },
+                      hint: const Text('كل المحافظات'),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.location_on_outlined),
+                        labelText: 'المحافظة',
+                        suffixIcon: _governorate == null
+                            ? null
+                            : IconButton(
+                                tooltip: 'مسح المحافظة',
+                                onPressed: () => _setGovernorate(null),
+                                icon: const Icon(Icons.clear_rounded),
+                              ),
+                      ),
+                      items: _governorates.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                      onChanged: _setGovernorate,
                     )),
                     const SizedBox(width: 8),
                     IconButton.filledTonal(onPressed: () { _showAll = !_showAll; setState(() {}); }, icon: Icon(_showAll ? Icons.view_carousel_outlined : Icons.grid_view_rounded), tooltip: 'تغيير طريقة العرض'),
@@ -195,6 +206,13 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
   List<Map<String, dynamic>> _unique(List<Map<String, dynamic>> rows) {
     final seen = <String>{};
     return rows.where((row) => seen.add(row['id'].toString())).toList();
+  }
+
+  void _setGovernorate(String? value) {
+    setState(() {
+      _governorate = value;
+      _future = _load();
+    });
   }
 }
 

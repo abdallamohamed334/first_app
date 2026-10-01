@@ -70,8 +70,8 @@ class SwapRepository {
     });
   }
 
-  Future<List<Map<String, dynamic>>> listNearbyOpenListings({String? search}) async {
-    final rows = await listOpenListings(search: search);
+  Future<List<Map<String, dynamic>>> listNearbyOpenListings({String? search, String? governorate}) async {
+    final rows = await listOpenListings(search: search, governorate: governorate);
     final user = await _client.from('users').select('latitude, longitude, city, governorate').eq('id', _uid).maybeSingle();
     final lat = (user?['latitude'] as num?)?.toDouble();
     final lng = (user?['longitude'] as num?)?.toDouble();
