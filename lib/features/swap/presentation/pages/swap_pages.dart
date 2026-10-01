@@ -848,13 +848,11 @@ class _MyListingList extends StatelessWidget {
       if (snapshot.hasError) return const _StateMessage(title: 'تعذر تحميل استبدالاتك');
       final rows = (snapshot.data ?? []).where((r) => _isEnded(r) == ended).toList();
       if (rows.isEmpty) return _StateMessage(title: ended ? 'لا توجد استبدالات منتهية' : 'لا توجد استبدالات نشطة');
-      return ListView.builder(
-        padding: const EdgeInsets.all(16),
+      return GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
         itemCount: rows.length,
-        itemBuilder: (context, index) {
-          final row = rows[index];
-          return _MySwapCard(row: row, ended: ended, repo: repo, reload: reload);
-        },
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 14, childAspectRatio: .54),
+        itemBuilder: (context, index) => _MySwapCard(row: rows[index], ended: ended, repo: repo, reload: reload),
       );
     },
   );
@@ -885,25 +883,49 @@ class _MySwapCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
+    final title = row['wanted_title']?.toString() ?? 'استبدال';
+    final location = row['city']?.toString().trim().isNotEmpty == true ? row['city'].toString() : (row['governorate']?.toString() ?? 'المحافظة غير محددة');
     return Card(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (images.isNotEmpty)
-          SizedBox(height: 190, width: double.infinity, child: CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 900, maxWidthDiskCache: 900, placeholder: (_, __) => Center(child: CircularProgressIndicator(color: c.primary)), errorWidget: (_, __, ___) => Icon(Icons.image_not_supported_outlined, size: 44, color: c.onSurfaceVariant)))
-        else
-          SizedBox(height: 120, child: Center(child: Icon(Icons.swap_horiz_rounded, size: 54, color: c.onSurfaceVariant))),
-        Padding(padding: const EdgeInsets.fromLTRB(14, 12, 14, 4), child: Text(row['wanted_title']?.toString() ?? '', style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w900))),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 14), child: Text('${row['governorate'] ?? 'المحافظة غير محددة'} • ${_statusLabel(ended ? 'expired' : row['status'])}', style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w700))),
-        Padding(padding: const EdgeInsets.fromLTRB(10, 10, 10, 10), child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          if (!ended) TextButton.icon(onPressed: () async { if (await _confirm(context, title: 'إلغاء الاستبدال؟', message: 'سيتم إغلاق الإعلان ولن يستطيع أحد إرسال عرض جديد عليه.', action: 'إلغاء الاستبدال')) { await repo.closeListing(row['id'].toString()); reload(); } }, icon: const Icon(Icons.cancel_outlined), label: const Text('إلغاء')),
-          if (ended) TextButton.icon(onPressed: () async { if (await _confirm(context, title: 'إخفاء الاستبدال؟', message: 'سيختفي الإعلان من استبدالاتك فقط ولن يتم حذفه من قاعدة البيانات.', action: 'إخفاء')) { await repo.hideListing(row['id'].toString()); reload(); } }, icon: const Icon(Icons.visibility_off_outlined), label: const Text('إخفاء')),
-          const SizedBox(width: 4),
-          OutlinedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))), child: const Text('التفاصيل')),
+        Expanded(
+          child: Stack(fit: StackFit.expand, children: [
+            images.isNotEmpty
+                ? CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 720, maxWidthDiskCache: 720, placeholder: (_, __) => _fallback(c), errorWidget: (_, __, ___) => _fallback(c))
+                : _fallback(c),
+            Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: .84)])))),
+            Positioned(top: 9, right: 9, child: Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: ended ? Colors.black.withValues(alpha: .62) : const Color(0xFF9BEA65), borderRadius: BorderRadius.circular(20)), child: Text(ended ? 'منتهي' : 'نشط', style: TextStyle(color: ended ? Colors.white : Colors.black, fontSize: 11, fontWeight: FontWeight.w800)))),
+            Positioned(left: 10, right: 10, bottom: 10, child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900))),
+          ]),
+        ),
+        Padding(padding: const EdgeInsets.fromLTRB(10, 8, 10, 2), child: Text('$location • ${_conditionLabel(row['wanted_condition']?.toString())}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700))),
+        Padding(padding: const EdgeInsets.fromLTRB(7, 4, 7, 7), child: Row(children: [
+          Expanded(child: TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))), icon: const Icon(Icons.open_in_new_rounded, size: 16), label: const Text('التفاصيل'), style: TextButton.styleFrom(padding: EdgeInsets.zero))),
+          PopupMenuButton<String>(
+            tooltip: 'إجراءات',
+            onSelected: (value) async {
+              if (value == 'cancel' && await _confirm(context, title: 'إلغاء الاستبدال؟', message: 'سيتم إغلاق الإعلان ولن يستطيع أحد إرسال عرض جديد عليه.', action: 'إلغاء الاستبدال')) {
+                await repo.closeListing(row['id'].toString());
+                reload();
+              }
+              if (value == 'hide' && await _confirm(context, title: 'إخفاء الاستبدال؟', message: 'سيختفي الإعلان من استبدالاتك فقط ولن يتم حذفه من قاعدة البيانات.', action: 'إخفاء')) {
+                await repo.hideListing(row['id'].toString());
+                reload();
+              }
+            },
+            itemBuilder: (_) => [
+              if (!ended) const PopupMenuItem(value: 'cancel', child: Text('إلغاء الاستبدال')),
+              if (ended) const PopupMenuItem(value: 'hide', child: Text('إخفاء من قائمتي')),
+            ],
+            icon: const Icon(Icons.more_horiz_rounded),
+          ),
         ])),
       ]),
     );
   }
+
+  Widget _fallback(ColorScheme c) => Container(color: c.surfaceContainerHighest, alignment: Alignment.center, child: Icon(Icons.swap_horiz_rounded, size: 48, color: c.onSurfaceVariant));
 }
 
 Widget _asyncList(Future<List<Map<String, dynamic>>> future, Widget Function(Map<String, dynamic>) item) => FutureBuilder<List<Map<String, dynamic>>>(
