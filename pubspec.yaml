@@ -93,6 +93,7 @@ flutter:
     - assets/animations/
     - assets/images/
     - assets/icons/
+    - assets/icons/flaticon/
 
   fonts:
     - family: IBM Plex Sans Arabic

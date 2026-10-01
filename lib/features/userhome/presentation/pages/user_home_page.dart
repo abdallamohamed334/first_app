@@ -753,7 +753,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     Expanded(
                       child: _buildCategoriesSwitcherTile(
                         mode: _HomeMode.buy,
-                        icon: Icons.shopping_bag_rounded,
+                        iconAsset: 'assets/icons/flaticon/shopping-basket.png',
                         label: 'أقسام الشراء',
                         count: buyCategories.length,
                         color: _primaryRed,
@@ -763,7 +763,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     Expanded(
                       child: _buildCategoriesSwitcherTile(
                         mode: _HomeMode.services,
-                        icon: Icons.handyman_rounded,
+                        iconAsset: 'assets/icons/flaticon/repair-shop.png',
                         label: 'أقسام الخدمات',
                         count: serviceCats.length,
                         color: _blue,
@@ -830,7 +830,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildCategoriesSwitcherTile({
     required _HomeMode mode,
-    required IconData icon,
+    required String iconAsset,
     required String label,
     required int count,
     required Color color,
@@ -871,10 +871,11 @@ class _UserHomePageState extends State<UserHomePage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected ? Colors.white : _textSecondary,
+            Image.asset(
+              iconAsset,
+              width: 22,
+              height: 22,
+              fit: BoxFit.contain,
             ),
             SizedBox(width: 8),
             Column(
