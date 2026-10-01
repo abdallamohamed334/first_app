@@ -10,6 +10,15 @@ class SwapRepository {
   String get _uid => _client.auth.currentUser?.id ?? (throw Exception('يجب تسجيل الدخول أولًا'));
   String? get currentUserId => _client.auth.currentUser?.id;
 
+  Future<List<Map<String, dynamic>>> listSwapCategories() async {
+    final rows = await _client
+        .from('swap_categories')
+        .select('slug, name_ar, icon')
+        .eq('is_active', true)
+        .order('sort_order', ascending: true);
+    return (rows as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+  }
+
   Future<String> uploadListingImage(XFile image) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('يجب تسجيل الدخول أولًا');
@@ -23,7 +32,7 @@ class SwapRepository {
 
   Future<List<Map<String, dynamic>>> listOpenListings({String? search, String? governorate}) async {
     var query = _client.from('swap_listings').select('''
-      id, owner_id, wanted_title, description, category, wanted_condition,
+      id, owner_id, wanted_title, description, category, categories, wanted_condition,
       city, governorate, latitude, longitude, images, status, expires_at,
       created_at, updated_at, users:owner_id(name, avatar_url)
     ''').eq('status', 'open').gt('expires_at', DateTime.now().toUtc().toIso8601String());
@@ -54,7 +63,7 @@ class SwapRepository {
     if (currentUserId == null) return <Map<String, dynamic>>[];
     final rows = await _client.from('swap_listing_views').select('''
       last_viewed_at,
-      listing:listing_id(id, owner_id, wanted_title, description, category, wanted_condition,
+      listing:listing_id(id, owner_id, wanted_title, description, category, categories, wanted_condition,
         city, governorate, latitude, longitude, images, status, expires_at, created_at,
         users:owner_id(name, avatar_url))
     ''').eq('user_id', _uid).order('last_viewed_at', ascending: false).limit(12);
@@ -90,7 +99,7 @@ class SwapRepository {
 
   Future<Map<String, dynamic>> getListing(String id) async {
     final row = await _client.from('swap_listings').select('''
-      id, owner_id, wanted_title, description, category, wanted_condition,
+      id, owner_id, wanted_title, description, category, categories, wanted_condition,
       city, governorate, latitude, longitude, images, status, expires_at,
       contact_phone, contact_whatsapp, created_at, updated_at, users:owner_id(name, avatar_url)
     ''').eq('id', id).single();
@@ -107,6 +116,7 @@ class SwapRepository {
     required String wantedTitle,
     required String description,
     required String category,
+    List<String> categories = const [],
     required String wantedCondition,
     required String contactPhone,
     required String contactWhatsapp,
@@ -118,6 +128,8 @@ class SwapRepository {
   }) async {
     final title = wantedTitle.trim();
     final body = description.trim();
+    final selectedCategories = categories.map((value) => value.trim()).where((value) => value.isNotEmpty).toSet().toList();
+    if (selectedCategories.isEmpty && category.trim().isNotEmpty) selectedCategories.add(category.trim());
     final phone = _cleanPhone(contactPhone);
     final whatsapp = _cleanPhone(contactWhatsapp);
     if (title.length < 3) throw Exception('اكتب الشيء المطلوب استبداله بوضوح');
@@ -132,6 +144,7 @@ class SwapRepository {
       'wanted_title': title,
       'description': body,
       'category': category.trim().isEmpty ? 'other' : category.trim(),
+      'categories': selectedCategories,
       'wanted_condition': wantedCondition,
       'contact_phone': phone,
       'contact_whatsapp': whatsapp,
@@ -164,7 +177,7 @@ class SwapRepository {
   }
 
   Future<List<Map<String, dynamic>>> myListings() async {
-    final rows = await _client.from('swap_listings').select('''id, owner_id, wanted_title, description, category, wanted_condition, city, governorate, images, contact_phone, contact_whatsapp, status, expires_at, created_at, swap_proposals(id, proposer_id, offered_title, offered_description, offered_condition, status, created_at, users:proposer_id(name, avatar_url))''').eq('owner_id', _uid).order('created_at', ascending: false);
+    final rows = await _client.from('swap_listings').select('''id, owner_id, wanted_title, description, category, categories, wanted_condition, city, governorate, images, contact_phone, contact_whatsapp, status, expires_at, created_at, swap_proposals(id, proposer_id, offered_title, offered_description, offered_condition, status, created_at, users:proposer_id(name, avatar_url))''').eq('owner_id', _uid).order('created_at', ascending: false);
     final hidden = await hiddenListingIds();
     return (rows as List).map((r) => Map<String, dynamic>.from(r as Map)).where((r) => !hidden.contains(r['id'].toString())).toList();
   }

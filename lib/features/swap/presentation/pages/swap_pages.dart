@@ -23,6 +23,7 @@ class _SwapFeed {
 class _SwapListingsPageState extends State<SwapListingsPage> {
   final _repo = SwapRepository();
   final _search = TextEditingController();
+  static const _defaultCategories = ['إلكترونيات', 'موبايلات', 'كمبيوتر ولابتوب', 'كاميرات', 'أثاث', 'ملابس', 'أجهزة منزلية', 'سيارات ومواصلات', 'كتب وألعاب', 'رياضة', 'أخرى'];
   static const _governorates = [
     'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'القليوبية',
     'الغربية', 'المنوفية', 'البحيرة', 'كفر الشيخ', 'دمياط', 'بورسعيد',
@@ -33,11 +34,23 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
   String? _governorate;
   String? _category;
   bool _showAll = false;
+  List<String> _categories = _defaultCategories;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final rows = await _repo.listSwapCategories();
+      final names = rows.map((row) => row['name_ar']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
+      if (mounted && names.isNotEmpty) setState(() => _categories = names);
+    } catch (_) {
+      // نستخدم القائمة الاحتياطية إذا كانت نسخة قديمة من قاعدة البيانات.
+    }
   }
 
   @override
@@ -61,7 +74,10 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
 
   List<Map<String, dynamic>> _applyCategory(List<Map<String, dynamic>> rows) {
     if (_category == null) return rows;
-    return rows.where((row) => row['category']?.toString() == _category).toList();
+    return rows.where((row) {
+      final categories = (row['categories'] as List? ?? const []).map((value) => value.toString()).toSet();
+      return categories.contains(_category) || row['category']?.toString() == _category;
+    }).toList();
   }
 
   void _reload() => setState(() => _future = _load());
@@ -173,10 +189,7 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
                       scrollDirection: Axis.horizontal,
                       children: [
                         _FilterChip(label: 'الكل', selected: _category == null, onTap: () { _category = null; _reload(); }),
-                        _FilterChip(label: 'إلكترونيات', selected: _category == 'إلكترونيات', onTap: () { _category = 'إلكترونيات'; _reload(); }),
-                        _FilterChip(label: 'موبايلات', selected: _category == 'موبايلات', onTap: () { _category = 'موبايلات'; _reload(); }),
-                        _FilterChip(label: 'أثاث', selected: _category == 'أثاث', onTap: () { _category = 'أثاث'; _reload(); }),
-                        _FilterChip(label: 'ملابس', selected: _category == 'ملابس', onTap: () { _category = 'ملابس'; _reload(); }),
+                        ..._categories.map((category) => _FilterChip(label: category, selected: _category == category, onTap: () { _category = category; _reload(); })),
                       ],
                     ),
                   ),
@@ -285,15 +298,31 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   final _form = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _desc = TextEditingController();
-  final _category = TextEditingController();
   final _phone = TextEditingController();
   final _whatsapp = TextEditingController();
   final _repo = SwapRepository();
   final _picker = ImagePicker();
-  XFile? _image;
+  static const _defaultCategories = ['إلكترونيات', 'موبايلات', 'كمبيوتر ولابتوب', 'كاميرات', 'أثاث', 'ملابس', 'أجهزة منزلية', 'سيارات ومواصلات', 'كتب وألعاب', 'رياضة', 'أخرى'];
+  final List<XFile> _images = [];
   String? _governorate;
   String _condition = 'any';
   bool _busy = false;
+  List<String> _categories = _defaultCategories;
+  final List<String> _selectedCategories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final rows = await _repo.listSwapCategories();
+      final names = rows.map((row) => row['name_ar']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
+      if (mounted && names.isNotEmpty) setState(() => _categories = names);
+    } catch (_) {}
+  }
 
   static const _governorates = [
     'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'الشرقية', 'القليوبية',
@@ -306,7 +335,6 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   void dispose() {
     _title.dispose();
     _desc.dispose();
-    _category.dispose();
     _phone.dispose();
     _whatsapp.dispose();
     super.dispose();
@@ -314,17 +342,25 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (_selectedCategories.isEmpty) {
+      _toast(context, Exception('اختار تصنيفًا واحدًا على الأقل'));
+      return;
+    }
     setState(() => _busy = true);
     try {
-      final imageUrl = _image == null ? null : await _repo.uploadListingImage(_image!);
+      final imageUrls = <String>[];
+      for (final image in _images) {
+        imageUrls.add(await _repo.uploadListingImage(image));
+      }
       await _repo.createListing(
         wantedTitle: _title.text,
         description: _desc.text,
-        category: _category.text,
+        category: _selectedCategories.first,
+        categories: _selectedCategories,
         wantedCondition: _condition,
         contactPhone: _phone.text,
         contactWhatsapp: _whatsapp.text,
-        images: imageUrl == null ? const [] : [imageUrl],
+        images: imageUrls,
         governorate: _governorate,
       );
       if (mounted) Navigator.pop(context, true);
@@ -336,8 +372,9 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   }
 
   Future<void> _pickImage() async {
-    final image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 82, maxWidth: 1600);
-    if (image != null && mounted) setState(() => _image = image);
+    final images = await _picker.pickMultiImage(imageQuality: 82, maxWidth: 1600);
+    if (!mounted || images.isEmpty) return;
+    setState(() => _images.addAll(images.take(6 - _images.length)));
   }
 
   @override
@@ -370,7 +407,24 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
                 validator: (v) => v == null || v.trim().length < 10 ? 'اكتب تفاصيل أكثر' : null,
               ),
               const SizedBox(height: 14),
-              TextFormField(controller: _category, decoration: const InputDecoration(labelText: 'التصنيف', hintText: 'إلكترونيات، ملابس، أثاث...')),
+              InputDecorator(
+                decoration: const InputDecoration(labelText: 'التصنيفات', prefixIcon: Icon(Icons.category_outlined), alignLabelWithHint: true),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _categories.map((category) => FilterChip(
+                    label: Text(category),
+                    selected: _selectedCategories.contains(category),
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
+                        _selectedCategories.add(category);
+                      } else {
+                        _selectedCategories.remove(category);
+                      }
+                    }),
+                  )).toList(),
+                ),
+              ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _phone,
@@ -404,13 +458,21 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
                     border: Border.all(color: Theme.of(context).colorScheme.outline),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: _image == null
+                  child: _images.isEmpty
                       ? const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                           Icon(Icons.add_a_photo_outlined, size: 38),
                           SizedBox(height: 8),
-                          Text('إضافة صورة للشيء المراد استبداله'),
+                          Text('إضافة صور للشيء المراد استبداله (حتى 6 صور)'),
                         ])
-                      : Image.file(File(_image!.path), fit: BoxFit.cover, width: double.infinity),
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: _images.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8),
+                          itemBuilder: (_, index) => Stack(fit: StackFit.expand, children: [
+                            Image.file(File(_images[index].path), fit: BoxFit.cover),
+                            Positioned(top: 3, right: 3, child: InkWell(onTap: () => setState(() => _images.removeAt(index)), child: const CircleAvatar(radius: 12, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 15, color: Colors.white)))),
+                          ]),
+                        ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -531,6 +593,8 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
             final proposals = (r['proposals'] as List? ?? []).cast<Map<String, dynamic>>();
             final owner = r['owner_id']?.toString() == _repo.currentUserId;
             final images = (r['images'] as List? ?? []).map((e) => e.toString()).toList();
+            final listingCategories = ((r['categories'] as List?)?.map((e) => e.toString()).toList() ?? <String>[]);
+            if (listingCategories.isEmpty && r['category'] != null) listingCategories.add(r['category'].toString());
             final user = r['users'] as Map?;
             final title = r['wanted_title']?.toString() ?? 'عرض استبدال';
             final location = r['city']?.toString().trim().isNotEmpty == true ? r['city'].toString() : (r['governorate']?.toString() ?? 'الموقع غير محدد');
@@ -570,7 +634,10 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
                     const SizedBox(height: 22),
                     _DetailsSection(title: 'وصف المنتج', child: Text(r['description']?.toString() ?? '', style: const TextStyle(fontSize: 17, height: 1.55))),
                     _DetailsSection(title: 'حالة المنتج', child: Text(_conditionLabel(r['wanted_condition']?.toString()), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-                    _DetailsSection(title: 'القسم', child: Wrap(spacing: 8, runSpacing: 8, children: [Chip(label: Text(r['category']?.toString() ?? 'أخرى')), const Chip(label: Text('استبدال'))])),
+                    _DetailsSection(title: 'القسم', child: Wrap(spacing: 8, runSpacing: 8, children: [
+                      ...listingCategories.map((category) => Chip(label: Text(category), avatar: const Icon(Icons.category_outlined, size: 17))),
+                      const Chip(label: Text('استبدال'), avatar: Icon(Icons.swap_horiz_rounded, size: 17)),
+                    ])),
                     if (r['contact_phone'] != null || r['contact_whatsapp'] != null) _ContactCard(phone: r['contact_phone']?.toString(), whatsapp: r['contact_whatsapp']?.toString()),
                     const SizedBox(height: 18),
                     Text('العروض المقترحة (${proposals.length})', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
