@@ -221,7 +221,6 @@ void _attachAuthStateSync() {
             .maybeSingle(),
         client.rpc(
           'get_provider_auth_state',
-          params: {'p_user_id': userId},
         ).then((rows) {
           if (rows is List && rows.isNotEmpty) {
             return Map<String, dynamic>.from(rows.first as Map);

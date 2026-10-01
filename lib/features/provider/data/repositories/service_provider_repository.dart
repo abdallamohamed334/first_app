@@ -332,7 +332,6 @@ class ServiceProviderRepository {
       // while the client session event is still propagating.
       final existingRows = await _client.rpc(
         'get_provider_auth_state',
-        params: {'p_user_id': userId},
       );
       final existing = existingRows is List && existingRows.isNotEmpty
           ? Map<String, dynamic>.from(existingRows.first as Map)
@@ -601,6 +600,13 @@ class ServiceProviderRepository {
       if (!allowedExtensions.contains(ext)) {
         return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
       }
+      final contentType = switch (ext) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => null,
+      };
+      if (contentType == null) return const Left('نوع الصورة غير صحيح');
       final fileName =
           '$userId/${type}_${DateTime.now().millisecondsSinceEpoch}.$ext';
 
@@ -617,9 +623,10 @@ class ServiceProviderRepository {
       await _client.storage.from('provider-images').upload(
             fileName,
             file,
-            fileOptions: const FileOptions(
+            fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: false,
+              contentType: contentType,
             ),
           );
 
@@ -650,6 +657,13 @@ class ServiceProviderRepository {
       if (!allowedExtensions.contains(ext)) {
         return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
       }
+      final contentType = switch (ext) {
+        'jpg' || 'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => null,
+      };
+      if (contentType == null) return const Left('نوع الصورة غير صحيح');
       final file = File(imagePath);
       if (!await file.exists()) return const Left('ملف الصورة غير موجود');
       if (await file.length() > 10 * 1024 * 1024) {
@@ -657,7 +671,11 @@ class ServiceProviderRepository {
       }
       final path =
           '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await _client.storage.from('provider-documents').upload(path, file);
+      await _client.storage.from('provider-documents').upload(
+            path,
+            file,
+            fileOptions: FileOptions(contentType: contentType),
+          );
       return Right(path);
     } catch (error) {
       debugPrint('❌ [Provider] identity upload error: $error');
