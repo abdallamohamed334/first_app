@@ -8,8 +8,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SwapListingsPage extends StatefulWidget {
   const SwapListingsPage({super.key});
-  @override State<SwapListingsPage> createState() => _SwapListingsPageState();
+  @override
+  State<SwapListingsPage> createState() => _SwapListingsPageState();
 }
+
+class _SwapFeed {
+  final List<Map<String, dynamic>> nearby;
+  final List<Map<String, dynamic>> spotlight;
+  final List<Map<String, dynamic>> recent;
+  final Set<String> favorites;
+  const _SwapFeed({required this.nearby, required this.spotlight, required this.recent, required this.favorites});
+}
+
 class _SwapListingsPageState extends State<SwapListingsPage> {
   final _repo = SwapRepository();
   final _search = TextEditingController();
@@ -19,62 +29,232 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
     'الإسماعيلية', 'السويس', 'الفيوم', 'بني سويف', 'المنيا', 'أسيوط',
     'سوهاج', 'قنا', 'الأقصر', 'أسوان', 'مطروح', 'شمال سيناء', 'جنوب سيناء',
   ];
-  late Future<List<Map<String, dynamic>>> _future;
+  late Future<_SwapFeed> _future;
   String? _governorate;
-  @override void initState() { super.initState(); _future = _repo.listOpenListings(); }
-  @override void dispose() { _search.dispose(); super.dispose(); }
-  void _reload() => setState(() => _future = _repo.listOpenListings(search: _search.text, governorate: _governorate));
-  @override Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    return Directionality(textDirection: TextDirection.rtl, child: Scaffold(
-      appBar: AppBar(title: const Text('عروض الاستبدال'), actions: [IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MySwapsPage())), icon: const Icon(Icons.swap_horizontal_circle_rounded))]),
-      floatingActionButton: FloatingActionButton.extended(onPressed: () async { final ok = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateSwapListingPage())); if (ok == true) _reload(); }, icon: const Icon(Icons.add_rounded), label: const Text('إضافة استبدال')),
-      body: RefreshIndicator(onRefresh: () async => _reload(), child: FutureBuilder<List<Map<String, dynamic>>>(future: _future, builder: (context, snap) {
-        if (snap.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: c.primary));
-        if (snap.hasError) return _StateMessage(title: 'تعذر تحميل الاستبدالات', onRetry: _reload);
-        final rows = snap.data ?? const <Map<String, dynamic>>[];
-        return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), children: [
-          _IntroCard(color: c.primary), const SizedBox(height: 12),
-          TextField(controller: _search, onSubmitted: (_) => _reload(), textInputAction: TextInputAction.search, decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'ابحث عن شيء مطلوب...')),
-          const SizedBox(height: 10),
-          DropdownButtonFormField<String>(
-            value: _governorate,
-            isExpanded: true,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.location_on_outlined), labelText: 'فلترة بالمحافظة', hintText: 'كل المحافظات'),
-            items: [const DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')), ..._governorates.map((g) => DropdownMenuItem(value: g, child: Text(g)))],
-            onChanged: (value) { _governorate = value; _reload(); },
-          ),
-          const SizedBox(height: 16),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('عروض الاستبدال', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
-            Text('${rows.length} عرض', style: TextStyle(color: c.onSurfaceVariant, fontWeight: FontWeight.w700)),
-          ]),
-          const SizedBox(height: 10),
-          if (rows.isEmpty)
-            const _StateMessage(title: 'لا توجد استبدالات منشورة حاليًا')
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: rows.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 14,
-                childAspectRatio: .68,
-              ),
-              itemBuilder: (context, index) {
-                final r = rows[index];
-                return _ListingCard(row: r, onTap: () async {
-                  await Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: r['id'].toString())));
-                  if (mounted) _reload();
-                });
-              },
-            ),
-        ]);
-      })),
-    ));
+  String? _category;
+  bool _showAll = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
   }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<_SwapFeed> _load() async {
+    final rows = await _repo.listOpenListings(search: _search.text, governorate: _governorate);
+    final nearby = await _repo.listNearbyOpenListings(search: _search.text);
+    final recent = await _repo.recentlyViewedListings();
+    final favorites = await _repo.favoriteListingIds();
+    return _SwapFeed(
+      nearby: _applyCategory(nearby),
+      spotlight: _applyCategory(rows),
+      recent: _applyCategory(recent),
+      favorites: favorites,
+    );
+  }
+
+  List<Map<String, dynamic>> _applyCategory(List<Map<String, dynamic>> rows) {
+    if (_category == null) return rows;
+    return rows.where((row) => row['category']?.toString() == _category).toList();
+  }
+
+  void _reload() => setState(() => _future = _load());
+
+  Future<void> _openListing(Map<String, dynamic> row) async {
+    await _repo.recordListingView(row['id'].toString());
+    if (!mounted) return;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString())));
+    if (mounted) _reload();
+  }
+
+  Future<void> _toggleFavorite(_SwapFeed feed, String id) async {
+    final next = !feed.favorites.contains(id);
+    setState(() {
+      if (next) {
+        feed.favorites.add(id);
+      } else {
+        feed.favorites.remove(id);
+      }
+    });
+    try {
+      await _repo.toggleFavorite(id, next);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (next) {
+          feed.favorites.remove(id);
+        } else {
+          feed.favorites.add(id);
+        }
+      });
+      _toast(context, Exception('تعذر تحديث المفضلة'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('عروض الاستبدال', style: TextStyle(fontWeight: FontWeight.w900)),
+          actions: [
+            IconButton(
+              tooltip: 'استبدالاتي',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MySwapsPage())),
+              icon: const Icon(Icons.swap_horizontal_circle_rounded),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            final ok = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateSwapListingPage()));
+            if (ok == true && mounted) _reload();
+          },
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('إضافة استبدال'),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async => _reload(),
+          child: FutureBuilder<_SwapFeed>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) return Center(child: CircularProgressIndicator(color: c.primary));
+              if (snap.hasError) return ListView(children: [const SizedBox(height: 180), _StateMessage(title: 'تعذر تحميل عروض الاستبدال', onRetry: _reload)]);
+              final feed = snap.data ?? const _SwapFeed(nearby: [], spotlight: [], recent: [], favorites: {});
+              final all = _unique([...feed.nearby, ...feed.spotlight]);
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+                children: [
+                  Text('استبدلها بدل ما تشتريها', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 5),
+                  Text('اكتشف عروضًا قريبة منك وقدم عرضك بسهولة', style: TextStyle(color: c.onSurfaceVariant)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _search,
+                    onSubmitted: (_) => _reload(),
+                    textInputAction: TextInputAction.search,
+                    decoration: const InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: 'ابحث عن المنتج أو الشيء المطلوب'),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Expanded(child: DropdownButtonFormField<String>(
+                      value: _governorate,
+                      isExpanded: true,
+                      decoration: const InputDecoration(prefixIcon: Icon(Icons.location_on_outlined), labelText: 'المحافظة'),
+                      items: [const DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')), ..._governorates.map((g) => DropdownMenuItem(value: g, child: Text(g)))],
+                      onChanged: (value) { _governorate = value; _reload(); },
+                    )),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(onPressed: () { _showAll = !_showAll; setState(() {}); }, icon: Icon(_showAll ? Icons.view_carousel_outlined : Icons.grid_view_rounded), tooltip: 'تغيير طريقة العرض'),
+                  ]),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 42,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _FilterChip(label: 'الكل', selected: _category == null, onTap: () { _category = null; _reload(); }),
+                        _FilterChip(label: 'إلكترونيات', selected: _category == 'إلكترونيات', onTap: () { _category = 'إلكترونيات'; _reload(); }),
+                        _FilterChip(label: 'موبايلات', selected: _category == 'موبايلات', onTap: () { _category = 'موبايلات'; _reload(); }),
+                        _FilterChip(label: 'أثاث', selected: _category == 'أثاث', onTap: () { _category = 'أثاث'; _reload(); }),
+                        _FilterChip(label: 'ملابس', selected: _category == 'ملابس', onTap: () { _category = 'ملابس'; _reload(); }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  if (_showAll) ...[
+                    _SectionHeader(title: 'كل عروض الاستبدال', count: all.length),
+                    const SizedBox(height: 10),
+                    if (all.isEmpty) const _StateMessage(title: 'لا توجد عروض مطابقة للبحث') else _ListingGrid(rows: all, favorites: feed.favorites, onTap: _openListing, onFavorite: (id) => _toggleFavorite(feed, id)),
+                  ] else ...[
+                    _SwapSection(title: 'عروض قريبة منك', rows: feed.nearby, favorites: feed.favorites, onSeeAll: () { _showAll = true; setState(() {}); }, onTap: _openListing, onFavorite: (id) => _toggleFavorite(feed, id)),
+                    const SizedBox(height: 26),
+                    _SwapSection(title: 'عروض مميزة', rows: feed.spotlight.take(12).toList(), favorites: feed.favorites, onSeeAll: () { _showAll = true; setState(() {}); }, onTap: _openListing, onFavorite: (id) => _toggleFavorite(feed, id)),
+                    if (feed.recent.isNotEmpty) ...[
+                      const SizedBox(height: 26),
+                      _SwapSection(title: 'شاهدتها مؤخرًا', rows: feed.recent, favorites: feed.favorites, onSeeAll: null, onTap: _openListing, onFavorite: (id) => _toggleFavorite(feed, id)),
+                    ],
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _unique(List<Map<String, dynamic>> rows) {
+    final seen = <String>{};
+    return rows.where((row) => seen.add(row['id'].toString())).toList();
+  }
+}
+
+class _SwapSection extends StatelessWidget {
+  final String title;
+  final List<Map<String, dynamic>> rows;
+  final Set<String> favorites;
+  final VoidCallback? onSeeAll;
+  final Future<void> Function(Map<String, dynamic>) onTap;
+  final Future<void> Function(String) onFavorite;
+  const _SwapSection({required this.title, required this.rows, required this.favorites, required this.onSeeAll, required this.onTap, required this.onFavorite});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))),
+        if (onSeeAll != null) TextButton(onPressed: onSeeAll, child: const Text('عرض الكل')),
+      ]),
+      const SizedBox(height: 8),
+      if (rows.isEmpty)
+        Container(height: 100, alignment: Alignment.center, decoration: BoxDecoration(color: c.surfaceContainerHighest, borderRadius: BorderRadius.circular(18)), child: const Text('لا توجد عروض في هذا القسم'))
+      else
+        SizedBox(height: 286, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) => _ListingCard(row: rows[i], isFavorite: favorites.contains(rows[i]['id'].toString()), onTap: () => onTap(rows[i]), onFavorite: () => onFavorite(rows[i]['id'].toString())))),
+    ]);
+  }
+}
+
+class _ListingGrid extends StatelessWidget {
+  final List<Map<String, dynamic>> rows;
+  final Set<String> favorites;
+  final Future<void> Function(Map<String, dynamic>) onTap;
+  final Future<void> Function(String) onFavorite;
+  const _ListingGrid({required this.rows, required this.favorites, required this.onTap, required this.onFavorite});
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    itemCount: rows.length,
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 14, childAspectRatio: .64),
+    itemBuilder: (_, i) => _ListingCard(row: rows[i], isFavorite: favorites.contains(rows[i]['id'].toString()), onTap: () => onTap(rows[i]), onFavorite: () => onFavorite(rows[i]['id'].toString())),
+  );
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final int count;
+  const _SectionHeader({required this.title, required this.count});
+  @override
+  Widget build(BuildContext context) => Row(children: [Expanded(child: Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900))), Text('$count عرض', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))]);
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Padding(padding: const EdgeInsetsDirectional.only(end: 8), child: ChoiceChip(label: Text(label), selected: selected, onSelected: (_) => onTap()));
 }
 
 class CreateSwapListingPage extends StatefulWidget {
@@ -687,54 +867,48 @@ class _ProposalCard extends StatelessWidget {
 
 class _ListingCard extends StatelessWidget {
   final Map<String, dynamic> row;
+  final bool isFavorite;
   final VoidCallback onTap;
-  const _ListingCard({required this.row, required this.onTap});
+  final VoidCallback onFavorite;
+  const _ListingCard({required this.row, required this.isFavorite, required this.onTap, required this.onFavorite});
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-            child: Stack(fit: StackFit.expand, children: [
-              images.isNotEmpty
-                  ? CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 720, maxWidthDiskCache: 720, fadeInDuration: const Duration(milliseconds: 120), placeholder: (_, __) => _imageFallback(c), errorWidget: (_, __, ___) => _imageFallback(c))
-                  : _imageFallback(c),
-              Positioned(
-                top: 9,
-                right: 9,
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: .72), shape: BoxShape.circle),
-                  child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(10, 28, 10, 9),
-                  decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xDD000000)])),
-                  child: Text('مطلوب: ${row['wanted_title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16)),
-                ),
-              ),
-            ]),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Row(children: [
-              CircleAvatar(radius: 12, backgroundColor: c.primaryContainer, child: Icon(Icons.person_rounded, size: 14, color: c.onPrimaryContainer)),
-              const SizedBox(width: 6),
-              Expanded(child: Text('${row['governorate'] ?? 'المحافظة'} • ${_conditionLabel(row['wanted_condition']?.toString())}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700))),
-            ]),
-          ),
-        ]),
+    final user = row['users'] as Map?;
+    final title = row['wanted_title']?.toString() ?? 'استبدال جديد';
+    final location = row['city']?.toString().trim().isNotEmpty == true ? row['city'].toString() : (row['governorate']?.toString() ?? 'الموقع غير محدد');
+    final condition = _conditionLabel(row['wanted_condition']?.toString());
+    return SizedBox(
+      width: 184,
+      height: 276,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Stack(fit: StackFit.expand, children: [
+                images.isNotEmpty
+                    ? CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 720, maxWidthDiskCache: 720, fadeInDuration: const Duration(milliseconds: 120), placeholder: (_, __) => _imageFallback(c), errorWidget: (_, __, ___) => _imageFallback(c))
+                    : _imageFallback(c),
+                Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: .82)])))),
+                Positioned(top: 10, right: 10, child: Material(color: Colors.black.withValues(alpha: .58), shape: const CircleBorder(), child: InkWell(onTap: onFavorite, customBorder: const CircleBorder(), child: Padding(padding: const EdgeInsets.all(8), child: Icon(isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: isFavorite ? Colors.redAccent : Colors.white, size: 20))))),
+                Positioned(left: 10, right: 10, bottom: 10, child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17, height: 1.15))),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
+              child: Row(children: [
+                CircleAvatar(radius: 13, backgroundImage: (user?['avatar_url']?.toString().isNotEmpty == true) ? NetworkImage(user!['avatar_url'].toString()) : null, backgroundColor: c.primaryContainer, child: (user?['avatar_url']?.toString().isNotEmpty == true) ? null : Icon(Icons.person_rounded, size: 15, color: c.onPrimaryContainer)),
+                const SizedBox(width: 6),
+                Expanded(child: Text('$location • $condition', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: c.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700))),
+              ]),
+            ),
+          ]),
+        ),
       ),
     );
   }

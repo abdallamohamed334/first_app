@@ -36,6 +36,40 @@ class SwapRepository {
     return q.isEmpty ? result : result.where((r) => '${r['wanted_title']} ${r['description']} ${r['category']}'.toLowerCase().contains(q)).toList();
   }
 
+  Future<Set<String>> favoriteListingIds() async {
+    if (currentUserId == null) return <String>{};
+    final rows = await _client.from('favorites').select('target_id').eq('user_id', _uid).eq('target_type', 'swap_listing');
+    return (rows as List).map((row) => row['target_id'].toString()).toSet();
+  }
+
+  Future<void> toggleFavorite(String listingId, bool favorite) async {
+    if (favorite) {
+      await _client.from('favorites').upsert({'user_id': _uid, 'target_type': 'swap_listing', 'target_id': listingId});
+    } else {
+      await _client.from('favorites').delete().eq('user_id', _uid).eq('target_type', 'swap_listing').eq('target_id', listingId);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> recentlyViewedListings() async {
+    if (currentUserId == null) return <Map<String, dynamic>>[];
+    final rows = await _client.from('swap_listing_views').select('''
+      last_viewed_at,
+      listing:listing_id(id, owner_id, wanted_title, description, category, wanted_condition,
+        city, governorate, latitude, longitude, images, status, expires_at, created_at,
+        users:owner_id(name, avatar_url))
+    ''').eq('user_id', _uid).order('last_viewed_at', ascending: false).limit(12);
+    return (rows as List).map((row) => Map<String, dynamic>.from((row['listing'] as Map?) ?? const {})).where((row) => row.isNotEmpty && row['status'] == 'open').toList();
+  }
+
+  Future<void> recordListingView(String listingId) async {
+    if (currentUserId == null) return;
+    await _client.from('swap_listing_views').upsert({
+      'user_id': _uid,
+      'listing_id': listingId,
+      'last_viewed_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
   Future<List<Map<String, dynamic>>> listNearbyOpenListings({String? search}) async {
     final rows = await listOpenListings(search: search);
     final user = await _client.from('users').select('latitude, longitude, city, governorate').eq('id', _uid).maybeSingle();
