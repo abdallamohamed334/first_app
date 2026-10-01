@@ -1465,7 +1465,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  _serviceIconFromName(cat.icon ?? ''),
+                  _serviceIconFromSlug(cat.slug),
                   color: _blue,
                   size: 22,
                 ),
@@ -1539,43 +1539,130 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  IconData _serviceIconFromName(String name) {
-    switch (name) {
+  IconData _serviceIconFromSlug(String slug) {
+    switch (slug.trim().toLowerCase()) {
       case 'plumbing':
         return Icons.plumbing_rounded;
-      case 'electrical':
+      case 'electricity':
         return Icons.electrical_services_rounded;
-      case 'carpentry':
-        return Icons.handyman_rounded;
       case 'painting':
         return Icons.format_paint_rounded;
-      case 'ac':
+      case 'carpentry':
+        return Icons.handyman_rounded;
+      case 'aluminum':
+        return Icons.window_rounded;
+      case 'air_conditioning':
         return Icons.ac_unit_rounded;
       case 'appliances':
         return Icons.kitchen_rounded;
-      case 'car':
-        return Icons.directions_car_rounded;
-      case 'maintenance':
-        return Icons.build_rounded;
-      case 'cleaning':
-        return Icons.cleaning_services_rounded;
-      case 'tutoring':
-        return Icons.menu_book_rounded;
-      case 'barber':
-        return Icons.content_cut_rounded;
-      case 'beauty':
-        return Icons.spa_rounded;
-      case 'it':
-        return Icons.computer_rounded;
-      case 'lock':
+      case 'water_heaters':
+        return Icons.water_drop_rounded;
+      case 'satellite':
+        return Icons.satellite_alt_rounded;
+      case 'locks':
         return Icons.lock_rounded;
-      case 'garden':
-        return Icons.grass_rounded;
       case 'moving':
+      case 'transportation':
+      case 'delivery':
+      case 'packaging':
         return Icons.local_shipping_rounded;
+      case 'furniture_assembly':
+        return Icons.chair_rounded;
+      case 'cleaning':
+      case 'professional_cleaning':
+        return Icons.cleaning_services_rounded;
+      case 'pest_control':
+        return Icons.bug_report_rounded;
+      case 'gardening':
+      case 'agriculture':
+        return Icons.grass_rounded;
+      case 'waterproofing':
       case 'construction':
         return Icons.construction_rounded;
+      case 'gypsum_board':
+      case 'interior_design':
+      case 'decoration':
+        return Icons.architecture_rounded;
+      case 'tiles':
+        return Icons.grid_view_rounded;
+      case 'welding':
+        return Icons.local_fire_department_rounded;
+      case 'car_mechanic':
+      case 'car_bodywork':
+      case 'car_inspection':
+        return Icons.build_rounded;
+      case 'car_electrician':
+        return Icons.battery_charging_full_rounded;
+      case 'car_ac':
+        return Icons.ac_unit_rounded;
+      case 'car_wash':
+        return Icons.local_car_wash_rounded;
+      case 'tires':
+        return Icons.tire_repair_rounded;
+      case 'car':
+      case 'real_estate':
+        return Icons.directions_car_rounded;
+      case 'mobile_repair':
+        return Icons.smartphone_rounded;
+      case 'computer_repair':
+      case 'software_services':
+      case 'networking':
+        return Icons.computer_rounded;
+      case 'cameras_security':
+      case 'photography':
+        return Icons.camera_alt_rounded;
+      case 'graphic_design':
+        return Icons.brush_rounded;
+      case 'beauty_salon':
+        return Icons.spa_rounded;
+      case 'barber':
+        return Icons.content_cut_rounded;
+      case 'tailoring':
+        return Icons.checkroom_rounded;
+      case 'laundry':
+        return Icons.local_laundry_service_rounded;
+      case 'massage':
+        return Icons.self_improvement_rounded;
+      case 'fitness':
+        return Icons.fitness_center_rounded;
+      case 'nutrition':
+      case 'catering':
+        return Icons.restaurant_rounded;
+      case 'private_tutoring':
+        return Icons.menu_book_rounded;
+      case 'languages':
+      case 'translation':
+        return Icons.translate_rounded;
+      case 'accounting':
+        return Icons.receipt_long_rounded;
+      case 'legal_consulting':
+        return Icons.gavel_rounded;
+      case 'business_consulting':
+        return Icons.business_center_rounded;
+      case 'marketing':
+        return Icons.campaign_rounded;
+      case 'recruitment':
+        return Icons.groups_rounded;
+      case 'event_planning':
+        return Icons.celebration_rounded;
+      case 'printing':
+        return Icons.print_rounded;
+      case 'pet_care':
+      case 'veterinary':
+        return Icons.pets_rounded;
+      case 'security':
+      case 'insurance':
+        return Icons.shield_rounded;
       case 'other':
+        return Icons.add_circle_outline_rounded;
+      case 'maintenance':
+      case 'it':
+      case 'garden':
+      case 'tutoring':
+      case 'beauty':
+      case 'ac':
+      case 'electrical':
+        return Icons.handyman_rounded;
       default:
         return Icons.handyman_rounded;
     }
