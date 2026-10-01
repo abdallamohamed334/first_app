@@ -8,17 +8,23 @@ load_test.py
 
 import time
 import statistics
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 
 # ==================== إعدادات ====================
-SUPABASE_URL = "https://gsrhoqdtcyfdmvgahqvl.supabase.co"
-ANON_KEY = "sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH"  # anon/publishable key
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
+ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
 
 CONCURRENT_USERS = 50      # عدد المستخدمين المتزامنين - جرّب 10 ثم 50 ثم 200
 REQUESTS_PER_USER = 5       # كل مستخدم هيبعت كام طلب
 TIMEOUT_SECONDS = 15
 # ===================================================
+
+if not SUPABASE_URL or not ANON_KEY:
+    raise SystemExit(
+        "Set SUPABASE_URL and SUPABASE_ANON_KEY in the environment before running the load test."
+    )
 
 HEADERS = {
     "apikey": ANON_KEY,

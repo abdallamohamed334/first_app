@@ -40,16 +40,14 @@ import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
 
-// Supabase publishable credentials are safe for a client application. They
-// are available as dart-defines for CI and have a public fallback so a fresh
-// checkout can run without a local .env file.
+// Supabase URL is not secret. The publishable key is injected through .env or
+// --dart-define and is intentionally not committed to the repository.
 const _defaultSupabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
   defaultValue: 'https://gsrhoqdtcyfdmvgahqvl.supabase.co',
 );
 const _defaultSupabasePublishableKey = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
-  defaultValue: 'sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH',
 );
 
 Future<void> main() async {
@@ -63,7 +61,7 @@ Future<void> main() async {
   final envLoaded = await _loadEnvSafely().timeout(
     const Duration(seconds: 2),
     onTimeout: () {
-      debugPrint('Environment loading timed out; using bundled defaults');
+      debugPrint('Environment loading timed out; using compile-time defaults');
       return false;
     },
   );

@@ -1,6 +1,7 @@
 // lib/features/auth/presentation/pages/location_picker_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:geolocator/geolocator.dart';
@@ -24,13 +25,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   static const _primary = Color(0xFF0B7650);
   static const _darkGreen = Color(0xFF123F31);
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Mapbox Token — ضع التوكن بتاعك هنا
-  // ═══════════════════════════════════════════════════════════
-  static const _mapboxToken =
-      'pk.eyJ1IjoiYWJkby0xMjQzNCIsImEiOiJjbXNsbGwzcWcxNXY5MnpwOThuZnY0Zm91In0.BlZ2_ALaPohK3AOu3Re71w';
-
-  static const _mapboxStyle = 'mapbox/streets-v12'; // ممكن تغيرها
+  // Public map tokens must be injected at build time and restricted by
+  // provider-side app/URL scopes. Use token-free OSM tiles when absent.
+  String get _mapboxToken =>
+      dotenv.env['MAPBOX_PUBLIC_TOKEN'] ??
+      const String.fromEnvironment('MAPBOX_PUBLIC_TOKEN');
+  static const _mapboxStyle = 'mapbox/streets-v12';
 
   final _mapController = MapController();
   LatLng? _selected;
@@ -160,10 +160,10 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                         },
                       ),
                       children: [
-                        // ✅ Mapbox Tiles
                         TileLayer(
-                          urlTemplate:
-                              'https://api.mapbox.com/styles/v1/$_mapboxStyle/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxToken',
+                          urlTemplate: _mapboxToken.isEmpty
+                              ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                              : 'https://api.mapbox.com/styles/v1/$_mapboxStyle/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxToken',
                           userAgentPackageName: 'com.jood.app',
                           tileProvider: CancellableNetworkTileProvider(),
                           maxZoom: 19,

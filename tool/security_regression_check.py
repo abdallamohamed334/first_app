@@ -5,12 +5,16 @@ This complements authenticated staging tests; it intentionally needs no Flutter
 or network dependencies so CI can run it in a minimal environment.
 """
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20261001100000_close_provider_privilege_escalation.sql"
 RPC_MIGRATION = ROOT / "supabase/migrations/20261001101500_revoke_anon_public_rpc_access.sql"
+SENSITIVE_GRANT_MIGRATION = ROOT / "supabase/migrations/20261001103000_revoke_provider_sensitive_update_grants.sql"
 MAIN = ROOT / "lib/main.dart"
 PROVIDER = ROOT / "lib/features/provider/data/repositories/service_provider_repository.dart"
+MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dart"
+LOAD_TEST = ROOT / "load_test.py"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -21,8 +25,11 @@ def require(text: str, needle: str, label: str) -> None:
 def main() -> None:
     migration = MIGRATION.read_text()
     rpc_migration = RPC_MIGRATION.read_text()
+    sensitive_grant_migration = SENSITIVE_GRANT_MIGRATION.read_text()
     main_dart = MAIN.read_text()
     provider = PROVIDER.read_text()
+    map_page = MAP_PAGE.read_text()
+    load_test = LOAD_TEST.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -41,8 +48,16 @@ def main() -> None:
     require(provider, "contentType: contentType", "provider image MIME enforcement")
     require(provider, "FileOptions(contentType: contentType)", "identity image MIME enforcement")
     require(provider, "experienceYears < 1", "normalized experience validation")
+    require(map_page, "String.fromEnvironment('MAPBOX_PUBLIC_TOKEN')", "build-time map token")
+    if re.search(r"pk\.ey[A-Za-z0-9_.-]{20,}", map_page):
+        raise AssertionError("Mapbox token is hardcoded in the client")
+    require(load_test, "os.environ.get(\"SUPABASE_ANON_KEY\"", "environment-based load-test key")
+    if re.search(r"sb_(publishable|secret)_[A-Za-z0-9_-]{12,}", load_test):
+        raise AssertionError("Supabase key is hardcoded in load_test.py")
     require(rpc_migration, "list_community_needs_v2", "authenticated-only community needs RPC")
     require(rpc_migration, "list_public_volunteers() FROM anon, PUBLIC", "authenticated-only volunteers RPC")
+    for protected in ("id_card_front_url", "id_card_back_url", "profile_locked_at"):
+        require(sensitive_grant_migration, protected, f"sensitive provider revoke: {protected}")
 
     print("security regression checks: PASS")
 
