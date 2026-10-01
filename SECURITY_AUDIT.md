@@ -15,7 +15,7 @@
 - إضافة تحقق صارم من صيغة رقم الهاتف والكود.
 - حماية `send-whatsapp` بحيث لا يعمل إلا مع جلسة مستخدم صحيحة، مع تقييد طول الرسالة ورقم الهاتف وعدم تسريب رد مزود WhatsApp.
 - جعل `send-push-notification` داخليًا فقط عبر `NOTIFICATION_INTERNAL_SECRET` وعدم إعادة أخطاء FCM التفصيلية للعميل.
-- جعل `notify-provider-approved`, `issue-signup-email-code`, و`verify-otp` داخلية فقط عبر `INTERNAL_FUNCTION_SECRET`.
+- جعل `notify-provider-approved` و`verify-otp` داخلية فقط عبر `INTERNAL_FUNCTION_SECRET`.
 - تعطيل cleartext HTTP صراحة في Android عبر `android:usesCleartextTraffic="false"`.
 - رفع متطلبات كلمة المرور في إعداد Supabase المحلي إلى 8 أحرف مع حروف كبيرة/صغيرة وأرقام، وتفعيل إعادة التحقق عند تغيير كلمة المرور.
 
@@ -27,7 +27,7 @@
 | حرجة | كلمة المرور الداخلية كانت مشتقة من رقم الهاتف بصيغة ثابتة | إمكانية تخمين بيانات اعتماد الحسابات بعد معرفة رقم الهاتف |
 | عالية | `send-whatsapp` كان يسمح باستدعاء مزود الرسائل بدون مصادقة | إساءة استخدام الحساب لإرسال رسائل عشوائية وتكلفة مالية/حظر رقم WhatsApp |
 | عالية | `send-push-notification` كان مكشوفًا بدون سر داخلي | إرسال إشعارات مزيفة لأي مستخدم عبر FCM |
-| عالية | `notify-provider-approved` و`issue-signup-email-code` و`verify-otp` كانت بلا بوابة داخلية | إساءة استخدام webhooks وOTP وإرسال البريد |
+| عالية | `notify-provider-approved` و`verify-otp` كانت بلا بوابة داخلية | إساءة استخدام webhooks وOTP |
 | متوسطة | OTP كان يستخدم `Math.random()` ولا يوجد throttle دائم قبل الإنشاء | قابلية أعلى للتخمين وOTP spam |
 | حرجة للإطلاق | Android Release يستخدم debug signing | لا يجوز نشر التطبيق بهذه الشهادة؛ خطر تحديثات/هوية التطبيق وفشل متطلبات المتاجر |
 
@@ -41,7 +41,6 @@
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `WAPILOT_TOKEN` أو `WHATSAPP_TOKEN` حسب الوظيفة
    - `GOOGLE_SERVICE_ACCOUNT`
-   - `RESEND_API_KEY` إذا كانت وظيفة البريد مستخدمة
 3. تحديث استدعاءات webhooks الداخلية لإرسال headers المناسبة بعد تفعيل الأسرار:
    - `x-internal-function-secret`
    - `x-notification-secret`
@@ -85,7 +84,7 @@
 
 ## المتبقي قبل الإطلاق
 
-1. يجب التأكد من وجود الأسرار التالية في Supabase Secrets؛ لا يتم إرسالها عبر الدردشة: `INTERNAL_FUNCTION_SECRET`, `NOTIFICATION_INTERNAL_SECRET`, `WAPILOT_TOKEN`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `GOOGLE_SERVICE_ACCOUNT`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
+1. يجب التأكد من وجود الأسرار التالية في Supabase Secrets؛ لا يتم إرسالها عبر الدردشة: `INTERNAL_FUNCTION_SECRET`, `NOTIFICATION_INTERNAL_SECRET`, `WAPILOT_TOKEN`, `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID`, `GOOGLE_SERVICE_ACCOUNT`.
 2. Supabase لا يسمح لمالك المشروع بتعديل جدول PostGIS المملوك للإضافة `spatial_ref_sys` أو دوال `st_estimatedextent`؛ لذلك تظهر هذه العناصر فقط في Advisor، ولا تمس جداول التطبيق. معالجة ذلك تحتاج إعدادًا إداريًا من لوحة Supabase/الدعم أو نقل PostGIS إلى schema مخصص.
 3. ما زالت هناك تحذيرات Advisor حول دوال `SECURITY DEFINER` التي يستدعيها المستخدم المسجل. لا يمكن سحب صلاحيتها عشوائيًا دون كسر RPCs التطبيق؛ يلزم اختبار كل RPC حسب الدور ثم تحويل غير الضروري إلى `SECURITY INVOKER` أو سحب `EXECUTE` منه.
 4. يجب اختبار مسارات التسجيل، OTP، الطلبات، الإشعارات، والـwebhooks بحسابات test منفصلة قبل الإنتاج، خصوصًا بعد تضييق قراءة جدول `users`.
