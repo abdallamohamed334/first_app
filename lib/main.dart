@@ -1,6 +1,7 @@
 // lib/main.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
 import 'features/map/data/repositories/map_repository_impl.dart';
@@ -14,6 +15,7 @@ import 'package:firebase_performance/firebase_performance.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,8 +42,9 @@ import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
 
-// Supabase URL is not secret. The publishable key is injected through .env or
-// --dart-define and is intentionally not committed to the repository.
+// Keep dart-define/.env overrides for CI and staging. A public client config
+// asset is also bundled so a manually built APK does not fail at startup when
+// the developer forgets to pass the optional defines.
 const _defaultSupabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
 );
@@ -64,13 +67,18 @@ Future<void> main() async {
       return false;
     },
   );
+  final bundledConfig = await _loadBundledConfigSafely();
 
   final supabaseUrl = envLoaded
-      ? (dotenv.env['SUPABASE_URL'] ?? _defaultSupabaseUrl)
-      : _defaultSupabaseUrl;
+      ? (dotenv.env['SUPABASE_URL'] ??
+          bundledConfig['SUPABASE_URL'] ??
+          _defaultSupabaseUrl)
+      : (bundledConfig['SUPABASE_URL'] ?? _defaultSupabaseUrl);
   final supabaseAnonKey = envLoaded
-      ? (dotenv.env['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey)
-      : _defaultSupabasePublishableKey;
+      ? (dotenv.env['SUPABASE_ANON_KEY'] ??
+          bundledConfig['SUPABASE_ANON_KEY'] ??
+          _defaultSupabasePublishableKey)
+      : (bundledConfig['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey);
 
   if (!envLoaded &&
       (_defaultSupabaseUrl.isEmpty || _defaultSupabasePublishableKey.isEmpty)) {
@@ -341,6 +349,21 @@ Future<bool> _loadEnvSafely() async {
   } catch (_) {
     debugPrint('Optional .env not loaded; using bundled configuration');
     return false;
+  }
+}
+
+Future<Map<String, String>> _loadBundledConfigSafely() async {
+  try {
+    final raw = await rootBundle.loadString('assets/config/runtime_config.json');
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return const {};
+    return decoded.map<String, String>((key, value) => MapEntry(
+          key.toString(),
+          value.toString().trim(),
+        ));
+  } catch (error) {
+    debugPrint('Optional bundled runtime config unavailable: $error');
+    return const {};
   }
 }
 

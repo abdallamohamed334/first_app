@@ -120,7 +120,10 @@ class UserTypeSelectionPage extends StatelessWidget {
                       title: 'مستخدم عادي',
                       subtitle: 'اكتشف عروض قريبة منك، واطلب خدمات',
                       color: _primary,
-                      onTap: () => context.push(AppRouter.login),
+                      // Replace the selection route. This prevents a stale
+                      // auth refresh from re-applying the previous route over
+                      // the ordinary-user login page in release APKs.
+                      onTap: () => context.go(AppRouter.login),
                     ),
                     const SizedBox(height: 14),
 
@@ -160,7 +163,7 @@ class UserTypeSelectionPage extends StatelessWidget {
                           ),
                         ),
                         TextButton(
-                          onPressed: () => context.push(AppRouter.login),
+                          onPressed: () => context.go(AppRouter.login),
                           child: const Text(
                             'تسجيل الدخول',
                             style: TextStyle(

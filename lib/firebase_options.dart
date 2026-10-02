@@ -39,10 +39,9 @@ class DefaultFirebaseOptions {
 
   // Android: Firebase app registered for com.jood.app.
   static FirebaseOptions get android => FirebaseOptions(
-        // This is the public Android client key from android/app/google-services.json.
-        // Do not require .env for Android Firebase startup; release/debug builds
-        // already receive the matching application config from google-services.
-        apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
+        // Firebase is optional at startup. If the key is not injected, main()
+        // skips Firebase/FCM without blocking Supabase or the auth UI.
+        apiKey: _env('FIREBASE_ANDROID_API_KEY'),
         appId: '1:898976071862:android:2dc21f643a0c8a3c4ae617',
         messagingSenderId: '898976071862',
         projectId: 'flutter-app-45f07',

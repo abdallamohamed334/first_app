@@ -569,9 +569,10 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _checkAutoLogin() async {
     try {
       // A stale/offline Supabase session must not keep the login page on the
-      // loading screen forever. The user can still start a fresh OTP flow.
+      // loading screen. Keep this short because this is an optional restore;
+      // the user must be able to start a fresh OTP flow immediately.
       final result = await _authRepo.getSessionWithUserType().timeout(
-            const Duration(seconds: 5),
+            const Duration(seconds: 3),
             onTimeout: () => const dartz.Left('انتهت مهلة فحص الجلسة'),
           );
       await result.fold(
