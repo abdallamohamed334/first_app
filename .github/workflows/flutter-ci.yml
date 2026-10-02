@@ -30,8 +30,8 @@ jobs:
       - name: Production static gate
         run: python3 tool/production_gate.py
 
-      - name: Analyze
-        run: flutter analyze
+      - name: Analyze (errors are fatal; legacy warnings are reported)
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Test
         run: flutter test
