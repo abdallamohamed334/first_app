@@ -76,25 +76,34 @@ Future<void> main() async {
       (_defaultSupabaseUrl.isEmpty || _defaultSupabasePublishableKey.isEmpty)) {
     debugPrint(
       '⚠️ SUPABASE_URL / SUPABASE_ANON_KEY missing from environment. '
-      'Check that .env was bundled correctly for this build.',
+      'Provide them through --dart-define or a local optional .env file.',
     );
   }
 
-  try {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      publishableKey: supabaseAnonKey,
-    ).timeout(const Duration(seconds: 5));
+  String? startupError;
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    startupError =
+        'إعدادات الاتصال بالخدمة غير مكتملة. أعد تشغيل التطبيق بعد ضبط '
+        'SUPABASE_URL و SUPABASE_ANON_KEY.';
+    debugPrint('Supabase initialization skipped: missing client configuration');
+  } else {
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        publishableKey: supabaseAnonKey,
+      ).timeout(const Duration(seconds: 5));
 
-    debugPrint('Supabase initialized successfully');
+      debugPrint('Supabase initialized successfully');
 
-    // ═══════════════════════════════════════════════════════════
-    // ✅ Auth Listener موحّد — يزامن AuthStateNotifier مع Supabase
-    // ═══════════════════════════════════════════════════════════
-    _attachAuthStateSync();
-  } catch (error, stack) {
-    debugPrint('Supabase initialization failed: $error');
-    debugPrintStack(stackTrace: stack);
+      // ═══════════════════════════════════════════════════════════
+      // ✅ Auth Listener موحّد — يزامن AuthStateNotifier مع Supabase
+      // ═══════════════════════════════════════════════════════════
+      _attachAuthStateSync();
+    } catch (error, stack) {
+      startupError = 'تعذر الاتصال بخدمة التطبيق. تحقق من الشبكة ثم أعد المحاولة.';
+      debugPrint('Supabase initialization failed: $error');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   final isDarkMode = await _loadThemePreferenceSafely().timeout(
@@ -105,8 +114,15 @@ Future<void> main() async {
   // ✅ تهيئة الـ ThemeNotifier قبل بدء التطبيق
   ThemeNotifier.isDarkMode.value = isDarkMode;
 
-  runApp(MyApp(initialIsDarkMode: isDarkMode));
-  unawaited(_initializePostLaunchServicesAfterStartup(envLoaded));
+  runApp(
+    MyApp(
+      initialIsDarkMode: isDarkMode,
+      startupError: startupError,
+    ),
+  );
+  if (startupError == null) {
+    unawaited(_initializePostLaunchServicesAfterStartup(envLoaded));
+  }
 }
 
 Future<void> _initializePostLaunchServicesAfterStartup(bool envLoaded) async {
@@ -471,11 +487,16 @@ Future<void> _configureRemoteConfig() async {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key, required this.initialIsDarkMode});
+  const MyApp({
+    super.key,
+    required this.initialIsDarkMode,
+    this.startupError,
+  });
 
   /// Loaded once in main() before runApp(), so the very first frame
   /// already renders with the correct theme — no flash.
   final bool initialIsDarkMode;
+  final String? startupError;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -491,6 +512,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.startupError != null) {
+      return StartupFailureApp(
+        message: widget.startupError!,
+        isDarkMode: widget.initialIsDarkMode,
+      );
+    }
     final supabaseService = SupabaseService();
 
     return MultiBlocProvider(
@@ -530,6 +557,53 @@ class _MyAppState extends State<MyApp> {
               themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class StartupFailureApp extends StatelessWidget {
+  const StartupFailureApp({
+    super.key,
+    required this.message,
+    required this.isDarkMode,
+  });
+
+  final String message;
+  final bool isDarkMode;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'وِصلة',
+      debugShowCheckedModeBanner: false,
+      theme: isDarkMode ? AppTheme.dark() : AppTheme.light(),
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_outlined, size: 56),
+                const SizedBox(height: 16),
+                const Text(
+                  'تعذر تشغيل التطبيق',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: main,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('إعادة المحاولة'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

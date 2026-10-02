@@ -153,7 +153,21 @@ max_indexes = 5
 [functions.send-otp]
 verify_jwt = false
 
-# Vector Buckets is available to Supabase Pro plan.
+# These endpoints are pre-auth or internal-secret protected. Their handlers
+# perform their own authorization and must be deployed with the same settings.
+[functions.verify-and-create]
+verify_jwt = false
+
+[functions.verify-otp]
+verify_jwt = false
+
+[functions.notify-provider-approved]
+verify_jwt = false
+
+[functions.send-whatsapp]
+verify_jwt = true
+
+# Vector Buckets are available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 
 [auth]

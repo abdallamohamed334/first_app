@@ -125,15 +125,16 @@ serve(async (req) => {
 
         if (!authErr && authData?.user) {
           finalUserId = publicUser.id;
-          console.log("✅ Both exist (matched):", finalUserId);
+          console.log("Existing Auth and public user matched");
         } else {
-          // orphan public row → امسحه
-          console.log("⚠️ Orphan public user. Deleting:", publicUser.id);
-          await adminClient.from("users").delete().eq("id", publicUser.id);
+          // Never delete an orphan automatically: the row may contain user data
+          // that needs manual reconciliation. Stop safely and preserve it.
+          console.warn("Orphan public user detected; automatic deletion skipped");
+          return err("تعذر مزامنة الحساب، تواصل مع الدعم", 409);
         }
       } catch (e) {
-        console.error("⚠️ getUserById error:", e);
-        await adminClient.from("users").delete().eq("id", publicUser.id);
+        console.error("getUserById reconciliation failed:", e);
+        return err("تعذر مزامنة الحساب، حاول مرة أخرى", 503);
       }
     }
 
@@ -154,7 +155,7 @@ serve(async (req) => {
       if (authData?.user) {
         finalUserId = authData.user.id;
         isNewUser = true;
-        console.log("✅ New auth user:", finalUserId);
+        console.log("New auth user created");
       } else if (authError) {
         console.error("⚠️ Auth create failed:", authError.message);
 
@@ -177,7 +178,7 @@ serve(async (req) => {
 
           if (found) {
             finalUserId = found.id;
-            console.log("✅ Found existing auth user:", finalUserId);
+            console.log("Existing auth user found");
             break;
           }
 
@@ -204,13 +205,8 @@ serve(async (req) => {
       .eq("phone", cleanPhone)
       .maybeSingle();
     if (conflictRow?.id && conflictRow.id !== finalUserId) {
-      const { error: conflictDeleteError } = await adminClient
-        .from("users")
-        .delete()
-        .eq("id", conflictRow.id);
-      if (conflictDeleteError) {
-        console.error("⚠️ Phone conflict cleanup failed:", JSON.stringify(conflictDeleteError));
-      }
+      console.warn("Phone conflict detected; automatic cleanup skipped");
+      return err("رقم الهاتف مرتبط بحساب آخر", 409);
     }
 
     // ═══════════════════════════════════════════════════════════

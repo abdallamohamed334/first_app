@@ -4,6 +4,12 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DefaultFirebaseOptions {
+  static String? _optionalEnv(String name) {
+    final value = dotenv.env[name] ?? String.fromEnvironment(name);
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   static String _env(String name) {
     final value = dotenv.env[name] ?? String.fromEnvironment(name);
     if (value.trim().isEmpty) {
@@ -58,7 +64,7 @@ class DefaultFirebaseOptions {
     projectId: 'flutter-app-45f07',
     authDomain: 'flutter-app-45f07.firebaseapp.com',
     storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    measurementId: 'G-XXXXXXXX',
+    measurementId: _optionalEnv('FIREBASE_WEB_MEASUREMENT_ID'),
   );
 
   // macOS compatibility configuration.

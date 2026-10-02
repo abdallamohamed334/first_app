@@ -89,7 +89,6 @@ flutter:
     enable-swift-package-manager: false
 
   assets:
-    - .env
     - assets/animations/
     - assets/images/
     - assets/icons/

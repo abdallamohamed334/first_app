@@ -46,7 +46,25 @@ serve(async (req) => {
     const cleanPhone = normalizeEgyptianPhone(phone);
 
     if (!cleanPhone) {
-      return errorResponse("رقم الهاتف غير صحيح", 400);
+      return errorResponse("رقم الهاتف غير صحيح");
+    }
+
+    const requestIp =
+      req.headers.get("cf-connecting-ip") ??
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    const rateKey = await sha256(`otp:v1:${cleanPhone}:${requestIp}`);
+    const { data: rateAllowed, error: rateError } = await supabase.rpc(
+      "consume_otp_rate_limit",
+      {
+        p_key: rateKey,
+        p_window_seconds: 300,
+        p_max_requests: 5,
+      },
+    );
+    if (rateError || rateAllowed !== true) {
+      console.warn("OTP rate limit applied");
+      return errorResponse("طلبات كثيرة، حاول مرة أخرى بعد قليل", 429);
     }
 
     // Prevent OTP spam across function instances using the database as the source of truth.
@@ -202,4 +220,12 @@ function errorResponse(message: string, status = 400) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }

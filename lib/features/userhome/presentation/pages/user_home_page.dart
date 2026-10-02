@@ -3041,7 +3041,7 @@ class _UserHomePageState extends State<UserHomePage> {
     return Container(
       decoration: BoxDecoration(
         color: _card,
-        border: const Border(
+        border: Border(
           top: BorderSide(color: _border, width: 1),
         ),
         boxShadow: [

@@ -194,7 +194,7 @@ class AuthRepository {
         return Left(providerBlock);
       }
 
-      debugPrint('📤 Sending OTP to $cleanPhone (mode=$loginMode)');
+      debugPrint('Sending OTP request (mode=$loginMode)');
 
       final response = await _supabase.client.functions.invoke(
         'send-otp',
@@ -215,7 +215,7 @@ class AuthRepository {
       }
 
       final returnedPhone = data['phone']?.toString() ?? cleanPhone;
-      debugPrint('✅ OTP sent to $returnedPhone');
+      debugPrint('OTP request accepted');
       return Right(returnedPhone);
     } catch (error) {
       debugPrint('❌ sendOtp exception: ${error.runtimeType}');
@@ -255,7 +255,7 @@ class AuthRepository {
         }
       }
 
-      debugPrint('📥 Verifying OTP for $cleanPhone (role=$role)');
+      debugPrint('Verifying OTP request (role=$role)');
 
       final response = await _supabase.client.functions.invoke(
         'verify-and-create',
@@ -384,7 +384,7 @@ class AuthRepository {
       }
 
       // ✅ 3. نبعت OTP
-      debugPrint('📤 Register: sending OTP to $cleanPhone (role=$cleanRole)');
+      debugPrint('Register: sending OTP request (role=$cleanRole)');
       final otpResult = await sendOtp(
         phone: cleanPhone,
         loginMode: cleanRole == 'provider' ? 'provider' : 'user',
@@ -451,7 +451,7 @@ class AuthRepository {
       final rawRole = userType.isNotEmpty ? userType : roleFallback;
 
       if (rawRole.isEmpty) {
-        debugPrint('AUTH ROLE EMPTY: user_id=$userId');
+        debugPrint('Auth role is empty for the current user');
         return null;
       }
 

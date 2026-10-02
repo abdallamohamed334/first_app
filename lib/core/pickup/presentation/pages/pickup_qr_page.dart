@@ -61,8 +61,6 @@ class _PickupQRPageState extends State<PickupQRPage> {
       // ✅ استخدم client.auth.currentUser مباشرة
       final authUser = _supabase.client.auth.currentUser;
 
-      print('🔍 Current User: ${authUser?.id ?? 'null'}');
-
       if (!mounted) return;
 
       if (authUser == null) {
@@ -70,10 +68,6 @@ class _PickupQRPageState extends State<PickupQRPage> {
         Navigator.of(context).pop();
         return;
       }
-
-      print('🔍 Business ID: ${widget.businessId}');
-      print('🔍 Request ID: ${widget.requestId}');
-      print('🔍 User ID: ${authUser.id}');
 
       // ✅ استخدام businessId من الـ widget
       final businessId = widget.businessId;
@@ -84,7 +78,6 @@ class _PickupQRPageState extends State<PickupQRPage> {
       // 1. استخدم token موجود
       if (widget.existingToken != null && widget.existingToken!.isNotEmpty) {
         token = widget.existingToken;
-        print('📌 Using existing token: $token');
       } else {
         // 2. أنشئ token جديد
         token = await _repository.generatePickupToken(
@@ -92,35 +85,19 @@ class _PickupQRPageState extends State<PickupQRPage> {
           userId: authUser.id,
           businessId: businessId,
         );
-        print('📌 Generated token: $token');
       }
 
       if (!mounted) return;
 
-      // ✅ لو token null أو فارغ، استخدم Token تجريبي
+      // لا ننشئ token محليًا عند فشل الـ RPC؛ ذلك قد ينتج كود استلام
+      // غير صالح أو يسبب التباسًا في حالة الطلب.
       if (token == null || token.trim().isEmpty) {
-        token = 'TEST-${DateTime.now().millisecondsSinceEpoch}';
-        print('⚠️ Using fallback token: $token');
-
-        // حفظ token في قاعدة البيانات
-        try {
-          await _supabase.client.from('offer_requests').update({
-            'pickup_token': token,
-            'pickup_token_expires_at':
-                DateTime.now().add(const Duration(hours: 24)).toIso8601String(),
-          }).eq('id', widget.requestId);
-          print('✅ Fallback token saved to DB');
-        } catch (e) {
-          print('❌ Could not save fallback token: $e');
-        }
+        throw StateError('Pickup token was not generated');
       }
 
       // ✅ جلب وقت الانتهاء
       final expiry = await _loadExpiry();
       if (!mounted) return;
-
-      print('📌 Final Token: $token');
-      print('📌 Expiry: $expiry');
 
       setState(() {
         _token = token!.trim();
@@ -133,7 +110,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
         _startCountdown();
       }
     } catch (e) {
-      print('❌ Error generating token: $e');
+      debugPrint('Pickup token generation failed: ${e.runtimeType}');
       if (!mounted) return;
       _setLoading(false);
       _showMessage('حدث خطأ أثناء تجهيز كود الاستلام', isError: true);
@@ -148,14 +125,12 @@ class _PickupQRPageState extends State<PickupQRPage> {
           .eq('id', widget.requestId)
           .maybeSingle();
 
-      print('📌 Expiry response: $response');
-
       final value = response?['pickup_token_expires_at'];
       if (value is DateTime) return value.toUtc();
       if (value == null) return null;
       return DateTime.tryParse(value.toString())?.toUtc();
     } catch (e) {
-      print('❌ Error loading expiry: $e');
+      debugPrint('Pickup token expiry lookup failed: ${e.runtimeType}');
       return null;
     }
   }

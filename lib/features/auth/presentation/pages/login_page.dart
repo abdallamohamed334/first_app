@@ -624,7 +624,7 @@ class _LoginPageState extends State<LoginPage>
         return;
       }
 
-      debugPrint('📌 [Login] sending OTP to $phone');
+      debugPrint('[Login] sending OTP request');
 
       final result = await _authRepo.sendOtp(phone: phone);
 

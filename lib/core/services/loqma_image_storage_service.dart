@@ -39,10 +39,6 @@ class loqmaImageStorageService {
     // مطابق لسياسة UUID-first الخاصة بـ restaurant-offers
     final path = '${user.id}/${_fileName(image)}';
 
-    debugPrint('UPLOAD BUCKET: restaurant-offers');
-    debugPrint('UPLOAD PATH: $path');
-    debugPrint('AUTH USER: ${user.id}');
-
     return _upload(
       bucket: 'restaurant-offers',
       path: path,
@@ -67,10 +63,6 @@ class loqmaImageStorageService {
     // مطابق لسياسة direct_donation_images_insert.
     // هنا direct صحيح لأن policy تقرأ UUID من الجزء الثاني.
     final path = 'direct/${user.id}/${_fileName(image)}';
-
-    debugPrint('DONATION IMAGE BUCKET: community-offers');
-    debugPrint('DONATION IMAGE PATH: $path');
-    debugPrint('AUTH USER: ${user.id}');
 
     return _upload(
       bucket: 'community-offers',
@@ -114,7 +106,7 @@ class loqmaImageStorageService {
             ),
           );
 
-      debugPrint('IMAGE UPLOAD SUCCESS: bucket=$bucket path=$finalPath');
+      debugPrint('Image upload succeeded for bucket=$bucket');
 
       // تحفظ هذه القيمة نفسها في عمود images داخل قاعدة البيانات.
       return finalPath;
