@@ -513,7 +513,8 @@ class _LoginPageState extends State<LoginPage>
         .from('service_providers')
         .select('id, user_id, verification_status, is_active, display_name')
         .eq('user_id', userId)
-        .maybeSingle();
+        .maybeSingle()
+        .timeout(const Duration(seconds: 4));
     return row == null ? null : Map<String, dynamic>.from(row);
   }
 
@@ -580,16 +581,24 @@ class _LoginPageState extends State<LoginPage>
         },
         (data) async {
           final user = data['user'] as UserModel;
-          final provider = await _findProviderByUserId(user.id);
+          // Render the login page before the optional provider lookup. A
+          // stale session or a slow database must never leave the user on a
+          // blank/loading screen.
+          if (mounted) setState(() => _isCheckingAutoLogin = false);
+
+          Map<String, dynamic>? provider;
+          try {
+            provider = await _findProviderByUserId(user.id);
+          } catch (error) {
+            debugPrint('ℹ️ Provider auto-check skipped: $error');
+          }
           if (provider != null) {
             await SupabaseService().signOut();
             if (!mounted) return;
-            setState(() => _isCheckingAutoLogin = false);
             await _showProviderBlockedMessage(provider: provider);
             return;
           }
           if (!mounted) return;
-          setState(() => _isCheckingAutoLogin = false);
           await _navigateToHome(user);
         },
       );
