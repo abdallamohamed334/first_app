@@ -39,42 +39,45 @@ class DefaultFirebaseOptions {
 
   // Android: Firebase app registered for com.jood.app.
   static FirebaseOptions get android => FirebaseOptions(
-    apiKey: _env('FIREBASE_ANDROID_API_KEY'),
-    appId: '1:898976071862:android:2dc21f643a0c8a3c4ae617',
-    messagingSenderId: '898976071862',
-    projectId: 'flutter-app-45f07',
-    storageBucket: 'flutter-app-45f07.firebasestorage.app',
-  );
+        // This is the public Android client key from android/app/google-services.json.
+        // Do not require .env for Android Firebase startup; release/debug builds
+        // already receive the matching application config from google-services.
+        apiKey: 'AIzaSyAOBaBnVB74mm41dfffhDU7MB5CRHqTFV0',
+        appId: '1:898976071862:android:2dc21f643a0c8a3c4ae617',
+        messagingSenderId: '898976071862',
+        projectId: 'flutter-app-45f07',
+        storageBucket: 'flutter-app-45f07.firebasestorage.app',
+      );
 
   // iOS: values from GoogleService-Info.plist for com.jood.app.
   static FirebaseOptions get ios => FirebaseOptions(
-    apiKey: _env('FIREBASE_IOS_API_KEY'),
-    appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
-    messagingSenderId: '898976071862',
-    projectId: 'flutter-app-45f07',
-    storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    iosBundleId: 'com.jood.app',
-  );
+        apiKey: _env('FIREBASE_IOS_API_KEY'),
+        appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
+        messagingSenderId: '898976071862',
+        projectId: 'flutter-app-45f07',
+        storageBucket: 'flutter-app-45f07.firebasestorage.app',
+        iosBundleId: 'com.jood.app',
+      );
 
   // Web: keep the existing Web Firebase app unchanged.
   static FirebaseOptions get web => FirebaseOptions(
-    apiKey: _env('FIREBASE_WEB_API_KEY'),
-    appId: '1:898976071862:web:8572454f3a6cb2004ae617',
-    messagingSenderId: '898976071862',
-    projectId: 'flutter-app-45f07',
-    authDomain: 'flutter-app-45f07.firebaseapp.com',
-    storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    measurementId: _optionalEnv('FIREBASE_WEB_MEASUREMENT_ID'),
-  );
+        apiKey: _env('FIREBASE_WEB_API_KEY'),
+        appId: '1:898976071862:web:8572454f3a6cb2004ae617',
+        messagingSenderId: '898976071862',
+        projectId: 'flutter-app-45f07',
+        authDomain: 'flutter-app-45f07.firebaseapp.com',
+        storageBucket: 'flutter-app-45f07.firebasestorage.app',
+        measurementId: _optionalEnv('FIREBASE_WEB_MEASUREMENT_ID'),
+      );
 
   // macOS compatibility configuration.
   // Register a separate macOS Firebase app before using Firebase on macOS.
   static FirebaseOptions get macos => FirebaseOptions(
-    apiKey: _env('FIREBASE_MACOS_API_KEY'),
-    appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
-    messagingSenderId: '898976071862',
-    projectId: 'flutter-app-45f07',
-    storageBucket: 'flutter-app-45f07.firebasestorage.app',
-    iosBundleId: 'com.jood.app',
-  );
+        apiKey: _env('FIREBASE_MACOS_API_KEY'),
+        appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
+        messagingSenderId: '898976071862',
+        projectId: 'flutter-app-45f07',
+        storageBucket: 'flutter-app-45f07.firebasestorage.app',
+        iosBundleId: 'com.jood.app',
+      );
 }
