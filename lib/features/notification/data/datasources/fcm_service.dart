@@ -32,7 +32,7 @@ class FcmService {
       // ✅ جلب الـ Token
       final token = await _messaging!.getToken();
       if (token != null) {
-        print('✅ FCM Token: $token');
+        print('✅ FCM token received');
         await _saveToken(token);
       } else {
         print('⚠️ FCM Token is null');
@@ -55,7 +55,7 @@ class FcmService {
         return;
       }
 
-      print('📌 Saving FCM token for user: ${user.id}');
+      print('📌 Saving FCM token');
 
       final supabaseService = SupabaseService();
       final adminClient = supabaseService.adminClient;
@@ -73,10 +73,7 @@ class FcmService {
   void _setupListeners() {
     // ✅ ✅ ✅ إشعار في المقدمة - نحفظه في قاعدة البيانات
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
-      print('📩 FCM Message received (foreground):');
-      print('  Title: ${message.notification?.title}');
-      print('  Body: ${message.notification?.body}');
-      print('  Data: ${message.data}');
+      print('📩 FCM message received in foreground');
 
       // ✅ حفظ الإشعار في قاعدة البيانات
       await _saveNotificationToDatabase(message);

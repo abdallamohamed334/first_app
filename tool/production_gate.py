@@ -13,6 +13,7 @@ required = [
     ROOT / "supabase/config.toml",
     ROOT / "supabase/migrations/20261002100000_harden_public_image_bucket_limits.sql",
     ROOT / "supabase/migrations/20261002110000_add_otp_rate_limit.sql",
+    ROOT / "supabase/migrations/20261002120000_lock_public_provider_surface.sql",
     ROOT / ".github/workflows/flutter-ci.yml",
     ROOT / ".github/workflows/release.yml",
 ]

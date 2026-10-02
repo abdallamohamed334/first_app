@@ -74,7 +74,9 @@ jobs:
           name: loqma-android-aab
           path: build/app/outputs/bundle/release/*.aab
 
-  ios:
+  # Validate the archive only. App Store distribution stays gated until
+  # Apple signing credentials are configured in repository secrets.
+  ios-validation:
     needs: verify
     runs-on: macos-latest
     steps:
@@ -97,12 +99,12 @@ jobs:
           test -n "$FIREBASE_IOS_API_KEY"
           printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\nFIREBASE_IOS_API_KEY=%s\n' \
             "$SUPABASE_URL" "$SUPABASE_ANON_KEY" "$FIREBASE_IOS_API_KEY" > .env
-      - name: Build iOS archive
+      - name: Build unsigned iOS archive validation
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         run: flutter build ipa --release --no-codesign
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: loqma-ios-ipa-unsigned
+          name: loqma-ios-ipa-validation-unsigned
           path: build/ios/ipa/*.ipa

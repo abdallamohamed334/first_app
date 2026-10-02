@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "supabase/migrations/20261001100000_close_provider_privilege_escalation.sql"
 RPC_MIGRATION = ROOT / "supabase/migrations/20261001101500_revoke_anon_public_rpc_access.sql"
 SENSITIVE_GRANT_MIGRATION = ROOT / "supabase/migrations/20261001103000_revoke_provider_sensitive_update_grants.sql"
+PUBLIC_PROVIDER_MIGRATION = ROOT / "supabase/migrations/20261002120000_lock_public_provider_surface.sql"
 MAIN = ROOT / "lib/main.dart"
 PROVIDER = ROOT / "lib/features/provider/data/repositories/service_provider_repository.dart"
 MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dart"
@@ -27,6 +28,7 @@ def main() -> None:
     migration = MIGRATION.read_text()
     rpc_migration = RPC_MIGRATION.read_text()
     sensitive_grant_migration = SENSITIVE_GRANT_MIGRATION.read_text()
+    public_provider_migration = PUBLIC_PROVIDER_MIGRATION.read_text()
     main_dart = MAIN.read_text()
     provider = PROVIDER.read_text()
     map_page = MAP_PAGE.read_text()
@@ -39,10 +41,12 @@ def main() -> None:
     require(migration, "DROP FUNCTION IF EXISTS public.get_provider_auth_state(uuid)", "legacy auth RPC removal")
     require(migration, "WHERE sp.user_id = auth.uid()", "session-bound provider lookup")
     require(migration, "REVOKE ALL ON FUNCTION public.get_provider_auth_state() FROM PUBLIC, anon", "auth RPC anon revoke")
-    require(migration, "RETURNS TABLE(\n  id uuid,\n  verification_status text,\n  is_active boolean", "minimal provider phone response")
+    require(public_provider_migration, "RETURNS TABLE(\n  verification_status text,\n  is_active boolean", "minimal provider phone response")
     require(migration, "GRANT EXECUTE ON FUNCTION public.find_provider_by_phone(text) TO anon, authenticated", "pre-OTP lookup grant")
-    for sensitive in ("id_card_front_url", "id_card_back_url", "verification_notes", "verified_by", "verified_at"):
-        if sensitive in migration.split("CREATE VIEW public.published_service_providers", 1)[1].split("GRANT SELECT", 1)[0]:
+    require(public_provider_migration, "CASE WHEN auth.uid() IS NOT NULL THEN sp.phone END", "authenticated provider contact access")
+    require(public_provider_migration, "REVOKE ALL ON public.published_service_providers FROM PUBLIC", "public provider privilege reset")
+    for sensitive in ("id_card_front_url", "id_card_back_url", "verification_notes", "verified_by", "verified_at", "company_legal_name", "employees_count", "founded_year"):
+        if sensitive in public_provider_migration.split("CREATE VIEW public.published_service_providers", 1)[1].split("REVOKE ALL", 1)[0]:
             raise AssertionError(f"sensitive field leaked by public provider view: {sensitive}")
 
     if "params: {'p_user_id': userId}" in main_dart or "params: {'p_user_id': userId}" in provider:
