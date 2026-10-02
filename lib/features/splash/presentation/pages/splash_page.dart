@@ -1,4 +1,4 @@
-﻿// lib/features/splash/presentation/pages/splash_page.dart
+// lib/features/splash/presentation/pages/splash_page.dart
 
 import 'dart:async';
 
@@ -105,7 +105,16 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     _isNavigating = true;
 
     String nextLocation = AppRouter.userTypeSelection;
-    final client = Supabase.instance.client;
+    late final SupabaseClient client;
+    try {
+      client = Supabase.instance.client;
+    } catch (error, stack) {
+      debugPrint('⚠️ [Splash] Supabase client unavailable: $error');
+      debugPrintStack(stackTrace: stack);
+      AuthStateNotifier.instance.clear();
+      if (mounted) context.go(AppRouter.userTypeSelection);
+      return;
+    }
 
     // 1) نستنى استعادة الجلسة (5 محاولات × 300ms)
     Session? session = client.auth.currentSession;
@@ -129,7 +138,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             .select(
                 'role, user_type, name, email, phone, governorate, city, address, gender, latitude, longitude')
             .eq('id', session.user.id)
-            .maybeSingle();
+            .maybeSingle()
+            .timeout(const Duration(seconds: 6));
 
         final profileRole =
             (userData?['role'] ?? userData?['user_type'] ?? 'user')
@@ -143,7 +153,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
               .from('institutions')
               .select('institution_type, status')
               .eq('user_id', session.user.id)
-              .maybeSingle();
+              .maybeSingle()
+              .timeout(const Duration(seconds: 4));
         } catch (error) {
           debugPrint('⚠️ [Splash] institution lookup skipped: $error');
         }
@@ -178,7 +189,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                 .from('service_providers')
                 .select('verification_status, is_active')
                 .eq('user_id', session.user.id)
-                .maybeSingle();
+                .maybeSingle()
+                .timeout(const Duration(seconds: 4));
 
             if (providerRow != null) {
               providerStatus =
@@ -209,11 +221,10 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         );
 
         // ✅ التوجيه حسب الحالة
-        final resolvedHome = AuthStateNotifier.instance.homeRoute ??
-            AppRouter.userTypeSelection;
-        nextLocation = role == 'user' && !profileComplete
-            ? AppRouter.login
-            : resolvedHome;
+        final resolvedHome =
+            AuthStateNotifier.instance.homeRoute ?? AppRouter.userTypeSelection;
+        nextLocation =
+            role == 'user' && !profileComplete ? AppRouter.login : resolvedHome;
       } catch (error) {
         debugPrint('⚠️ [Splash] could not resolve role: $error');
         // لو الجلسة موجودة بس الـ query فشل → نروح Home
@@ -228,11 +239,18 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       // 3) مفيش جلسة → نفحص الـ onboarding
       AuthStateNotifier.instance.clear();
 
-      final prefs = await SharedPreferences.getInstance();
-      final onboardingSeen = prefs.getBool('onboarding_seen') ??
-          prefs.getBool('onboarding_completed') ??
-          prefs.getBool('has_seen_onboarding') ??
-          false;
+      var onboardingSeen = false;
+      try {
+        final prefs = await SharedPreferences.getInstance()
+            .timeout(const Duration(seconds: 2));
+        onboardingSeen = prefs.getBool('onboarding_seen') ??
+            prefs.getBool('onboarding_completed') ??
+            prefs.getBool('has_seen_onboarding') ??
+            false;
+      } catch (error, stack) {
+        debugPrint('⚠️ [Splash] onboarding preference lookup skipped: $error');
+        debugPrintStack(stackTrace: stack);
+      }
 
       nextLocation =
           onboardingSeen ? AppRouter.userTypeSelection : AppRouter.onboarding;
@@ -342,7 +360,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
                     width: 210,
                     height: 210,
                     decoration: BoxDecoration(
-                    color: const Color(0xFF9AD83D).withValues(alpha: 0.08),
+                      color: const Color(0xFF9AD83D).withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
