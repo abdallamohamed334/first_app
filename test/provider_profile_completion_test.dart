@@ -7,7 +7,11 @@ void main() {
   Map<String, dynamic> completeProvider({dynamic experienceYears = 5}) => {
         'profile_image_url': 'https://example.com/profile.webp',
         'bio': 'نبذة طويلة عن مقدم الخدمة وخبرته',
+        'governorate': 'الغربية',
         'city': 'طنطا',
+        'available_days': ['السبت'],
+        'id_card_front_url': 'https://example.com/front.webp',
+        'id_card_back_url': 'https://example.com/back.webp',
         'service_areas': ['طنطا'],
         'phone': '01012345678',
         'skills': ['صيانة'],
