@@ -1,0 +1,61 @@
+name: Preview Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      supabase_url:
+        description: "Supabase project URL"
+        required: true
+        type: string
+      supabase_anon_key:
+        description: "Supabase publishable/anon key"
+        required: true
+        type: string
+      mapbox_public_token:
+        description: "Optional Mapbox public token"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: stable
+
+jobs:
+  build-preview-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run release safety checks
+        run: |
+          python3 tool/security_regression_check.py
+          python3 tool/production_gate.py
+
+      - name: Build debug APK
+        run: >-
+          flutter build apk --debug
+          --dart-define=SUPABASE_URL=${{ inputs.supabase_url }}
+          --dart-define=SUPABASE_ANON_KEY=${{ inputs.supabase_anon_key }}
+          --dart-define=MAPBOX_PUBLIC_TOKEN=${{ inputs.mapbox_public_token }}
+
+      - name: Rename preview APK
+        run: cp build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/loqma-preview-debug.apk
+
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: loqma-preview-debug-apk
+          path: build/app/outputs/flutter-apk/loqma-preview-debug.apk
+          retention-days: 7
