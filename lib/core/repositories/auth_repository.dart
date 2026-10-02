@@ -1,6 +1,7 @@
 // lib/features/auth/data/repositories/auth_repository.dart
 
 import 'package:dartz/dartz.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -118,6 +119,11 @@ class AuthRepository {
   Future<void> _initializeFcmForUser(String userId) async {
     final cleanUserId = userId.trim();
     if (cleanUserId.isEmpty) return;
+
+    if (Firebase.apps.isEmpty) {
+      debugPrint('[FCM] Firebase is not ready; skipping auth FCM startup');
+      return;
+    }
 
     try {
       await _fcmNotifications.dispose();

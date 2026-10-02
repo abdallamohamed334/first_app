@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
@@ -116,6 +117,13 @@ class SupabaseService {
   }) async {
     final cleanUserId = userId.trim();
     if (cleanUserId.isEmpty) return;
+
+    // Push notifications are optional. FirebaseMessaging throws a noisy
+    // [core/no-app] exception when Firebase initialization was unavailable.
+    if (Firebase.apps.isEmpty) {
+      debugPrint('[FCM] Firebase is not ready; skipping device registration');
+      return;
+    }
 
     try {
       await fcmNotifications.dispose();
@@ -309,10 +317,8 @@ class SupabaseService {
         debugPrint('⚠️ [Auth Sync] institution lookup skipped: $error');
       }
 
-      final institutionType = institution?['institution_type']
-          ?.toString()
-          .trim()
-          .toLowerCase();
+      final institutionType =
+          institution?['institution_type']?.toString().trim().toLowerCase();
       final resolvedRole = hasProvider
           ? 'provider'
           : (institutionType != null && institutionType.isNotEmpty

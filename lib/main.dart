@@ -156,6 +156,15 @@ Future<void> _initializePostLaunchServicesAfterStartup(bool envLoaded) async {
 
 Future<void> _initializePostLaunchServices(bool firebaseReady) async {
   try {
+    // FCM accesses FirebaseMessaging.instance during service construction.
+    // Never invoke it after Firebase initialization failed; Supabase and the
+    // core application remain usable without optional push notifications.
+    if (!firebaseReady) {
+      debugPrint('[FCM] Firebase is not ready; skipping FCM startup');
+      initNotificationInjection();
+      return;
+    }
+
     final supabaseService = SupabaseService();
     await supabaseService.initializeFcmForCurrentUser(
       onNotificationTap: (data) async {
