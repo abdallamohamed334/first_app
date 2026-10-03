@@ -4696,17 +4696,37 @@ class _HomeCategoryOfferCard extends StatelessWidget {
   final VoidCallback onTap;
   const _HomeCategoryOfferCard({required this.offer, required this.onTap});
 
-  String? _imageUrl() {
-    final value = offer.image?.trim();
-    if (value == null || value.isEmpty || value == 'null') return null;
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    try {
-      return AppConfig.storagePublicUrl('community-offers', value);
-    } catch (_) {
+  String? _storageImageUrl(String? rawValue) {
+    final value = rawValue?.trim();
+    if (value == null || value.isEmpty || value == 'null' || value == 'undefined') {
       return null;
     }
+
+    final defaultBucket = offer.isInstitution ? 'institution-images' : 'community-offers';
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
+      final segments = uri.pathSegments;
+      final objectIndex = segments.indexOf('object');
+      if (objectIndex >= 0 && segments.length > objectIndex + 2) {
+        final bucket = segments[objectIndex + 2];
+        final path = segments.sublist(objectIndex + 3).join('/');
+        if (path.isNotEmpty) {
+          // Convert expired signed/authenticated URLs to a fresh public URL.
+          return AppConfig.storagePublicUrl(bucket, path);
+        }
+      }
+      return value;
+    }
+
+    var path = value;
+    if (path.startsWith('$defaultBucket/')) {
+      path = path.substring(defaultBucket.length + 1);
+    }
+    return AppConfig.storagePublicUrl(defaultBucket, path);
+  }
+
+  String? _imageUrl() {
+    return _storageImageUrl(offer.image);
   }
 
   @override
