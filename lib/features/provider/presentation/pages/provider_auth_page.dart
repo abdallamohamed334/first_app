@@ -266,6 +266,31 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
 
     final phone = _loginPhone.text.trim();
 
+    final ordinaryUserCheck =
+        await _repo.checkOrdinaryUserByPhone(phone: phone);
+    if (!mounted) return;
+    var ordinaryUserFound = false;
+    String? ordinaryUserCheckError;
+    ordinaryUserCheck.fold(
+      (error) => ordinaryUserCheckError = error,
+      (found) => ordinaryUserFound = found,
+    );
+    if (ordinaryUserCheckError != null) {
+      setState(() {
+        _loading = false;
+        _errorMessage = ordinaryUserCheckError;
+      });
+      return;
+    }
+    if (ordinaryUserFound) {
+      setState(() {
+        _loading = false;
+        _errorMessage =
+            'لا يمكن الدخول بهذا الرقم لأنه مسجل بالفعل كمستخدم عادي. استخدم رقمًا آخر لمزود الخدمة.';
+      });
+      return;
+    }
+
     // 1️⃣ هل الرقم مسجل؟
     final checkResult = await _repo.checkProviderByPhone(phone: phone);
     if (!mounted) return;
@@ -361,6 +386,31 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     });
 
     final phone = _regPhone.text.trim();
+
+    final ordinaryUserCheck =
+        await _repo.checkOrdinaryUserByPhone(phone: phone);
+    if (!mounted) return;
+    var ordinaryUserFound = false;
+    String? ordinaryUserCheckError;
+    ordinaryUserCheck.fold(
+      (error) => ordinaryUserCheckError = error,
+      (found) => ordinaryUserFound = found,
+    );
+    if (ordinaryUserCheckError != null) {
+      setState(() {
+        _loading = false;
+        _errorMessage = ordinaryUserCheckError;
+      });
+      return;
+    }
+    if (ordinaryUserFound) {
+      setState(() {
+        _loading = false;
+        _errorMessage =
+            'لا يمكن التسجيل بهذا الرقم لأنه مسجل بالفعل كمستخدم عادي. استخدم رقمًا آخر لمزود الخدمة.';
+      });
+      return;
+    }
 
     // 1️⃣ هل الرقم مسجل؟
     final checkResult = await _repo.checkProviderByPhone(phone: phone);

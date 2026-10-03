@@ -212,6 +212,23 @@ class ServiceProviderRepository {
     }
   }
 
+  /// يمنع استخدام رقم حساب المستخدم العادي لإنشاء/دخول حساب مزود خدمة.
+  /// يرجع true فقط عند وجود حساب عادي بنفس الرقم، بدون كشف بيانات شخصية.
+  Future<Either<String, bool>> checkOrdinaryUserByPhone({
+    required String phone,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'check_ordinary_user_by_phone',
+        params: {'p_phone': phone},
+      );
+      return Right(result == true);
+    } catch (error) {
+      debugPrint('❌ [Provider] ordinary-user phone check error: $error');
+      return Left(_friendlyError(error));
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════
   // 📱 OTP — إرسال الكود
   // ═══════════════════════════════════════════════════════════
