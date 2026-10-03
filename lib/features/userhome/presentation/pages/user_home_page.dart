@@ -4823,3 +4823,63 @@ class _HomeCategoryOfferCard extends StatelessWidget {
     );
   }
 }
+class _LoadingHome extends StatelessWidget {
+  const _LoadingHome();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _UserHomePageState._bg,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _UserHomePageState._primaryRed,
+                    _UserHomePageState._primaryRedDark,
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        _UserHomePageState._primaryRed.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(Icons.volunteer_activism_rounded,
+                  color: Colors.white, size: 34),
+            ),
+            SizedBox(height: 24),
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: _UserHomePageState._primaryRed,
+              ),
+            ),
+            SizedBox(height: 18),
+            Text(
+              'وِصلة بتحضرلك الخير...',
+              style: TextStyle(
+                color: _UserHomePageState._textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
