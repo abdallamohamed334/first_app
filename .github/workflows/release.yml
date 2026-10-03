@@ -42,17 +42,14 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Create runtime environment
+      - name: Validate runtime environment
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          MAPBOX_PUBLIC_TOKEN: ${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           FIREBASE_ANDROID_API_KEY: ${{ secrets.FIREBASE_ANDROID_API_KEY }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
           test -n "$FIREBASE_ANDROID_API_KEY"
-          printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\nMAPBOX_PUBLIC_TOKEN=%s\nFIREBASE_ANDROID_API_KEY=%s\n' \
-            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" "$MAPBOX_PUBLIC_TOKEN" "$FIREBASE_ANDROID_API_KEY" > .env
       - name: Restore Android signing material
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -67,7 +64,12 @@ jobs:
           echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
       - name: Build signed Android App Bundle
-        run: flutter build appbundle --release
+        run: >-
+          flutter build appbundle --release
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=MAPBOX_PUBLIC_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          --dart-define=FIREBASE_ANDROID_API_KEY=${{ secrets.FIREBASE_ANDROID_API_KEY }}
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
@@ -89,7 +91,7 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
-      - name: Create runtime environment
+      - name: Validate runtime environment
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -97,12 +99,12 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
           test -n "$FIREBASE_IOS_API_KEY"
-          printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\nFIREBASE_IOS_API_KEY=%s\n' \
-            "$SUPABASE_URL" "$SUPABASE_ANON_KEY" "$FIREBASE_IOS_API_KEY" > .env
       - name: Build unsigned iOS archive validation
-        env:
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-        run: flutter build ipa --release --no-codesign
+        run: >-
+          flutter build ipa --release --no-codesign
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=FIREBASE_IOS_API_KEY=${{ secrets.FIREBASE_IOS_API_KEY }}
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:

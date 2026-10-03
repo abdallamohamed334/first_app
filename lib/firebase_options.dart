@@ -4,14 +4,24 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DefaultFirebaseOptions {
+  static Map<String, String> _runtimeOverrides = const {};
+
+  static void setRuntimeOverrides(Map<String, String> values) {
+    _runtimeOverrides = Map.unmodifiable(values);
+  }
+
   static String? _optionalEnv(String name) {
-    final value = dotenv.env[name] ?? String.fromEnvironment(name);
+    final value = _runtimeOverrides[name] ??
+        dotenv.env[name] ??
+        String.fromEnvironment(name);
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
 
   static String _env(String name) {
-    final value = dotenv.env[name] ?? String.fromEnvironment(name);
+    final value = _runtimeOverrides[name] ??
+        dotenv.env[name] ??
+        String.fromEnvironment(name);
     if (value.trim().isEmpty) {
       throw StateError('$name is missing from the environment');
     }

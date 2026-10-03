@@ -68,6 +68,7 @@ Future<void> main() async {
     },
   );
   final bundledConfig = await _loadBundledConfigSafely();
+  DefaultFirebaseOptions.setRuntimeOverrides(bundledConfig);
 
   final supabaseUrl = envLoaded
       ? (dotenv.env['SUPABASE_URL'] ??
@@ -417,16 +418,6 @@ void _installGlobalErrorHandlers() {
 
 Future<bool> _initializeFirebaseSafely() async {
   try {
-    final firebaseApiKey = dotenv.env['FIREBASE_ANDROID_API_KEY'] ??
-        const String.fromEnvironment('FIREBASE_ANDROID_API_KEY');
-    if (defaultTargetPlatform == TargetPlatform.android &&
-        firebaseApiKey.trim().isEmpty) {
-      debugPrint(
-        'Firebase is optional and FIREBASE_ANDROID_API_KEY is missing; '
-        'skipping Firebase/FCM startup.',
-      );
-      return false;
-    }
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
