@@ -24,9 +24,7 @@ import 'package:loqma/features/community/presentation/pages/community_offer_deta
 import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
-import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
 import 'package:loqma/features/home/presentation/widgets/home_leaderboard.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
@@ -107,7 +105,6 @@ class _UserHomePageState extends State<UserHomePage> {
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
   bool _loadingNearbyCategoryOffers = false;
-  Future<List<Map<String, dynamic>>>? _volunteerDonationsFuture;
 
   // ✅ موقع المستخدم
   double? _userLat;
@@ -167,8 +164,6 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadCommunityNeeds();
       _loadServiceCategories();
       _loadNearbyCategoryOffers();
-      _volunteerDonationsFuture =
-          SeparateCharityDonationRepository().getOpenDonationsForVolunteers();
     });
   }
 
@@ -477,10 +472,6 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadNearbyCategoryOffers(),
     ]);
     if (mounted) {
-      setState(() {
-        _volunteerDonationsFuture =
-            SeparateCharityDonationRepository().getOpenDonationsForVolunteers();
-      });
     }
   }
 
@@ -1208,8 +1199,8 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildSearchBar()),
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
+        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
-        SliverToBoxAdapter(child: _buildVolunteerSection()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(
           child: Padding(
@@ -2198,7 +2189,10 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
-    final categories = state.categories.where((c) {
+    final sourceCategories = state.categories.isNotEmpty
+        ? state.categories
+        : _nearbyMainCategories;
+    final categories = sourceCategories.where((c) {
       if (_isHiddenCategory(c)) return false;
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
         return false;
@@ -2776,67 +2770,6 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildVolunteerSection() {
-    final future = _volunteerDonationsFuture;
-    if (future == null) {
-      return _section(
-        title: 'فرص التطوع 🤝',
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
-        ),
-      );
-    }
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: future,
-      builder: (context, snapshot) {
-        final donations = (snapshot.data ?? const <Map<String, dynamic>>[])
-            .take(8)
-            .toList(growable: false);
-        return _section(
-          title: 'فرص التطوع 🤝',
-          trailing: GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const AllOpenVolunteerDonationsPage(),
-              ),
-            ),
-            child: Text(
-              'عرض الكل',
-              style: TextStyle(
-                color: _primaryRed,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          child: snapshot.connectionState == ConnectionState.waiting &&
-                  donations.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 26),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
-                )
-              : donations.isEmpty
-                  ? _emptyMini(
-                      Icons.volunteer_activism_outlined,
-                      'لا توجد فرص تطوع قريبة حاليًا',
-                    )
-                  : SizedBox(
-                      height: 230,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        scrollDirection: Axis.horizontal,
-                        itemCount: donations.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 12),
-                        itemBuilder: (context, index) =>
-                            _HomeVolunteerCard(donation: donations[index]),
-                      ),
-                    ),
-        );
-      },
     );
   }
 
@@ -4885,171 +4818,6 @@ class _HomeCategoryOfferCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeVolunteerCard extends StatelessWidget {
-  final Map<String, dynamic> donation;
-  const _HomeVolunteerCard({required this.donation});
-
-  @override
-  Widget build(BuildContext context) {
-    final images = donation['images'] is List
-        ? (donation['images'] as List)
-            .map((value) => value.toString())
-            .where((value) => value.trim().isNotEmpty)
-            .toList(growable: false)
-        : const <String>[];
-    final image = images.isEmpty ? null : images.first;
-    final imageUrl = image == null || image.startsWith('http')
-        ? image
-        : AppConfig.storagePublicUrl('community-offers', image);
-    final title = donation['title']?.toString().trim();
-    final city = donation['pickup_city']?.toString().trim() ??
-        donation['city']?.toString().trim();
-    return SizedBox(
-      width: 214,
-      child: Material(
-        color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(20),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const AllOpenVolunteerDonationsPage(),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                height: 116,
-                child: imageUrl == null
-                    ? Container(
-                        color: _UserHomePageState._cardSoft,
-                        child: Icon(
-                          Icons.volunteer_activism_rounded,
-                          size: 44,
-                          color: _UserHomePageState._primaryRed,
-                        ),
-                      )
-                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(11, 10, 11, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title?.isNotEmpty == true ? title! : 'تبرع محتاج متطوع',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: _UserHomePageState._textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_rounded,
-                          size: 14,
-                          color: _UserHomePageState._primaryRed,
-                        ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            city?.isNotEmpty == true ? city! : 'قريب منك',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _UserHomePageState._textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'محتاج متطوع',
-                          style: TextStyle(
-                            color: _UserHomePageState._primaryRed,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LoadingHome extends StatelessWidget {
-  const _LoadingHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _UserHomePageState._bg,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _UserHomePageState._primaryRed,
-                    _UserHomePageState._primaryRedDark,
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        _UserHomePageState._primaryRed.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(Icons.volunteer_activism_rounded,
-                  color: Colors.white, size: 34),
-            ),
-            SizedBox(height: 24),
-            SizedBox(
-              width: 26,
-              height: 26,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: _UserHomePageState._primaryRed,
-              ),
-            ),
-            SizedBox(height: 18),
-            Text(
-              'وِصلة بتحضرلك الخير...',
-              style: TextStyle(
-                color: _UserHomePageState._textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );

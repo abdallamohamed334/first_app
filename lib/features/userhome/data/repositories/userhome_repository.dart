@@ -747,7 +747,7 @@ class UserHomeRepository {
               name,
               avatar_url
             ),
-            marketplace_categories:marketplace_category_id (
+            marketplace_categories!community_offers_marketplace_category_fkey (
               id,
               name_ar
             )
@@ -854,7 +854,7 @@ class UserHomeRepository {
               name,
               logo_url
             ),
-            marketplace_categories:marketplace_category_id (
+            marketplace_categories!institution_offers_marketplace_category_fkey (
               id,
               name_ar
             )
@@ -961,7 +961,7 @@ class UserHomeRepository {
               longitude,
               business_type
             ),
-            marketplace_categories:marketplace_category_id (
+            marketplace_categories!food_offers_marketplace_category_fkey (
               id,
               name_ar
             )
