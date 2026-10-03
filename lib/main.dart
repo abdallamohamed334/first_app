@@ -32,6 +32,7 @@ import 'features/splash/presentation/bloc/splash_bloc.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
+import 'core/config/app_config.dart';
 // ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
 import 'core/services/auth_state_notifier.dart';
 import 'core/theme/app_theme.dart';
@@ -80,6 +81,11 @@ Future<void> main() async {
           bundledConfig['SUPABASE_ANON_KEY'] ??
           _defaultSupabasePublishableKey)
       : (bundledConfig['SUPABASE_ANON_KEY'] ?? _defaultSupabasePublishableKey);
+
+  AppConfig.configure(
+    supabaseUrl: supabaseUrl,
+    supabaseAnonKey: supabaseAnonKey,
+  );
 
   if (!envLoaded &&
       (_defaultSupabaseUrl.isEmpty || _defaultSupabasePublishableKey.isEmpty)) {

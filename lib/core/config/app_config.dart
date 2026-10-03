@@ -11,6 +11,21 @@ class AppConfig {
   static const _bundledSupabaseUrl = 'https://gsrhoqdtcyfdmvgahqvl.supabase.co';
   static const _bundledSupabaseAnonKey =
       'sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH';
+  static String? _configuredSupabaseUrl;
+  static String? _configuredSupabaseAnonKey;
+
+  /// Supplies the values already resolved during app startup. This keeps
+  /// later services (for example storage image URL builders) independent from
+  /// whether the optional `.env` asset was bundled.
+  static void configure({
+    required String supabaseUrl,
+    required String supabaseAnonKey,
+  }) {
+    _configuredSupabaseUrl =
+        supabaseUrl.trim().isEmpty ? null : supabaseUrl.trim();
+    _configuredSupabaseAnonKey =
+        supabaseAnonKey.trim().isEmpty ? null : supabaseAnonKey.trim();
+  }
 
   // ═══════════════════════════════════════════════════════════
   // 🏢 معلومات التطبيق
@@ -21,8 +36,10 @@ class AppConfig {
   // ═══════════════════════════════════════════════════════════
   // 🔐 Supabase
   // ═══════════════════════════════════════════════════════════
-  static String get supabaseUrl => _requiredEnv('SUPABASE_URL');
-  static String get supabaseAnonKey => _requiredEnv('SUPABASE_ANON_KEY');
+  static String get supabaseUrl =>
+      _configuredSupabaseUrl ?? _requiredEnv('SUPABASE_URL');
+  static String get supabaseAnonKey =>
+      _configuredSupabaseAnonKey ?? _requiredEnv('SUPABASE_ANON_KEY');
 
   static String storagePublicUrl(String bucket, String path) =>
       '${supabaseUrl}/storage/v1/object/public/$bucket/$path';
