@@ -1,4 +1,5 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 /// Centralized Firebase Analytics events for وِصلة.
@@ -8,9 +9,19 @@ import 'package:flutter/foundation.dart';
 /// identifiers to this service.
 class loqmaAnalytics {
   loqmaAnalytics({FirebaseAnalytics? analytics})
-      : _analytics = analytics ?? FirebaseAnalytics.instance;
+      : _analytics = analytics ?? _tryGetAnalytics();
 
-  final FirebaseAnalytics _analytics;
+  FirebaseAnalytics? _analytics;
+
+  static FirebaseAnalytics? _tryGetAnalytics() {
+    try {
+      if (Firebase.apps.isEmpty) return null;
+      return FirebaseAnalytics.instance;
+    } catch (error) {
+      debugPrint('[Analytics] Firebase is not ready: $error');
+      return null;
+    }
+  }
 
   Future<void> appOpen() => _log('app_open');
 
@@ -164,8 +175,13 @@ class loqmaAnalytics {
     String name, {
     Map<String, Object>? parameters,
   }) async {
+    final analytics = _analytics ??= _tryGetAnalytics();
+    if (analytics == null) {
+      // Analytics is optional and may initialize after the auth screen.
+      return;
+    }
     try {
-      await _analytics.logEvent(
+      await analytics.logEvent(
         name: name,
         parameters: parameters,
       );
