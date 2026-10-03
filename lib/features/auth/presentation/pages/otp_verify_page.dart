@@ -145,7 +145,13 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
             _snack('✅ تم التحقق');
             await Future.delayed(const Duration(milliseconds: 500));
             if (!mounted) return;
-            await UserProfileSetupFlow.open(context, user, role: role);
+            await UserProfileSetupFlow.open(
+              context,
+              user,
+              role: role,
+              // Returning users go Home even if an old profile field is blank.
+              skipCompletion: !isNewUser,
+            );
           } else {
             // ✅ مستخدم قديم ببيانات كاملة → Home مباشرة
             _snack('✅ تم تسجيل الدخول');

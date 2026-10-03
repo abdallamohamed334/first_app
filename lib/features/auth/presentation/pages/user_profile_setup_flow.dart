@@ -32,10 +32,13 @@ class UserProfileSetupFlow {
     BuildContext context,
     UserModel user, {
     String role = 'user',
+    bool skipCompletion = false,
   }) async {
     if (role.toLowerCase() != 'user') return;
 
-    if (needsProfile(user)) {
+    // Existing users must not be sent back to setup because of a legacy or
+    // partially migrated field. New users still complete the required setup.
+    if (!skipCompletion && needsProfile(user)) {
       await Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => CompleteProfilePage(
