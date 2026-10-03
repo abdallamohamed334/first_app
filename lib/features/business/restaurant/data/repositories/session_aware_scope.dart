@@ -38,7 +38,10 @@ class SessionAwareBlocScope extends StatefulWidget {
 
 class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
   late final SupabaseClient _client;
-  Widget? _providers;
+  // Never use a `late` provider field here. Hot reload can preserve this
+  // State object while an older field has not been assigned, causing the
+  // ordinary-user home to fail with LateInitializationError.
+  Widget? _providerTree;
   StreamSubscription<AuthState>? _authSubscription;
   Future<String?>? _identityFuture;
   String? _identityUserId;
@@ -53,7 +56,7 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
     // from build() while an auth/identity callback rebuilds this scope can
     // make Flutter detach inherited dependents during a frame, triggering
     // the `_dependents.isEmpty` assertion on otherwise unrelated screens.
-    _providers = _createProviders();
+    _providerTree = _createProviders();
     FirebaseMessagingService.instance.initialize();
 
     _authSubscription = _client.auth.onAuthStateChange.listen((authState) {
@@ -155,10 +158,8 @@ class _SessionAwareBlocScopeState extends State<SessionAwareBlocScope> {
     // main.dart already owns those two providers.
     final isUnknownAccount =
         _identityUserId != null && !_identityLoading && _identityType == null;
-    // A hot reload can preserve a State object created before _providers was
-    // introduced. Lazily initialize the nullable field instead of relying on
-    // late initialization, while retaining a stable provider identity.
-    final providers = _providers ??= _createProviders();
+    // Defensive lazy initialization also covers hot reload/reassemble paths.
+    final providers = _providerTree ??= _createProviders();
 
     // Keep the provider subtree in the same position even when showing the
     // account warning. Only the overlay changes; providers are never moved or
