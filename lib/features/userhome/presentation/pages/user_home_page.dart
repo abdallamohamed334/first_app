@@ -26,8 +26,10 @@ import 'package:loqma/features/community/presentation/pages/my_community_needs_p
 import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
 import 'package:loqma/features/home/presentation/widgets/home_leaderboard.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
+import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
 import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
@@ -41,6 +43,8 @@ import 'package:loqma/features/services/presentation/pages/service_category_page
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
@@ -75,6 +79,9 @@ class _UserHomePageState extends State<UserHomePage> {
   final TextEditingController _searchController = TextEditingController();
   final InstitutionOffersRepository _institutionOffersRepository =
       InstitutionOffersRepository();
+  final UserHomeRepository _userHomeRepository = UserHomeRepository(
+    supabaseService: SupabaseService(),
+  );
   final CommunityNeedsRepository _needsRepository = CommunityNeedsRepository();
   final ServiceCategoriesRepository _serviceCategoriesRepository =
       ServiceCategoriesRepository();
@@ -97,6 +104,10 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
   bool _loadingNearbySymbolicProviders = false;
+  final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
+  List<Map<String, dynamic>> _nearbyMainCategories = [];
+  bool _loadingNearbyCategoryOffers = false;
+  Future<List<Map<String, dynamic>>>? _volunteerDonationsFuture;
 
   // ✅ موقع المستخدم
   double? _userLat;
@@ -155,6 +166,9 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadInstitutionOffers();
       _loadCommunityNeeds();
       _loadServiceCategories();
+      _loadNearbyCategoryOffers();
+      _volunteerDonationsFuture =
+          SeparateCharityDonationRepository().getOpenDonationsForVolunteers();
     });
   }
 
@@ -419,6 +433,61 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
+  Future<void> _loadNearbyCategoryOffers() async {
+    if (_loadingNearbyCategoryOffers || _userLat == null || _userLng == null) {
+      return;
+    }
+    if (mounted) setState(() => _loadingNearbyCategoryOffers = true);
+    try {
+      final categories = await _userHomeRepository.getMainCategories();
+      if (mounted) {
+        setState(() => _nearbyMainCategories = categories);
+      }
+      final entries = await Future.wait(
+        categories.map((category) async {
+          final id = category['id']?.toString().trim() ?? '';
+          if (id.isEmpty || _isHiddenCategory(category)) {
+            return const MapEntry<String, List<CategoryOffer>>('', []);
+          }
+          try {
+            final offers = await _userHomeRepository.getOffersByCategory(
+              categoryId: id,
+              latitude: _userLat,
+              longitude: _userLng,
+              radiusKm: _AppFeatures.nearbyRadiusKm,
+            );
+            final visible = offers
+                .where((offer) => _AppFeatures.showRestaurants ||
+                    offer.ownerType != 'restaurant')
+                .take(8)
+                .toList(growable: false);
+            return MapEntry<String, List<CategoryOffer>>(id, visible);
+          } catch (e) {
+            debugPrint('❌ category offers load error: $e');
+            return MapEntry<String, List<CategoryOffer>>(id, const []);
+          }
+        }),
+      );
+      if (!mounted) return;
+      final next = <String, List<CategoryOffer>>{};
+      for (final entry in entries) {
+        if (entry.key.isNotEmpty && entry.value.isNotEmpty) {
+          next[entry.key] = entry.value;
+        }
+      }
+      setState(() {
+        _nearbyCategoryOffers
+          ..clear()
+          ..addAll(next);
+      });
+    } catch (e) {
+      debugPrint('❌ nearby category offers error: $e');
+      if (mounted) setState(() => _nearbyCategoryOffers.clear());
+    } finally {
+      if (mounted) setState(() => _loadingNearbyCategoryOffers = false);
+    }
+  }
+
   Future<void> _refresh() async {
     context.read<UserHomeBloc>().add(const UserHomeRefreshed());
     await _loadUserLocation();
@@ -427,7 +496,14 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadCommunityNeeds(),
       _loadServiceCategories(),
       _loadNearbySymbolicProviders(),
+      _loadNearbyCategoryOffers(),
     ]);
+    if (mounted) {
+      setState(() {
+        _volunteerDonationsFuture =
+            SeparateCharityDonationRepository().getOpenDonationsForVolunteers();
+      });
+    }
   }
 
   bool _isHiddenCategory(Map<String, dynamic> category) {
@@ -1154,24 +1230,15 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildSearchBar()),
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
-        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
-        SliverToBoxAdapter(child: _buildSwapSection()),
-        SliverToBoxAdapter(child: _buildNearbySymbolicProviders()),
-        if (_AppFeatures.showUrgentSection && _AppFeatures.showRestaurants)
-          SliverToBoxAdapter(
-              child: _buildUrgentSection(state.restaurantOffers)),
-        if (_AppFeatures.showRestaurants)
-          SliverToBoxAdapter(
-              child: _buildRestaurantSection(state.restaurantOffers)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
+        SliverToBoxAdapter(child: _buildVolunteerSection()),
+        SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.only(bottom: 26),
             child: HomeLeaderboard(),
           ),
         ),
-        SliverToBoxAdapter(
-            child: _buildCommunitySection(state.communityOffers)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -2662,6 +2729,163 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       ),
     );
+  }
+
+  Widget _buildNearbyCategorySections(UserHomeLoaded state) {
+    final sourceCategories = state.categories.isNotEmpty
+        ? state.categories
+        : _nearbyMainCategories;
+    final categories = sourceCategories.where((category) {
+      if (_isHiddenCategory(category)) return false;
+      return _AppFeatures.showRestaurants || !_isRestaurantCategory(category);
+    }).toList(growable: false);
+    if (_loadingNearbyCategoryOffers && _nearbyCategoryOffers.isEmpty) {
+      return _section(
+        title: 'عروض قريبة منك',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+        ),
+      );
+    }
+    if (categories.isEmpty) return const SizedBox.shrink();
+    return Column(
+      children: categories.map((category) {
+        final id = category['id']?.toString() ?? '';
+        final name = category['name_ar']?.toString() ?? 'عروض قريبة';
+        final slug = category['slug']?.toString() ?? '';
+        return _buildNearbyCategorySection(
+          categoryId: id,
+          categoryName: name,
+          categorySlug: slug,
+          offers: _nearbyCategoryOffers[id] ?? const <CategoryOffer>[],
+        );
+      }).toList(growable: false),
+    );
+  }
+
+  Widget _buildNearbyCategorySection({
+    required String categoryId,
+    required String categoryName,
+    required String categorySlug,
+    required List<CategoryOffer> offers,
+  }) {
+    return _section(
+      title: categoryName,
+      trailing: GestureDetector(
+        onTap: () => _openSmartCategory(categoryId, categoryName, categorySlug),
+        child: Text(
+          'عرض الكل',
+          style: TextStyle(
+            color: _primaryRed,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      child: offers.isEmpty
+          ? _emptyMini(Icons.inventory_2_outlined, 'لا توجد عروض قريبة حاليًا')
+          : SizedBox(
+              height: 252,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: offers.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) => _HomeCategoryOfferCard(
+                  offer: offers[index],
+                  onTap: () => _openHomeCategoryOffer(offers[index]),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildVolunteerSection() {
+    final future = _volunteerDonationsFuture;
+    if (future == null) {
+      return _section(
+        title: 'فرص التطوع 🤝',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+        ),
+      );
+    }
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: future,
+      builder: (context, snapshot) {
+        final donations = (snapshot.data ?? const <Map<String, dynamic>>[])
+            .take(8)
+            .toList(growable: false);
+        return _section(
+          title: 'فرص التطوع 🤝',
+          trailing: GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const AllOpenVolunteerDonationsPage(),
+              ),
+            ),
+            child: Text(
+              'عرض الكل',
+              style: TextStyle(
+                color: _primaryRed,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          child: snapshot.connectionState == ConnectionState.waiting &&
+                  donations.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 26),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+                )
+              : donations.isEmpty
+                  ? _emptyMini(
+                      Icons.volunteer_activism_outlined,
+                      'لا توجد فرص تطوع قريبة حاليًا',
+                    )
+                  : SizedBox(
+                      height: 230,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: donations.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (context, index) =>
+                            _HomeVolunteerCard(donation: donations[index]),
+                      ),
+                    ),
+        );
+      },
+    );
+  }
+
+  void _openHomeCategoryOffer(CategoryOffer offer) {
+    if (offer.isCommunity) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CommunityOfferDetailsPage(offer: offer.raw),
+        ),
+      );
+      return;
+    }
+    try {
+      final institutionOffer = InstitutionOffer.fromJson(offer.raw);
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => InstitutionOfferDetailsPage(offer: institutionOffer),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Could not open category offer: $e');
+      _openSmartCategory(
+        offer.categoryId ?? '',
+        offer.categoryName ?? 'العروض',
+        '',
+      );
+    }
   }
 
   Widget _buildNeedsSection() {
@@ -4553,10 +4777,246 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
     );
   }
 }
-
 // ============================================================
 // LOADING
 // ============================================================
+class _HomeCategoryOfferCard extends StatelessWidget {
+  final CategoryOffer offer;
+  final VoidCallback onTap;
+  const _HomeCategoryOfferCard({required this.offer, required this.onTap});
+
+  String? _imageUrl() {
+    final value = offer.image?.trim();
+    if (value == null || value.isEmpty || value == 'null') return null;
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    try {
+      return AppConfig.storagePublicUrl('community-offers', value);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _imageUrl();
+    return SizedBox(
+      width: 214,
+      child: Material(
+        color: _UserHomePageState._card,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 126,
+                child: imageUrl == null
+                    ? Container(
+                        color: _UserHomePageState._cardSoft,
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 44,
+                          color: _UserHomePageState._primaryRed,
+                        ),
+                      )
+                    : CachedNetworkImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 640,
+                        placeholder: (_, __) => Container(
+                          color: _UserHomePageState._cardSoft,
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          color: _UserHomePageState._cardSoft,
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: _UserHomePageState._textSecondary,
+                            size: 36,
+                          ),
+                        ),
+                      ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(11, 10, 11, 9),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        offer.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _UserHomePageState._textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.2,
+                        ),
+                      ),
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_rounded,
+                            size: 14,
+                            color: _UserHomePageState._primaryRed,
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              offer.distanceDisplay ?? 'قريب منك',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _UserHomePageState._textSecondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            offer.priceDisplay,
+                            style: TextStyle(
+                              color: _UserHomePageState._primaryRed,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        offer.ownerName ?? 'عرض من المجتمع',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _UserHomePageState._textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeVolunteerCard extends StatelessWidget {
+  final Map<String, dynamic> donation;
+  const _HomeVolunteerCard({required this.donation});
+
+  @override
+  Widget build(BuildContext context) {
+    final images = donation['images'] is List
+        ? (donation['images'] as List)
+            .map((value) => value.toString())
+            .where((value) => value.trim().isNotEmpty)
+            .toList(growable: false)
+        : const <String>[];
+    final image = images.isEmpty ? null : images.first;
+    final imageUrl = image == null || image.startsWith('http')
+        ? image
+        : AppConfig.storagePublicUrl('community-offers', image);
+    final title = donation['title']?.toString().trim();
+    final city = donation['pickup_city']?.toString().trim() ??
+        donation['city']?.toString().trim();
+    return SizedBox(
+      width: 214,
+      child: Material(
+        color: _UserHomePageState._card,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const AllOpenVolunteerDonationsPage(),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 116,
+                child: imageUrl == null
+                    ? Container(
+                        color: _UserHomePageState._cardSoft,
+                        child: Icon(
+                          Icons.volunteer_activism_rounded,
+                          size: 44,
+                          color: _UserHomePageState._primaryRed,
+                        ),
+                      )
+                    : CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(11, 10, 11, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title?.isNotEmpty == true ? title! : 'تبرع محتاج متطوع',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _UserHomePageState._textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: 14,
+                          color: _UserHomePageState._primaryRed,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            city?.isNotEmpty == true ? city! : 'قريب منك',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _UserHomePageState._textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'محتاج متطوع',
+                          style: TextStyle(
+                            color: _UserHomePageState._primaryRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LoadingHome extends StatelessWidget {
   const _LoadingHome();
 
