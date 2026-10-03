@@ -1,4 +1,5 @@
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
 /// Centralized Crashlytics reporting for وِصلة.
@@ -8,9 +9,19 @@ import 'package:flutter/foundation.dart';
 /// addresses, or database identifiers.
 class loqmaCrashlytics {
   loqmaCrashlytics({FirebaseCrashlytics? crashlytics})
-      : _crashlytics = crashlytics ?? FirebaseCrashlytics.instance;
+      : _crashlytics = crashlytics ?? _tryGetCrashlytics();
 
-  final FirebaseCrashlytics _crashlytics;
+  FirebaseCrashlytics? _crashlytics;
+
+  static FirebaseCrashlytics? _tryGetCrashlytics() {
+    try {
+      if (Firebase.apps.isEmpty) return null;
+      return FirebaseCrashlytics.instance;
+    } catch (error) {
+      debugPrint('[Crashlytics] Firebase is not ready: $error');
+      return null;
+    }
+  }
 
   Future<void> setContext({
     String? currentScreen,
@@ -33,9 +44,11 @@ class loqmaCrashlytics {
   Future<void> log(String message) async {
     final safeMessage = _safeValue(message);
     if (safeMessage == null) return;
+    final crashlytics = _crashlytics ??= _tryGetCrashlytics();
+    if (crashlytics == null) return;
 
     try {
-      await _crashlytics.log(safeMessage);
+      await crashlytics.log(safeMessage);
     } catch (error) {
       debugPrint('[Crashlytics] log failed: $error');
     }
@@ -48,8 +61,10 @@ class loqmaCrashlytics {
     Iterable<Object> information = const <Object>[],
     bool fatal = false,
   }) async {
+    final crashlytics = _crashlytics ??= _tryGetCrashlytics();
+    if (crashlytics == null) return;
     try {
-      await _crashlytics.recordError(
+      await crashlytics.recordError(
         error,
         stackTrace,
         reason: _safeValue(reason),
@@ -66,8 +81,10 @@ class loqmaCrashlytics {
   }
 
   Future<void> recordFlutterError(FlutterErrorDetails details) async {
+    final crashlytics = _crashlytics ??= _tryGetCrashlytics();
+    if (crashlytics == null) return;
     try {
-      await _crashlytics.recordFlutterError(details);
+      await crashlytics.recordFlutterError(details);
     } catch (error, stack) {
       debugPrint('[Crashlytics] Flutter error report failed: $error');
       debugPrintStack(stackTrace: stack);
@@ -77,9 +94,11 @@ class loqmaCrashlytics {
   Future<void> _setSafeKey(String key, String? value) async {
     final safeValue = _safeValue(value);
     if (safeValue == null) return;
+    final crashlytics = _crashlytics ??= _tryGetCrashlytics();
+    if (crashlytics == null) return;
 
     try {
-      await _crashlytics.setCustomKey(key, safeValue);
+      await crashlytics.setCustomKey(key, safeValue);
     } catch (error) {
       debugPrint('[Crashlytics] custom key failed key=$key error=$error');
     }
