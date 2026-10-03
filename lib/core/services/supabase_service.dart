@@ -1393,10 +1393,11 @@ class SupabaseService {
     try {
       final data = <String, dynamic>{
         'name': name,
-        'updated_at': DateTime.now().toIso8601String(),
       };
 
-      if (phone != null && phone.isNotEmpty) data['phone'] = phone;
+      // The phone is the authenticated identity and is intentionally
+      // immutable. The database grants profile-field updates but rejects
+      // phone changes, so never include it in this update payload.
       if (whatsapp != null && whatsapp.isNotEmpty) {
         data['whatsapp'] = whatsapp;
       }
