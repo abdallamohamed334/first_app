@@ -109,7 +109,8 @@ Future<void> main() async {
       // ═══════════════════════════════════════════════════════════
       _attachAuthStateSync();
     } catch (error, stack) {
-      startupError = 'تعذر الاتصال بخدمة التطبيق. تحقق من الشبكة ثم أعد المحاولة.';
+      startupError =
+          'تعذر الاتصال بخدمة التطبيق. تحقق من الشبكة ثم أعد المحاولة.';
       debugPrint('Supabase initialization failed: $error');
       debugPrintStack(stackTrace: stack);
     }
@@ -140,7 +141,8 @@ Future<void> _initializePostLaunchServicesAfterStartup(bool envLoaded) async {
     firebaseReady = await _initializeFirebaseSafely().timeout(
       const Duration(seconds: 8),
       onTimeout: () {
-        debugPrint('Firebase startup timed out; continuing without blocking UI');
+        debugPrint(
+            'Firebase startup timed out; continuing without blocking UI');
         return false;
       },
     );
@@ -250,9 +252,11 @@ void _attachAuthStateSync() {
                 'user_type, role, is_active, name, email, phone, governorate, city, address, gender, latitude, longitude')
             .eq('id', userId)
             .maybeSingle(),
-        client.rpc(
+        client
+            .rpc(
           'get_provider_auth_state',
-        ).then((rows) {
+        )
+            .then((rows) {
           if (rows is List && rows.isNotEmpty) {
             return Map<String, dynamic>.from(rows.first as Map);
           }
@@ -355,7 +359,8 @@ Future<bool> _loadEnvSafely() async {
 
 Future<Map<String, String>> _loadBundledConfigSafely() async {
   try {
-    final raw = await rootBundle.loadString('assets/config/runtime_config.json');
+    final raw =
+        await rootBundle.loadString('assets/config/runtime_config.json');
     final decoded = jsonDecode(raw);
     if (decoded is! Map) return const {};
     return decoded.map<String, String>((key, value) => MapEntry(
@@ -373,9 +378,13 @@ Future<bool> _loadThemePreferenceSafely() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isDarkMode') ?? false;
   } catch (error, stack) {
-    debugPrint('Failed to load theme preference: $error');
+    // Firebase is optional for the Supabase application. Some Android builds
+    // may not include every optional Firebase component (for example
+    // Crashlytics), so never let it block the main UI or session recovery.
+    debugPrint(
+        'Optional Firebase services unavailable; continuing safely: $error');
     debugPrintStack(stackTrace: stack);
-    return false;
+    return Firebase.apps.isNotEmpty;
   }
 }
 

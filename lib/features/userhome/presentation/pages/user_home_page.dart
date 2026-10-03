@@ -52,8 +52,11 @@ import 'package:loqma/features/swap/data/swap_repository.dart';
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات
 // ═══════════════════════════════════════════════════════════
 class _AppFeatures {
-  static const bool showRestaurants = false;
-  static const bool showUrgentSection = false;
+  // Food offers are published by restaurants, hotels, bakeries, cafes,
+  // groceries, supermarkets, and any approved institution—not restaurants
+  // only. Keep the legacy flag name for compatibility with older code.
+  static const bool showRestaurants = true;
+  static const bool showUrgentSection = true;
 
   /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
   static const double nearbyRadiusKm = 70.0;
@@ -106,18 +109,30 @@ class _UserHomePageState extends State<UserHomePage> {
 
   // ───────── ألوان الديزاين ─────────
   static bool get _isDark => ThemeNotifier.isDarkMode.value;
-  static Color get _bg => _isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-  static Color get _card => _isDark ? const Color(0xFF121212) : const Color(0xFFFFFFFF);
-  static Color get _cardSoft => _isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF2F2F2);
-  static Color get _primaryRed => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
-  static Color get _primaryRedDark => _isDark ? const Color(0xFFCCCCCC) : const Color(0xFF000000);
-  static Color get _textPrimary => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
-  static Color get _textSecondary => _isDark ? const Color(0xFFB8B8B8) : const Color(0xFF555555);
-  static Color get _border => _isDark ? const Color(0x33FFFFFF) : const Color(0x22000000);
-  static Color get _orange => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
-  static Color get _green => _isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222);
-  static Color get _blue => _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
-  static Color get _purple => _isDark ? const Color(0xFFDDDDDD) : const Color(0xFF444444);
+  static Color get _bg =>
+      _isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
+  static Color get _card =>
+      _isDark ? const Color(0xFF121212) : const Color(0xFFFFFFFF);
+  static Color get _cardSoft =>
+      _isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF2F2F2);
+  static Color get _primaryRed =>
+      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
+  static Color get _primaryRedDark =>
+      _isDark ? const Color(0xFFCCCCCC) : const Color(0xFF000000);
+  static Color get _textPrimary =>
+      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
+  static Color get _textSecondary =>
+      _isDark ? const Color(0xFFB8B8B8) : const Color(0xFF555555);
+  static Color get _border =>
+      _isDark ? const Color(0x33FFFFFF) : const Color(0x22000000);
+  static Color get _orange =>
+      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
+  static Color get _green =>
+      _isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222);
+  static Color get _blue =>
+      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
+  static Color get _purple =>
+      _isDark ? const Color(0xFFDDDDDD) : const Color(0xFF444444);
 
   static const Set<String> _hiddenCategoryKeys = {};
   bool _openingCategory = false;
@@ -453,33 +468,33 @@ class _UserHomePageState extends State<UserHomePage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: BlocConsumer<UserHomeBloc, UserHomeState>(
-          listener: (context, state) {
-            if (state is UserHomeError) {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(
-                    content: Text(state.message),
-                    backgroundColor: _card,
-                    behavior: SnackBarBehavior.floating,
-                    margin: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+        listener: (context, state) {
+          if (state is UserHomeError) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: _card,
+                  behavior: SnackBarBehavior.floating,
+                  margin: const EdgeInsets.all(16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-            }
-          },
-          builder: (context, state) {
-            if (state is UserHomeLoading) return const _LoadingHome();
-            if (state is UserHomeUnauthenticated) {
-              return _buildUnauthenticated();
-            }
-            if (state is UserHomeError) return _buildError(state.message);
-            if (state is UserHomeLoaded) return _buildLoadedHome(state);
-            return const _LoadingHome();
-          },
-        ),
+                ),
+              );
+          }
+        },
+        builder: (context, state) {
+          if (state is UserHomeLoading) return const _LoadingHome();
+          if (state is UserHomeUnauthenticated) {
+            return _buildUnauthenticated();
+          }
+          if (state is UserHomeError) return _buildError(state.message);
+          if (state is UserHomeLoaded) return _buildLoadedHome(state);
+          return const _LoadingHome();
+        },
+      ),
     );
   }
 
@@ -967,7 +982,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildSwapHomeContent() {
     return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+      physics:
+          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
@@ -975,35 +991,63 @@ class _UserHomePageState extends State<UserHomePage> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
             child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _nearbySwapsFuture ??= _swapRepository.listNearbyOpenListings(),
+              future: _nearbySwapsFuture ??=
+                  _swapRepository.listNearbyOpenListings(),
               builder: (context, snapshot) {
                 final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Card(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.all(18),
-                      leading: Icon(Icons.swap_horizontal_circle_rounded, size: 44, color: Theme.of(context).colorScheme.onPrimaryContainer),
-                      title: const Text('استبدالات قريبة منك', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                      subtitle: const Padding(padding: EdgeInsets.only(top: 6), child: Text('العروض الأقرب لموقعك، ويمكنك رؤية كل العروض من هنا.')),
-                      trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SwapListingsPage())),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-                  else if (rows.isEmpty)
-                    const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('لا توجد عروض استبدال قريبة حاليًا')))
-                  else
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: rows.length > 6 ? 6 : rows.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: .68),
-                      itemBuilder: (context, index) => _buildNearbySwapCard(rows[index]),
-                    ),
-                ]);
+                return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Card(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(18),
+                          leading: Icon(Icons.swap_horizontal_circle_rounded,
+                              size: 44,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer),
+                          title: const Text('استبدالات قريبة منك',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w900, fontSize: 18)),
+                          subtitle: const Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Text(
+                                  'العروض الأقرب لموقعك، ويمكنك رؤية كل العروض من هنا.')),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded),
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => const SwapListingsPage())),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (snapshot.connectionState == ConnectionState.waiting)
+                        const Center(
+                            child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child: CircularProgressIndicator()))
+                      else if (rows.isEmpty)
+                        const Center(
+                            child: Padding(
+                                padding: EdgeInsets.all(24),
+                                child:
+                                    Text('لا توجد عروض استبدال قريبة حاليًا')))
+                      else
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: rows.length > 6 ? 6 : rows.length,
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: .68),
+                          itemBuilder: (context, index) =>
+                              _buildNearbySwapCard(rows[index]),
+                        ),
+                    ]);
               },
             ),
           ),
@@ -1014,20 +1058,86 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildNearbySwapCard(Map<String, dynamic> row) {
     final colors = Theme.of(context).colorScheme;
-    final images = (row['images'] as List? ?? []).map((e) => e.toString()).toList();
+    final images =
+        (row['images'] as List? ?? []).map((e) => e.toString()).toList();
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SwapDetailsPage(listingId: row['id'].toString()))),
+        onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) =>
+                    SwapDetailsPage(listingId: row['id'].toString()))),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: Stack(fit: StackFit.expand, children: [
+          Expanded(
+              child: Stack(fit: StackFit.expand, children: [
             images.isEmpty
-                ? Container(color: colors.surfaceContainerHighest, child: Icon(Icons.swap_horiz_rounded, size: 52, color: colors.onSurfaceVariant))
-                : CachedNetworkImage(imageUrl: images.first, fit: BoxFit.cover, memCacheWidth: 720, maxWidthDiskCache: 720, fadeInDuration: const Duration(milliseconds: 120), placeholder: (_, __) => Container(color: colors.surfaceContainerHighest, child: const Center(child: CircularProgressIndicator(strokeWidth: 2))), errorWidget: (_, __, ___) => Icon(Icons.image_not_supported_outlined, size: 42, color: colors.onSurfaceVariant)),
-            Positioned(top: 9, right: 9, child: Container(width: 34, height: 34, decoration: BoxDecoration(color: Colors.black.withValues(alpha: .72), shape: BoxShape.circle), child: const Icon(Icons.favorite_border_rounded, color: Colors.white, size: 20))),
-            Positioned(left: 0, right: 0, bottom: 0, child: Container(padding: const EdgeInsets.fromLTRB(9, 28, 9, 8), decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Color(0xDD000000)])), child: Text('مطلوب: ${row['wanted_title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 15)))),
+                ? Container(
+                    color: colors.surfaceContainerHighest,
+                    child: Icon(Icons.swap_horiz_rounded,
+                        size: 52, color: colors.onSurfaceVariant))
+                : CachedNetworkImage(
+                    imageUrl: images.first,
+                    fit: BoxFit.cover,
+                    memCacheWidth: 720,
+                    maxWidthDiskCache: 720,
+                    fadeInDuration: const Duration(milliseconds: 120),
+                    placeholder: (_, __) => Container(
+                        color: colors.surfaceContainerHighest,
+                        child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2))),
+                    errorWidget: (_, __, ___) => Icon(
+                        Icons.image_not_supported_outlined,
+                        size: 42,
+                        color: colors.onSurfaceVariant)),
+            Positioned(
+                top: 9,
+                right: 9,
+                child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .72),
+                        shape: BoxShape.circle),
+                    child: const Icon(Icons.favorite_border_rounded,
+                        color: Colors.white, size: 20))),
+            Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                    padding: const EdgeInsets.fromLTRB(9, 28, 9, 8),
+                    decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xDD000000)])),
+                    child: Text('مطلوب: ${row['wanted_title']}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15)))),
           ])),
-          Padding(padding: const EdgeInsets.fromLTRB(9, 8, 9, 10), child: Row(children: [CircleAvatar(radius: 11, backgroundColor: colors.primaryContainer, child: Icon(Icons.person_rounded, size: 13, color: colors.onPrimaryContainer)), const SizedBox(width: 5), Expanded(child: Text('${row['governorate'] ?? 'المحافظة'} • جديد', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w700)))])),
+          Padding(
+              padding: const EdgeInsets.fromLTRB(9, 8, 9, 10),
+              child: Row(children: [
+                CircleAvatar(
+                    radius: 11,
+                    backgroundColor: colors.primaryContainer,
+                    child: Icon(Icons.person_rounded,
+                        size: 13, color: colors.onPrimaryContainer)),
+                const SizedBox(width: 5),
+                Expanded(
+                    child: Text('${row['governorate'] ?? 'المحافظة'} • جديد',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)))
+              ])),
         ]),
       ),
     );
@@ -1083,18 +1193,29 @@ class _UserHomePageState extends State<UserHomePage> {
               Icon(Icons.swap_horizontal_circle_rounded,
                   size: 42, color: colors.onPrimaryContainer),
               SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('استبدال شيء', style: TextStyle(color: colors.onPrimaryContainer, fontSize: 18, fontWeight: FontWeight.w900)),
-                SizedBox(height: 4),
-                Text('انشر ما تريد واستقبل عروضًا مثل: لابتوب مقابل iPhone 11', style: TextStyle(color: colors.onPrimaryContainer)),
-              ])),
-              Icon(Icons.arrow_forward_ios_rounded, size: 18, color: colors.onPrimaryContainer),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('استبدال شيء',
+                        style: TextStyle(
+                            color: colors.onPrimaryContainer,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900)),
+                    SizedBox(height: 4),
+                    Text(
+                        'انشر ما تريد واستقبل عروضًا مثل: لابتوب مقابل iPhone 11',
+                        style: TextStyle(color: colors.onPrimaryContainer)),
+                  ])),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 18, color: colors.onPrimaryContainer),
             ]),
           ),
         ),
       ),
     );
   }
+
   Widget _buildServicesContent() {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(
@@ -1820,8 +1941,7 @@ class _UserHomePageState extends State<UserHomePage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.location_on_rounded,
-                    color: _primaryRed, size: 15),
+                Icon(Icons.location_on_rounded, color: _primaryRed, size: 15),
                 SizedBox(width: 6),
                 Text(
                   _userCity,
@@ -3010,7 +3130,8 @@ class _UserHomePageState extends State<UserHomePage> {
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CreateSwapListingPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const CreateSwapListingPage()),
                       );
                     },
                   ),
@@ -4068,8 +4189,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text('أضف',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
+              child: Text('أضف', style: TextStyle(fontWeight: FontWeight.w800)),
             ),
           ],
         ),
