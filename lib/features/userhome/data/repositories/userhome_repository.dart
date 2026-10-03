@@ -494,6 +494,69 @@ class UserHomeRepository {
     }
   }
 
+  Future<Map<String, List<CategoryOffer>>> getNearbyMainCategoryOffers({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 70,
+    int limitPerCategory = 8,
+  }) async {
+    try {
+      final response = await _client.rpc(
+        'get_nearby_marketplace_category_offers',
+        params: {
+          'p_latitude': latitude,
+          'p_longitude': longitude,
+          'p_radius_km': radiusKm,
+          'p_limit_per_category': limitPerCategory,
+        },
+      );
+      final grouped = <String, List<CategoryOffer>>{};
+      for (final rawRow in (response as List)) {
+        final row = Map<String, dynamic>.from(rawRow as Map);
+        final rootId = row['root_category_id']?.toString() ?? '';
+        final offerId = row['offer_id']?.toString() ?? '';
+        if (rootId.isEmpty || offerId.isEmpty) continue;
+        final imagesRaw = row['images'];
+        final images = imagesRaw is List
+            ? imagesRaw
+                .map((value) => value.toString().trim())
+                .where((value) => value.isNotEmpty)
+                .toList(growable: false)
+            : const <String>[];
+        final rawOffer = row['raw'] is Map
+            ? Map<String, dynamic>.from(row['raw'] as Map)
+            : <String, dynamic>{};
+        final offer = CategoryOffer(
+          id: offerId,
+          title: row['title']?.toString() ?? 'عرض',
+          description: row['description']?.toString(),
+          price: _toDouble(row['price']),
+          originalPrice: _toDouble(row['original_price']),
+          image: images.isEmpty ? null : images.first,
+          images: images,
+          ownerType: row['owner_type']?.toString() ?? 'community',
+          ownerName: row['owner_name']?.toString(),
+          ownerLogo: row['owner_logo']?.toString(),
+          latitude: _toDouble(row['latitude']),
+          longitude: _toDouble(row['longitude']),
+          distanceMeters: _toDouble(row['distance_meters']),
+          categoryId: row['offer_category_id']?.toString(),
+          categoryName: row['offer_category_name_ar']?.toString(),
+          status: row['status']?.toString() ?? 'available',
+          createdAt: DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+              DateTime.now(),
+          raw: rawOffer,
+        );
+        grouped.putIfAbsent(rootId, () => <CategoryOffer>[]).add(offer);
+      }
+      return grouped;
+    } catch (e, stack) {
+      debugPrint('❌ getNearbyMainCategoryOffers error: $e');
+      debugPrintStack(stackTrace: stack);
+      return {};
+    }
+  }
+
   // ===========================================================================
   // OFFERS BY CATEGORY
   // ===========================================================================

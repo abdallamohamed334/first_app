@@ -439,47 +439,25 @@ class _UserHomePageState extends State<UserHomePage> {
     }
     if (mounted) setState(() => _loadingNearbyCategoryOffers = true);
     try {
-      final categories = await _userHomeRepository.getMainCategories();
+      final results = await Future.wait([
+        _userHomeRepository.getMainCategories(),
+        _userHomeRepository.getNearbyMainCategoryOffers(
+          latitude: _userLat!,
+          longitude: _userLng!,
+          radiusKm: _AppFeatures.nearbyRadiusKm,
+          limitPerCategory: 8,
+        ),
+      ]);
+      final categories = results[0] as List<Map<String, dynamic>>;
+      final grouped = results[1] as Map<String, List<CategoryOffer>>;
       if (mounted) {
-        setState(() => _nearbyMainCategories = categories);
+        setState(() {
+          _nearbyMainCategories = categories;
+          _nearbyCategoryOffers
+            ..clear()
+            ..addAll(grouped);
+        });
       }
-      final entries = await Future.wait(
-        categories.map((category) async {
-          final id = category['id']?.toString().trim() ?? '';
-          if (id.isEmpty || _isHiddenCategory(category)) {
-            return const MapEntry<String, List<CategoryOffer>>('', []);
-          }
-          try {
-            final offers = await _userHomeRepository.getOffersByCategory(
-              categoryId: id,
-              latitude: _userLat,
-              longitude: _userLng,
-              radiusKm: _AppFeatures.nearbyRadiusKm,
-            );
-            final visible = offers
-                .where((offer) => _AppFeatures.showRestaurants ||
-                    offer.ownerType != 'restaurant')
-                .take(8)
-                .toList(growable: false);
-            return MapEntry<String, List<CategoryOffer>>(id, visible);
-          } catch (e) {
-            debugPrint('❌ category offers load error: $e');
-            return MapEntry<String, List<CategoryOffer>>(id, const []);
-          }
-        }),
-      );
-      if (!mounted) return;
-      final next = <String, List<CategoryOffer>>{};
-      for (final entry in entries) {
-        if (entry.key.isNotEmpty && entry.value.isNotEmpty) {
-          next[entry.key] = entry.value;
-        }
-      }
-      setState(() {
-        _nearbyCategoryOffers
-          ..clear()
-          ..addAll(next);
-      });
     } catch (e) {
       debugPrint('❌ nearby category offers error: $e');
       if (mounted) setState(() => _nearbyCategoryOffers.clear());
