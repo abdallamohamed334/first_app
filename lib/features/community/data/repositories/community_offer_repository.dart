@@ -1548,40 +1548,52 @@ class CommunityOfferRepository {
   ) async {
     final result = Map<String, dynamic>.from(row);
 
-    final rawImages = result['images'];
+    final rawValues = <dynamic>[
+      result['images'],
+      result['image_urls'],
+      result['offer_images'],
+      result['media'],
+      result['image'],
+      result['image_url'],
+    ];
+    final rawImages = <String>[];
+
+    void collect(dynamic value) {
+      if (value is List) {
+        for (final item in value) {
+          collect(item);
+        }
+        return;
+      }
+      if (value is Map) {
+        for (final key in const ['public_url', 'url', 'image_url', 'path']) {
+          collect(value[key]);
+        }
+        return;
+      }
+      final text = value?.toString().trim() ?? '';
+      if (text.isEmpty || text == 'null' || text == 'undefined') return;
+      for (final part in text.split(',')) {
+        final item = part.trim();
+        if (item.isNotEmpty && !rawImages.contains(item)) rawImages.add(item);
+      }
+    }
+
+    for (final value in rawValues) {
+      collect(value);
+    }
 
     final signedImages = <String>[];
-
-    if (rawImages is List) {
-      for (final raw in rawImages) {
-        final value = raw?.toString();
-
-        if (value == null || value.isEmpty) {
-          continue;
-        }
-
-        final signed = await _signedImageUrl(value);
-
-        if (signed != null) {
-          signedImages.add(signed);
-        }
+    for (final value in rawImages) {
+      final signed = await _signedImageUrl(value);
+      if (signed != null && !signedImages.contains(signed)) {
+        signedImages.add(signed);
       }
     }
 
     if (signedImages.isNotEmpty) {
       result['images'] = signedImages;
       result['image'] = signedImages.first;
-    } else {
-      final rawImage = result['image']?.toString();
-
-      if (rawImage != null && rawImage.isNotEmpty) {
-        final signed = await _signedImageUrl(rawImage);
-
-        if (signed != null) {
-          result['image'] = signed;
-          result['images'] = [signed];
-        }
-      }
     }
 
     return result;

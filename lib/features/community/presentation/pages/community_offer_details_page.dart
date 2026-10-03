@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 
@@ -438,15 +439,23 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       final s = v.toString().trim();
       if (s.isEmpty || s == 'null' || s == 'undefined') return;
       if (s.startsWith('file://')) return;
-      result.add(s);
+      final resolved = s.startsWith('http://') || s.startsWith('https://')
+          ? s
+          : AppConfig.storagePublicUrl('community-offers', s);
+      if (!result.contains(resolved)) result.add(resolved);
     }
 
     add(_offer['image']);
+    add(_offer['image_url']);
 
-    final imgs = _offer['images'];
-    if (imgs is List) {
-      for (final i in imgs) {
-        add(i);
+    for (final key in const ['images', 'image_urls', 'offer_images', 'media']) {
+      final imgs = _offer[key];
+      if (imgs is List) {
+        for (final i in imgs) {
+          add(i);
+        }
+      } else {
+        add(imgs);
       }
     }
 

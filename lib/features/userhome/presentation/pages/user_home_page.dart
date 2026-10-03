@@ -3946,13 +3946,21 @@ class _CommunityOfferCard extends StatelessWidget {
   }
 
   static String? _communityImage(Map<String, dynamic> offer) {
-    final image = offer['image']?.toString();
-    if (image != null && image.isNotEmpty && image != 'null') return image;
-
-    final images = offer['images'];
-    if (images is List && images.isNotEmpty) {
-      final first = images.first?.toString();
-      if (first != null && first.isNotEmpty && first != 'null') return first;
+    final values = <dynamic>[
+      offer['image'],
+      offer['image_url'],
+      offer['images'],
+      offer['image_urls'],
+      offer['offer_images'],
+    ];
+    for (final value in values) {
+      final raw = value is List && value.isNotEmpty ? value.first : value;
+      final text = raw?.toString().trim() ?? '';
+      if (text.isEmpty || text == 'null' || text == 'undefined') continue;
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        return text;
+      }
+      return AppConfig.storagePublicUrl('community-offers', text);
     }
     return null;
   }
