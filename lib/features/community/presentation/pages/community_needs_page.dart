@@ -1540,8 +1540,10 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
   }
 
   Widget _buildNoCitiesMessage() {
-    return const Padding(
-      padding: EdgeInsets.all(40),
+    final primaryText = Theme.of(context).colorScheme.onSurface;
+    final secondaryText = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.all(40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1561,6 +1563,8 @@ class _CityPickerSheetState extends State<_CityPickerSheet> {
   }
 
   Widget _buildNoMatchesMessage() {
+    final primaryText = Theme.of(context).colorScheme.onSurface;
+    final secondaryText = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
