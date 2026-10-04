@@ -258,11 +258,14 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _search,
-                    onSubmitted: (_) => _reload(),
-                    textInputAction: TextInputAction.search,
+                    readOnly: true,
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SwapSearchPage())),
                     decoration: const InputDecoration(
                         prefixIcon: Icon(Icons.search_rounded),
-                        hintText: 'ابحث عن المنتج أو الشيء المطلوب'),
+                        hintText: 'ابحث حسب التصنيف أو اسم المنتج'),
                   ),
                   const SizedBox(height: 10),
                   Row(children: [
@@ -387,6 +390,383 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
       _governorate = value;
       _future = _load();
     });
+  }
+}
+
+class SwapSearchPage extends StatefulWidget {
+  const SwapSearchPage({super.key});
+
+  @override
+  State<SwapSearchPage> createState() => _SwapSearchPageState();
+}
+
+class _SwapSearchPageState extends State<SwapSearchPage> {
+  final _repo = SwapRepository();
+  late Future<List<Map<String, dynamic>>> _categories;
+
+  @override
+  void initState() {
+    super.initState();
+    _categories = _loadCategories();
+  }
+
+  Future<List<Map<String, dynamic>>> _loadCategories() async {
+    try {
+      final rows = await _repo.listSwapCategories();
+      if (rows.isNotEmpty) return rows;
+    } catch (_) {}
+    return const [
+      {'slug': 'electronics', 'name_ar': 'إلكترونيات', 'icon': 'devices'},
+      {'slug': 'mobile_phones', 'name_ar': 'موبايلات', 'icon': 'phone_android'},
+      {'slug': 'computers', 'name_ar': 'كمبيوتر ولابتوب', 'icon': 'computer'},
+      {'slug': 'cameras', 'name_ar': 'كاميرات', 'icon': 'camera_alt'},
+      {'slug': 'furniture', 'name_ar': 'أثاث', 'icon': 'chair'},
+      {'slug': 'clothing', 'name_ar': 'ملابس', 'icon': 'checkroom'},
+      {'slug': 'home_appliances', 'name_ar': 'أجهزة منزلية', 'icon': 'kitchen'},
+      {'slug': 'vehicles', 'name_ar': 'سيارات ومواصلات', 'icon': 'directions_car'},
+      {'slug': 'books', 'name_ar': 'كتب وألعاب', 'icon': 'menu_book'},
+      {'slug': 'sports', 'name_ar': 'رياضة', 'icon': 'sports_soccer'},
+      {'slug': 'other', 'name_ar': 'أخرى', 'icon': 'category'},
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('بحث في الاستبدالات',
+              style: TextStyle(fontWeight: FontWeight.w900)),
+        ),
+        body: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _categories,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator(color: c.primary));
+            }
+            final categories = snapshot.data ?? const <Map<String, dynamic>>[];
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [c.primary, c.primary.withValues(alpha: .70)],
+                      begin: AlignmentDirectional.topStart,
+                      end: AlignmentDirectional.bottomEnd,
+                    ),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: Row(children: [
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                          color: c.onPrimary.withValues(alpha: .16),
+                          shape: BoxShape.circle),
+                      child: Icon(Icons.search_rounded,
+                          color: c.onPrimary, size: 31),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('اختار مجال البحث',
+                                style: TextStyle(
+                                    color: c.onPrimary,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900)),
+                            const SizedBox(height: 5),
+                            Text('اختار التصنيف وشوف كل عروض الاستبدال الخاصة به',
+                                style: TextStyle(
+                                    color: c.onPrimary.withValues(alpha: .84),
+                                    height: 1.35)),
+                          ]),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 24),
+                Text('تصنيفات الاستبدال',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900)),
+                const SizedBox(height: 12),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: categories.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.35,
+                  ),
+                  itemBuilder: (_, index) {
+                    final category = categories[index];
+                    final name = category['name_ar']?.toString() ?? 'أخرى';
+                    return _SwapCategoryTile(
+                      name: name,
+                      icon: _swapCategoryIcon(category['icon']?.toString()),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SwapCategoryResultsPage(
+                            category: name,
+                            categorySlug: category['slug']?.toString(),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class SwapCategoryResultsPage extends StatefulWidget {
+  final String category;
+  final String? categorySlug;
+  const SwapCategoryResultsPage(
+      {super.key, required this.category, this.categorySlug});
+
+  @override
+  State<SwapCategoryResultsPage> createState() => _SwapCategoryResultsPageState();
+}
+
+class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
+  final _repo = SwapRepository();
+  final _search = TextEditingController();
+  late Future<List<Map<String, dynamic>>> _future;
+  Set<String> _favorites = <String>{};
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+    _search.addListener(() {
+      if (mounted) setState(() => _query = _search.text.trim().toLowerCase());
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _load() async {
+    final rows = await _repo.listOpenListings();
+    _favorites = await _repo.favoriteListingIds();
+    return rows
+        .where((row) => _matchesCategory(
+            row, widget.category, widget.categorySlug))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _filtered(List<Map<String, dynamic>> rows) {
+    if (_query.isEmpty) return rows;
+    return rows.where((row) {
+      final text = [
+        row['wanted_title'],
+        row['description'],
+        row['city'],
+        row['governorate'],
+      ].map((value) => value?.toString() ?? '').join(' ').toLowerCase();
+      return text.contains(_query);
+    }).toList();
+  }
+
+  Future<void> _openListing(Map<String, dynamic> row) async {
+    await _repo.recordListingView(row['id'].toString());
+    if (!mounted) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => SwapDetailsPage(listingId: row['id'].toString())));
+    if (mounted) setState(() => _future = _load());
+  }
+
+  Future<void> _toggleFavorite(String id) async {
+    final next = !_favorites.contains(id);
+    setState(() {
+      if (next) {
+        _favorites.add(id);
+      } else {
+        _favorites.remove(id);
+      }
+    });
+    try {
+      await _repo.toggleFavorite(id, next);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (next) {
+          _favorites.remove(id);
+        } else {
+          _favorites.add(id);
+        }
+      });
+      _toast(context, Exception('تعذر تحديث المفضلة'));
+    }
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.category,
+              style: const TextStyle(fontWeight: FontWeight.w900)),
+        ),
+        body: RefreshIndicator(
+          onRefresh: () async => setState(() => _future = _load()),
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator(color: c.primary));
+              }
+              if (snapshot.hasError) {
+                return ListView(children: [
+                  const SizedBox(height: 180),
+                  _StateMessage(
+                      title: 'تعذر تحميل عروض التصنيف',
+                      onRetry: () => setState(() => _future = _load())),
+                ]);
+              }
+              final rows = _filtered(snapshot.data ?? const []);
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                children: [
+                  TextField(
+                    controller: _search,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'ابحث داخل ${widget.category}',
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: _search.clear,
+                              icon: const Icon(Icons.clear_rounded)),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _SectionHeader(title: 'العروض المتاحة', count: rows.length),
+                  const SizedBox(height: 12),
+                  if (rows.isEmpty)
+                    _StateMessage(
+                        title: _query.isEmpty
+                            ? 'لا توجد عروض في هذا التصنيف'
+                            : 'لا توجد نتائج مطابقة لبحثك')
+                  else
+                    _ListingGrid(
+                      rows: rows,
+                      favorites: _favorites,
+                      onTap: _openListing,
+                      onFavorite: _toggleFavorite,
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SwapCategoryTile extends StatelessWidget {
+  final String name;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _SwapCategoryTile(
+      {required this.name, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Material(
+      color: c.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Padding(
+          padding: const EdgeInsets.all(15),
+          child: Row(children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                  color: c.primaryContainer, shape: BoxShape.circle),
+              child: Icon(icon, color: c.onPrimaryContainer, size: 24),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
+            ),
+            Icon(Icons.arrow_back_ios_new_rounded,
+                size: 16, color: c.onSurfaceVariant),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+bool _matchesCategory(Map<String, dynamic> row, String category,
+    String? categorySlug) {
+  if (row['category']?.toString() == category ||
+      row['category']?.toString() == categorySlug) return true;
+  final categories = (row['categories'] as List? ?? const [])
+      .map((value) => value.toString())
+      .toList();
+  return categories.contains(category) ||
+      (categorySlug != null && categories.contains(categorySlug));
+}
+
+IconData _swapCategoryIcon(String? icon) {
+  switch (icon) {
+    case 'devices':
+      return Icons.devices_other_rounded;
+    case 'phone_android':
+      return Icons.phone_android_rounded;
+    case 'computer':
+      return Icons.computer_rounded;
+    case 'camera_alt':
+      return Icons.camera_alt_rounded;
+    case 'chair':
+      return Icons.chair_rounded;
+    case 'checkroom':
+      return Icons.checkroom_rounded;
+    case 'kitchen':
+      return Icons.kitchen_rounded;
+    case 'directions_car':
+      return Icons.directions_car_rounded;
+    case 'menu_book':
+      return Icons.menu_book_rounded;
+    case 'sports_soccer':
+      return Icons.sports_soccer_rounded;
+    default:
+      return Icons.category_rounded;
   }
 }
 
