@@ -249,8 +249,7 @@ class _UserHomePageState extends State<UserHomePage> {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null || lng == null) return false;
-        return _distanceKm(_userLat!, _userLng!, lat, lng) <=
-            _AppFeatures.nearbyRadiusKm;
+        return true;
       }).toList();
 
       nearby.sort((a, b) => _distanceKm(

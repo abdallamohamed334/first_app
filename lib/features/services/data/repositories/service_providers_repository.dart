@@ -105,30 +105,43 @@ class ServiceProvidersRepository {
     }
   }
 
-  /// كل مقدمي الخدمات المتاحين في مدينة المستخدم، لاستخدامهم على الخريطة.
+  /// مقدمو الخدمات ذوو الإحداثيات لاستخدامهم على الخريطة.
+  /// نبدأ بمدينة المستخدم، ثم نستخدم كل المزودين كخطة بديلة حتى لا تختفي
+  /// العلامة بسبب اختلاف كتابة اسم المدينة بين ملف المستخدم وملف المزود.
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     int limit = 100,
   }) async {
     try {
       final cleanCity = city.trim();
-      if (cleanCity.isEmpty) return const <ServiceProvider>[];
-
-      final rows = await _client
+      var query = _client
           .from('published_service_providers')
           .select(_publicProviderColumns)
-          .eq('city', cleanCity)
-          .eq('is_active', true)
-          .eq('is_available', true)
           .not('latitude', 'is', null)
-          .not('longitude', 'is', null)
+          .not('longitude', 'is', null);
+      if (cleanCity.isNotEmpty) {
+        query = query.eq('city', cleanCity);
+      }
+      var rows = await query
           .order('rating_avg', ascending: false)
           .order('total_reviews', ascending: false)
           .limit(limit);
 
+      // Some records use a different city spelling or leave city empty.
+      if ((rows as List).isEmpty && cleanCity.isNotEmpty) {
+        rows = await _client
+            .from('published_service_providers')
+            .select(_publicProviderColumns)
+            .not('latitude', 'is', null)
+            .not('longitude', 'is', null)
+            .order('rating_avg', ascending: false)
+            .order('total_reviews', ascending: false)
+            .limit(limit);
+      }
+
       return (rows as List)
           .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
-          .where((provider) => provider.isVerified && provider.isAvailable)
+          .where((provider) => provider.latitude != null && provider.longitude != null)
           .toList(growable: false);
     } catch (e) {
       debugPrint('❌ listNearbyProviders error: $e');
