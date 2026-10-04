@@ -872,246 +872,201 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
     }
   }
 
+  void _openGallery(List<String> images, int initialIndex) {
+    if (images.isEmpty) return;
+    Navigator.of(context).push(PageRouteBuilder<void>(
+      opaque: false,
+      barrierColor: Colors.black,
+      transitionDuration: const Duration(milliseconds: 360),
+      reverseTransitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, animation, __) => _FullScreenSwapGallery(
+        images: images,
+        initialIndex: initialIndex,
+        listingId: widget.listingId,
+      ),
+      transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+        child: child,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          leading: IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.close_rounded)),
-          actions: [
-            IconButton(onPressed: () {}, icon: const Icon(Icons.flag_outlined)),
-            IconButton(
-                onPressed: () {}, icon: const Icon(Icons.ios_share_rounded)),
-          ],
-        ),
+        backgroundColor: c.surface,
         bottomNavigationBar: FutureBuilder<Map<String, dynamic>>(
           future: _future,
           builder: (context, snap) {
             if (!snap.hasData) return const SizedBox.shrink();
-            final owner =
-                snap.data!['owner_id']?.toString() == _repo.currentUserId;
-            if (owner || snap.data!['status'] != 'open')
+            final data = snap.data!;
+            final owner = data['owner_id']?.toString() == _repo.currentUserId;
+            final phone = data['contact_phone']?.toString();
+            final whatsapp = data['contact_whatsapp']?.toString();
+            if (owner || data['status'] != 'open' ||
+                (phone?.trim().isEmpty ?? true) &&
+                    (whatsapp?.trim().isEmpty ?? true)) {
               return const SizedBox.shrink();
+            }
             return SafeArea(
-              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _ContactCard.showContact(
-                      context,
-                      phone: snap.data!['contact_phone']?.toString(),
-                      whatsapp: snap.data!['contact_whatsapp']?.toString(),
-                    ),
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    label: const Text('تواصل مع صاحب الإعلان'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(58),
-                      backgroundColor: const Color(0xFF9BEA65),
-                      foregroundColor: Colors.black,
-                    ),
-                  ),
-                ),
-              ]),
+              minimum: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              child: _ContactButtons(phone: phone, whatsapp: whatsapp),
             );
           },
         ),
         body: FutureBuilder<Map<String, dynamic>>(
           future: _future,
           builder: (context, snap) {
-            if (!snap.hasData)
+            if (!snap.hasData) {
               return Center(
-                  child: snap.hasError
-                      ? const Text('تعذر تحميل التفاصيل')
-                      : CircularProgressIndicator(color: c.primary));
+                child: snap.hasError
+                    ? const _StateMessage(title: 'تعذر تحميل التفاصيل')
+                    : CircularProgressIndicator(color: c.primary),
+              );
+            }
             final r = snap.data!;
             final owner = r['owner_id']?.toString() == _repo.currentUserId;
-            final images =
-                (r['images'] as List? ?? []).map((e) => e.toString()).toList();
+            final images = (r['images'] as List? ?? [])
+                .map((e) => e.toString())
+                .where((e) => e.trim().isNotEmpty)
+                .toList();
             final listingCategories = ((r['categories'] as List?)
-                    ?.map((e) => e.toString())
-                    .toList() ??
-                <String>[]);
-            if (listingCategories.isEmpty && r['category'] != null)
+                        ?.map((e) => e.toString())
+                        .toList() ??
+                    <String>[])
+                .where((e) => e.trim().isNotEmpty)
+                .toList();
+            if (listingCategories.isEmpty && r['category'] != null) {
               listingCategories.add(r['category'].toString());
+            }
             final user = r['users'] as Map?;
             final title = r['wanted_title']?.toString() ?? 'عرض استبدال';
             final location = r['city']?.toString().trim().isNotEmpty == true
                 ? r['city'].toString()
                 : (r['governorate']?.toString() ?? 'الموقع غير محدد');
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 22),
-              children: [
-                _DetailHero(
-                    images: images,
-                    category: r['category']?.toString() ?? 'إلكترونيات',
-                    isFavorite: _isFavorite,
-                    onFavorite: _toggleFavorite),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(title,
-                            style: const TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1)),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(Icons.location_on_outlined,
-                                size: 19, color: c.onSurfaceVariant),
-                            const SizedBox(width: 4),
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverAppBar(
+                  expandedHeight: 390,
+                  pinned: true,
+                  elevation: 0,
+                  backgroundColor: c.surface,
+                  foregroundColor: Colors.white,
+                  leading: _GlassIconButton(
+                    icon: Icons.arrow_forward_rounded,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  actions: [
+                    _GlassIconButton(
+                      icon: _isFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      iconColor: _isFavorite ? Colors.redAccent : Colors.white,
+                      onPressed: _toggleFavorite,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  flexibleSpace: FlexibleSpaceBar(
+                    collapseMode: CollapseMode.parallax,
+                    background: _DetailHero(
+                      images: images,
+                      category: r['category']?.toString() ?? 'استبدال',
+                      isFavorite: _isFavorite,
+                      onFavorite: _toggleFavorite,
+                      listingId: widget.listingId,
+                      onImageTap: _openGallery,
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: .94, end: 1),
+                    duration: const Duration(milliseconds: 520),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, value, child) => Opacity(
+                      opacity: ((value - .94) / .06).clamp(0, 1).toDouble(),
+                      child: Transform.translate(
+                        offset: Offset(0, 18 * (1 - value) / .06),
+                        child: child,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title,
+                              style: const TextStyle(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.12)),
+                          const SizedBox(height: 10),
+                          Row(children: [
+                            Icon(Icons.location_on_rounded,
+                                size: 20, color: c.primary),
+                            const SizedBox(width: 6),
                             Expanded(
-                              child: Text(
-                                location,
-                                style: TextStyle(
-                                    color: c.onSurfaceVariant, fontSize: 16),
-                              ),
+                              child: Text(location,
+                                  style: TextStyle(
+                                      color: c.onSurfaceVariant,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600)),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 18),
-                        Card(
-                          color: c.surface,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(children: [
-                              Row(children: [
-                                CircleAvatar(
-                                    radius: 27,
-                                    backgroundColor: c.primary,
-                                    backgroundImage: (user?['avatar_url']
-                                                ?.toString()
-                                                .isNotEmpty ==
-                                            true)
-                                        ? NetworkImage(
-                                            user!['avatar_url'].toString())
-                                        : null,
-                                    child: (user?['avatar_url']
-                                                ?.toString()
-                                                .isNotEmpty ==
-                                            true)
-                                        ? null
-                                        : Icon(Icons.person_rounded,
-                                            color: c.onPrimary, size: 30)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                    child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                      Text(
-                                          user?['name']?.toString() ??
-                                              'صاحب الإعلان',
-                                          style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w900)),
-                                      Text(location,
-                                          style: TextStyle(
-                                              color: c.onSurfaceVariant))
-                                    ])),
-                                Icon(Icons.chevron_left_rounded,
-                                    color: c.onSurfaceVariant),
-                              ]),
-                              if (!owner) ...[
-                                const SizedBox(height: 14),
-                                Align(
-                                    alignment: AlignmentDirectional.centerStart,
-                                    child: Text(
-                                        'مراسلة ${user?['name']?.toString() ?? 'صاحب الإعلان'}',
-                                        style: TextStyle(
-                                            color: c.onSurfaceVariant,
-                                            fontWeight: FontWeight.w700))),
-                                const SizedBox(height: 8),
-                                InkWell(
-                                    onTap: () => _ContactCard.showContact(
-                                        context,
-                                        phone: r['contact_phone']?.toString(),
-                                        whatsapp:
-                                            r['contact_whatsapp']?.toString()),
-                                    borderRadius: BorderRadius.circular(26),
-                                    child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 9),
-                                        decoration: BoxDecoration(
-                                            border: Border.all(
-                                                color: c.outlineVariant),
-                                            borderRadius:
-                                                BorderRadius.circular(26)),
-                                        child: Row(children: [
-                                          Expanded(
-                                              child: Text(
-                                                  'أهلًا، المنتج ده لسه موجود؟ 👋',
-                                                  style: TextStyle(
-                                                      color: c.onSurface,
-                                                      fontSize: 15))),
-                                          Container(
-                                              width: 38,
-                                              height: 38,
-                                              decoration: const BoxDecoration(
-                                                  color: Color(0xFF9BEA65),
-                                                  shape: BoxShape.circle),
-                                              child: const Icon(
-                                                  Icons.arrow_back_rounded,
-                                                  color: Colors.black))
-                                        ]))),
-                                const SizedBox(height: 7),
-                                Align(
-                                    alignment: AlignmentDirectional.centerStart,
-                                    child: Text(
-                                        'ابدأ محادثة مع ${user?['name']?.toString() ?? 'صاحب الإعلان'}',
-                                        style: TextStyle(
-                                            color: c.onSurfaceVariant,
-                                            fontSize: 12))),
-                              ],
-                            ]),
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        _DetailsSection(
-                            title: 'وصف المنتج',
-                            child: Text(r['description']?.toString() ?? '',
-                                style: const TextStyle(
-                                    fontSize: 17, height: 1.55))),
-                        _DetailsSection(
-                            title: 'حالة المنتج',
+                            _InfoPill(
+                                icon: Icons.swap_horizontal_circle_rounded,
+                                label: 'استبدال'),
+                          ]),
+                          const SizedBox(height: 22),
+                          _OwnerCard(user: user, location: location),
+                          const SizedBox(height: 24),
+                          _DetailsSection(
+                            title: 'عن العرض',
                             child: Text(
-                                _conditionLabel(
-                                    r['wanted_condition']?.toString()),
-                                style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700))),
-                        _DetailsSection(
-                            title: 'القسم',
-                            child: Wrap(spacing: 8, runSpacing: 8, children: [
-                              ...listingCategories.map((category) => Chip(
-                                  label: Text(category),
-                                  avatar: const Icon(Icons.category_outlined,
-                                      size: 17))),
-                              const Chip(
-                                  label: Text('استبدال'),
-                                  avatar:
-                                      Icon(Icons.swap_horiz_rounded, size: 17)),
-                            ])),
-                        if (r['contact_phone'] != null ||
-                            r['contact_whatsapp'] != null)
-                          _ContactCard(
-                              phone: r['contact_phone']?.toString(),
-                              whatsapp: r['contact_whatsapp']?.toString()),
-                        const SizedBox(height: 18),
-                        _ContactCard(
-                          phone: r['contact_phone']?.toString(),
-                          whatsapp: r['contact_whatsapp']?.toString(),
-                        ),
-                      ]),
+                              r['description']?.toString() ?? '',
+                              style: TextStyle(
+                                  color: c.onSurface,
+                                  fontSize: 17,
+                                  height: 1.65),
+                            ),
+                          ),
+                          _DetailsSection(
+                            title: 'الحالة المطلوبة',
+                            child: _ConditionBadge(
+                                label: _conditionLabel(
+                                    r['wanted_condition']?.toString())),
+                          ),
+                          _DetailsSection(
+                            title: 'التصنيف',
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: listingCategories
+                                  .map((category) => Chip(
+                                        label: Text(category),
+                                        avatar: const Icon(
+                                            Icons.category_outlined,
+                                            size: 17),
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                          if (!owner &&
+                              ((r['contact_phone']?.toString().trim().isNotEmpty ??
+                                      false) ||
+                                  (r['contact_whatsapp']
+                                          ?.toString()
+                                          .trim()
+                                          .isNotEmpty ??
+                                      false)))
+                            _ContactHint(name: user?['name']?.toString()),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             );
@@ -1122,190 +1077,478 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
   }
 }
 
-class _DetailHero extends StatelessWidget {
+class _DetailHero extends StatefulWidget {
   final List<String> images;
   final String category;
   final bool isFavorite;
   final VoidCallback onFavorite;
-  const _DetailHero(
-      {required this.images,
-      required this.category,
-      required this.isFavorite,
-      required this.onFavorite});
+  final String listingId;
+  final void Function(List<String>, int) onImageTap;
+  const _DetailHero({
+    required this.images,
+    required this.category,
+    required this.isFavorite,
+    required this.onFavorite,
+    required this.listingId,
+    required this.onImageTap,
+  });
+
+  @override
+  State<_DetailHero> createState() => _DetailHeroState();
+}
+
+class _DetailHeroState extends State<_DetailHero> {
+  final _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = Theme.of(context).colorScheme;
+    final images = widget.images;
     return ClipRRect(
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-      child: SizedBox(
-        height: 390,
-        child: Stack(fit: StackFit.expand, children: [
-          images.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: images.first,
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+      child: Stack(fit: StackFit.expand, children: [
+        if (images.isEmpty)
+          _fallback(c)
+        else
+          PageView.builder(
+            controller: _controller,
+            itemCount: images.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) => GestureDetector(
+              onTap: () => widget.onImageTap(images, index),
+              child: Hero(
+                tag: 'swap-image-${widget.listingId}-$index',
+                child: CachedNetworkImage(
+                  imageUrl: images[index],
                   fit: BoxFit.cover,
-                  memCacheWidth: 1200,
-                  maxWidthDiskCache: 1200,
-                  placeholder: (_, __) => Center(
-                      child: CircularProgressIndicator(color: c.primary)),
-                  errorWidget: (_, __, ___) => _fallback(c))
-              : _fallback(c),
-          Positioned.fill(
-              child: DecoratedBox(
-                  decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                Colors.black.withValues(alpha: .28),
-                Colors.transparent,
-                Colors.black.withValues(alpha: .55)
-              ])))),
+                  memCacheWidth: 1400,
+                  maxWidthDiskCache: 1400,
+                  placeholder: (_, __) => Container(
+                    color: c.surfaceContainerHighest,
+                    alignment: Alignment.center,
+                    child: CircularProgressIndicator(color: c.primary),
+                  ),
+                  errorWidget: (_, __, ___) => _fallback(c),
+                ),
+              ),
+            ),
+          ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: .38),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: .70),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 18,
+          bottom: 20,
+          child: _HeroPill(
+            icon: widget.isFavorite
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            label: 'المفضلة',
+            color: widget.isFavorite ? Colors.redAccent : Colors.white,
+            onTap: widget.onFavorite,
+          ),
+        ),
+        Positioned(
+          right: 18,
+          bottom: 20,
+          child: _HeroPill(
+            icon: Icons.category_rounded,
+            label: widget.category,
+            onTap: images.isEmpty
+                ? null
+                : () => widget.onImageTap(images, _index),
+          ),
+        ),
+        if (images.length > 1)
           Positioned(
-              left: 18,
-              bottom: 18,
-              child: Material(
-                  color: Colors.black.withValues(alpha: .60),
-                  borderRadius: BorderRadius.circular(22),
-                  child: InkWell(
-                      onTap: onFavorite,
-                      borderRadius: BorderRadius.circular(22),
-                      child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 9),
-                          child: Row(children: [
-                            Icon(
-                                isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color: isFavorite
-                                    ? Colors.redAccent
-                                    : Colors.white,
-                                size: 24),
-                            const SizedBox(width: 8),
-                            const Text('المفضلة',
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700))
-                          ]))))),
-          Positioned(
-              bottom: 18,
-              right: 18,
-              child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            bottom: 78,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                images.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: index == _index ? 22 : 7,
+                  height: 7,
                   decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: .58),
-                      borderRadius: BorderRadius.circular(22)),
-                  child: Text(category,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700)))),
-          if (images.length > 1)
-            Positioned(
-                bottom: 64,
-                right: 20,
-                child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .58),
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text('1 / ${images.length}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700)))),
-        ]),
-      ),
+                    color: index == _index ? Colors.white : Colors.white54,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (images.isNotEmpty)
+          const Positioned(
+            top: 78,
+            left: 18,
+            child: _ImageHint(),
+          ),
+      ]),
     );
   }
 
   Widget _fallback(ColorScheme c) => Container(
-      color: c.surfaceContainerHighest,
-      alignment: Alignment.center,
-      child:
-          Icon(Icons.swap_horiz_rounded, size: 70, color: c.onSurfaceVariant));
+        color: c.surfaceContainerHighest,
+        alignment: Alignment.center,
+        child: Icon(Icons.swap_horiz_rounded,
+            size: 80, color: c.onSurfaceVariant),
+      );
 }
 
-class _SwapImageStrip extends StatelessWidget {
+class _FullScreenSwapGallery extends StatefulWidget {
   final List<String> images;
-  const _SwapImageStrip({required this.images});
+  final int initialIndex;
+  final String listingId;
+  const _FullScreenSwapGallery({
+    required this.images,
+    required this.initialIndex,
+    required this.listingId,
+  });
+
+  @override
+  State<_FullScreenSwapGallery> createState() => _FullScreenSwapGalleryState();
+}
+
+class _FullScreenSwapGalleryState extends State<_FullScreenSwapGallery> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (images.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: CachedNetworkImage(
-          imageUrl: images.first,
-          height: 300,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          memCacheWidth: 1080,
-          maxWidthDiskCache: 1080,
-          fadeInDuration: const Duration(milliseconds: 150),
-          placeholder: (_, __) =>
-              const Center(child: CircularProgressIndicator()),
-          errorWidget: (_, __, ___) => const Center(
-              child: Icon(Icons.image_not_supported_outlined, size: 42)),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Stack(children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.images.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (_, index) => Center(
+              child: Hero(
+                tag: 'swap-image-${widget.listingId}-$index',
+                child: InteractiveViewer(
+                  minScale: .8,
+                  maxScale: 4,
+                  child: CachedNetworkImage(
+                    imageUrl: widget.images[index],
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const CircularProgressIndicator(
+                        color: Colors.white),
+                    errorWidget: (_, __, ___) => const Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.white54,
+                        size: 56),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 14,
+            child: _GlassIconButton(
+              icon: Icons.close_rounded,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          Positioned(
+            top: 22,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('${_index + 1} / ${widget.images.length}',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ContactButtons extends StatelessWidget {
+  final String? phone;
+  final String? whatsapp;
+  const _ContactButtons({this.phone, this.whatsapp});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhone = phone?.trim().isNotEmpty ?? false;
+    final hasWhatsapp = whatsapp?.trim().isNotEmpty ?? false;
+    return Row(children: [
+      if (hasWhatsapp)
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _launchWhatsapp(whatsapp!),
+            icon: const Icon(Icons.chat_rounded),
+            label: const Text('واتساب'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
+            ),
+          ),
+        ),
+      if (hasWhatsapp && hasPhone) const SizedBox(width: 10),
+      if (hasPhone)
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: () => _launchPhone(phone!),
+            icon: const Icon(Icons.phone_rounded),
+            label: const Text('اتصال'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              foregroundColor: Theme.of(context).colorScheme.primary,
+              side: BorderSide(
+                  color: Theme.of(context).colorScheme.primary, width: 1.5),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
+            ),
+          ),
+        ),
+    ]);
+  }
+}
+
+class _OwnerCard extends StatelessWidget {
+  final Map? user;
+  final String location;
+  const _OwnerCard({required this.user, required this.location});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    final avatar = user?['avatar_url']?.toString() ?? '';
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: c.primaryContainer.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: c.primary.withValues(alpha: .12)),
+      ),
+      child: Row(children: [
+        CircleAvatar(
+          radius: 27,
+          backgroundColor: c.primary,
+          backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+          child: avatar.isEmpty
+              ? Icon(Icons.person_rounded, color: c.onPrimary, size: 29)
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(user?['name']?.toString() ?? 'صاحب الإعلان',
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 3),
+            Text(location,
+                style: TextStyle(color: c.onSurfaceVariant, fontSize: 13)),
+          ]),
+        ),
+        Icon(Icons.verified_rounded, color: c.primary, size: 22),
+      ]),
+    );
+  }
+}
+
+class _ContactHint extends StatelessWidget {
+  final String? name;
+  const _ContactHint({this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.surfaceContainerHighest.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(children: [
+        Icon(Icons.touch_app_rounded, color: c.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'تواصل مع ${name?.isNotEmpty == true ? name : 'صاحب الإعلان'} من الزرين أسفل الشاشة.',
+            style: TextStyle(color: c.onSurfaceVariant, height: 1.35),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _InfoPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+          color: c.primaryContainer, borderRadius: BorderRadius.circular(18)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 16, color: c.onPrimaryContainer),
+        const SizedBox(width: 5),
+        Text(label,
+            style: TextStyle(
+                color: c.onPrimaryContainer,
+                fontSize: 12,
+                fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+}
+
+class _ConditionBadge extends StatelessWidget {
+  final String label;
+  const _ConditionBadge({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      decoration: BoxDecoration(
+          color: c.secondaryContainer,
+          borderRadius: BorderRadius.circular(15)),
+      child: Text(label,
+          style: TextStyle(
+              color: c.onSecondaryContainer,
+              fontSize: 16,
+              fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+class _GlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final VoidCallback onPressed;
+  const _GlassIconButton(
+      {required this.icon, required this.onPressed, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: .38),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: iconColor ?? Colors.white, size: 23),
         ),
       ),
     );
   }
 }
 
-class _ContactCard extends StatelessWidget {
-  final String? phone;
-  final String? whatsapp;
-  const _ContactCard({this.phone, this.whatsapp});
-
-  static Future<void> showContact(BuildContext context,
-      {String? phone, String? whatsapp}) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: SafeArea(
-            child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: _ContactCard(phone: phone, whatsapp: whatsapp))),
-      ),
-    );
-  }
+class _HeroPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+  const _HeroPill(
+      {required this.icon,
+      required this.label,
+      this.color = Colors.white,
+      this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final c = Theme.of(context).colorScheme;
-    final hasPhone = phone != null && phone!.trim().isNotEmpty;
-    final hasWhatsapp = whatsapp != null && whatsapp!.trim().isNotEmpty;
-    if (!hasPhone && !hasWhatsapp) return const SizedBox.shrink();
-    return Card(
+    return Material(
+      color: Colors.black.withValues(alpha: .58),
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
         child: Padding(
-            padding: const EdgeInsets.all(14),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('تواصل مع صاحب الإعلان',
-                  style: TextStyle(
-                      color: c.onSurface, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 10),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                if (hasPhone)
-                  OutlinedButton.icon(
-                      onPressed: () => _launchPhone(phone!),
-                      icon: const Icon(Icons.phone_rounded),
-                      label: Text(phone!)),
-                if (hasWhatsapp)
-                  FilledButton.icon(
-                      onPressed: () => _launchWhatsapp(whatsapp!),
-                      icon: const Icon(Icons.chat_rounded),
-                      label: Text('واتساب ${whatsapp!}')),
-              ]),
-            ])));
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: color, size: 21),
+            const SizedBox(width: 7),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      ),
+    );
   }
+}
+
+class _ImageHint extends StatelessWidget {
+  const _ImageHint();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: .42),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.touch_app_rounded, color: Colors.white, size: 16),
+          SizedBox(width: 5),
+          Text('اضغط لتكبير الصورة',
+              style: TextStyle(color: Colors.white, fontSize: 11)),
+        ]),
+      );
 }
 
 class _DetailsSection extends StatelessWidget {
@@ -1315,14 +1558,14 @@ class _DetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 18),
+        padding: const EdgeInsets.only(bottom: 20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
               style: TextStyle(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 16,
-                  fontWeight: FontWeight.w700)),
-          const SizedBox(height: 7),
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 9),
           child,
         ]),
       );
@@ -1339,8 +1582,9 @@ Future<void> _launchWhatsapp(String value) async {
   if (phone.startsWith('0')) phone = '20${phone.substring(1)}';
   if (!phone.startsWith('20') && phone.length == 10) phone = '20$phone';
   final uri = Uri.parse('https://wa.me/$phone');
-  if (await canLaunchUrl(uri))
+  if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 }
 
 class MySwapsPage extends StatefulWidget {
