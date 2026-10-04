@@ -289,7 +289,9 @@ class AppRouter {
       GoRoute(
         path: login,
         name: 'login',
-        builder: (context, state) => const LoginPage(),
+        builder: (context, state) => LoginPage(
+          initialMessage: state.extra is String ? state.extra as String : null,
+        ),
       ),
 
       // ─────────────────────────────────────────────

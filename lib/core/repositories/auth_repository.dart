@@ -733,7 +733,14 @@ class AuthRepository {
     final session = sessionResult.getOrElse(() => null);
     final userResult = await getCurrentUserFromDb();
     if (userResult.isLeft()) {
-      return Left(userResult.swap().getOrElse(() => 'المستخدم غير موجود'));
+      final error = userResult.swap().getOrElse(() => 'المستخدم غير موجود');
+      if (error == 'ملف المستخدم غير موجود') {
+        // The Auth session survived, but the public users row was deleted.
+        // Do not keep a zombie session active in the app.
+        await _supabase.signOut();
+        return const Left('تم حذف حسابك من النظام. يمكنك إنشاء حساب جديد.');
+      }
+      return Left(error);
     }
 
     final user = userResult.getOrElse(() => throw StateError('missing user'));

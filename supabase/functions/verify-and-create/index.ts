@@ -178,6 +178,9 @@ serve(async (req) => {
 
           if (found) {
             finalUserId = found.id;
+            // The Auth identity survived but its public profile was deleted.
+            // Recreate only a minimal profile and force completion in the app.
+            isNewUser = true;
             console.log("Existing auth user found");
             break;
           }
@@ -212,18 +215,29 @@ serve(async (req) => {
     // ═══════════════════════════════════════════════════════════
     // ✅ 6. نتأكد إن public.users فيه سجل (upsert)
     // ═══════════════════════════════════════════════════════════
-    const { error: upsertError } = await adminClient.from("users").upsert(
-      {
-        id: finalUserId,
-        phone: cleanPhone,
-        name: profile.name || "",
-        city: profile.city || "طنطا",
-        role: requestedRole,
-        user_type: requestedRole,
-        is_phone_verified: true,
-      },
-      { onConflict: "id" },
-    );
+    // Login must never overwrite an existing profile with empty/default
+    // registration fields. Only send profile fields when they were supplied;
+    // a new account still receives the required defaults.
+    final Map<String, dynamic> userPatch = <String, dynamic>{
+      "id": finalUserId,
+      "phone": cleanPhone,
+      "is_phone_verified": true,
+    };
+    if (isNewUser || (profile["name"]?.toString().trim().isNotEmpty ?? false)) {
+      userPatch["name"] = profile["name"]?.toString().trim() ?? "";
+    }
+    if (isNewUser || (profile["city"]?.toString().trim().isNotEmpty ?? false)) {
+      userPatch["city"] = profile["city"]?.toString().trim() ?? "طنطا";
+    }
+    if (isNewUser) {
+      userPatch["role"] = requestedRole;
+      userPatch["user_type"] = requestedRole;
+    }
+    final updateQuery = isNewUser
+        ? adminClient.from("users").upsert(userPatch, onConflict: "id")
+        : adminClient.from("users").update(userPatch).eq("id", finalUserId);
+    final updateResult = await updateQuery;
+    final upsertError = updateResult.error;
 
     if (upsertError) {
       console.error("❌ User upsert error:", JSON.stringify(upsertError));

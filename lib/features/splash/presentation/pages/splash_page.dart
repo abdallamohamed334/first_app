@@ -141,6 +141,20 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             .maybeSingle()
             .timeout(const Duration(seconds: 6));
 
+        if (userData == null) {
+          // The Auth identity still exists, but the public profile was
+          // deleted. Terminate the local session instead of routing to Home.
+          await client.auth.signOut(scope: SignOutScope.local);
+          AuthStateNotifier.instance.clear();
+          if (mounted) {
+            context.go(
+              AppRouter.login,
+              extra: 'تم حذف حسابك من النظام. يمكنك إنشاء حساب جديد.',
+            );
+          }
+          return;
+        }
+
         final profileRole =
             (userData?['role'] ?? userData?['user_type'] ?? 'user')
                 .toString()

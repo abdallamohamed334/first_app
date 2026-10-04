@@ -17,7 +17,9 @@ import 'otp_verify_page.dart';
 import 'user_profile_setup_flow.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialMessage});
+
+  final String? initialMessage;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -69,6 +71,11 @@ class _LoginPageState extends State<LoginPage>
 
     _animationController.forward();
     _checkAutoLogin();
+    if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showError(widget.initialMessage!);
+      });
+    }
   }
 
   @override
@@ -578,7 +585,10 @@ class _LoginPageState extends State<LoginPage>
       await result.fold(
         (error) async {
           debugPrint('ℹ️ No auto-login: $error');
-          if (mounted) setState(() => _isCheckingAutoLogin = false);
+          if (mounted) {
+            setState(() => _isCheckingAutoLogin = false);
+            if (error.contains('تم حذف حسابك')) _showError(error);
+          }
         },
         (data) async {
           final user = data['user'] as UserModel;
