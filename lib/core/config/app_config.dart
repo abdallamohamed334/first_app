@@ -6,11 +6,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AppConfig {
   AppConfig._();
 
-  // Public client configuration is bundled for manually installed APKs.
-  // Supabase RLS remains the security boundary; these values are not secrets.
-  static const _bundledSupabaseUrl = 'https://gsrhoqdtcyfdmvgahqvl.supabase.co';
-  static const _bundledSupabaseAnonKey =
-      'sb_publishable_dVIM-E6QaOFvZIgJfhgJVg_Dqj8OmbH';
   static String? _configuredSupabaseUrl;
   static String? _configuredSupabaseAnonKey;
 
@@ -84,18 +79,12 @@ class AppConfig {
   // ═══════════════════════════════════════════════════════════
   static String _requiredEnv(String key) {
     final value = (dotenv.env[key] ?? String.fromEnvironment(key)).trim();
-    final fallback = switch (key) {
-      'SUPABASE_URL' => _bundledSupabaseUrl,
-      'SUPABASE_ANON_KEY' => _bundledSupabaseAnonKey,
-      _ => '',
-    };
-    final resolved = value.isEmpty ? fallback : value;
-    if (resolved.isEmpty) {
+    if (value.isEmpty) {
       throw StateError(
         'Missing required environment variable: $key. '
         'Load the .env file before reading AppConfig.',
       );
     }
-    return resolved;
+    return value;
   }
 }
