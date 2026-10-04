@@ -4732,11 +4732,18 @@ class _HomeCategoryOfferCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _imageUrl();
+    final ownerLabel = offer.isInstitution
+        ? (offer.ownerName ?? 'مؤسسة')
+        : (offer.ownerName ?? 'عرض من المجتمع');
+    final typeLabel = offer.isInstitution ? 'مؤسسة' : 'من المجتمع';
+
     return SizedBox(
       width: 214,
       child: Material(
         color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
+        elevation: 0,
+        shadowColor: Colors.black.withValues(alpha: 0.12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
@@ -4744,39 +4751,109 @@ class _HomeCategoryOfferCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                height: 126,
-                child: imageUrl == null
-                    ? Container(
-                        color: _UserHomePageState._cardSoft,
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 44,
-                          color: _UserHomePageState._primaryRed,
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 640,
-                        placeholder: (_, __) => Container(
-                          color: _UserHomePageState._cardSoft,
-                          child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                height: 134,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    imageUrl == null
+                        ? Container(
+                            color: _UserHomePageState._cardSoft,
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 44,
+                              color: _UserHomePageState._primaryRed,
+                            ),
+                          )
+                        : CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 640,
+                            placeholder: (_, __) => Container(
+                              color: _UserHomePageState._cardSoft,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _UserHomePageState._primaryRed,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              color: _UserHomePageState._cardSoft,
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: _UserHomePageState._textSecondary,
+                                size: 36,
+                              ),
+                            ),
                           ),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          color: _UserHomePageState._cardSoft,
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: _UserHomePageState._textSecondary,
-                            size: 36,
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.18),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.42),
+                            ],
+                            stops: const [0, 0.45, 1],
                           ),
                         ),
                       ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.94),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          typeLabel,
+                          style: TextStyle(
+                            color: _UserHomePageState._primaryRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (offer.distanceDisplay != null)
+                      Positioned(
+                        bottom: 9,
+                        right: 10,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.location_on_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              offer.distanceDisplay!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(11, 10, 11, 9),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -4788,49 +4865,46 @@ class _HomeCategoryOfferCard extends StatelessWidget {
                           color: _UserHomePageState._textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
-                          height: 1.2,
+                          height: 1.25,
                         ),
                       ),
                       const Spacer(),
                       Row(
                         children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            size: 14,
-                            color: _UserHomePageState._primaryRed,
-                          ),
-                          const SizedBox(width: 3),
                           Expanded(
                             child: Text(
-                              offer.distanceDisplay ?? 'قريب منك',
+                              ownerLabel,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: _UserHomePageState._textSecondary,
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
-                          Text(
-                            offer.priceDisplay,
-                            style: TextStyle(
-                              color: _UserHomePageState._primaryRed,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _UserHomePageState._primaryRed.withValues(
+                                alpha: 0.10,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              offer.priceDisplay,
+                              style: TextStyle(
+                                color: _UserHomePageState._primaryRed,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w900,
+                              ),
                             ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        offer.ownerName ?? 'عرض من المجتمع',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _UserHomePageState._textSecondary,
-                          fontSize: 11,
-                        ),
                       ),
                     ],
                   ),
@@ -4838,66 +4912,6 @@ class _HomeCategoryOfferCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-class _LoadingHome extends StatelessWidget {
-  const _LoadingHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _UserHomePageState._bg,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _UserHomePageState._primaryRed,
-                    _UserHomePageState._primaryRedDark,
-                  ],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        _UserHomePageState._primaryRed.withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(Icons.volunteer_activism_rounded,
-                  color: Colors.white, size: 34),
-            ),
-            SizedBox(height: 24),
-            SizedBox(
-              width: 26,
-              height: 26,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: _UserHomePageState._primaryRed,
-              ),
-            ),
-            SizedBox(height: 18),
-            Text(
-              'وِصلة بتحضرلك الخير...',
-              style: TextStyle(
-                color: _UserHomePageState._textSecondary,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );
