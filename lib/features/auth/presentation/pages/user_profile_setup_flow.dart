@@ -32,13 +32,13 @@ class UserProfileSetupFlow {
     BuildContext context,
     UserModel user, {
     String role = 'user',
-    bool skipCompletion = false,
   }) async {
     if (role.toLowerCase() != 'user') return;
 
-    // Existing users must not be sent back to setup because of a legacy or
-    // partially migrated field. New users still complete the required setup.
-    if (!skipCompletion && needsProfile(user)) {
+    // The database-backed profile is the single source of truth. Complete
+    // users go Home; every incomplete user must finish setup, regardless of
+    // whether the flow came from auto-login, OTP login, or registration.
+    if (needsProfile(user)) {
       await Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (_) => CompleteProfilePage(

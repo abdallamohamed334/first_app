@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:loqma/core/errors/app_error_mapper.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/core/services/otp_service.dart';
+import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/features/auth/presentation/pages/user_profile_setup_flow.dart';
 
 void main() {
   group('AppErrorMapper', () {
@@ -78,6 +80,31 @@ void main() {
     test('generates exactly six numeric digits using secure randomness', () {
       final code = OtpService().generateOtp();
       expect(code, matches(RegExp(r'^\d{6}$')));
+    });
+  });
+
+  group('User profile routing contract', () {
+    UserModel user({bool complete = true}) => UserModel(
+          id: 'user-1',
+          name: complete ? 'محمد علي' : 'مستخدم وِصلة',
+          email: complete ? 'user@example.com' : null,
+          phone: '01012345678',
+          type: UserType.user,
+          governorate: complete ? 'الغربية' : null,
+          city: complete ? 'طنطا' : null,
+          address: complete ? 'شارع البحر' : null,
+          gender: complete ? 'ذكر' : null,
+          lat: complete ? 30.78 : null,
+          lng: complete ? 31.00 : null,
+          createdAt: DateTime.utc(2026),
+        );
+
+    test('complete profile is ready for Home', () {
+      expect(UserProfileSetupFlow.needsProfile(user()), isFalse);
+    });
+
+    test('missing profile data always requires completion, including re-login', () {
+      expect(UserProfileSetupFlow.needsProfile(user(complete: false)), isTrue);
     });
   });
 }

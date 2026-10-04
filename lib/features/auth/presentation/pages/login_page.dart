@@ -610,7 +610,7 @@ class _LoginPageState extends State<LoginPage>
             return;
           }
           if (!mounted) return;
-          await _navigateToHome(user, skipProfileCompletion: true);
+          await _navigateToHome(user);
         },
       );
     } catch (e) {
@@ -690,7 +690,7 @@ class _LoginPageState extends State<LoginPage>
 
                 await _registerDevice();
                 if (mounted) {
-                  await _navigateToHome(user, skipProfileCompletion: true);
+                  await _navigateToHome(user);
                 }
               },
             );
@@ -724,10 +724,7 @@ class _LoginPageState extends State<LoginPage>
   // ═══════════════════════════════════════════════════════════
   // Navigation — 3 roles
   // ═══════════════════════════════════════════════════════════
-  Future<void> _navigateToHome(
-    UserModel user, {
-    bool skipProfileCompletion = false,
-  }) async {
+  Future<void> _navigateToHome(UserModel user) async {
     if (!mounted) return;
 
     final type = user.type.value.trim().toLowerCase();
@@ -744,7 +741,6 @@ class _LoginPageState extends State<LoginPage>
         context,
         user,
         role: type,
-        skipCompletion: skipProfileCompletion,
       );
       return;
     }

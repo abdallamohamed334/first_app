@@ -149,8 +149,6 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
               context,
               user,
               role: role,
-              // Returning users go Home even if an old profile field is blank.
-              skipCompletion: !isNewUser,
             );
           } else {
             // ✅ مستخدم قديم ببيانات كاملة → Home مباشرة

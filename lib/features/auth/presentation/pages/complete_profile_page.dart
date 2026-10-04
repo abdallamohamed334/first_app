@@ -311,6 +311,11 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         }
       }
 
+      // Re-read the persisted row before routing. This keeps the global auth
+      // state aligned with the database and prevents a later refresh from
+      // treating the just-completed profile as incomplete.
+      await _supabase.syncCurrentAuthState(userId: widget.user.id);
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
