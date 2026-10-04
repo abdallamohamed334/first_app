@@ -16,6 +16,8 @@
 2. `20261004173000_account_case_management_rpc.sql`
 3. `20261004174500_account_reactivation_sync.sql`
 4. `20261004180000_enforce_account_safety_invariant.sql`
+5. `20261004190000_account_case_creation_and_search.sql`
+6. `20261004191000_enable_account_safety_realtime.sql`
 
 المشروع المستخدم:
 
@@ -95,6 +97,14 @@
 - `lib/features/auth/presentation/pages/account_restricted_page.dart`
 - `lib/features/admin/presentation/pages/account_cases_page.dart`
 
+صفحة الإدارة أصبحت تدعم:
+
+- البحث عن المستخدم بالاسم أو الهاتف أو البريد.
+- فتح قضية جديدة بسبب وأولوية وملاحظات داخلية.
+- تقييد الحساب بقيم `under_review` أو `suspended` أو `closed`.
+- إعادة التفعيل بقرار موثق.
+- تحديث قائمة القضايا لحظيًا عبر Realtime.
+
 ### مزامنة الحالة
 
 تم تمرير `account_status` و`suspension_until` في:
@@ -107,6 +117,10 @@
 
 - `lib/features/provider/data/repositories/service_provider_repository.dart`
 - `lib/features/auth/presentation/pages/institution_login_page.dart`
+
+تم تفعيل Realtime على `public.users` و`public.account_cases`. عند تغيير حالة
+الحساب من لوحة الإدارة، الجلسة المفتوحة تعيد مزامنة حالتها وتنتقل تلقائيًا إلى
+صفحة الحساب المقيد بدون الحاجة لإغلاق التطبيق.
 
 ## GitHub
 
@@ -122,6 +136,7 @@ main == origin/main
 - `flutter test` مرّ: الاختبارات التنفيذية نجحت، مع وجود 7 اختبارات skipped في suite العامة.
 - `flutter test test/core_contracts_test.dart` مرّ: `All tests passed!`
 - التحليل المستهدف للملفات الأمنية مرّ: `No issues found!`
+- التحليل المستهدف بعد إضافة Realtime ولوحة فتح القضايا مرّ: `No issues found!`
 - `flutter analyze` الكامل يرجع exit غير صفري بسبب 680 warning/info قديمة في المشروع، بدون أخطاء compile في الملفات المعدلة.
 - لم يتم بناء APK حسب طلب المستخدم.
 

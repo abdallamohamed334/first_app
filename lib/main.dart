@@ -219,6 +219,91 @@ Future<void> _initializePostLaunchServices(bool firebaseReady) async {
 // - عند الدخول/التحديث/الجلسة الأولية: نحمّل user_type ونضبط الحالة
 // ═══════════════════════════════════════════════════════════════
 int _authSyncGeneration = 0;
+StreamSubscription<List<Map<String, dynamic>>>? _accountStatusSubscription;
+
+Future<void> _stopAccountStatusSubscription() async {
+  await _accountStatusSubscription?.cancel();
+  _accountStatusSubscription = null;
+}
+
+void _watchAccountStatus(String userId) {
+  unawaited(_stopAccountStatusSubscription());
+  final client = Supabase.instance.client;
+  _accountStatusSubscription = client
+      .from('users')
+      .stream(primaryKey: ['id'])
+      .eq('id', userId)
+      .handleError((error) {
+        debugPrint('[AuthState] account Realtime error: $error');
+      })
+      .listen((rows) {
+        if (rows.isEmpty || client.auth.currentUser?.id != userId) return;
+        unawaited(_applyRealtimeAccountState(userId, rows.first));
+      });
+}
+
+Future<void> _applyRealtimeAccountState(
+  String userId,
+  Map<String, dynamic> profile,
+) async {
+  final authState = AuthStateNotifier.instance;
+  if (!authState.isLoggedIn || Supabase.instance.client.auth.currentUser?.id != userId) {
+    return;
+  }
+
+  Map<String, dynamic>? provider;
+  try {
+    final rows = await Supabase.instance.client.rpc('get_provider_auth_state');
+    if (rows is List && rows.isNotEmpty && rows.first is Map) {
+      provider = Map<String, dynamic>.from(rows.first as Map);
+    }
+  } catch (error) {
+    debugPrint('[AuthState] provider Realtime refresh skipped: $error');
+  }
+
+  Map<String, dynamic>? institution;
+  try {
+    institution = await Supabase.instance.client
+        .from('institutions')
+        .select('institution_type, status')
+        .eq('user_id', userId)
+        .maybeSingle();
+  } catch (error) {
+    debugPrint('[AuthState] institution Realtime refresh skipped: $error');
+  }
+
+  final providerStatus = provider?['verification_status']
+      ?.toString()
+      .trim()
+      .toLowerCase();
+  final institutionStatus = institution?['status']
+      ?.toString()
+      .trim()
+      .toLowerCase();
+  final accountStatus = profile['account_status']
+      ?.toString()
+      .trim()
+      .toLowerCase();
+  final suspensionUntil = profile['suspension_until'] is String
+      ? DateTime.tryParse(profile['suspension_until'] as String)
+      : null;
+  final isActive = profile['is_active'] != false &&
+      (provider == null || provider['is_active'] != false) &&
+      (institution == null || Institution.isAllowedStatus(institutionStatus));
+
+  authState.setLoggedIn(
+    isLoggedIn: true,
+    role: provider != null ? 'provider' : authState.role,
+    providerStatus: providerStatus ?? authState.providerStatus,
+    institutionStatus: institutionStatus ?? authState.institutionStatus,
+    accountStatus: accountStatus,
+    suspensionUntil: suspensionUntil,
+    isActive: isActive,
+    userProfileComplete: authState.userProfileComplete,
+    authResolved: true,
+  );
+  debugPrint('[AuthState] Realtime account state applied: $accountStatus');
+}
 
 /// مزامنة الجلسة مع users و service_providers و institutions قبل السماح للـ router بالتوجيه.
 /// لا نحدد الدور من users.user_type وحده، لأن الحساب قد يكون مستخدمًا ومزود خدمة.
@@ -229,6 +314,7 @@ void _attachAuthStateSync() {
 
     if (event == AuthChangeEvent.signedOut || session == null) {
       _authSyncGeneration++;
+      unawaited(_stopAccountStatusSubscription());
       AuthStateNotifier.instance.clear();
       debugPrint('🔔 [AuthState] signed out → cleared');
       return;
@@ -343,6 +429,7 @@ void _attachAuthStateSync() {
         userProfileComplete: profileComplete,
         authResolved: true,
       );
+      _watchAccountStatus(userId);
 
       debugPrint(
         '🔔 [AuthState] synced from auth event: $resolvedRole '
