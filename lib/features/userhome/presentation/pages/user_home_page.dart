@@ -60,7 +60,7 @@ class _AppFeatures {
   // Food offers are published by restaurants, hotels, bakeries, cafes,
   // groceries, supermarkets, and any approved institution—not restaurants
   // only. Keep the legacy flag name for compatibility with older code.
-  static const bool showRestaurants = true;
+  static const bool showRestaurants = false;
   static const bool showUrgentSection = true;
 
   /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
@@ -266,7 +266,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
       setState(() {
         _nearbyServiceProviders = nearby.take(100).toList();
-        _nearbySymbolicProviders = nearby.where((p) => p.isSymbolic).take(10).toList();
+        _nearbySymbolicProviders =
+            nearby.where((p) => p.isSymbolic).take(10).toList();
       });
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
@@ -477,8 +478,6 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadNearbySymbolicProviders(),
       _loadNearbyCategoryOffers(),
     ]);
-    if (mounted) {
-    }
   }
 
   bool _isHiddenCategory(Map<String, dynamic> category) {
@@ -1205,15 +1204,14 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildSearchBar()),
         SliverToBoxAdapter(child: _buildLocationRow(state)),
         SliverToBoxAdapter(child: _buildHeroBanner(state)),
-        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
-        SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.only(bottom: 26),
             child: HomeLeaderboard(),
           ),
         ),
+        SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -1437,13 +1435,15 @@ class _UserHomePageState extends State<UserHomePage> {
                   options: MapOptions(initialCenter: center, initialZoom: 11.5),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.wasla.app',
                     ),
                     MarkerLayer(
                       markers: providers.take(30).map((provider) {
                         return Marker(
-                          point: LatLng(provider.latitude!, provider.longitude!),
+                          point:
+                              LatLng(provider.latitude!, provider.longitude!),
                           width: 34,
                           height: 34,
                           child: Container(
@@ -1453,7 +1453,9 @@ class _UserHomePageState extends State<UserHomePage> {
                               border: Border.all(color: Colors.white, width: 2),
                             ),
                             child: Icon(
-                              provider.isCompany ? Icons.business_rounded : Icons.handyman_rounded,
+                              provider.isCompany
+                                  ? Icons.business_rounded
+                                  : Icons.handyman_rounded,
                               color: Colors.white,
                               size: 16,
                             ),
@@ -1491,7 +1493,8 @@ class _UserHomePageState extends State<UserHomePage> {
                           color: _blue,
                           borderRadius: BorderRadius.circular(13),
                         ),
-                        child: const Icon(Icons.map_rounded, color: Colors.white, size: 22),
+                        child: const Icon(Icons.map_rounded,
+                            color: Colors.white, size: 22),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1500,20 +1503,27 @@ class _UserHomePageState extends State<UserHomePage> {
                           children: [
                             const Text(
                               'مقدمو الخدمات حولك',
-                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               providers.isEmpty
                                   ? 'لا يوجد مقدمو خدمات على الخريطة حاليًا'
                                   : 'اضغط لعرض ${providers.length} مقدم على الخريطة',
-                              style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600),
                             ),
                           ],
                         ),
                       ),
                       if (providers.isNotEmpty)
-                        const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 17),
+                        const Icon(Icons.arrow_back_ios_new_rounded,
+                            color: Colors.white, size: 17),
                     ],
                   ),
                 ),
@@ -2190,9 +2200,8 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
-    final sourceCategories = state.categories.isNotEmpty
-        ? state.categories
-        : _nearbyMainCategories;
+    final sourceCategories =
+        state.categories.isNotEmpty ? state.categories : _nearbyMainCategories;
     final categories = sourceCategories.where((c) {
       if (_isHiddenCategory(c)) return false;
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
@@ -2705,9 +2714,8 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildNearbyCategorySections(UserHomeLoaded state) {
-    final sourceCategories = state.categories.isNotEmpty
-        ? state.categories
-        : _nearbyMainCategories;
+    final sourceCategories =
+        state.categories.isNotEmpty ? state.categories : _nearbyMainCategories;
     final categories = sourceCategories.where((category) {
       if (_isHiddenCategory(category)) return false;
       return _AppFeatures.showRestaurants || !_isRestaurantCategory(category);
@@ -4689,6 +4697,7 @@ class _NearbySymbolicProviderCard extends StatelessWidget {
     );
   }
 }
+
 // ============================================================
 // LOADING
 // ============================================================
@@ -4718,7 +4727,8 @@ class _LoadingHome extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: _UserHomePageState._primaryRed.withValues(alpha: 0.4),
+                    color:
+                        _UserHomePageState._primaryRed.withValues(alpha: 0.4),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -4762,11 +4772,15 @@ class _HomeCategoryOfferCard extends StatelessWidget {
 
   String? _storageImageUrl(String? rawValue) {
     final value = rawValue?.trim();
-    if (value == null || value.isEmpty || value == 'null' || value == 'undefined') {
+    if (value == null ||
+        value.isEmpty ||
+        value == 'null' ||
+        value == 'undefined') {
       return null;
     }
 
-    final defaultBucket = offer.isInstitution ? 'institution-images' : 'community-offers';
+    final defaultBucket =
+        offer.isInstitution ? 'institution-images' : 'community-offers';
     final uri = Uri.tryParse(value);
     if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
       final segments = uri.pathSegments;
