@@ -15,6 +15,7 @@
 1. `20261004170000_account_suspension_and_audit.sql`
 2. `20261004173000_account_case_management_rpc.sql`
 3. `20261004174500_account_reactivation_sync.sql`
+4. `20261004180000_enforce_account_safety_invariant.sql`
 
 المشروع المستخدم:
 
@@ -120,8 +121,17 @@ main == origin/main
 
 - `flutter test` مرّ: الاختبارات التنفيذية نجحت، مع وجود 7 اختبارات skipped في suite العامة.
 - `flutter test test/core_contracts_test.dart` مرّ: `All tests passed!`
-- `flutter analyze` لا يظهر أخطاء compile جديدة في الملفات المعدلة، لكنه يرجع exit غير صفري بسبب 677 warning/info قديمة في المشروع.
+- التحليل المستهدف للملفات الأمنية مرّ: `No issues found!`
+- `flutter analyze` الكامل يرجع exit غير صفري بسبب 680 warning/info قديمة في المشروع، بدون أخطاء compile في الملفات المعدلة.
 - لم يتم بناء APK حسب طلب المستخدم.
+
+### تحقق الإنتاج بعد الإصلاح
+
+- تم تطبيق migration `enforce_account_safety_invariant` على المشروع `gsrhoqdtcyfdmvgahqvl`.
+- تم تصحيح الحساب المقيد الموجود بحيث أصبح `account_status = suspended` و`is_active = false`.
+- تم إنشاء trigger يمنع المستخدم العادي من تعديل أعمدة الحماية مباشرة، ويجبر الحالات غير النشطة على `is_active = false`.
+- نتيجة فحص الاتساق بعد التطبيق: `active/true = 7` و`suspended/false = 1`، ولا توجد حالة `suspended/true`.
+- تم إضافة اختبارات صريحة لـ`under_review` و`suspended` و`closed` ولمنع الحساب الإداري المقيد من فتح لوحة الإدارة.
 
 ## نقطة مهمة قبل اختبار الإيقاف
 

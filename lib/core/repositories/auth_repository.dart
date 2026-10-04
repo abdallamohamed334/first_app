@@ -396,7 +396,7 @@ class AuthRepository {
         loginMode: cleanRole == 'provider' ? 'provider' : 'user',
       );
 
-      return otpResult.fold(
+      return await otpResult.fold(
         (err) => Left(err),
         (returnedPhone) => Right(returnedPhone),
       );

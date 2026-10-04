@@ -74,6 +74,29 @@ void main() {
       );
       expect(state.homeRoute, '/login');
     });
+
+    test('routes every non-active account to the restriction page', () {
+      for (final status in ['under_review', 'suspended', 'closed']) {
+        state.setLoggedIn(
+          isLoggedIn: true,
+          role: 'user',
+          accountStatus: status,
+          authResolved: true,
+        );
+        expect(state.isAccountRestricted, isTrue);
+        expect(state.homeRoute, '/account-restricted');
+      }
+    });
+
+    test('admin route is never selected for a restricted admin account', () {
+      state.setLoggedIn(
+        isLoggedIn: true,
+        role: 'admin',
+        accountStatus: 'suspended',
+        authResolved: true,
+      );
+      expect(state.homeRoute, '/account-restricted');
+    });
   });
 
   group('OTP client contract', () {
