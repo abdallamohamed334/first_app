@@ -125,7 +125,17 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
     }).toList();
   }
 
-  void _reload() => setState(() => _future = _load());
+  Future<void> _reload() async {
+    final future = _load();
+    if (mounted) {
+      setState(() {
+        _future = future;
+      });
+    }
+    try {
+      await future;
+    } catch (_) {}
+  }
 
   Future<void> _openListing(Map<String, dynamic> row) async {
     await _repo.recordListingView(row['id'].toString());
@@ -202,7 +212,10 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
                 return ListView(children: [
                   const SizedBox(height: 180),
                   _StateMessage(
-                      title: 'تعذر تحميل عروض الاستبدال', onRetry: _reload)
+                      title: 'تعذر تحميل عروض الاستبدال',
+                      onRetry: () {
+                        _reload();
+                      })
                 ]);
               final feed = snap.data ??
                   const _SwapFeed(
@@ -386,10 +399,8 @@ class _SwapListingsPageState extends State<SwapListingsPage> {
   }
 
   void _setGovernorate(String? value) {
-    setState(() {
-      _governorate = value;
-      _future = _load();
-    });
+    _governorate = value;
+    _reload();
   }
 }
 
@@ -588,7 +599,19 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
         context,
         MaterialPageRoute(
             builder: (_) => SwapDetailsPage(listingId: row['id'].toString())));
-    if (mounted) setState(() => _future = _load());
+    await _reloadResults();
+  }
+
+  Future<void> _reloadResults() async {
+    final future = _load();
+    if (mounted) {
+      setState(() {
+        _future = future;
+      });
+    }
+    try {
+      await future;
+    } catch (_) {}
   }
 
   Future<void> _toggleFavorite(String id) async {
@@ -632,7 +655,7 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
               style: const TextStyle(fontWeight: FontWeight.w900)),
         ),
         body: RefreshIndicator(
-          onRefresh: () async => setState(() => _future = _load()),
+          onRefresh: _reloadResults,
           child: FutureBuilder<List<Map<String, dynamic>>>(
             future: _future,
             builder: (context, snapshot) {
@@ -644,7 +667,9 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                   const SizedBox(height: 180),
                   _StateMessage(
                       title: 'تعذر تحميل عروض التصنيف',
-                      onRetry: () => setState(() => _future = _load())),
+                      onRetry: () {
+                        _reloadResults();
+                      }),
                 ]);
               }
               final rows = _filtered(snapshot.data ?? const []);
