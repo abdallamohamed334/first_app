@@ -347,6 +347,19 @@ class ServiceProviderRepository {
       // The edge function has just completed OTP and created the session.
       // Use the narrow auth-state RPC here to avoid a transient RLS failure
       // while the client session event is still propagating.
+      final accountRow = await _client
+          .from('users')
+          .select('account_status, suspension_until')
+          .eq('id', userId)
+          .maybeSingle();
+      final accountStatus =
+          accountRow?['account_status']?.toString().trim().toLowerCase() ??
+              'active';
+      if (accountStatus != 'active') {
+        await _client.auth.signOut();
+        return const Left('حسابك موقوف أو قيد المراجعة. تواصل مع الدعم.');
+      }
+
       final existingRows = await _client.rpc(
         'get_provider_auth_state',
       );
@@ -374,7 +387,7 @@ class ServiceProviderRepository {
         debugPrint('✅ [Provider OTP] Existing provider status=$status');
 
         await _publishProviderAuthState(
-          provider: existing,
+          provider: {...existing, 'account_status': accountStatus},
           userId: userId,
         );
 
@@ -426,6 +439,7 @@ class ServiceProviderRepository {
           .insert(insertData)
           .select()
           .single();
+      providerRow['account_status'] = accountStatus;
 
       debugPrint('✅ [Provider OTP] Created: ${providerRow['id']}');
 
@@ -472,6 +486,10 @@ class ServiceProviderRepository {
       role: 'provider',
       providerStatus: status,
       isActive: providerActive,
+      accountStatus: provider['account_status']?.toString(),
+      suspensionUntil: provider['suspension_until'] is String
+          ? DateTime.tryParse(provider['suspension_until'] as String)
+          : null,
       authResolved: true,
     );
   }

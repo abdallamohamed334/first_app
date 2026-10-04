@@ -551,7 +551,7 @@ class AuthRepository {
       final profile = await _supabase.client
           .from('users')
           .select(
-              'user_type, role, is_active, name, email, phone, governorate, city, address, gender, latitude, longitude')
+              'user_type, role, is_active, account_status, suspension_until, name, email, phone, governorate, city, address, gender, latitude, longitude')
           .eq('id', userId)
           .maybeSingle();
 
@@ -593,6 +593,11 @@ class AuthRepository {
           provider?['verification_status']?.toString().trim().toLowerCase();
       final institutionStatus =
           institution?['status']?.toString().trim().toLowerCase();
+      final accountStatus =
+          profile?['account_status']?.toString().trim().toLowerCase();
+      final suspensionUntil = profile?['suspension_until'] is String
+          ? DateTime.tryParse(profile!['suspension_until'] as String)
+          : null;
 
       final active = profile?['is_active'] != false &&
           (provider == null || provider['is_active'] != false) &&
@@ -618,6 +623,8 @@ class AuthRepository {
         role: resolvedRole,
         providerStatus: providerStatus,
         institutionStatus: institutionStatus,
+        accountStatus: accountStatus,
+        suspensionUntil: suspensionUntil,
         isActive: active,
         userProfileComplete: profileComplete,
         authResolved: true,

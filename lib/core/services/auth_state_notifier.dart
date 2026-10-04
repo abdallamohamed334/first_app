@@ -12,6 +12,8 @@ class AuthStateNotifier extends ChangeNotifier {
   String? _role;
   String? _providerStatus;
   String? _institutionStatus;
+  String _accountStatus = 'active';
+  DateTime? _suspensionUntil;
   bool _isActive = true;
   bool _userProfileComplete = true;
 
@@ -21,6 +23,9 @@ class AuthStateNotifier extends ChangeNotifier {
   String? get role => _role;
   String? get providerStatus => _providerStatus;
   String? get institutionStatus => _institutionStatus;
+  String get accountStatus => _accountStatus;
+  DateTime? get suspensionUntil => _suspensionUntil;
+  bool get isAccountRestricted => _accountStatus != 'active';
   bool get isActive => _isActive;
   bool get userProfileComplete => _userProfileComplete;
 
@@ -57,6 +62,7 @@ class AuthStateNotifier extends ChangeNotifier {
 
   String? get homeRoute {
     if (!_isLoggedIn || !_isResolved || _isSyncing) return null;
+    if (isAccountRestricted) return '/account-restricted';
 
     switch (_role) {
       case 'provider':
@@ -117,7 +123,7 @@ class AuthStateNotifier extends ChangeNotifier {
       case 'user':
         return _userProfileComplete ? '/home' : '/login';
       case 'admin':
-        return '/home';
+        return '/admin/account-cases';
       default:
         return '/institutions-home';
     }
@@ -141,6 +147,8 @@ class AuthStateNotifier extends ChangeNotifier {
     String? role,
     String? providerStatus,
     String? institutionStatus,
+    String? accountStatus,
+    DateTime? suspensionUntil,
     bool isActive = true,
     bool userProfileComplete = true,
     bool authResolved = false,
@@ -148,6 +156,7 @@ class AuthStateNotifier extends ChangeNotifier {
     final normalizedRole = _normalize(role);
     final normalizedStatus = _normalize(providerStatus);
     final normalizedInstitutionStatus = _normalize(institutionStatus);
+    final normalizedAccountStatus = _normalize(accountStatus) ?? 'active';
     final nextSyncing = isLoggedIn && !authResolved;
     final nextResolved = !isLoggedIn || authResolved;
 
@@ -155,6 +164,8 @@ class AuthStateNotifier extends ChangeNotifier {
         _role != normalizedRole ||
         _providerStatus != normalizedStatus ||
         _institutionStatus != normalizedInstitutionStatus ||
+        _accountStatus != normalizedAccountStatus ||
+        _suspensionUntil != suspensionUntil ||
         _isActive != isActive ||
         _userProfileComplete != userProfileComplete ||
         _isSyncing != nextSyncing ||
@@ -164,6 +175,8 @@ class AuthStateNotifier extends ChangeNotifier {
     _role = isLoggedIn ? normalizedRole : null;
     _providerStatus = isLoggedIn ? normalizedStatus : null;
     _institutionStatus = isLoggedIn ? normalizedInstitutionStatus : null;
+    _accountStatus = isLoggedIn ? normalizedAccountStatus : 'active';
+    _suspensionUntil = isLoggedIn ? suspensionUntil : null;
     _isActive = isActive;
     _userProfileComplete = userProfileComplete;
     _isSyncing = nextSyncing;
@@ -174,6 +187,7 @@ class AuthStateNotifier extends ChangeNotifier {
         '🔔 [AuthState] loggedIn=$_isLoggedIn role=$_role '
         'providerStatus=$_providerStatus active=$_isActive '
         'institutionStatus=$_institutionStatus '
+        'accountStatus=$_accountStatus '
         'resolved=$_isResolved syncing=$_isSyncing',
       );
       notifyListeners();
@@ -187,6 +201,8 @@ class AuthStateNotifier extends ChangeNotifier {
     _role = null;
     _providerStatus = null;
     _institutionStatus = null;
+    _accountStatus = 'active';
+    _suspensionUntil = null;
     _isActive = true;
     _userProfileComplete = true;
     debugPrint('🔔 [AuthState] cleared');

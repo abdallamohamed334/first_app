@@ -11,6 +11,8 @@ import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
 import '../features/auth/presentation/pages/user_type_selection_page.dart';
 import '../features/auth/presentation/pages/institution_login_page.dart';
+import '../features/auth/presentation/pages/account_restricted_page.dart';
+import '../features/admin/presentation/pages/account_cases_page.dart';
 
 // ✅ Provider (مزود الخدمة)
 import '../features/provider/presentation/pages/provider_auth_page.dart';
@@ -53,6 +55,7 @@ class AppRouter {
   static const String login = '/login';
   static const String register = '/register';
   static const String institutionLogin = '/institution-login';
+  static const String accountRestricted = '/account-restricted';
 
   // ✅ Provider (مزود الخدمة)
   static const String providerAuth = '/provider/auth';
@@ -66,6 +69,7 @@ class AppRouter {
   static const String home = '/home';
   static const String providerHome = '/provider-home';
   static const String institutionsHome = '/institutions-home';
+  static const String adminAccountCases = '/admin/account-cases';
 
   // ── Secondary
   static const String map = '/map';
@@ -121,6 +125,16 @@ class AppRouter {
       if (auth.isSyncing || !auth.isResolved) {
         if (isPublic) return null;
         return splash;
+      }
+
+      // الحسابات التي دخلت المراجعة أو تم إيقافها لا تصل لأي شاشة تشغيلية.
+      // نترك صفحة الحالة فقط حتى يستطيع المستخدم تسجيل الخروج والتواصل مع الدعم.
+      if (auth.isAccountRestricted) {
+        return loc == accountRestricted ? null : accountRestricted;
+      }
+
+      if (loc.startsWith('/admin/') && auth.role != 'admin') {
+        return auth.homeRoute ?? home;
       }
 
       // ══════════════════════════════════════════════════════════
@@ -294,6 +308,12 @@ class AppRouter {
         ),
       ),
 
+      GoRoute(
+        path: accountRestricted,
+        name: 'account-restricted',
+        builder: (context, state) => const AccountRestrictedPage(),
+      ),
+
       // ─────────────────────────────────────────────
       // 4.b Institution Login
       // ─────────────────────────────────────────────
@@ -390,6 +410,12 @@ class AppRouter {
         path: home,
         name: 'home',
         builder: (context, state) => const user_home.UserHomePage(),
+      ),
+
+      GoRoute(
+        path: adminAccountCases,
+        name: 'admin-account-cases',
+        builder: (context, state) => const AccountCasesPage(),
       ),
 
       // ─────────────────────────────────────────────

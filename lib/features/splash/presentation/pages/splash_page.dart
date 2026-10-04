@@ -136,7 +136,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         final userData = await client
             .from('users')
             .select(
-                'role, user_type, name, email, phone, governorate, city, address, gender, latitude, longitude')
+                'role, user_type, account_status, suspension_until, name, email, phone, governorate, city, address, gender, latitude, longitude')
             .eq('id', session.user.id)
             .maybeSingle()
             .timeout(const Duration(seconds: 6));
@@ -189,6 +189,11 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
 
         String? providerStatus;
         String? institutionStatus;
+        final accountStatus =
+            userData?['account_status']?.toString().trim().toLowerCase();
+        final suspensionUntil = userData?['suspension_until'] is String
+            ? DateTime.tryParse(userData!['suspension_until'] as String)
+            : null;
         bool isActive = true;
 
         if (institutionRow != null) {
@@ -229,6 +234,8 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           role: role,
           providerStatus: providerStatus,
           institutionStatus: institutionStatus,
+          accountStatus: accountStatus,
+          suspensionUntil: suspensionUntil,
           isActive: isActive,
           userProfileComplete: profileComplete,
           authResolved: true,

@@ -164,6 +164,20 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
 
     final status = result['status']?.toString().toLowerCase() ?? 'pending';
 
+    final accountRow = await client
+        .from('users')
+        .select('account_status, suspension_until')
+        .eq('id', authUser.id)
+        .maybeSingle();
+    final accountStatus =
+        accountRow?['account_status']?.toString().trim().toLowerCase() ??
+            'active';
+    if (accountStatus != 'active') {
+      await _rejectSession(
+          'حساب الجمعية موقوف أو قيد المراجعة. تواصل مع الدعم.');
+      return;
+    }
+
     if (status == 'rejected') {
       await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة وِصلة.');
       return;
@@ -187,6 +201,10 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     AuthStateNotifier.instance.setLoggedIn(
       isLoggedIn: true,
       role: 'charity',
+      accountStatus: accountStatus,
+      suspensionUntil: accountRow?['suspension_until'] is String
+          ? DateTime.tryParse(accountRow!['suspension_until'] as String)
+          : null,
       isActive: true,
       authResolved: true,
     );
@@ -216,6 +234,20 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     }
 
     final status = institution['status']?.toString().toLowerCase() ?? 'pending';
+
+    final accountRow = await client
+        .from('users')
+        .select('account_status, suspension_until')
+        .eq('id', authUserId)
+        .maybeSingle();
+    final accountStatus =
+        accountRow?['account_status']?.toString().trim().toLowerCase() ??
+            'active';
+    if (accountStatus != 'active') {
+      await _rejectSession(
+          'حساب المؤسسة موقوف أو قيد المراجعة. تواصل مع الدعم.');
+      return;
+    }
 
     if (status == 'rejected') {
       await _rejectSession(
@@ -249,6 +281,10 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       isLoggedIn: true,
       role: institutionType,
       institutionStatus: status,
+      accountStatus: accountStatus,
+      suspensionUntil: accountRow?['suspension_until'] is String
+          ? DateTime.tryParse(accountRow!['suspension_until'] as String)
+          : null,
       isActive: true,
       authResolved: true,
     );
