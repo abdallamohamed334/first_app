@@ -489,7 +489,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                           color: _muted.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close_rounded,
                           size: 13,
                           color: _secondaryText(context),
@@ -580,7 +580,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                   ),
                 )
               else
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(right: 4),
                   child: Icon(
                     Icons.keyboard_arrow_down_rounded,
@@ -853,7 +853,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
               child: const Icon(Icons.cloud_off_rounded, color: _red, size: 40),
             ),
             const SizedBox(height: 22),
-            const Text(
+            Text(
               'تعذر التحميل',
               style: TextStyle(
                 color: _primaryText(context),
