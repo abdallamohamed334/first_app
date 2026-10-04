@@ -9,6 +9,7 @@ import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/repositories/auth_repository.dart';
 import 'location_picker_page.dart';
 
 // ✅ Import صفحات الـ Home
@@ -314,7 +315,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       // Re-read the persisted row before routing. This keeps the global auth
       // state aligned with the database and prevents a later refresh from
       // treating the just-completed profile as incomplete.
-      await _supabase.syncCurrentAuthState(userId: widget.user.id);
+      await AuthRepository(_supabase).syncCurrentAuthState(userId: widget.user.id);
 
       if (!mounted) return;
 
