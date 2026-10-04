@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +41,7 @@ import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_category_page.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:loqma/features/services/presentation/pages/service_providers_map_page.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
@@ -101,6 +104,7 @@ class _UserHomePageState extends State<UserHomePage> {
   List<ServiceCategory> _serviceCategories = [];
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
+  List<ServiceProvider> _nearbyServiceProviders = [];
   bool _loadingNearbySymbolicProviders = false;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
@@ -236,7 +240,7 @@ class _UserHomePageState extends State<UserHomePage> {
     if (mounted) setState(() => _loadingNearbySymbolicProviders = true);
 
     try {
-      final providers = await _serviceProvidersRepository.listNearbySymbolic(
+      final providers = await _serviceProvidersRepository.listNearbyProviders(
         city: _userCity,
       );
       if (!mounted) return;
@@ -261,7 +265,10 @@ class _UserHomePageState extends State<UserHomePage> {
             b.longitude!,
           )));
 
-      setState(() => _nearbySymbolicProviders = nearby.take(10).toList());
+      setState(() {
+        _nearbyServiceProviders = nearby.take(100).toList();
+        _nearbySymbolicProviders = nearby.where((p) => p.isSymbolic).take(10).toList();
+      });
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
     } finally {
@@ -1260,8 +1267,7 @@ class _UserHomePageState extends State<UserHomePage> {
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildServicesSearchBar()),
-        SliverToBoxAdapter(child: _buildServicesHeroBanner()),
+        SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildServiceCategoriesGrid()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1396,129 +1402,125 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildServicesSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      child: Container(
-        height: 52,
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _border, width: 1),
-        ),
-        child: TextField(
-          style: TextStyle(color: _textPrimary, fontSize: 14.5),
-          decoration: InputDecoration(
-            hintText: 'دور على سباك، كهربائي، نجار...',
-            hintStyle: TextStyle(
-              color: _textSecondary.withValues(alpha: 0.7),
-              fontSize: 13.5,
-            ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: _textSecondary,
-              size: 22,
-            ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-          ),
-        ),
-      ),
+  Widget _buildServicesMapPreview() {
+    final center = LatLng(
+      _userLat ?? AppConfig.defaultLat,
+      _userLng ?? AppConfig.defaultLng,
     );
-  }
-
-  Widget _buildServicesHeroBanner() {
+    final providers = _nearbyServiceProviders
+        .where((p) => p.latitude != null && p.longitude != null)
+        .toList(growable: false);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-      child: Container(
-        height: 150,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF3679C8), Color(0xFF6651B5)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF3679C8).withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+      child: Material(
+        color: _card,
+        borderRadius: BorderRadius.circular(24),
         clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              left: -30,
-              bottom: -40,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.08),
+        child: InkWell(
+          onTap: providers.isEmpty
+              ? null
+              : () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ServiceProvidersMapPage(
+                        providers: providers,
+                        latitude: center.latitude,
+                        longitude: center.longitude,
+                        city: _userCity,
+                      ),
+                    ),
+                  ),
+          child: SizedBox(
+            height: 190,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FlutterMap(
+                  options: MapOptions(initialCenter: center, initialZoom: 11.5),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.wasla.app',
+                    ),
+                    MarkerLayer(
+                      markers: providers.take(30).map((provider) {
+                        return Marker(
+                          point: LatLng(provider.latitude!, provider.longitude!),
+                          width: 34,
+                          height: 34,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: _blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: Icon(
+                              provider.isCompany ? Icons.business_rounded : Icons.handyman_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            Positioned(
-              right: -20,
-              top: -40,
-              child: Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.58),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+                Positioned(
+                  right: 14,
+                  bottom: 14,
+                  left: 14,
+                  child: Row(
                     children: [
-                      Icon(Icons.handyman_rounded,
-                          color: Colors.white, size: 16),
-                      SizedBox(width: 6),
-                      Text(
-                        'خدمات وِصلة',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
+                      Container(
+                        width: 42,
+                        height: 42,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _blue,
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: const Icon(Icons.map_rounded, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'مقدمو الخدمات حولك',
+                              style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              providers.isEmpty
+                                  ? 'لا يوجد مقدمو خدمات على الخريطة حاليًا'
+                                  : 'اضغط لعرض ${providers.length} مقدم على الخريطة',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
                       ),
+                      if (providers.isNotEmpty)
+                        const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 17),
                     ],
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'محترفين قريبين منك 🔧',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    'سباكة، كهرباء، نجارة، وأكتر',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11.5,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

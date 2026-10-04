@@ -105,6 +105,37 @@ class ServiceProvidersRepository {
     }
   }
 
+  /// كل مقدمي الخدمات المتاحين في مدينة المستخدم، لاستخدامهم على الخريطة.
+  Future<List<ServiceProvider>> listNearbyProviders({
+    required String city,
+    int limit = 100,
+  }) async {
+    try {
+      final cleanCity = city.trim();
+      if (cleanCity.isEmpty) return const <ServiceProvider>[];
+
+      final rows = await _client
+          .from('published_service_providers')
+          .select(_publicProviderColumns)
+          .eq('city', cleanCity)
+          .eq('is_active', true)
+          .eq('is_available', true)
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
+          .order('rating_avg', ascending: false)
+          .order('total_reviews', ascending: false)
+          .limit(limit);
+
+      return (rows as List)
+          .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
+          .where((provider) => provider.isVerified && provider.isAvailable)
+          .toList(growable: false);
+    } catch (e) {
+      debugPrint('❌ listNearbyProviders error: $e');
+      return const <ServiceProvider>[];
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════
   // ✅ جلب المناطق المتاحة في تصنيف معين
   // ═══════════════════════════════════════════════════════════
