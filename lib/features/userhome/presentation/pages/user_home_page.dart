@@ -470,6 +470,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Future<void> _refresh() async {
     context.read<UserHomeBloc>().add(const UserHomeRefreshed());
+    _nearbySwapsFuture = _swapRepository.listMyGovernorateOpenListings();
     await _loadUserLocation();
     await Future.wait([
       _loadInstitutionOffers(),
@@ -1042,7 +1043,7 @@ class _UserHomePageState extends State<UserHomePage> {
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
             child: FutureBuilder<List<Map<String, dynamic>>>(
               future: _nearbySwapsFuture ??=
-                  _swapRepository.listNearbyOpenListings(),
+                  _swapRepository.listMyGovernorateOpenListings(),
               builder: (context, snapshot) {
                 final rows = snapshot.data ?? const <Map<String, dynamic>>[];
                 return Column(
@@ -1063,7 +1064,7 @@ class _UserHomePageState extends State<UserHomePage> {
                           subtitle: const Padding(
                               padding: EdgeInsets.only(top: 6),
                               child: Text(
-                                  'العروض الأقرب لموقعك، ويمكنك رؤية كل العروض من هنا.')),
+                                  'عروض الاستبدال داخل محافظتك، ويمكنك رؤية كل العروض من هنا.')),
                           trailing: const Icon(Icons.arrow_forward_ios_rounded),
                           onTap: () => Navigator.push(
                               context,

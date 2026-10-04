@@ -146,6 +146,14 @@ class SwapRepository {
     return listOpenListings(search: search, governorate: selectedGovernorate);
   }
 
+  Future<List<Map<String, dynamic>>> listMyGovernorateOpenListings() async {
+    final governorate = await currentUserGovernorate();
+    if (governorate == null || governorate.trim().isEmpty) {
+      return <Map<String, dynamic>>[];
+    }
+    return listOpenListings(governorate: governorate.trim());
+  }
+
   Future<Map<String, dynamic>> getListing(String id) async {
     final row = await _client.from('swap_listings').select('''
       id, owner_id, wanted_title, description, category, categories, wanted_condition,
