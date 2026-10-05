@@ -437,19 +437,20 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Future<void> _loadNearbyCategoryOffers() async {
-    if (_loadingNearbyCategoryOffers || _userLat == null || _userLng == null) {
-      return;
-    }
+    if (_loadingNearbyCategoryOffers) return;
     if (mounted) setState(() => _loadingNearbyCategoryOffers = true);
     try {
       final results = await Future.wait([
         _userHomeRepository.getMainCategories(),
-        _userHomeRepository.getNearbyMainCategoryOffers(
-          latitude: _userLat!,
-          longitude: _userLng!,
-          radiusKm: _AppFeatures.nearbyRadiusKm,
-          limitPerCategory: 8,
-        ),
+        if (_userLat != null && _userLng != null)
+          _userHomeRepository.getNearbyMainCategoryOffers(
+            latitude: _userLat!,
+            longitude: _userLng!,
+            radiusKm: _AppFeatures.nearbyRadiusKm,
+            limitPerCategory: 8,
+          )
+        else
+          Future.value(<String, List<CategoryOffer>>{}),
       ]);
       final categories = results[0] as List<Map<String, dynamic>>;
       final grouped = results[1] as Map<String, List<CategoryOffer>>;
@@ -464,6 +465,17 @@ class _UserHomePageState extends State<UserHomePage> {
           : await _userHomeRepository.getSubCategories(
               institutionRoot['id']?.toString() ?? '',
             );
+      if (institutionRoot != null) {
+        final institutionOffers = await _userHomeRepository.getOffersByCategory(
+          categoryId: institutionRoot['id']?.toString() ?? '',
+        );
+        final institutionOnly = institutionOffers
+            .where((offer) => offer.ownerType == 'institution')
+            .toList(growable: false);
+        if (institutionOnly.isNotEmpty) {
+          grouped[institutionRoot['id']?.toString() ?? ''] = institutionOnly;
+        }
+      }
       if (mounted) {
         setState(() {
           _nearbyMainCategories = categories;
@@ -2746,7 +2758,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
     if (_loadingNearbyCategoryOffers && subcategories.isEmpty) {
       return _section(
-        title: 'المؤسسات القريبة منك',
+        title: 'عروض المؤسسات',
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 28),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
@@ -2757,7 +2769,7 @@ class _UserHomePageState extends State<UserHomePage> {
     return Column(
       children: [
         _section(
-          title: 'المؤسسات القريبة منك',
+          title: 'عروض المؤسسات',
           trailing: Text(
             _userCity,
             style: TextStyle(
@@ -2770,7 +2782,7 @@ class _UserHomePageState extends State<UserHomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'اختار القسم المناسب وشوف العروض المتاحة من المؤسسات حولك',
+                'اختار القسم المناسب وشوف عدد العروض المتاحة من المؤسسات',
                 style: TextStyle(
                   color: _textSecondary,
                   fontSize: 12.5,
