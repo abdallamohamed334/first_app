@@ -124,7 +124,7 @@ class loqmaImageStorageService {
   }
 
   String _fileName(XFile image) {
-    return '${DateTime.now().microsecondsSinceEpoch}.${_extension(image.name)}';
+    return '${DateTime.now().microsecondsSinceEpoch}.webp';
   }
 
   String _replaceExtension(String path, String extension) {
@@ -133,23 +133,6 @@ class loqmaImageStorageService {
     return path.replaceFirst(pattern, '.$extension');
   }
 
-  String _extension(String name) {
-    final extension = name.split('.').last.toLowerCase();
-    return const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)
-        ? extension
-        : 'jpg';
-  }
-
-  String _contentType(String extension) {
-    switch (extension) {
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      default:
-        return 'image/jpeg';
-    }
-  }
 }
 
 class loqmaStorageAuthException implements Exception {

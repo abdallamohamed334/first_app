@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/auth_state_notifier.dart';
+import '../../../../core/services/image_upload_codec.dart';
 
 class ServiceProviderRepository {
   final SupabaseService _supabase;
@@ -635,15 +636,8 @@ class ServiceProviderRepository {
       if (!allowedExtensions.contains(ext)) {
         return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
       }
-      final contentType = switch (ext) {
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        _ => null,
-      };
-      if (contentType == null) return const Left('نوع الصورة غير صحيح');
       final fileName =
-          '$userId/${type}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+          '$userId/${type}_${DateTime.now().millisecondsSinceEpoch}.webp';
 
       debugPrint('📤 [Provider] Uploading $type: $fileName');
 
@@ -655,13 +649,14 @@ class ServiceProviderRepository {
         return const Left('حجم الصورة يجب ألا يتجاوز 10 ميجابايت');
       }
 
-      await _client.storage.from('provider-images').upload(
+      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      await _client.storage.from('provider-images').uploadBinary(
             fileName,
-            file,
+            encoded,
             fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: false,
-              contentType: contentType,
+              contentType: 'image/webp',
             ),
           );
 
@@ -692,24 +687,18 @@ class ServiceProviderRepository {
       if (!allowedExtensions.contains(ext)) {
         return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
       }
-      final contentType = switch (ext) {
-        'jpg' || 'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        _ => null,
-      };
-      if (contentType == null) return const Left('نوع الصورة غير صحيح');
       final file = File(imagePath);
       if (!await file.exists()) return const Left('ملف الصورة غير موجود');
       if (await file.length() > 10 * 1024 * 1024) {
         return const Left('حجم صورة البطاقة يجب ألا يتجاوز 10 ميجابايت');
       }
       final path =
-          '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await _client.storage.from('provider-documents').upload(
+          '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.webp';
+      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      await _client.storage.from('provider-documents').uploadBinary(
             path,
-            file,
-            fileOptions: FileOptions(contentType: contentType),
+            encoded,
+            fileOptions: const FileOptions(contentType: 'image/webp'),
           );
       return Right(path);
     } catch (error) {

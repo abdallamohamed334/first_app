@@ -13,6 +13,7 @@ import '../models/community_stats.dart';
 import 'fcm_notification_service.dart';
 // ✅ AuthStateNotifier — عشان ننضف الحالة عند تسجيل الخروج
 import 'auth_state_notifier.dart';
+import 'image_upload_codec.dart';
 
 class RewardData {
   final String id;
@@ -1431,11 +1432,16 @@ class SupabaseService {
   Future<String> uploadAvatar(String userId, String imagePath) async {
     try {
       final fileName =
-          'avatars/${userId}_${DateTime.now().millisecondsSinceEpoch}.png';
+          'avatars/${userId}_${DateTime.now().millisecondsSinceEpoch}.webp';
 
       final file = File(imagePath);
 
-      await adminClient.storage.from('avatars').upload(fileName, file);
+      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      await adminClient.storage.from('avatars').uploadBinary(
+            fileName,
+            encoded,
+            fileOptions: const FileOptions(contentType: 'image/webp'),
+          );
 
       final publicUrl =
           adminClient.storage.from('avatars').getPublicUrl(fileName);
