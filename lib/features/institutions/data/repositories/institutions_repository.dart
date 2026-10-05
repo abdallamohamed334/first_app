@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:loqma/core/services/image_upload_codec.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 
 import '../../domain/entities/institution.dart';
@@ -954,19 +956,19 @@ class InstitutionsRepository {
       );
     }
 
-    final safeExtension = fileExtension.replaceAll('.', '').toLowerCase();
-
     final path = '$userId/'
         '${cover ? 'cover' : 'logo'}_'
         '${DateTime.now().millisecondsSinceEpoch}'
-        '.$safeExtension';
+        '.webp';
+
+    final encoded = await ImageUploadCodec.fromBytes(bytes);
 
     await _client.storage.from('institution-images').uploadBinary(
           path,
-          bytes,
-          fileOptions: FileOptions(
+          encoded,
+          fileOptions: const FileOptions(
             upsert: true,
-            contentType: 'image/$safeExtension',
+            contentType: 'image/webp',
           ),
         );
 

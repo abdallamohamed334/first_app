@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:loqma/core/widgets/page_transition.dart';
+import 'package:loqma/core/widgets/loqma_lazy_image.dart';
 import '../pages/charity_details_page.dart';
 
 class CharityCard extends StatelessWidget {
@@ -115,10 +116,12 @@ class CharityCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (_imageUrl.isNotEmpty)
-              Image.network(
-                _imageUrl,
+              LoqmaLazyImage(
+                url: _imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallbackCover(gradientColors),
+                cacheWidth: 720,
+                cacheHeight: 320,
+                errorWidget: _fallbackCover(gradientColors),
               )
             else
               _fallbackCover(gradientColors),

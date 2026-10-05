@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/widgets/loqma_lazy_image.dart';
 
 class DashboardRecentOffers extends StatefulWidget {
   final String businessId;
@@ -91,8 +92,13 @@ class _DashboardRecentOffersState extends State<DashboardRecentOffers> {
               ),
             )
           else
-            ..._offers
-                .map((offer) => _buildOfferCard(context, offer, colorScheme)),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _offers.length,
+              itemBuilder: (context, index) =>
+                  _buildOfferCard(context, _offers[index], colorScheme),
+            ),
         ],
       ),
     );
@@ -131,10 +137,12 @@ class _DashboardRecentOffersState extends State<DashboardRecentOffers> {
               height: 50,
               color: colorScheme.primary.withAlpha(25),
               child: offer['image'] != null
-                  ? Image.network(
-                      offer['image'],
+                  ? LoqmaLazyImage(
+                      url: offer['image'].toString(),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
+                      cacheWidth: 160,
+                      cacheHeight: 160,
+                      errorWidget: Icon(
                         Icons.restaurant_menu,
                         color: colorScheme.primary.withAlpha(50),
                       ),

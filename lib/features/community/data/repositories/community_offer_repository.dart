@@ -1,10 +1,10 @@
 // lib/features/community/data/repositories/community_offer_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart'
-    as image_compress;
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:loqma/core/services/image_upload_codec.dart';
 
 class CommunityOfferRepository {
   final SupabaseClient _client;
@@ -1607,37 +1607,11 @@ class CommunityOfferRepository {
     required String userId,
     required XFile image,
   }) async {
-    var bytes = await image.readAsBytes();
-
-    if (bytes.isEmpty) {
-      throw Exception('الصورة المختارة فارغة');
-    }
-
-    var extension = _extension(image.name);
-
-    // Supabase Storage لا يقبل image/heic أو image/heif في هذا الـ bucket.
-    // نحول الصورة على الجهاز إلى JPEG بدل رفع bytes بصيغة MIME خاطئة.
-    if (extension == 'heic' || extension == 'heif') {
-      if (kIsWeb) {
-        throw Exception('صيغة HEIC غير مدعومة على الويب. اختر JPG أو PNG.');
-      }
-      final converted = await image_compress.FlutterImageCompress.compressWithFile(
-        image.path,
-        format: image_compress.CompressFormat.jpeg,
-        quality: 88,
-        minWidth: 1600,
-        minHeight: 1600,
-      );
-      if (converted == null || converted.isEmpty) {
-        throw Exception('تعذر تحويل صورة HEIC إلى JPEG');
-      }
-      bytes = converted;
-      extension = 'jpg';
-    }
+    final bytes = await ImageUploadCodec.fromXFile(image);
 
     final fileName = '${DateTime.now().microsecondsSinceEpoch}_'
         '${Object.hash(image.name, bytes.length).abs()}'
-        '.$extension';
+        '.webp';
 
     final path = '$userId/$fileName';
 
@@ -1645,7 +1619,7 @@ class CommunityOfferRepository {
           path,
           bytes,
           fileOptions: FileOptions(
-            contentType: _contentType(extension),
+            contentType: 'image/webp',
             upsert: false,
           ),
         );
@@ -1703,64 +1677,6 @@ class CommunityOfferRepository {
           'Failed to cleanup uploaded community images: $error',
         );
       }
-    }
-  }
-
-  // ============================================================
-  // EXTENSION
-  // ============================================================
-
-  String _extension(String fileName) {
-    final clean = fileName.trim();
-
-    final dotIndex = clean.lastIndexOf('.');
-
-    if (dotIndex == -1 || dotIndex == clean.length - 1) {
-      return 'jpg';
-    }
-
-    final extension = clean.substring(dotIndex + 1).toLowerCase();
-
-    const allowed = {
-      'jpg',
-      'jpeg',
-      'png',
-      'webp',
-      'heic',
-      'heif',
-    };
-
-    if (!allowed.contains(extension)) {
-      return 'jpg';
-    }
-
-    return extension;
-  }
-
-  // ============================================================
-  // CONTENT TYPE
-  // ============================================================
-
-  String _contentType(String extension) {
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-
-      case 'png':
-        return 'image/png';
-
-      case 'webp':
-        return 'image/webp';
-
-      case 'heic':
-        return 'image/heic';
-
-      case 'heif':
-        return 'image/heif';
-
-      default:
-        return 'image/jpeg';
     }
   }
 

@@ -1,6 +1,8 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/image_upload_codec.dart';
+
 class SwapRepository {
   final SupabaseClient _client;
   SwapRepository({SupabaseClient? client})
@@ -25,21 +27,14 @@ class SwapRepository {
   Future<String> uploadListingImage(XFile image) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw Exception('يجب تسجيل الدخول أولًا');
-    final extension = image.path.split('.').last.toLowerCase();
-    final safeExtension =
-        const {'jpg', 'jpeg', 'png', 'webp'}.contains(extension)
-            ? extension
-            : 'jpg';
     final path =
-        '$userId/${DateTime.now().millisecondsSinceEpoch}.$safeExtension';
-    final contentType = safeExtension == 'png'
-        ? 'image/png'
-        : safeExtension == 'webp'
-            ? 'image/webp'
-            : 'image/jpeg';
+        '$userId/${DateTime.now().millisecondsSinceEpoch}.webp';
     await _client.storage.from('swap-images').uploadBinary(
-        path, await image.readAsBytes(),
-        fileOptions: FileOptions(contentType: contentType, upsert: false));
+        path, await ImageUploadCodec.fromXFile(image),
+        fileOptions: const FileOptions(
+          contentType: 'image/webp',
+          upsert: false,
+        ));
     return _client.storage.from('swap-images').getPublicUrl(path);
   }
 

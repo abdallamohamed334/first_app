@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/image_upload_codec.dart';
+
 class CharityVolunteersManagementPage extends StatefulWidget {
   const CharityVolunteersManagementPage({super.key});
 
@@ -377,8 +379,7 @@ class _CharityVolunteersManagementPageState
       if (selectedAvatar != null && selectedAvatarBytes != null) {
         final bytes = selectedAvatarBytes!;
         if (bytes.isEmpty) throw Exception('الصورة المختارة فارغة');
-        final extension =
-            selectedAvatar!.name.toLowerCase().endsWith('.png') ? 'png' : 'jpg';
+        final encoded = await ImageUploadCodec.fromBytes(bytes);
         final authUserId = _client.auth.currentUser?.id;
         if (authUserId == null || authUserId.isEmpty) {
           throw Exception('انتهت جلسة الجمعية');
@@ -398,14 +399,14 @@ class _CharityVolunteersManagementPageState
           );
         }
         final path =
-            '$charityId/${DateTime.now().microsecondsSinceEpoch}.$extension';
+            '$charityId/${DateTime.now().microsecondsSinceEpoch}.webp';
         debugPrint('🧪 [VolunteerAvatar] uploadPath=$path');
         await _client.storage.from('avatars').uploadBinary(
               path,
-              bytes,
-              fileOptions: FileOptions(
+              encoded,
+              fileOptions: const FileOptions(
                 upsert: false,
-                contentType: extension == 'png' ? 'image/png' : 'image/jpeg',
+                contentType: 'image/webp',
               ),
             );
         avatarUrl = _client.storage.from('avatars').getPublicUrl(path);

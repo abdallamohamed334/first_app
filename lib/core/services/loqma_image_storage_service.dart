@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'image_upload_codec.dart';
+
 /// خدمة رفع الصور إلى Supabase Storage.
 ///
 /// المسارات مطابقة لسياسات Storage الحالية:
@@ -89,19 +91,18 @@ class loqmaImageStorageService {
     required String errorMessage,
   }) async {
     try {
-      final bytes = await image.readAsBytes();
+      final bytes = await ImageUploadCodec.fromXFile(image);
       if (bytes.isEmpty) {
         throw StateError('empty image');
       }
 
-      final extension = _extension(image.name);
-      final finalPath = _replaceExtension(path, extension);
+      final finalPath = _replaceExtension(path, 'webp');
 
       await _client.storage.from(bucket).uploadBinary(
             finalPath,
-            Uint8List.fromList(bytes),
+            bytes,
             fileOptions: FileOptions(
-              contentType: _contentType(extension),
+              contentType: 'image/webp',
               upsert: false,
             ),
           );

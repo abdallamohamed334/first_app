@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'image_upload_codec.dart';
+
 class StorageService {
   StorageService._();
 
@@ -19,13 +21,11 @@ class StorageService {
     try {
       final authUserId = _client.auth.currentUser?.id;
       if (authUserId == null || authUserId != cleanUserId) return null;
-      final extension = _extensionFor(imageFile.name);
-      final contentType = _contentTypeFor(extension);
       final stamp = DateTime.now().microsecondsSinceEpoch;
       // Use a new object on every upload. This avoids requiring Storage UPDATE
       // permission and prevents the browser/device from serving the old image.
-      final path = '$cleanUserId/avatar_$stamp.$extension';
-      final bytes = await imageFile.readAsBytes();
+      final path = '$cleanUserId/avatar_$stamp.webp';
+      final bytes = await ImageUploadCodec.fromXFile(imageFile);
       if (bytes.isEmpty) return null;
       if (bytes.length > 5 * 1024 * 1024) return null;
 
@@ -34,7 +34,7 @@ class StorageService {
             bytes,
             fileOptions: FileOptions(
               upsert: false,
-              contentType: contentType,
+              contentType: 'image/webp',
               cacheControl: '3600',
             ),
           );
@@ -60,24 +60,6 @@ class StorageService {
     }
   }
 
-  static String _extensionFor(String name) {
-    final lower = name.toLowerCase();
-    if (lower.endsWith('.png')) return 'png';
-    if (lower.endsWith('.webp')) return 'webp';
-    return 'jpg';
-  }
-
-  static String _contentTypeFor(String extension) {
-    switch (extension) {
-      case 'png':
-        return 'image/png';
-      case 'webp':
-        return 'image/webp';
-      default:
-        return 'image/jpeg';
-    }
-  }
-
   Future<List<String>> uploadOfferImages({
     required String offerId,
     required List<XFile> images,
@@ -88,17 +70,17 @@ class StorageService {
     final uploadedUrls = <String>[];
     for (var index = 0; index < images.length; index++) {
       try {
-        final bytes = await images[index].readAsBytes();
+        final bytes = await ImageUploadCodec.fromXFile(images[index]);
         if (bytes.isEmpty) continue;
 
         final path =
-            'offers/$cleanOfferId/${DateTime.now().microsecondsSinceEpoch}_$index.jpg';
+            'offers/$cleanOfferId/${DateTime.now().microsecondsSinceEpoch}_$index.webp';
         await _client.storage.from('offer_images').uploadBinary(
               path,
               bytes,
               fileOptions: const FileOptions(
                 upsert: false,
-                contentType: 'image/jpeg',
+                contentType: 'image/webp',
                 cacheControl: '3600',
               ),
             );

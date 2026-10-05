@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/image_upload_codec.dart';
+
 class SeparateCharityDonationRepository {
   final SupabaseClient _client;
 
@@ -129,18 +131,17 @@ class SeparateCharityDonationRepository {
 
     try {
       for (final image in images) {
-        final bytes = await image.readAsBytes();
+        final bytes = await ImageUploadCodec.fromXFile(image);
         if (bytes.isEmpty) throw Exception('إحدى الصور فارغة أو تالفة');
 
-        final extension = _imageExtension(image.name);
         final path =
-            '$folder/${DateTime.now().microsecondsSinceEpoch}.$extension';
+            '$folder/${DateTime.now().microsecondsSinceEpoch}.webp';
 
         await _client.storage.from('community-offers').uploadBinary(
               path,
               Uint8List.fromList(bytes),
               fileOptions: FileOptions(
-                contentType: _contentType(extension),
+                contentType: 'image/webp',
                 upsert: false,
               ),
             );
@@ -154,16 +155,6 @@ class SeparateCharityDonationRepository {
     }
   }
 
-  String _imageExtension(String name) {
-    final ext = name.split('.').last.toLowerCase();
-    return {'jpg', 'jpeg', 'png', 'webp'}.contains(ext) ? ext : 'jpg';
-  }
-
-  String _contentType(String ext) => switch (ext) {
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        _ => 'image/jpeg',
-      };
 
   Future<Map<String, dynamic>> createDonation({
     required String charityId,
