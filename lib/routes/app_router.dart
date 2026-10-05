@@ -13,6 +13,7 @@ import '../features/auth/presentation/pages/user_type_selection_page.dart';
 import '../features/auth/presentation/pages/institution_login_page.dart';
 import '../features/auth/presentation/pages/account_restricted_page.dart';
 import '../features/admin/presentation/pages/account_cases_page.dart';
+import '../features/admin/presentation/pages/swap_reports_page.dart';
 
 // ✅ Provider (مزود الخدمة)
 import '../features/provider/presentation/pages/provider_auth_page.dart';
@@ -70,6 +71,7 @@ class AppRouter {
   static const String providerHome = '/provider-home';
   static const String institutionsHome = '/institutions-home';
   static const String adminAccountCases = '/admin/account-cases';
+  static const String adminSwapReports = '/admin/swap-reports';
 
   // ── Secondary
   static const String map = '/map';
@@ -416,6 +418,12 @@ class AppRouter {
         path: adminAccountCases,
         name: 'admin-account-cases',
         builder: (context, state) => const AccountCasesPage(),
+      ),
+
+      GoRoute(
+        path: adminSwapReports,
+        name: 'admin-swap-reports',
+        builder: (context, state) => const SwapReportsPage(),
       ),
 
       // ─────────────────────────────────────────────

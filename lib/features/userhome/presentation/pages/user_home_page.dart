@@ -1079,11 +1079,37 @@ class _UserHomePageState extends State<UserHomePage> {
                                 padding: EdgeInsets.all(24),
                                 child: CircularProgressIndicator()))
                       else if (rows.isEmpty)
-                        const Center(
-                            child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child:
-                                    Text('لا توجد عروض استبدال قريبة حاليًا')))
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(children: [
+                            Icon(Icons.location_searching_rounded,
+                                size: 42,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant),
+                            const SizedBox(height: 8),
+                            const Text('لا توجد عروض استبدال في محافظتك حاليًا',
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 6),
+                            TextButton.icon(
+                              onPressed: () async {
+                                await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => const ProfilePage()));
+                                if (mounted) {
+                                  final future = _swapRepository
+                                      .listMyGovernorateOpenListings();
+                                  setState(() {
+                                    _nearbySwapsFuture = future;
+                                  });
+                                }
+                              },
+                              icon: const Icon(Icons.edit_location_alt_rounded),
+                              label: const Text('تأكد من تحديد محافظتك'),
+                            ),
+                          ]),
+                        )
                       else
                         GridView.builder(
                           shrinkWrap: true,

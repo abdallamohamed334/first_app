@@ -75,11 +75,22 @@ class SwapRepository {
     if (currentUserId == null) return null;
     final profile = await _client
         .from('users')
-        .select('governorate')
+        .select('governorate, city, latitude, longitude')
         .eq('id', _uid)
         .maybeSingle();
     final value = profile?['governorate']?.toString().trim();
     return value == null || value.isEmpty ? null : value;
+  }
+
+  Future<Map<String, dynamic>?> currentUserLocation() async {
+    if (currentUserId == null) return null;
+    final profile = await _client
+        .from('users')
+        .select('latitude, longitude')
+        .eq('id', _uid)
+        .maybeSingle();
+    if (profile == null) return null;
+    return Map<String, dynamic>.from(profile);
   }
 
   Future<Set<String>> favoriteListingIds() async {
@@ -136,6 +147,51 @@ class SwapRepository {
       'listing_id': listingId,
       'last_viewed_at': DateTime.now().toUtc().toIso8601String(),
     });
+  }
+
+  Future<void> reportListing({
+    required String listingId,
+    required String reason,
+    String? details,
+  }) async {
+    await _client.from('swap_listing_reports').insert({
+      'listing_id': listingId,
+      'reporter_id': _uid,
+      'reason': reason,
+      'details': details?.trim().isEmpty == true ? null : details?.trim(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> listSwapReports() async {
+    final rows = await _client
+        .from('swap_listing_reports')
+        .select('''
+          id, listing_id, reporter_id, reason, details, status, created_at,
+          resolution, swap_listings:listing_id(wanted_title, governorate, city),
+          reporter:reporter_id(name, phone)
+        ''')
+        .order('created_at', ascending: false)
+        .limit(100);
+    return (rows as List)
+        .map((row) => Map<String, dynamic>.from(row as Map))
+        .toList();
+  }
+
+  Future<void> updateSwapReportStatus({
+    required String reportId,
+    required String status,
+    String? resolution,
+  }) async {
+    await _client.from('swap_listing_reports').update({
+      'status': status,
+      'resolution': resolution?.trim().isEmpty == true ? null : resolution?.trim(),
+      'resolved_at': status == 'resolved' || status == 'dismissed'
+          ? DateTime.now().toUtc().toIso8601String()
+          : null,
+      'resolved_by': status == 'resolved' || status == 'dismissed'
+          ? _uid
+          : null,
+    }).eq('id', reportId);
   }
 
   Future<List<Map<String, dynamic>>> listNearbyOpenListings(

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -560,6 +561,11 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
   late Future<List<Map<String, dynamic>>> _future;
   Set<String> _favorites = <String>{};
   String _query = '';
+  String _sort = 'newest';
+  String? _cityFilter;
+  bool _withImagesOnly = false;
+  double? _userLatitude;
+  double? _userLongitude;
 
   @override
   void initState() {
@@ -573,6 +579,9 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
   Future<List<Map<String, dynamic>>> _load() async {
     final rows = await _repo.listOpenListings();
     _favorites = await _repo.favoriteListingIds();
+    final location = await _repo.currentUserLocation();
+    _userLatitude = (location?['latitude'] as num?)?.toDouble();
+    _userLongitude = (location?['longitude'] as num?)?.toDouble();
     return rows
         .where((row) => _matchesCategory(
             row, widget.category, widget.categorySlug))
@@ -580,17 +589,44 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
   }
 
   List<Map<String, dynamic>> _filtered(List<Map<String, dynamic>> rows) {
-    if (_query.isEmpty) return rows;
-    return rows.where((row) {
+    final filtered = rows.where((row) {
       final text = [
         row['wanted_title'],
         row['description'],
         row['city'],
         row['governorate'],
       ].map((value) => value?.toString() ?? '').join(' ').toLowerCase();
-      return text.contains(_query);
+      final images = (row['images'] as List? ?? const []);
+      final city = row['city']?.toString().trim();
+      return (_query.isEmpty || text.contains(_query)) &&
+          (_cityFilter == null || city == _cityFilter) &&
+          (!_withImagesOnly || images.isNotEmpty);
     }).toList();
+    filtered.sort((a, b) {
+      final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0);
+      if (_sort == 'nearest' &&
+          _userLatitude != null &&
+          _userLongitude != null) {
+        final aDistance = _swapDistanceKm(a, _userLatitude!, _userLongitude!);
+        final bDistance = _swapDistanceKm(b, _userLatitude!, _userLongitude!);
+        return aDistance.compareTo(bDistance);
+      }
+      return _sort == 'oldest'
+          ? aDate.compareTo(bDate)
+          : bDate.compareTo(aDate);
+    });
+    return filtered;
   }
+
+  List<String> _cities(List<Map<String, dynamic>> rows) => rows
+      .map((row) => row['city']?.toString().trim() ?? '')
+      .where((city) => city.isNotEmpty)
+      .toSet()
+      .toList()
+    ..sort();
 
   Future<void> _openListing(Map<String, dynamic> row) async {
     await _repo.recordListingView(row['id'].toString());
@@ -673,6 +709,7 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                 ]);
               }
               final rows = _filtered(snapshot.data ?? const []);
+              final cities = _cities(snapshot.data ?? const []);
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
@@ -690,6 +727,61 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                               icon: const Icon(Icons.clear_rounded)),
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _sort,
+                        decoration: const InputDecoration(
+                            labelText: 'ترتيب النتائج',
+                            prefixIcon: Icon(Icons.sort_rounded)),
+                        items: const [
+                          DropdownMenuItem(
+                              value: 'newest', child: Text('الأحدث أولًا')),
+                          DropdownMenuItem(
+                              value: 'oldest', child: Text('الأقدم أولًا')),
+                          DropdownMenuItem(
+                              value: 'nearest', child: Text('الأقرب أولًا')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) setState(() => _sort = value);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    IconButton.filledTonal(
+                      tooltip: 'عروض بها صور فقط',
+                      onPressed: () =>
+                          setState(() => _withImagesOnly = !_withImagesOnly),
+                      icon: Icon(_withImagesOnly
+                          ? Icons.photo_rounded
+                          : Icons.photo_outlined),
+                    ),
+                  ]),
+                  if (cities.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _cityFilter,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: 'المدينة داخل المحافظة',
+                        prefixIcon: const Icon(Icons.location_city_rounded),
+                        suffixIcon: _cityFilter == null
+                            ? null
+                            : IconButton(
+                                onPressed: () =>
+                                    setState(() => _cityFilter = null),
+                                icon: const Icon(Icons.clear_rounded)),
+                      ),
+                      hint: const Text('كل المدن'),
+                      items: cities
+                          .map((city) => DropdownMenuItem(
+                              value: city, child: Text(city)))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _cityFilter = value),
+                    ),
+                  ],
                   const SizedBox(height: 18),
                   _SectionHeader(title: 'العروض المتاحة', count: rows.length),
                   const SizedBox(height: 12),
@@ -767,6 +859,24 @@ bool _matchesCategory(Map<String, dynamic> row, String category,
   return categories.contains(category) ||
       (categorySlug != null && categories.contains(categorySlug));
 }
+
+double _swapDistanceKm(
+    Map<String, dynamic> row, double userLatitude, double userLongitude) {
+  final latitude = (row['latitude'] as num?)?.toDouble();
+  final longitude = (row['longitude'] as num?)?.toDouble();
+  if (latitude == null || longitude == null) return double.maxFinite;
+  const earthRadiusKm = 6371.0;
+  final dLat = _toRadians(latitude - userLatitude);
+  final dLon = _toRadians(longitude - userLongitude);
+  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(_toRadians(userLatitude)) *
+          math.cos(_toRadians(latitude)) *
+          math.sin(dLon / 2) *
+          math.sin(dLon / 2);
+  return earthRadiusKm * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+}
+
+double _toRadians(double degrees) => degrees * math.pi / 180;
 
 IconData _swapCategoryIcon(String? icon) {
   switch (icon) {
@@ -1277,6 +1387,30 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
     }
   }
 
+  Future<void> _showReportDialog() async {
+    final payload = await showModalBottomSheet<_SwapReportPayload>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _SwapReportSheet(),
+    );
+    if (payload == null || !mounted) return;
+    try {
+      await _repo.reportListing(
+        listingId: widget.listingId,
+        reason: payload.reason,
+        details: payload.details,
+      );
+      if (mounted) {
+        _toast(context, Exception('تم إرسال البلاغ للمراجعة'));
+      }
+    } catch (error) {
+      if (mounted) {
+        _toast(context, Exception(_reportErrorMessage(error)));
+      }
+    }
+  }
+
   void _openGallery(List<String> images, int initialIndex) {
     if (images.isEmpty) return;
     Navigator.of(context).push(PageRouteBuilder<void>(
@@ -1366,6 +1500,11 @@ class _SwapDetailsPageState extends State<SwapDetailsPage> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   actions: [
+                    if (!owner)
+                      _GlassIconButton(
+                        icon: Icons.flag_outlined,
+                        onPressed: _showReportDialog,
+                      ),
                     _GlassIconButton(
                       icon: _isFavorite
                           ? Icons.favorite_rounded
@@ -1731,7 +1870,7 @@ class _ContactButtons extends StatelessWidget {
       if (hasWhatsapp)
         Expanded(
           child: FilledButton.icon(
-            onPressed: () => _launchWhatsapp(whatsapp!),
+            onPressed: () => _launchWhatsapp(context, whatsapp!),
             icon: const Icon(Icons.chat_rounded),
             label: const Text('واتساب'),
             style: FilledButton.styleFrom(
@@ -1747,7 +1886,7 @@ class _ContactButtons extends StatelessWidget {
       if (hasPhone)
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () => _launchPhone(phone!),
+            onPressed: () => _launchPhone(context, phone!),
             icon: const Icon(Icons.phone_rounded),
             label: const Text('اتصال'),
             style: OutlinedButton.styleFrom(
@@ -1762,6 +1901,100 @@ class _ContactButtons extends StatelessWidget {
         ),
     ]);
   }
+}
+
+class _SwapReportPayload {
+  final String reason;
+  final String? details;
+  const _SwapReportPayload({required this.reason, this.details});
+}
+
+class _SwapReportSheet extends StatefulWidget {
+  const _SwapReportSheet();
+
+  @override
+  State<_SwapReportSheet> createState() => _SwapReportSheetState();
+}
+
+class _SwapReportSheetState extends State<_SwapReportSheet> {
+  final _details = TextEditingController();
+  String _reason = 'fraud';
+
+  static const _reasons = <String, String>{
+    'fraud': 'إعلان مضلل أو احتيالي',
+    'inappropriate': 'محتوى غير مناسب',
+    'wrong_contact': 'رقم التواصل غير صحيح',
+    'duplicate': 'إعلان مكرر',
+    'other': 'سبب آخر',
+  };
+
+  @override
+  void dispose() {
+    _details.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            18, 4, 18, MediaQuery.viewInsetsOf(context).bottom + 18),
+        child: SingleChildScrollView(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('الإبلاغ عن الإعلان',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 6),
+            Text('اختار السبب وسيتم مراجعة البلاغ من الإدارة.',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 16),
+            ..._reasons.entries.map((entry) => RadioListTile<String>(
+                  value: entry.key,
+                  groupValue: _reason,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(entry.value),
+                  onChanged: (value) {
+                    if (value != null) setState(() => _reason = value);
+                  },
+                )),
+            TextField(
+              controller: _details,
+              maxLines: 3,
+              maxLength: 500,
+              decoration: const InputDecoration(
+                  labelText: 'تفاصيل إضافية (اختياري)',
+                  alignLabelWithHint: true),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.pop(
+                    context,
+                    _SwapReportPayload(
+                        reason: _reason, details: _details.text)),
+                icon: const Icon(Icons.send_rounded),
+                label: const Text('إرسال البلاغ'),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+String _reportErrorMessage(Object error) {
+  final message = error.toString().toLowerCase();
+  if (message.contains('duplicate') || message.contains('unique')) {
+    return 'تم إرسال بلاغ على هذا الإعلان من قبل';
+  }
+  if (message.contains('permission') || message.contains('42501')) {
+    return 'لا يمكنك الإبلاغ عن هذا الإعلان حاليًا';
+  }
+  return 'تعذر إرسال البلاغ، حاول مرة أخرى';
 }
 
 class _OwnerCard extends StatelessWidget {
@@ -1976,19 +2209,22 @@ class _DetailsSection extends StatelessWidget {
       );
 }
 
-Future<void> _launchPhone(String value) async {
+Future<void> _launchPhone(BuildContext context, String value) async {
   final phone = value.replaceAll(RegExp(r'[^0-9+]'), '');
   final uri = Uri.parse('tel:$phone');
-  if (await canLaunchUrl(uri)) await launchUrl(uri);
+  if (!await canLaunchUrl(uri) || !await launchUrl(uri)) {
+    if (context.mounted) _toast(context, Exception('تعذر فتح تطبيق الاتصال'));
+  }
 }
 
-Future<void> _launchWhatsapp(String value) async {
+Future<void> _launchWhatsapp(BuildContext context, String value) async {
   var phone = value.replaceAll(RegExp(r'[^0-9]'), '');
   if (phone.startsWith('0')) phone = '20${phone.substring(1)}';
   if (!phone.startsWith('20') && phone.length == 10) phone = '20$phone';
   final uri = Uri.parse('https://wa.me/$phone');
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!await canLaunchUrl(uri) ||
+      !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) _toast(context, Exception('تعذر فتح واتساب'));
   }
 }
 
