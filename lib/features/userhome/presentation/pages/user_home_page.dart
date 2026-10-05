@@ -1239,6 +1239,7 @@ class _UserHomePageState extends State<UserHomePage> {
           ),
         ),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
+        SliverToBoxAdapter(child: _buildNearbyInstitutionOffersSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -2769,6 +2770,69 @@ class _UserHomePageState extends State<UserHomePage> {
           offers: _nearbyCategoryOffers[id] ?? const <CategoryOffer>[],
         );
       }).toList(growable: false),
+    );
+  }
+
+  Widget _buildNearbyInstitutionOffersSection() {
+    final visible = _institutionOffers.take(10).toList(growable: false);
+    if (_loadingInstitutionOffers && visible.isEmpty) {
+      return _section(
+        title: 'عروض المؤسسات القريبة',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+        ),
+      );
+    }
+    return _section(
+      title: 'عروض المؤسسات القريبة',
+      trailing: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const UserInstitutionOffersPage(),
+          ),
+        ),
+        child: Text(
+          'عرض الكل',
+          style: TextStyle(
+            color: _primaryRed,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      child: visible.isEmpty
+          ? _emptyMini(
+              Icons.storefront_outlined,
+              'لا توجد عروض مؤسسات قريبة حاليًا',
+            )
+          : SizedBox(
+              height: 260,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: visible.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final offer = visible[index];
+                  return _FoodOfferCard(
+                    offer: _institutionToFoodOffer(
+                      offer,
+                      businessType: offer.institutionType ?? 'business',
+                    ),
+                    onTap: () => _openInstitutionOffer(offer),
+                  );
+                },
+              ),
+            ),
+    );
+  }
+
+  void _openInstitutionOffer(InstitutionOffer offer) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => InstitutionOfferDetailsPage(offer: offer),
+      ),
     );
   }
 

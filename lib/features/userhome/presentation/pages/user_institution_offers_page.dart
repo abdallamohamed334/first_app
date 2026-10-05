@@ -27,6 +27,7 @@ class UserInstitutionOffersPage extends StatefulWidget {
 class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   List<FoodOffer> _allOffers = [];
   bool _isLoading = true;
+  String _selectedInstitutionType = 'all';
 
   // ───────── نفس هوية التطبيق (Home/Offers Hub) ─────────
   static const Color _bg = Color(0xFF0F0F0F);
@@ -187,7 +188,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final offers = _allOffers;
+    final offers = _filteredOffers;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -207,7 +208,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               ? const Center(
                   child: CircularProgressIndicator(color: _primaryRed),
                 )
-              : offers.isEmpty
+              : _allOffers.isEmpty
                   ? _buildEmptyState()
                   : RefreshIndicator(
                       color: _primaryRed,
@@ -221,27 +222,40 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                         ),
                         slivers: [
                           SliverToBoxAdapter(child: _buildHeroHeader()),
+                          SliverToBoxAdapter(
+                            child: _buildInstitutionTypeFilters(),
+                          ),
                           SliverToBoxAdapter(child: _buildStatsRow(offers)),
-                          SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-                            sliver: SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final offer = offers[index];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 14),
-                                    child: _InstitutionOfferCard(
-                                      offer: offer,
-                                      index: index,
-                                      onTap: () =>
-                                          _navigateToDetails(context, offer),
-                                    ),
-                                  );
-                                },
-                                childCount: offers.length,
+                          if (offers.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: _buildEmptyState(
+                                message: 'لا توجد عروض في هذا النوع حاليًا',
+                              ),
+                            )
+                          else
+                            SliverPadding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final offer = offers[index];
+                                    return Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 14),
+                                      child: _InstitutionOfferCard(
+                                        offer: offer,
+                                        index: index,
+                                        onTap: () =>
+                                            _navigateToDetails(context, offer),
+                                      ),
+                                    );
+                                  },
+                                  childCount: offers.length,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -503,11 +517,75 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     );
   }
 
+  List<FoodOffer> get _filteredOffers {
+    if (_selectedInstitutionType == 'all') return _allOffers;
+    return _allOffers
+        .where((offer) => _matchesInstitutionType(
+              offer.businessType,
+              _selectedInstitutionType,
+            ))
+        .toList(growable: false);
+  }
+
+  bool _matchesInstitutionType(String? rawType, String selected) {
+    final type = (rawType ?? '').trim().toLowerCase();
+    if (selected == 'hotel') return type == 'hotel';
+    if (selected == 'grocery') {
+      return type == 'grocery' || type == 'supermarket';
+    }
+    if (selected == 'other') {
+      return type != 'hotel' && type != 'grocery' && type != 'supermarket';
+    }
+    return true;
+  }
+
+  Widget _buildInstitutionTypeFilters() {
+    const filters = [
+      ('all', 'كل المؤسسات', Icons.storefront_rounded),
+      ('hotel', 'فنادق', Icons.hotel_rounded),
+      ('grocery', 'بقالات', Icons.shopping_cart_rounded),
+      ('other', 'مؤسسات أخرى', Icons.business_rounded),
+    ];
+    return SizedBox(
+      height: 58,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final selected = _selectedInstitutionType == filter.$1;
+          return ChoiceChip(
+            selected: selected,
+            onSelected: (_) => setState(
+              () => _selectedInstitutionType = filter.$1,
+            ),
+            avatar: Icon(
+              filter.$3,
+              size: 17,
+              color: selected ? Colors.white : _textSecondary,
+            ),
+            label: Text(filter.$2),
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : _textPrimary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+            selectedColor: _primaryRed,
+            backgroundColor: _card,
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          );
+        },
+      ),
+    );
+  }
+
   // ============================================================
   // Empty State
   // ============================================================
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({String? message}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -538,8 +616,8 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'حاليًا لا توجد عروض من المؤسسات\nحاول مرة أخرى لاحقًا',
+            Text(
+              message ?? 'حاليًا لا توجد عروض من المؤسسات\nحاول مرة أخرى لاحقًا',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _textSecondary,
