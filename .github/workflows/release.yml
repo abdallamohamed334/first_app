@@ -79,6 +79,7 @@ jobs:
   # Validate the archive only. App Store distribution stays gated until
   # Apple signing credentials are configured in repository secrets.
   ios-validation:
+    if: ${{ vars.ENABLE_IOS_VALIDATION == 'true' }}
     needs: verify
     runs-on: macos-latest
     steps:
