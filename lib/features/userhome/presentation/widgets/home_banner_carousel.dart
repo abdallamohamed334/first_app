@@ -95,6 +95,8 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
             )
           ''').eq('id', banner.offerId).maybeSingle();
 
+      if (!mounted) return;
+
       if (response == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -126,6 +128,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       debugPrint('❌ Error opening banner offer: $e');
     }
   }

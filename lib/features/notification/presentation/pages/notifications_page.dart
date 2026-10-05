@@ -58,7 +58,7 @@ class _NotificationsPageState extends State<NotificationsPage>
           builder: (_) => const CommunityMyRequestsPage(),
         ),
       );
-      if (!mounted) return;
+      if (!context.mounted) return;
       context.read<NotificationBloc>().add(
             LoadNotifications(widget.userId),
           );
@@ -78,8 +78,8 @@ class _NotificationsPageState extends State<NotificationsPage>
           .eq('id', referenceId)
           .maybeSingle();
 
-      if (response == null || !mounted) {
-        if (mounted) {
+      if (response == null || !context.mounted) {
+        if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('العرض غير موجود')),
           );
@@ -121,9 +121,10 @@ class _NotificationsPageState extends State<NotificationsPage>
         ),
       );
     } catch (e) {
-      if (mounted) {
+      debugPrint('[Notifications] open notification failed: $e');
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('تعذر فتح الإشعار: $e')),
+          const SnackBar(content: Text('تعذر فتح الإشعار. حاول مرة أخرى.')),
         );
       }
     }
@@ -135,14 +136,19 @@ class _NotificationsPageState extends State<NotificationsPage>
       final supabase = SupabaseService().client;
       await supabase.from('notifications').delete().eq('id', notificationId);
 
-      print('✅ Notification deleted: $notificationId');
+      debugPrint('[Notifications] notification deleted');
 
       // ✅ تحديث القائمة
+      if (!mounted) return;
       context.read<NotificationBloc>().add(
             LoadNotifications(widget.userId),
           );
     } catch (e) {
-      print('❌ Delete error: $e');
+      debugPrint('[Notifications] delete failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر حذف الإشعار. حاول مرة أخرى.')),
+      );
     }
   }
 
