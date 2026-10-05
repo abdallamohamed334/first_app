@@ -581,6 +581,39 @@ class UserHomeRepository {
       final slug = categoryInfo?['slug']?.toString() ?? '';
       final isFood = slug == 'food';
       final isGrocery = slug == 'grocery';
+      const institutionCategorySlugs = {
+        'institution-offers',
+        'grocery',
+        'supermarket',
+        'bakery',
+        'pastry_shop',
+        'restaurant',
+        'cafe',
+        'juice_shop',
+        'butcher',
+        'fish_market',
+        'poultry_shop',
+        'dairy_shop',
+        'food_factory',
+        'catering',
+        'food_truck',
+        'hotel',
+        'resort',
+        'wedding_hall',
+        'game_store',
+        'pharmacy',
+        'clinic',
+        'school',
+        'university',
+        'bookstore',
+        'clothing_store',
+        'electronics_store',
+        'furniture_store',
+        'market',
+        'company',
+        'other',
+      };
+      final isInstitutionOffers = institutionCategorySlugs.contains(slug);
 
       debugPrint(
         '📌 getOffersByCategory: categoryId=$categoryId '
@@ -609,18 +642,20 @@ class UserHomeRepository {
 
       final results = <List<CategoryOffer>>[];
 
-      // community (عروض المستخدمين) دايماً موجودة
-      results.add(
-        await _getCommunityOffersByCategoryIds(allCategoryIds),
-      );
+      // عروض المؤسسات لها مسار مستقل ولا تختلط بعروض الأفراد أو الطعام.
+      if (!isInstitutionOffers) {
+        results.add(
+          await _getCommunityOffersByCategoryIds(allCategoryIds),
+        );
+      }
 
       if (isFood) {
         // ✅ food → عروض المطاعم بس من food_offers
         results.add(
           await _getFoodOffersByCategoryIds(allCategoryIds),
         );
-      } else if (isGrocery) {
-        // ✅ grocery → عروض البقالة من institution_offers
+      } else if (isGrocery || isInstitutionOffers) {
+        // ✅ institution categories → عروض المؤسسات فقط
         results.add(
           await _getInstitutionOffersByCategoryIds(allCategoryIds),
         );

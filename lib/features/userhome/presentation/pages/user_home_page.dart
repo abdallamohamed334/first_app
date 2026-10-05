@@ -2305,7 +2305,7 @@ class _UserHomePageState extends State<UserHomePage> {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => _openCategory(category, state),
+        onTap: () => _openCategory(category),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -2363,7 +2363,6 @@ class _UserHomePageState extends State<UserHomePage> {
   // ═══════════════════════════════════════════════════════════
   void _openCategory(
     Map<String, dynamic> category,
-    UserHomeLoaded state,
   ) {
     final id = (category['id']?.toString() ?? '').trim();
     final name = category['name_ar']?.toString() ?? '';
@@ -2373,10 +2372,6 @@ class _UserHomePageState extends State<UserHomePage> {
     FocusManager.instance.primaryFocus?.unfocus();
 
     final isRestaurant = _isRestaurantCategory(category);
-
-    final isGrocery = slug.startsWith('grocery') ||
-        name.contains('بقال') ||
-        name.contains('سوبرماركت');
 
     // ─── مطعم ───
     if (isRestaurant) {
@@ -2393,37 +2388,6 @@ class _UserHomePageState extends State<UserHomePage> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => UserAllOffersPage(offers: foodOffers),
-        ),
-      );
-      return;
-    }
-
-    // ─── بقالة ───
-    if (isGrocery) {
-      final restaurantIds = state.categories
-          .where(_isRestaurantCategory)
-          .map((c) => (c['id']?.toString() ?? '').trim())
-          .where((cid) => cid.isNotEmpty)
-          .toSet();
-
-      final filtered = _institutionOffers.where((o) {
-        final catId = (o.marketplaceCategoryId ?? '').trim();
-        if (!_AppFeatures.showRestaurants && restaurantIds.contains(catId)) {
-          return false;
-        }
-        // Institution offers created before category assignment may have a
-        // null category. Keep them visible in the supermarket/institutions
-        // feed instead of silently dropping them.
-        return !restaurantIds.contains(catId);
-      }).toList(growable: false);
-
-      final foodOffers = filtered
-          .map((o) => _institutionToFoodOffer(o, businessType: 'grocery'))
-          .toList(growable: false);
-
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => UserInstitutionOffersPage(offers: foodOffers),
         ),
       );
       return;
