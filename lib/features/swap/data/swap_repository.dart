@@ -43,8 +43,14 @@ class SwapRepository {
     return _client.storage.from('swap-images').getPublicUrl(path);
   }
 
-  Future<List<Map<String, dynamic>>> listOpenListings(
-      {String? search, String? governorate}) async {
+  Future<List<Map<String, dynamic>>> listOpenListings({
+    String? search,
+    String? governorate,
+    String? category,
+    String? categorySlug,
+    String? city,
+    bool withImagesOnly = false,
+  }) async {
     var query = _client
         .from('swap_listings')
         .select('''
@@ -55,21 +61,49 @@ class SwapRepository {
         .eq('status', 'open')
         .gt('expires_at', DateTime.now().toUtc().toIso8601String());
     if (governorate != null && governorate.trim().isNotEmpty) {
-      query = query.eq('governorate', governorate.trim());
+      query = query.ilike('governorate', governorate.trim());
     }
-    final rows = await query.order('created_at', ascending: false).limit(100);
+    if (city != null && city.trim().isNotEmpty) {
+      query = query.ilike('city', city.trim());
+    }
+    if (withImagesOnly) {
+      query = query.neq('images', '{}');
+    }
+    final categoryValues = <String>{
+      if (category != null && category.trim().isNotEmpty) category.trim(),
+      if (categorySlug != null && categorySlug.trim().isNotEmpty)
+        categorySlug.trim(),
+    };
+    if (categoryValues.isNotEmpty) {
+      final filters = categoryValues
+          .expand((value) => [
+                'category.eq.${_escapePostgrestValue(value)}',
+                'categories.cs.{${_escapePostgrestValue(value)}}',
+              ])
+          .join(',');
+      query = query.or(filters);
+    }
+    final q = _escapePostgrestValue(search?.trim() ?? '');
+    if (q.isNotEmpty) {
+      query = query.or([
+        'wanted_title.ilike.*$q*',
+        'description.ilike.*$q*',
+        'city.ilike.*$q*',
+        'governorate.ilike.*$q*',
+        'category.ilike.*$q*',
+        'categories.cs.{${q}}',
+      ].join(','));
+    }
+    final rows = await query.order('created_at', ascending: false).limit(1000);
     final result =
         (rows as List).map((r) => Map<String, dynamic>.from(r as Map)).toList();
-    final q = search?.trim().toLowerCase() ?? '';
-    return q.isEmpty
-        ? result
-        : result
-            .where((r) =>
-                '${r['wanted_title']} ${r['description']} ${r['category']}'
-                    .toLowerCase()
-                    .contains(q))
-            .toList();
+    return result;
   }
+
+  String _escapePostgrestValue(String value) => value
+      .replaceAll(RegExp(r'[(),{}]'), ' ')
+      .replaceAll('*', ' ')
+      .trim();
 
   Future<String?> currentUserGovernorate() async {
     if (currentUserId == null) return null;
@@ -199,6 +233,9 @@ class SwapRepository {
     final selectedGovernorate = governorate?.trim().isNotEmpty == true
         ? governorate!.trim()
         : await currentUserGovernorate();
+    if (selectedGovernorate == null || selectedGovernorate.isEmpty) {
+      return <Map<String, dynamic>>[];
+    }
     return listOpenListings(search: search, governorate: selectedGovernorate);
   }
 

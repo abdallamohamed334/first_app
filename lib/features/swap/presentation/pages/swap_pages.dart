@@ -577,11 +577,22 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
   }
 
   Future<List<Map<String, dynamic>>> _load() async {
-    final rows = await _repo.listOpenListings();
+    final rows = await _repo.listOpenListings(
+        category: widget.category,
+        categorySlug: widget.categorySlug,
+        city: _cityFilter,
+        withImagesOnly: _withImagesOnly);
     _favorites = await _repo.favoriteListingIds();
     final location = await _repo.currentUserLocation();
     _userLatitude = (location?['latitude'] as num?)?.toDouble();
     _userLongitude = (location?['longitude'] as num?)?.toDouble();
+    final availableCities = rows
+        .map((row) => row['city']?.toString().trim() ?? '')
+        .where((city) => city.isNotEmpty)
+        .toSet();
+    if (_cityFilter != null && !availableCities.contains(_cityFilter)) {
+      _cityFilter = null;
+    }
     return rows
         .where((row) => _matchesCategory(
             row, widget.category, widget.categorySlug))
@@ -596,11 +607,7 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
         row['city'],
         row['governorate'],
       ].map((value) => value?.toString() ?? '').join(' ').toLowerCase();
-      final images = (row['images'] as List? ?? const []);
-      final city = row['city']?.toString().trim();
-      return (_query.isEmpty || text.contains(_query)) &&
-          (_cityFilter == null || city == _cityFilter) &&
-          (!_withImagesOnly || images.isNotEmpty);
+      return _query.isEmpty || text.contains(_query);
     }).toList();
     filtered.sort((a, b) {
       final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ??
@@ -751,8 +758,10 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                     const SizedBox(width: 10),
                     IconButton.filledTonal(
                       tooltip: 'عروض بها صور فقط',
-                      onPressed: () =>
-                          setState(() => _withImagesOnly = !_withImagesOnly),
+                      onPressed: () {
+                        setState(() => _withImagesOnly = !_withImagesOnly);
+                        _reloadResults();
+                      },
                       icon: Icon(_withImagesOnly
                           ? Icons.photo_rounded
                           : Icons.photo_outlined),
@@ -769,8 +778,10 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                         suffixIcon: _cityFilter == null
                             ? null
                             : IconButton(
-                                onPressed: () =>
-                                    setState(() => _cityFilter = null),
+                                onPressed: () {
+                                  setState(() => _cityFilter = null);
+                                  _reloadResults();
+                                },
                                 icon: const Icon(Icons.clear_rounded)),
                       ),
                       hint: const Text('كل المدن'),
@@ -778,8 +789,10 @@ class _SwapCategoryResultsPageState extends State<SwapCategoryResultsPage> {
                           .map((city) => DropdownMenuItem(
                               value: city, child: Text(city)))
                           .toList(),
-                      onChanged: (value) =>
-                          setState(() => _cityFilter = value),
+                      onChanged: (value) {
+                        setState(() => _cityFilter = value);
+                        _reloadResults();
+                      },
                     ),
                   ],
                   const SizedBox(height: 18),
