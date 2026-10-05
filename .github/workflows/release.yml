@@ -63,6 +63,20 @@ jobs:
           echo "ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+          keytool -list -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          keytool -importkeystore -noprompt \
+            -srckeystore "$RUNNER_TEMP/release.keystore" \
+            -srcstoretype JKS \
+            -srcstorepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -srcalias "$ANDROID_KEY_ALIAS" \
+            -srckeypass "$ANDROID_KEY_PASSWORD" \
+            -destkeystore "$RUNNER_TEMP/signing-validation.p12" \
+            -deststoretype PKCS12 \
+            -deststorepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -destkeypass "$ANDROID_KEY_PASSWORD" \
+            -destalias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Build signed Android App Bundle
         run: >-
           flutter build appbundle --release
