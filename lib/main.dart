@@ -247,7 +247,8 @@ Future<void> _applyRealtimeAccountState(
   Map<String, dynamic> profile,
 ) async {
   final authState = AuthStateNotifier.instance;
-  if (!authState.isLoggedIn || Supabase.instance.client.auth.currentUser?.id != userId) {
+  if (!authState.isLoggedIn ||
+      Supabase.instance.client.auth.currentUser?.id != userId) {
     return;
   }
 
@@ -272,18 +273,12 @@ Future<void> _applyRealtimeAccountState(
     debugPrint('[AuthState] institution Realtime refresh skipped: $error');
   }
 
-  final providerStatus = provider?['verification_status']
-      ?.toString()
-      .trim()
-      .toLowerCase();
-  final institutionStatus = institution?['status']
-      ?.toString()
-      .trim()
-      .toLowerCase();
-  final accountStatus = profile['account_status']
-      ?.toString()
-      .trim()
-      .toLowerCase();
+  final providerStatus =
+      provider?['verification_status']?.toString().trim().toLowerCase();
+  final institutionStatus =
+      institution?['status']?.toString().trim().toLowerCase();
+  final accountStatus =
+      profile['account_status']?.toString().trim().toLowerCase();
   final suspensionUntil = profile['suspension_until'] is String
       ? DateTime.tryParse(profile['suspension_until'] as String)
       : null;
@@ -564,7 +559,11 @@ Future<void> _configureCrashlytics() async {
       !kDebugMode,
     );
 
-    _firebaseCrashlyticsReady = true;
+    // Debug builds intentionally keep Crashlytics collection disabled. Do not
+    // report Flutter framework errors in that mode: the native SDK still tries
+    // to persist exception markers even when collection is disabled, which
+    // produces noisy marker-file warnings on constrained emulators/devices.
+    _firebaseCrashlyticsReady = !kDebugMode;
 
     debugPrint(
       'Firebase Crashlytics configured; collection=${!kDebugMode}',

@@ -2810,7 +2810,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     return SizedBox(
-      height: 188,
+      height: 220,
       child: GridView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 2),
