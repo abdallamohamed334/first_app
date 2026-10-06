@@ -77,7 +77,6 @@ class UserHomePage extends StatefulWidget {
 }
 
 class _UserHomePageState extends State<UserHomePage> {
-  final TextEditingController _searchController = TextEditingController();
   final InstitutionOffersRepository _institutionOffersRepository =
       InstitutionOffersRepository();
   final UserHomeRepository _userHomeRepository = UserHomeRepository(
@@ -155,7 +154,6 @@ class _UserHomePageState extends State<UserHomePage> {
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(_onSearchChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -174,18 +172,9 @@ class _UserHomePageState extends State<UserHomePage> {
 
   @override
   void dispose() {
-    _searchController
-      ..removeListener(_onSearchChanged)
-      ..dispose();
     _bannerTimer?.cancel();
     _bannerController.dispose();
     super.dispose();
-  }
-
-  void _onSearchChanged() {
-    if (!mounted) return;
-    context.read<UserHomeBloc>().add(SearchOffers(_searchController.text));
-    setState(() {});
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -380,7 +369,10 @@ class _UserHomePageState extends State<UserHomePage> {
       final offers = await _institutionOffersRepository.listAvailableOffers();
       if (!mounted) return;
 
-      final sorted = _sortByDistance(offers);
+      final sorted = offers
+          .where((offer) => offer.isActive)
+          .toList(growable: false)
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       setState(() => _institutionOffers = sorted);
       debugPrint('✅ Loaded institutionOffers: ${sorted.length}');
@@ -1279,9 +1271,8 @@ class _UserHomePageState extends State<UserHomePage> {
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildSearchBar()),
         SliverToBoxAdapter(child: _buildLocationRow(state)),
-        SliverToBoxAdapter(child: _buildHeroBanner(state)),
+        SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(
@@ -1920,57 +1911,22 @@ class _UserHomePageState extends State<UserHomePage> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_primaryRed, _primaryRedDark],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: _primaryRed.withValues(alpha: 0.35),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.restaurant_rounded, color: Colors.white, size: 16),
-                SizedBox(width: 6),
-                Text(
-                  'وِصلة',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'اكتشف اللي حواليك',
+                  'وِصلة',
                   style: TextStyle(
                     color: _textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'بقالة، عروض، واحتياجات الناس',
+                  'كل ما تحتاجه… في مكان واحد',
                   style: TextStyle(
                     color: _textSecondary,
                     fontSize: 11.5,
@@ -1980,72 +1936,48 @@ class _UserHomePageState extends State<UserHomePage> {
               ],
             ),
           ),
+          const SizedBox(width: 12),
+          _buildHeaderNotificationButton(),
         ],
       ),
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _border, width: 1),
+  Widget _buildHeaderNotificationButton() {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(17),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(17),
+        onTap: () {
+          final user = SupabaseService().client.auth.currentUser;
+          if (user == null) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => NotificationsPage(userId: user.id),
+            ),
+          );
+        },
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(17),
+            border: Border.all(color: _border),
+            boxShadow: [
+              BoxShadow(
+                color: _primaryRed.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
-              child: TextField(
-                controller: _searchController,
-                style: TextStyle(color: _textPrimary, fontSize: 14.5),
-                decoration: InputDecoration(
-                  hintText: 'دور على محل، أو حاجة...',
-                  hintStyle: TextStyle(
-                    color: _textSecondary.withValues(alpha: 0.7),
-                    fontSize: 13.5,
-                  ),
-                  prefixIcon: Icon(Icons.search_rounded,
-                      color: _textSecondary, size: 22),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          onPressed: _searchController.clear,
-                          icon: Icon(Icons.close_rounded,
-                              color: _textSecondary, size: 20),
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-            ),
+            ],
           ),
-          SizedBox(width: 10),
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: _card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _border, width: 1),
-            ),
-            child: IconButton(
-              onPressed: () {
-                final user = SupabaseService().client.auth.currentUser;
-                if (user == null) return;
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => NotificationsPage(userId: user.id),
-                  ),
-                );
-              },
-              icon: Icon(Icons.notifications_none_rounded,
-                  color: _primaryRed, size: 22),
-            ),
+          child: Icon(
+            Icons.notifications_none_rounded,
+            color: _textPrimary,
+            size: 23,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -2181,6 +2113,235 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyOffersSlider() {
+    final offers = _institutionOffers.take(8).toList(growable: false);
+    if (_loadingInstitutionOffers && offers.isEmpty) {
+      return const SizedBox(
+        height: 244,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+      );
+    }
+
+    if (offers.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+        child: _buildFallbackBanner(),
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startBannerAutoPlay(offers.length);
+    });
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 238,
+            child: PageView.builder(
+              controller: _bannerController,
+              itemCount: offers.length,
+              onPageChanged: (index) {
+                if (mounted) setState(() => _bannerIndex = index);
+              },
+              itemBuilder: (_, index) => _buildCompanyOfferCard(offers[index]),
+            ),
+          ),
+          if (offers.length > 1) ...[
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(offers.length, (index) {
+                final active = index == _bannerIndex;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: active ? 24 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: active ? _textPrimary : _border,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyOfferCard(InstitutionOffer offer) {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(28),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => InstitutionOfferDetailsPage(offer: offer),
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (offer.firstImage != null)
+              CachedNetworkImage(
+                imageUrl: offer.firstImage!,
+                fit: BoxFit.cover,
+                memCacheWidth: 1080,
+                maxWidthDiskCache: 1080,
+                errorWidget: (_, __, ___) => _buildCompanyOfferBackdrop(),
+              )
+            else
+              _buildCompanyOfferBackdrop(),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.9),
+                  ],
+                  stops: const [0, 0.42, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 14,
+              right: 14,
+              child: _offerGlassPill(Icons.campaign_rounded, 'عرض من مؤسسة'),
+            ),
+            Positioned(
+              top: 14,
+              left: 14,
+              child:
+                  _offerGlassPill(Icons.schedule_rounded, offer.timeRemaining),
+            ),
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    offer.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      height: 1.08,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        backgroundImage: offer.institutionLogoUrl != null
+                            ? CachedNetworkImageProvider(
+                                offer.institutionLogoUrl!)
+                            : null,
+                        child: offer.institutionLogoUrl == null
+                            ? const Icon(Icons.business_rounded,
+                                color: Colors.white, size: 16)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          offer.institutionName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      _offerPricePill(offer),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyOfferBackdrop() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [_textPrimary, _cardSoft],
+        ),
+      ),
+      child: Icon(
+        Icons.storefront_rounded,
+        size: 86,
+        color: _textSecondary.withValues(alpha: 0.35),
+      ),
+    );
+  }
+
+  Widget _offerGlassPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _offerPricePill(InstitutionOffer offer) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        offer.symbolicPrice <= 0
+            ? 'مجاني'
+            : '${offer.symbolicPrice.toStringAsFixed(0)} ج.م',
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
