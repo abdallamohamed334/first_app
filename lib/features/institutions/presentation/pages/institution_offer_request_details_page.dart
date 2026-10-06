@@ -294,7 +294,10 @@ class _InstitutionOfferRequestDetailsPageState
     }
   }
 
-  InstitutionOfferRequest _copyRequestWithStatus(String status) {
+  InstitutionOfferRequest _copyRequestWithStatus(
+    String status, {
+    String? cancellationReason,
+  }) {
     return InstitutionOfferRequest.fromJson({
       'id': _request.id,
       'offer_id': _request.offerId,
@@ -309,6 +312,7 @@ class _InstitutionOfferRequestDetailsPageState
       'completed_at': _request.completedAt?.toIso8601String(),
       'pickup_code': _request.pickupCode,
       'booking_code': _request.bookingCode,
+      'cancellation_reason': cancellationReason ?? _request.cancellationReason,
       'institution_offers': _offer,
       // ✅ نمرر بيانات المستخدم لو كانت موجودة
       if (_requester.isNotEmpty) 'users': _requester,
@@ -510,6 +514,92 @@ class _InstitutionOfferRequestDetailsPageState
     }
   }
 
+  Future<void> _cancelRequest() async {
+    if (_loading) return;
+
+    final reasonController = TextEditingController();
+    final reason = await showDialog<String?>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'إلغاء الطلب؟',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'سيتم إلغاء الطلب وإعادة الكمية المحجوزة إلى العرض. يمكنك إضافة سبب اختياري.',
+                textAlign: TextAlign.right,
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                maxLength: 300,
+                textAlign: TextAlign.right,
+                decoration: InputDecoration(
+                  labelText: 'سبب الإلغاء (اختياري)',
+                  hintText: 'اكتب سبب الإلغاء',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('رجوع'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFB54747),
+              ),
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                reasonController.text.trim(),
+              ),
+              child: const Text('تأكيد الإلغاء'),
+            ),
+          ],
+        ),
+      ),
+    );
+    reasonController.dispose();
+
+    if (reason == null || !mounted) return;
+
+    setState(() => _loading = true);
+    try {
+      await _repository.cancelOfferRequest(
+        requestId: _request.id,
+        reason: reason,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _request = _copyRequestWithStatus(
+          'cancelled',
+          cancellationReason: reason,
+        );
+      });
+      _showMessage('تم إلغاء الطلب وإعادة الكمية للعرض', success: true);
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage(_friendlyError(e), success: false);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   // ============================================================
   // Helpers
   // ============================================================
@@ -703,6 +793,27 @@ class _InstitutionOfferRequestDetailsPageState
     );
   }
 
+  Widget _cancelButton() {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _loading ? null : _cancelRequest,
+        icon: const Icon(Icons.cancel_outlined),
+        label: const Text(
+          'إلغاء الطلب',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFB54747),
+          side: const BorderSide(color: Color(0xFFE5BABA)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActions() {
     switch (_request.status) {
       case 'pending':
@@ -745,26 +856,35 @@ class _InstitutionOfferRequestDetailsPageState
                 ),
               ),
             ),
+            const SizedBox(height: 10),
+            _cancelButton(),
           ],
         );
 
       case 'accepted':
-        return SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: _loading ? null : _prepareForPickup,
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: const Text(
-              'تجهيز الطلب للاستلام',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: _green,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _loading ? null : _prepareForPickup,
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text(
+                  'تجهيز الطلب للاستلام',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 10),
+            _cancelButton(),
+          ],
         );
 
       case 'ready_for_pickup':
@@ -808,6 +928,8 @@ class _InstitutionOfferRequestDetailsPageState
                 ),
               ),
             ),
+            const SizedBox(height: 10),
+            _cancelButton(),
           ],
         );
 

@@ -511,6 +511,47 @@ class InstitutionOffersRepository {
   }
 
   // ============================================================
+  // ⭐ إلغاء طلب المؤسسة للمستخدم - RPC آمن 🔐
+  // ============================================================
+
+  Future<void> cancelOfferRequest({
+    required String requestId,
+    String? reason,
+  }) async {
+    final cleanRequestId = requestId.trim();
+    if (cleanRequestId.isEmpty) {
+      throw Exception('معرف الطلب غير موجود');
+    }
+
+    try {
+      final response = await _client.rpc(
+        'cancel_institution_offer_request',
+        params: {
+          'p_request_id': cleanRequestId,
+          'p_reason': reason?.trim().isEmpty == true ? null : reason?.trim(),
+        },
+      );
+
+      debugPrint(
+        '📥 cancel_institution_offer_request response=$response',
+      );
+
+      if (response != true) {
+        throw Exception('تعذر إلغاء الطلب');
+      }
+    } on PostgrestException catch (e) {
+      debugPrint(
+        '❌ cancelOfferRequest Postgrest '
+        'code=${e.code} message=${e.message} details=${e.details}',
+      );
+      rethrow;
+    } catch (e) {
+      debugPrint('❌ cancelOfferRequest error: $e');
+      rethrow;
+    }
+  }
+
+  // ============================================================
   // ⭐ جلب كود الاستلام - RPC آمن 🔐 (للبقالة - deprecated)
   // ============================================================
 
