@@ -494,6 +494,26 @@ class UserHomeRepository {
     }
   }
 
+  /// Returns a category plus every nested descendant, not only its first-level
+  /// children. This keeps parent institution sections inclusive of all offers.
+  Future<List<String>> getCategoryTreeIds(String categoryId) async {
+    final result = <String>{categoryId};
+    final pending = <String>[categoryId];
+
+    while (pending.isNotEmpty) {
+      final parentId = pending.removeLast();
+      final children = await getSubCategories(parentId);
+      for (final child in children) {
+        final childId = child['id']?.toString() ?? '';
+        if (childId.isNotEmpty && result.add(childId)) {
+          pending.add(childId);
+        }
+      }
+    }
+
+    return result.toList(growable: false);
+  }
+
   Future<Map<String, List<CategoryOffer>>> getNearbyMainCategoryOffers({
     required double latitude,
     required double longitude,
@@ -624,13 +644,7 @@ class UserHomeRepository {
       // 2) اجمع كل الـ IDs: التصنيف + الفرعيات
       // ------------------------------------------------------
 
-      final subCategories = await getSubCategories(categoryId);
-      final allCategoryIds = <String>[
-        categoryId,
-        ...subCategories
-            .map((c) => c['id']?.toString() ?? '')
-            .where((id) => id.isNotEmpty),
-      ];
+      final allCategoryIds = await getCategoryTreeIds(categoryId);
 
       debugPrint(
         '📌 getOffersByCategory: allCategoryIds=${allCategoryIds.length}',

@@ -474,6 +474,32 @@ class _UserHomePageState extends State<UserHomePage> {
             .toList(growable: false);
         if (institutionOnly.isNotEmpty) {
           grouped[institutionRoot['id']?.toString() ?? ''] = institutionOnly;
+
+          // Each visible child section includes its own offers plus every
+          // nested descendant (for example grocery -> bakery -> pastries).
+          final childOffers = await Future.wait(
+            institutionSubcategories.map((category) async {
+              final childId = category['id']?.toString() ?? '';
+              if (childId.isEmpty) {
+                return const <CategoryOffer>[];
+              }
+              final treeIds = await _userHomeRepository.getCategoryTreeIds(
+                childId,
+              );
+              final tree = treeIds.toSet();
+              return institutionOnly
+                  .where((offer) => tree.contains(offer.categoryId))
+                  .toList(growable: false);
+            }),
+          );
+          for (var index = 0;
+              index < institutionSubcategories.length;
+              index++) {
+            final childId = institutionSubcategories[index]['id']?.toString();
+            if (childId != null && childId.isNotEmpty) {
+              grouped[childId] = childOffers[index];
+            }
+          }
         }
       }
       if (mounted) {
