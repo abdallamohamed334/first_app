@@ -315,6 +315,13 @@ void _attachAuthStateSync() {
       return;
     }
 
+    // Password authentication is only the first factor for institutions.
+    // The login page temporarily holds the session until the fixed OTP passes.
+    if (AuthStateNotifier.instance.institutionOtpPending) {
+      debugPrint('🔐 [AuthState] waiting for institution OTP');
+      return;
+    }
+
     if (event != AuthChangeEvent.signedIn &&
         event != AuthChangeEvent.tokenRefreshed &&
         event != AuthChangeEvent.initialSession) {

@@ -15,6 +15,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/features/auth/presentation/pages/institution_otp_verify_page.dart';
 import 'package:loqma/features/institutions/domain/entities/institution.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -78,7 +79,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         return;
       }
 
-      // المؤسسة التجارية: دخول Supabase بالبريد وكلمة المرور.
+      // المؤسسة: كلمة المرور هي العامل الأول، ثم نطلب OTP ثابت من الإدارة.
+      AuthStateNotifier.instance.beginInstitutionOtp();
       final response = await client.auth.signInWithPassword(
         email: email,
         password: passwordOrCode,
@@ -89,9 +91,61 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         throw const AuthException('تعذر تسجيل الدخول');
       }
 
-      await _loginAsInstitution(client, authUser.id);
+      final institution = await client
+          .from('institutions')
+          .select('id')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+      final refreshToken = response.session?.refreshToken;
+      if (institution == null || refreshToken == null || refreshToken.isEmpty) {
+        await client.auth.signOut(scope: SignOutScope.local);
+        AuthStateNotifier.instance.finishInstitutionOtp();
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = institution == null
+              ? 'هذا الحساب غير مربوط بمؤسسة.'
+              : 'تعذر تجهيز خطوة التحقق، حاول مرة أخرى';
+        });
+        return;
+      }
+
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => InstitutionOtpVerifyPage(
+            verifyCode: (code) async {
+              final verification = await client.rpc(
+                'verify_institution_login_otp',
+                params: {
+                  'p_institution_id': institution['id'].toString(),
+                  'p_otp': code,
+                },
+              );
+              return verification is Map && verification['allowed'] == true;
+            },
+            onVerified: () async {
+              try {
+                await client.auth.setSession(refreshToken);
+                await _loginAsInstitution(client, authUser.id);
+                if (client.auth.currentSession == null && mounted) {
+                  Navigator.of(context).pop();
+                }
+              } catch (_) {
+                await client.auth.signOut(scope: SignOutScope.local);
+                AuthStateNotifier.instance.finishInstitutionOtp();
+                rethrow;
+              }
+            },
+            onCancelled: () async {
+              await client.auth.signOut(scope: SignOutScope.local);
+              AuthStateNotifier.instance.finishInstitutionOtp();
+            },
+          ),
+        ),
+      );
     } on AuthException catch (error) {
       debugPrint('❌ Partner login auth error: ${error.message}');
+      AuthStateNotifier.instance.finishInstitutionOtp();
       if (!mounted) return;
       setState(() {
         _errorMessage = _isCharity
@@ -100,6 +154,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       });
     } catch (error) {
       debugPrint('❌ Partner login error: $error');
+      AuthStateNotifier.instance.finishInstitutionOtp();
       if (!mounted) return;
       setState(() {
         _errorMessage = 'حصلت مشكلة أثناء تسجيل الدخول، حاول مرة أخرى';
@@ -139,6 +194,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
 
     // الـ RPC يتحقق من كود الجمعية، لكن Flutter يحتاج Session حقيقية.
     // لذلك يجب أن يكون accessCode هو كلمة مرور حساب Auth للجمعية أيضًا.
+    AuthStateNotifier.instance.beginInstitutionOtp();
     final response = await client.auth.signInWithPassword(
       email: email,
       password: accessCode,
@@ -198,19 +254,46 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       return;
     }
 
-    AuthStateNotifier.instance.setLoggedIn(
-      isLoggedIn: true,
-      role: 'charity',
-      accountStatus: accountStatus,
-      suspensionUntil: accountRow?['suspension_until'] is String
-          ? DateTime.tryParse(accountRow!['suspension_until'] as String)
-          : null,
-      isActive: true,
-      authResolved: true,
-    );
-
     if (!mounted) return;
-    context.go(AppRouter.charityHome);
+    final charityId = rpcCharityId;
+    final refreshToken = response.session?.refreshToken;
+    if (charityId == null || refreshToken == null || refreshToken.isEmpty) {
+      await _rejectSession('تعذر تجهيز خطوة التحقق، حاول مرة أخرى.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => InstitutionOtpVerifyPage(
+          verifyCode: (code) async {
+            final verification = await client.rpc(
+              'verify_charity_login_otp',
+              params: {'p_charity_id': charityId, 'p_otp': code},
+            );
+            return verification is Map && verification['allowed'] == true;
+          },
+          onVerified: () async {
+            await client.auth.setSession(refreshToken);
+            AuthStateNotifier.instance.finishInstitutionOtp();
+            AuthStateNotifier.instance.setLoggedIn(
+              isLoggedIn: true,
+              role: 'charity',
+              accountStatus: accountStatus,
+              suspensionUntil: accountRow?['suspension_until'] is String
+                  ? DateTime.tryParse(accountRow!['suspension_until'] as String)
+                  : null,
+              isActive: true,
+              authResolved: true,
+            );
+            if (mounted) context.go(AppRouter.charityHome);
+          },
+          onCancelled: () async {
+            await client.auth.signOut(scope: SignOutScope.local);
+            AuthStateNotifier.instance.finishInstitutionOtp();
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _loginAsInstitution(
@@ -277,6 +360,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         institution['institution_type']?.toString().toLowerCase() ??
             'institution';
 
+    AuthStateNotifier.instance.finishInstitutionOtp();
     AuthStateNotifier.instance.setLoggedIn(
       isLoggedIn: true,
       role: institutionType,

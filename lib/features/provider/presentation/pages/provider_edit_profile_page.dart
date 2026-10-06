@@ -4,9 +4,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:loqma/core/services/location_service.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/core/constants/egypt_locations.dart';
 
@@ -56,6 +58,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
 
   bool _loading = true;
   bool _saving = false;
+  double? _latitude;
+  double? _longitude;
+  bool _updatingLocation = false;
 
   Map<String, dynamic>? _provider;
   List<String> _skills = [];
@@ -130,6 +135,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _cityCtrl.text = provider['city']?.toString() ?? '';
           _governorate = provider['governorate']?.toString();
           _selectedCity = provider['city']?.toString();
+          _latitude = (provider['latitude'] as num?)?.toDouble();
+          _longitude = (provider['longitude'] as num?)?.toDouble();
           _addressCtrl.text = provider['address']?.toString() ?? '';
           _phoneCtrl.text = provider['phone']?.toString() ?? '';
           _whatsappCtrl.text = provider['whatsapp']?.toString() ?? '';
@@ -167,6 +174,40 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         });
       },
     );
+  }
+
+  Future<void> _updateProviderLocation() async {
+    if (_updatingLocation) return;
+    setState(() => _updatingLocation = true);
+    try {
+      final locationService = LocationService();
+      if (!await locationService.isLocationServiceEnabled()) {
+        _snack('فعّل خدمة الموقع أولاً', error: true);
+        return;
+      }
+
+      var permission = await locationService.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await locationService.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _snack('اسمح للتطبيق بالوصول إلى موقعك لعرضك على الخريطة', error: true);
+        return;
+      }
+
+      final position = await locationService.getCurrentPosition();
+      if (!mounted) return;
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+      _snack('تم تحديث موقعك على الخريطة ✅');
+    } catch (_) {
+      if (mounted) _snack('تعذر تحديد موقعك، حاول مرة أخرى', error: true);
+    } finally {
+      if (mounted) setState(() => _updatingLocation = false);
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -374,6 +415,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         governorate: _governorate,
         city: _selectedCity,
         address: _addressCtrl.text.trim(),
+        latitude: _latitude,
+        longitude: _longitude,
         serviceAreas: _serviceAreas,
         availableDays: _availableDays,
         pricingType: _pricingType,
@@ -586,6 +629,23 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                           label: 'العنوان',
                           hint: 'العنوان التفصيلي',
                           icon: Icons.home_rounded,
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _updatingLocation
+                              ? null
+                              : _updateProviderLocation,
+                          icon: _updatingLocation
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.my_location_rounded),
+                          label: Text(
+                            _latitude != null && _longitude != null
+                                ? 'تحديث موقعك على الخريطة'
+                                : 'تحديد موقعك على الخريطة',
+                          ),
                         ),
                       ],
                     ),

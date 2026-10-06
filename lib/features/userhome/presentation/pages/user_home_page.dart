@@ -1477,56 +1477,56 @@ class _UserHomePageState extends State<UserHomePage> {
         borderRadius: BorderRadius.circular(24),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: providers.isEmpty
-              ? null
-              : () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ServiceProvidersMapPage(
-                        providers: providers,
-                        latitude: center.latitude,
-                        longitude: center.longitude,
-                        city: _userCity,
-                      ),
-                    ),
+          onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ServiceProvidersMapPage(
+                    providers: providers,
+                    latitude: center.latitude,
+                    longitude: center.longitude,
+                    city: _userCity,
                   ),
+                ),
+              ),
           child: SizedBox(
             height: 190,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                FlutterMap(
-                  options: MapOptions(initialCenter: center, initialZoom: 11.5),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.wasla.app',
-                    ),
-                    MarkerLayer(
-                      markers: providers.take(30).map((provider) {
-                        return Marker(
-                          point:
-                              LatLng(provider.latitude!, provider.longitude!),
-                          width: 34,
-                          height: 34,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _blue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                IgnorePointer(
+                  child: FlutterMap(
+                    options: MapOptions(initialCenter: center, initialZoom: 11.5),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.wasla.app',
+                      ),
+                      MarkerLayer(
+                        markers: providers.take(30).map((provider) {
+                          return Marker(
+                            point:
+                                LatLng(provider.latitude!, provider.longitude!),
+                            width: 34,
+                            height: 34,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _blue,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: Icon(
+                                provider.isCompany
+                                    ? Icons.business_rounded
+                                    : Icons.handyman_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
-                            child: Icon(
-                              provider.isCompany
-                                  ? Icons.business_rounded
-                                  : Icons.handyman_rounded,
-                              color: Colors.white,
-                              size: 16,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
                 Positioned.fill(
                   child: DecoratedBox(

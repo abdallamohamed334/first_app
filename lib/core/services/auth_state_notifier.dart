@@ -16,6 +16,7 @@ class AuthStateNotifier extends ChangeNotifier {
   DateTime? _suspensionUntil;
   bool _isActive = true;
   bool _userProfileComplete = true;
+  bool _institutionOtpPending = false;
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isSyncing => _isSyncing;
@@ -28,6 +29,16 @@ class AuthStateNotifier extends ChangeNotifier {
   bool get isAccountRestricted => _accountStatus != 'active';
   bool get isActive => _isActive;
   bool get userProfileComplete => _userProfileComplete;
+  bool get institutionOtpPending => _institutionOtpPending;
+
+  void beginInstitutionOtp() {
+    _institutionOtpPending = true;
+    debugPrint('🔐 [AuthState] institution OTP pending');
+  }
+
+  void finishInstitutionOtp() {
+    _institutionOtpPending = false;
+  }
 
   /// Keeps startup, OTP, and auth-listener routing decisions consistent.
   /// A regular user must have identity, contact, address, city, and map
@@ -195,6 +206,7 @@ class AuthStateNotifier extends ChangeNotifier {
   }
 
   void clear() {
+    _institutionOtpPending = false;
     _isLoggedIn = false;
     _isSyncing = false;
     _isResolved = true;
