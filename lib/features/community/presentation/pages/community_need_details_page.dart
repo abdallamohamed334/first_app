@@ -23,15 +23,15 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   final _repository = CommunityNeedsRepository();
 
   // ─────────────── هوية بصرية جديدة للصفحة ───────────────
-  static const _primary = Color(0xFF1F7A5C);
-  static const _primaryDark = Color(0xFF11402E);
-  static const _primarySoft = Color(0xFFE6F3EC);
-  static const _bg = Color(0xFFF7FAF8);
-  static const _ink = Color(0xFF16241E);
-  static const _muted = Color(0xFF74857D);
-  static const _border = Color(0xFFEAE5DA);
+  static const _primary = Color(0xFF191919);
+  static const _primaryDark = Color(0xFF050505);
+  static const _primarySoft = Color(0xFFF0ECF7);
+  static const _bg = Color(0xFFF8F7FA);
+  static const _ink = Color(0xFF171717);
+  static const _muted = Color(0xFF77727D);
+  static const _border = Color(0xFFE9E6ED);
   static const _amber = Color(0xFFDC9A34);
-  static const _blue = Color(0xFF3E7FBF);
+  static const _blue = Color(0xFF6C4DB3);
   static const _whatsapp = Color(0xFF25D366);
   static const _danger = Color(0xFFC1503F);
 
@@ -582,7 +582,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   child: imageUrl != null && imageUrl.isNotEmpty
                       ? Image.network(
                           imageUrl,
-                          height: 178,
+                          height: 148,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
@@ -597,7 +597,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 19,
                     fontWeight: FontWeight.w900,
                     height: 1.3,
                   ),
