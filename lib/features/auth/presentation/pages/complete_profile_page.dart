@@ -4,18 +4,15 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'location_picker_page.dart';
-
-// ✅ Import صفحات الـ Home
-import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
-    as user_home;
-import 'package:loqma/features/institutions/presentation/pages/institutions_home_page.dart';
 
 class CompleteProfilePage extends StatefulWidget {
   final UserModel user;
@@ -105,29 +102,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     super.dispose();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ الحل: نفس أسلوب OtpVerifyPage — Navigator بدل GoRouter
-  // ═══════════════════════════════════════════════════════════
   void _navigateToHome() {
-    // المؤسسة → InstitutionsHome
-    if (widget.role == 'institution') {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const InstitutionsHomePage(),
-        ),
-        (route) => false, // ← يمسح كل الـ routes القديمة
-      );
+    final route = AuthStateNotifier.instance.homeRoute;
+    if (route == null || !AuthStateNotifier.instance.isResolved) {
+      _showError('تم الحفظ، لكن الاتصال ضعيف ولم نتمكن من تأكيد الحساب. حاول مرة أخرى.');
       return;
     }
-
-    // مقدم خدمة / مستخدم → UserHome
-    // (لأن providerHome حاليًا = UserHome)
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const user_home.UserHomePage(),
-      ),
-      (route) => false,
-    );
+    context.go(route);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -315,7 +296,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       // Re-read the persisted row before routing. This keeps the global auth
       // state aligned with the database and prevents a later refresh from
       // treating the just-completed profile as incomplete.
-      await AuthRepository(_supabase).syncCurrentAuthState(userId: widget.user.id);
+      final authSynced = await AuthRepository(_supabase)
+          .syncCurrentAuthState(userId: widget.user.id);
+      if (!authSynced) {
+        if (mounted) {
+          _showError('تم حفظ البيانات، لكن الاتصال ضعيف. أعد المحاولة قبل الدخول.');
+        }
+        return;
+      }
 
       if (!mounted) return;
 

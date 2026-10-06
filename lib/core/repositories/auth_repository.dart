@@ -298,7 +298,16 @@ class AuthRepository {
 
       // ✅ مهم: user_type قد يظل user حتى لو كان له ملف مزود خدمة معتمد.
       // نحدد الدور النهائي من service_providers قبل أي Navigation.
-      await _syncAuthStateFromDatabase(userId);
+      final authStateSynced = await _syncAuthStateFromDatabase(userId);
+      if (!authStateSynced ||
+          !AuthStateNotifier.instance.isLoggedIn ||
+          !AuthStateNotifier.instance.isResolved) {
+        // لا نعتبر OTP ناجحًا من ناحية الواجهة قبل معرفة الدور والملف؛
+        // هذا يمنع السباق الذي يفتح Home بحالة قديمة عند ضعف الشبكة.
+        return const Left(
+          'تم التحقق، لكن الاتصال ضعيف ولم نتمكن من تأكيد بيانات الحساب. حاول مرة أخرى.',
+        );
+      }
 
       // ✅ FCM + Analytics
       await _initializeFcmForUser(user.id);
@@ -529,7 +538,7 @@ class AuthRepository {
   ///
   /// وجود صف في service_providers هو الذي يحدد أن الحساب مزود خدمة؛
   /// لا نغير users.user_type لأن القيد الحالي لا يسمح بقيمة provider.
-  Future<void> syncCurrentAuthState({String? userId}) async {
+  Future<bool> syncCurrentAuthState({String? userId}) async {
     final id = userId?.trim();
     final authUser =
         id == null || id.isEmpty ? await _supabase.getCurrentUser() : null;
@@ -537,13 +546,13 @@ class AuthRepository {
 
     if (resolvedUserId == null || resolvedUserId.isEmpty) {
       AuthStateNotifier.instance.clear();
-      return;
+      return false;
     }
 
-    await _syncAuthStateFromDatabase(resolvedUserId);
+    return _syncAuthStateFromDatabase(resolvedUserId);
   }
 
-  Future<void> _syncAuthStateFromDatabase(String userId) async {
+  Future<bool> _syncAuthStateFromDatabase(String userId) async {
     final authState = AuthStateNotifier.instance;
     authState.beginSync();
 
@@ -629,11 +638,14 @@ class AuthRepository {
         userProfileComplete: profileComplete,
         authResolved: true,
       );
+      return true;
     } catch (error, stack) {
       debugPrint('❌ [Auth Sync] failed: $error');
       debugPrintStack(stackTrace: stack);
-      // لا نفتح /home على أساس role=user عند فشل معرفة الدور.
-      authState.clear();
+      // لا نفتح /home على أساس role=user عند فشل معرفة الدور. نُبقي الجلسة
+      // غير محسومة حتى يمنع الـrouter أي انتقال إلى شاشة محمية.
+      authState.beginSync();
+      return false;
     }
   }
 
@@ -654,7 +666,14 @@ class AuthRepository {
       if (authUser == null) return const Left('المستخدم غير مسجل دخول');
       final user = await _loadUserWithRelations(authUser.id);
       if (user == null) return const Left('ملف المستخدم غير موجود');
-      await _syncAuthStateFromDatabase(authUser.id);
+      final authStateSynced = await _syncAuthStateFromDatabase(authUser.id);
+      if (!authStateSynced ||
+          !AuthStateNotifier.instance.isLoggedIn ||
+          !AuthStateNotifier.instance.isResolved) {
+        return const Left(
+          'تعذر تأكيد بيانات الحساب بسبب ضعف الاتصال. حاول تسجيل الدخول مرة أخرى.',
+        );
+      }
       return Right(user);
     } catch (error) {
       debugPrint('CURRENT USER LOAD ERROR: type=${error.runtimeType}');

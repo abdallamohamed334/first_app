@@ -5,13 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:go_router/go_router.dart';
 import 'user_profile_setup_flow.dart';
-
-// ✅ Import صفحات الـ Home للأدوار المختلفة
-import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
-    as user_home;
-import 'package:loqma/features/institutions/presentation/pages/institutions_home_page.dart';
 
 class OtpVerifyPage extends StatefulWidget {
   final String phone;
@@ -81,28 +78,6 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
 
   String get _code => _controllers.map((c) => c.text).join();
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ الحل: بنستخدم Navigator.pushAndRemoveUntil
-  //    (نفس الـ API اللي فتح OtpVerifyPage من LoginPage)
-  //    علشان نتجنب التعارض مع GoRouter
-  // ═══════════════════════════════════════════════════════════
-
-  /// ✅ بيرجّع الـ Home Page المناسبة حسب الـ role
-  Widget _homePageForRole(String role) {
-    switch (role.toLowerCase()) {
-      case 'provider':
-        // TODO: لما يكون فيه ProviderHomePage مخصصة، نغيّرها هنا
-        return const user_home.UserHomePage();
-      case 'institution':
-      case 'charity':
-        return const InstitutionsHomePage();
-      case 'admin':
-      case 'user':
-      default:
-        return const user_home.UserHomePage();
-    }
-  }
-
   Future<void> _verify() async {
     if (_code.length != 6) {
       _snack('ادخل الكود كامل (6 أرقام)', error: true);
@@ -160,19 +135,18 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
             await Future.delayed(const Duration(milliseconds: 400));
             if (!mounted) return;
 
-            // ═══════════════════════════════════════════════════
-            // ✅ الحل السحري:
-            //    pushAndRemoveUntil بيمسح كل الـ Navigator stack
-            //    (بما فيهم OtpVerifyPage + LoginPage)
-            //    ويفتح الـ Home مباشرة
-            //    → مفيش لوب، مفيش رجوع للـ Login
-            // ═══════════════════════════════════════════════════
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(
-                builder: (_) => _homePageForRole(resolvedRole),
-              ),
-              (route) => false, // ← يمسح كل الـ routes القديمة
-            );
+            final route = AuthStateNotifier.instance.homeRoute;
+            if (route == null || !AuthStateNotifier.instance.isResolved) {
+              _snack(
+                'تم التحقق، لكن بيانات الحساب لم تكتمل بسبب ضعف الاتصال. حاول مرة أخرى.',
+                error: true,
+              );
+              setState(() => _verifying = false);
+              return;
+            }
+            // لا نفتح Home مباشرة بـ Navigator؛ GoRouter يتحقق من الجلسة
+            // والدور واكتمال الملف قبل السماح بالانتقال.
+            context.go(route);
           }
         },
       );

@@ -441,7 +441,9 @@ void _attachAuthStateSync() {
       if (generation != _authSyncGeneration) return;
       debugPrint('⚠️ Failed to sync AuthState: $error');
       debugPrintStack(stackTrace: stack);
-      authState.clear();
+      // لا نمسح جلسة صحيحة بسبب timeout أو انقطاع مؤقت؛ إبقاؤها في وضع
+      // syncing يجعل GoRouter يمنع Home حتى تكتمل مزامنة الملف والدور.
+      authState.beginSync();
     }
   });
 }
