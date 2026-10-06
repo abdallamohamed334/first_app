@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// إعلان واحد غير متطفل يظهر داخل صفحة تفاصيل العرض فقط.
@@ -26,10 +27,16 @@ class _AdBannerCardState extends State<AdBannerCard> {
   BannerAd? _banner;
   bool _isLoaded = false;
 
-  String get _adUnitId =>
-      defaultTargetPlatform == TargetPlatform.iOS
-          ? _iosAdUnitId
-          : _androidAdUnitId;
+  String get _adUnitId {
+    final configured = (defaultTargetPlatform == TargetPlatform.iOS
+            ? dotenv.env['ADMOB_BANNER_IOS_ID']
+            : dotenv.env['ADMOB_BANNER_ANDROID_ID'])
+        ?.trim();
+    if (configured != null && configured.isNotEmpty) return configured;
+    return defaultTargetPlatform == TargetPlatform.iOS
+        ? _iosAdUnitId
+        : _androidAdUnitId;
+  }
 
   @override
   void initState() {
