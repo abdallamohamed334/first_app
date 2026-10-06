@@ -26,7 +26,6 @@ import 'package:loqma/features/community/presentation/pages/community_offer_deta
 import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
-import 'package:loqma/features/home/presentation/widgets/home_leaderboard.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
@@ -1275,12 +1274,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: 26),
-            child: HomeLeaderboard(),
-          ),
-        ),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -3555,27 +3548,50 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildAddButton() {
-    return FloatingActionButton(
-      heroTag: 'loqma_home_add_button',
-      onPressed: _showAddSheet,
-      backgroundColor: _primaryRed,
-      foregroundColor: Colors.white,
-      elevation: 8,
-      shape: const CircleBorder(),
-      child: Container(
-        width: 60,
-        height: 60,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: _primaryRed.withValues(alpha: 0.4),
-              blurRadius: 12,
+    return Hero(
+      tag: 'loqma_home_add_button',
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(19),
+        elevation: 0,
+        child: InkWell(
+          onTap: _showAddSheet,
+          borderRadius: BorderRadius.circular(19),
+          child: Ink(
+            width: 158,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_primaryRedDark, _primaryRed],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+              ),
+              borderRadius: BorderRadius.circular(19),
+              boxShadow: [
+                BoxShadow(
+                  color: _primaryRed.withValues(alpha: 0.28),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_rounded, color: Colors.white, size: 25),
+                SizedBox(width: 8),
+                Text(
+                  'أضف مشاركة',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Icon(Icons.add_rounded, size: 30),
       ),
     );
   }
