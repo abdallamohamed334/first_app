@@ -642,24 +642,29 @@ class _GroceryOrderTrackingCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                        institutionName.isNotEmpty ? institutionName : 'بقالة',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _institutionTypeLabel(request),
-                          style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant, fontWeight: FontWeight.w600),
-                        ),
-                      ],
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            institutionName.isNotEmpty ? institutionName : 'بقالة',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: colors.onSurface,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _institutionTypeLabel(request),
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     _StatusChip(request: request),
                   ],
