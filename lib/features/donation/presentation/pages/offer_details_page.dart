@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:loqma/core/pickup/presentation/pages/pickup_qr_page.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
 class OfferDetailsPage extends StatefulWidget {
@@ -533,9 +534,10 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
                 borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AdBannerCard(),
+                Text(title,
                       style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,

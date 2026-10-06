@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
@@ -442,6 +443,7 @@ class _InstitutionOfferDetailsPageState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const AdBannerCard(),
                           Center(
                             child: Container(
                               width: 44,

@@ -42,6 +42,11 @@
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="loqma_general_notifications" />
 
+        <!-- Google Mobile Ads application id for Wasla Android. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-7040845911809776~9278858639" />
+
         <!-- Flutter embedding -->
         <meta-data
             android:name="flutterEmbedding"
