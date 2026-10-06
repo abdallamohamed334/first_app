@@ -19,30 +19,30 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   final _scrollController = ScrollController();
 
   // ─────────────── الألوان ───────────────
-  static const _green = Color(0xFF0B7650);
-  static const _greenSoft = Color(0xFFE7F5EE);
-  static const _greenLight = Color(0xFF25B77C);
-  static const _darkGreen = Color(0xFF0F2E23);
-  static const _background = Color(0xFFF7FAF8);
-  static const _orange = Color(0xFFE28B00);
-  static const _red = Color(0xFFDC4C4C);
-  static const _purple = Color(0xFF7B5EC7);
-  static const _blue = Color(0xFF3E83C5);
-  static const _muted = Color(0xFF8A9D95);
+  static const _green = Color(0xFF191919);
+  static const _greenSoft = Color(0xFFF0ECF7);
+  static const _greenLight = Color(0xFF4A4A4A);
+  static const _darkGreen = Color(0xFF050505);
+  static const _background = Color(0xFFF8F7FA);
+  static const _orange = Color(0xFFC27A15);
+  static const _red = Color(0xFFD94B55);
+  static const _purple = Color(0xFF6C4DB3);
+  static const _blue = Color(0xFF6C4DB3);
+  static const _muted = Color(0xFF77727D);
 
   Color _pageBackground(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF101815)
+          ? const Color(0xFF101010)
           : _background;
 
   Color _surface(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1A2821)
+          ? const Color(0xFF181818)
           : Colors.white;
 
   Color _surfaceSoft(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF24372E)
+          ? const Color(0xFF28212F)
           : _greenSoft;
 
   Color _primaryText(BuildContext context) =>
@@ -53,8 +53,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
 
   Color _divider(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF30463B)
-          : const Color(0xFFEEF3F0);
+          ? const Color(0xFF303030)
+          : const Color(0xFFE9E6ED);
 
   // ─────────────── الحالة ───────────────
   bool _loading = true;
@@ -237,7 +237,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
             // MODERN APP BAR
             // ═══════════════════════════════════════════════
             SliverAppBar(
-              expandedHeight: 170,
+              expandedHeight: 148,
               pinned: true,
               stretch: true,
               backgroundColor: _green,
@@ -363,7 +363,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'الناس محتاجة',
+                              'احتياجات المجتمع',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -373,7 +373,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                             ),
                             SizedBox(height: 3),
                             Text(
-                              'ساعد اللي محتاج، ساعد مجتمعك',
+                              'ساعد باهتمام، وخلّي أثرَك يوصل',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -891,380 +891,164 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
 }
 
 // ═══════════════════════════════════════════════════════════
-// NEED CARD
+// NEED CARD — compact horizontal design
 // ═══════════════════════════════════════════════════════════
 class _NeedCard extends StatelessWidget {
   final Map<String, dynamic> need;
   final VoidCallback onTap;
 
-  static const _green = Color(0xFF0B7650);
-  static const _greenSoft = Color(0xFFE7F5EE);
-  static const _darkGreen = Color(0xFF0F2E23);
-  static const _muted = Color(0xFF8A9D95);
-  static const _orange = Color(0xFFE28B00);
-  static const _red = Color(0xFFDC4C4C);
-  static const _purple = Color(0xFF7B5EC7);
-  static const _blue = Color(0xFF3E83C5);
+  static const _ink = Color(0xFF171717);
+  static const _muted = Color(0xFF777777);
+  static const _soft = Color(0xFFF1EFF5);
+  static const _lavender = Color(0xFF6C4DB3);
+  static const _urgent = Color(0xFFD94B55);
+  static const _important = Color(0xFFC27A15);
 
-  const _NeedCard({
-    required this.need,
-    required this.onTap,
-  });
+  const _NeedCard({required this.need, required this.onTap});
 
   IconData _categoryIcon(String? name) {
-    final n = (name ?? '').toLowerCase();
-    if (n.contains('طعام') || n.contains('أكل')) {
-      return Icons.restaurant_rounded;
-    }
-    if (n.contains('ملابس')) return Icons.checkroom_rounded;
-    if (n.contains('دواء') || n.contains('صحة')) {
-      return Icons.medical_services_rounded;
-    }
-    if (n.contains('أثاث')) return Icons.chair_rounded;
-    if (n.contains('تعليم') || n.contains('كتب')) {
-      return Icons.menu_book_rounded;
-    }
-    if (n.contains('مال')) return Icons.payments_rounded;
-    if (n.contains('سكن') || n.contains('بيت')) {
-      return Icons.home_rounded;
-    }
+    final value = (name ?? '').toLowerCase();
+    if (value.contains('طعام') || value.contains('أكل')) return Icons.restaurant_rounded;
+    if (value.contains('ملابس')) return Icons.checkroom_rounded;
+    if (value.contains('دواء') || value.contains('صحة')) return Icons.medical_services_rounded;
+    if (value.contains('أثاث')) return Icons.chair_rounded;
+    if (value.contains('تعليم') || value.contains('كتب')) return Icons.menu_book_rounded;
+    if (value.contains('سكن') || value.contains('بيت')) return Icons.home_rounded;
     return Icons.category_rounded;
   }
 
-  ({Color color, String label, IconData icon}) _urgency(String urgency) {
-    switch (urgency) {
+  ({Color color, String label, IconData icon}) _urgency(String value) {
+    switch (value) {
       case 'urgent':
-        return (color: _red, label: 'عاجل جدًا', icon: Icons.bolt_rounded);
+        return (color: _urgent, label: 'عاجل', icon: Icons.bolt_rounded);
       case 'high':
-        return (
-          color: _orange,
-          label: 'مهم',
-          icon: Icons.priority_high_rounded,
-        );
-      case 'low':
-        return (
-          color: _green,
-          label: 'عادي',
-          icon: Icons.check_circle_rounded,
-        );
-      case 'normal':
+        return (color: _important, label: 'مهم', icon: Icons.priority_high_rounded);
       default:
-        return (color: _blue, label: 'متوسط', icon: Icons.flag_rounded);
+        return (color: _lavender, label: 'عادي', icon: Icons.flag_rounded);
     }
-  }
-
-  DateTime? _parseDate(dynamic v) {
-    if (v == null) return null;
-    final t = v.toString().trim();
-    if (t.isEmpty || t == 'null') return null;
-    return DateTime.tryParse(t);
-  }
-
-  String _timeAgo(DateTime? date) {
-    if (date == null) return '';
-    final diff = DateTime.now().difference(date);
-    if (diff.inMinutes < 1) return 'الآن';
-    if (diff.inMinutes < 60) return 'منذ ${diff.inMinutes} دقيقة';
-    if (diff.inHours < 24) return 'منذ ${diff.inHours} ساعة';
-    if (diff.inDays < 30) return 'منذ ${diff.inDays} يوم';
-    return 'منذ ${(diff.inDays / 30).floor()} شهر';
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = need['title']?.toString() ?? 'احتياج';
-    final description = need['description']?.toString() ?? '';
-    final categoryName = need['category_name_ar']?.toString() ?? 'عام';
-    final urgency = need['urgency']?.toString() ?? 'normal';
-    final city = need['city']?.toString() ?? '';
-    final requesterName = need['requester_name']?.toString() ?? 'مستخدم';
-    final requesterAvatar = need['requester_avatar']?.toString();
-    final imageUrl = need['image_url']?.toString();
-    final contactCount = (need['contact_count'] as num?)?.toInt() ?? 0;
-    final createdAt = _parseDate(need['created_at']);
-    final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
-
-    final u = _urgency(urgency);
-    final catIcon = _categoryIcon(categoryName);
-    final isUrgent = urgency == 'urgent';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF1A2821) : Colors.white;
-    final softSurface = isDark ? const Color(0xFF24372E) : _greenSoft;
-    final primaryText = Theme.of(context).colorScheme.onSurface;
-    final secondaryText = Theme.of(context).colorScheme.onSurfaceVariant;
-    final border = isDark ? const Color(0xFF30463B) : const Color(0xFFEEF3F0);
+    final surface = isDark ? const Color(0xFF181818) : Colors.white;
+    final border = isDark ? const Color(0xFF303030) : const Color(0xFFE9E6ED);
+    final title = need['title']?.toString().trim().isNotEmpty == true
+        ? need['title'].toString()
+        : 'احتياج جديد';
+    final description = need['description']?.toString() ?? '';
+    final category = need['category_name_ar']?.toString() ?? 'عام';
+    final city = need['city']?.toString() ?? '';
+    final requester = need['requester_name']?.toString() ?? 'مستخدم';
+    final avatar = need['requester_avatar']?.toString();
+    final image = need['image_url']?.toString();
+    final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
+    final contacts = (need['contact_count'] as num?)?.toInt() ?? 0;
+    final urgency = _urgency(need['urgency']?.toString() ?? 'normal');
+    final icon = _categoryIcon(category);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: surface,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
           child: Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isUrgent
-                    ? _red.withValues(alpha: 0.2)
-                    : border,
-                width: isUrgent ? 1.4 : 1,
-              ),
+              border: Border.all(color: border),
               boxShadow: [
                 BoxShadow(
-                  color: (isDark ? Colors.black : _darkGreen).withValues(alpha: isDark ? 0.18 : 0.04),
+                  color: Colors.black.withValues(alpha: isDark ? .2 : .045),
                   blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
-                    child: imageUrl != null && imageUrl.isNotEmpty
-                        ? Stack(
-                            children: [
-                              Image.network(
-                                imageUrl,
-                                width: double.infinity,
-                                height: 104,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _needImageFallback(catIcon),
-                              ),
-                              Positioned(
-                                top: 10,
-                                right: 10,
-                                child: _imageBadge(
-                                  icon: Icons.photo_camera_rounded,
-                                  label: 'صورة الاحتياج',
-                                ),
-                              ),
-                            ],
-                          )
-                        : _needImageFallback(catIcon),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: SizedBox(
+                    width: 92,
+                    height: 112,
+                    child: image != null && image.isNotEmpty
+                        ? Image.network(image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(icon, isDark))
+                        : _fallback(icon, isDark),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: softSurface,
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: imageUrl != null && imageUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(catIcon, color: _green, size: 22),
-                                ),
-                              )
-                            : Icon(catIcon, color: _green, size: 22),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 112,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Text(
-                              categoryName,
-                              style: TextStyle(
-                                color: primaryText,
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w800,
-                                height: 1.2,
+                            Expanded(
+                              child: Text(
+                                category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: isDark ? Colors.white70 : _muted, fontSize: 11, fontWeight: FontWeight.w800),
                               ),
                             ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time_rounded,
-                                  color: secondaryText,
-                                  size: 11,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _timeAgo(createdAt),
-                                  style: TextStyle(
-                                    color: secondaryText,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (city.isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.location_on_rounded,
-                                    color: secondaryText,
-                                    size: 11,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Flexible(
-                                    child: Text(
-                                      city,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: secondaryText,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                            _badge(urgency.icon, urgency.label, urgency.color),
                           ],
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: u.color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(u.icon, color: u.color, size: 13),
-                            const SizedBox(width: 4),
-                            Text(
-                              u.label,
-                              style: TextStyle(
-                                color: u.color,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: primaryText,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w900,
-                      height: 1.4,
-                    ),
-                  ),
-                  if (description.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: secondaryText,
-                        fontSize: 12.5,
-                        height: 1.6,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 9),
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: _green.withValues(alpha: 0.15),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: ClipOval(
-                          child: (requesterAvatar != null &&
-                                  requesterAvatar.isNotEmpty)
-                              ? Image.network(
-                                  requesterAvatar,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: softSurface,
-                                    child: Icon(
-                                      Icons.person_rounded,
-                                      color: _green,
-                                      size: 15,
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  color: softSurface,
-                                  child: Icon(
-                                    Icons.person_rounded,
-                                    color: _green,
-                                    size: 15,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          requesterName,
-                          maxLines: 1,
+                        const SizedBox(height: 7),
+                        Text(
+                          title,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: primaryText,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: TextStyle(color: isDark ? Colors.white : _ink, fontSize: 15, height: 1.25, fontWeight: FontWeight.w900),
                         ),
-                      ),
-                      const Spacer(),
-                      _pill(
-                        icon: Icons.inventory_2_rounded,
-                        label: '$quantity',
-                        color: _purple,
-                      ),
-                      if (contactCount > 0) ...[
-                        const SizedBox(width: 6),
-                        _pill(
-                          icon: Icons.people_alt_rounded,
-                          label: '$contactCount',
-                          color: _blue,
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: isDark ? Colors.white54 : _muted, fontSize: 11.5, height: 1.35),
+                          ),
+                        ],
+                        const Spacer(),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 11,
+                              backgroundColor: isDark ? const Color(0xFF303030) : _soft,
+                              backgroundImage: avatar != null && avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                              child: avatar == null || avatar.isEmpty ? Icon(Icons.person_rounded, size: 13, color: isDark ? Colors.white70 : _lavender) : null,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                '${requester.isEmpty ? 'مستخدم' : requester}${city.isEmpty ? '' : ' • $city'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(color: isDark ? Colors.white60 : _muted, fontSize: 10.5, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            _miniStat(Icons.inventory_2_outlined, '$quantity'),
+                            if (contacts > 0) ...[
+                              const SizedBox(width: 5),
+                              _miniStat(Icons.people_outline_rounded, '$contacts'),
+                            ],
+                            const SizedBox(width: 6),
+                            Icon(Icons.arrow_back_ios_new_rounded, size: 13, color: isDark ? Colors.white54 : _muted),
+                          ],
                         ),
                       ],
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 26,
-                        height: 26,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: softSurface,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          color: _green,
-                          size: 11,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1272,69 +1056,37 @@ class _NeedCard extends StatelessWidget {
     );
   }
 
-  Widget _pill({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
+  Widget _fallback(IconData icon, bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 12),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _needImageFallback(IconData icon) {
-    return Container(
-      width: double.infinity,
-      height: 156,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [_greenSoft, Color(0xFFD6EFE3)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-      ),
+      color: isDark ? const Color(0xFF28212F) : _soft,
       alignment: Alignment.center,
-      child: Icon(icon, color: _green, size: 52),
+      child: Icon(icon, color: isDark ? Colors.white70 : _lavender, size: 32),
     );
   }
 
-  Widget _imageBadge({required IconData icon, required String label}) {
+  Widget _badge(IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 13),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(9)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 3),
+        Text(label, style: TextStyle(color: color, fontSize: 9.5, fontWeight: FontWeight.w900)),
+      ]),
     );
   }
 
+  Widget _miniStat(IconData icon, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(color: _soft, borderRadius: BorderRadius.circular(7)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 11, color: _lavender),
+        const SizedBox(width: 3),
+        Text(value, style: const TextStyle(color: _lavender, fontSize: 10, fontWeight: FontWeight.w900)),
+      ]),
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
