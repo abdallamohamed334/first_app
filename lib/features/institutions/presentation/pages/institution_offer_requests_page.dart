@@ -92,7 +92,9 @@ class _InstitutionOfferRequestsPageState
 
     if (code == null || code.isEmpty) {
       try {
-        final result = await _repository.generatePickupCode(requestId);
+        // المستخدم هو الذي ينشئ/يسترجع كود الاستلام الخاص بطلبه.
+        // لا نستدعي RPC المؤسسة هنا حتى لا يحدث رفض صلاحيات أو استبدال للكود.
+        final result = await _repository.generatePickupCodeForUser(requestId);
         code = result['pickup_code']?.toString().trim();
         if (code == null || code.isEmpty) {
           if (mounted) {

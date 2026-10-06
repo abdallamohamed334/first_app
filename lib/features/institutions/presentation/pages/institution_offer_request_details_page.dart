@@ -303,6 +303,12 @@ class _InstitutionOfferRequestDetailsPageState
       'status': status,
       'created_at': _request.createdAt.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
+      'accepted_at': _request.acceptedAt?.toIso8601String(),
+      'ready_at': _request.readyAt?.toIso8601String(),
+      'picked_up_at': _request.pickedUpAt?.toIso8601String(),
+      'completed_at': _request.completedAt?.toIso8601String(),
+      'pickup_code': _request.pickupCode,
+      'booking_code': _request.bookingCode,
       'institution_offers': _offer,
       // ✅ نمرر بيانات المستخدم لو كانت موجودة
       if (_requester.isNotEmpty) 'users': _requester,

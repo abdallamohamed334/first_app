@@ -12,6 +12,8 @@ class InstitutionOfferRequest {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? acceptedAt;
+  final DateTime? readyAt;
   final String? pickupCode;
   final String? bookingCode; // ✅ إضافة bookingCode
   final String? pickupTokenHash;
@@ -31,6 +33,8 @@ class InstitutionOfferRequest {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.acceptedAt,
+    this.readyAt,
     this.pickupCode,
     this.bookingCode, // ✅ إضافة bookingCode
     this.pickupTokenHash,
@@ -67,6 +71,12 @@ class InstitutionOfferRequest {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'])
           : DateTime.now(),
+      acceptedAt: json['accepted_at'] != null
+          ? DateTime.parse(json['accepted_at'])
+          : null,
+      readyAt: json['ready_at'] != null
+          ? DateTime.parse(json['ready_at'])
+          : null,
       pickupCode: json['pickup_code']?.toString(),
       bookingCode: json['booking_code']?.toString(), // ✅ إضافة bookingCode
       pickupTokenHash: json['pickup_token_hash']?.toString(),
@@ -105,6 +115,8 @@ class InstitutionOfferRequest {
       'cancellation_reason': cancellationReason,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'accepted_at': acceptedAt?.toIso8601String(),
+      'ready_at': readyAt?.toIso8601String(),
       'institution_offers': institutionOffers?.toJson(),
     };
   }
@@ -126,6 +138,8 @@ class InstitutionOfferRequest {
       'cancellation_reason': cancellationReason,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'accepted_at': acceptedAt?.toIso8601String(),
+      'ready_at': readyAt?.toIso8601String(),
       'institution_offers': institutionOffers?.toJson(),
     };
   }
@@ -191,6 +205,8 @@ class InstitutionOfferRequest {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? acceptedAt,
+    DateTime? readyAt,
     String? pickupCode,
     String? bookingCode, // ✅ إضافة bookingCode
     String? pickupTokenHash,
@@ -210,6 +226,8 @@ class InstitutionOfferRequest {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      readyAt: readyAt ?? this.readyAt,
       pickupCode: pickupCode ?? this.pickupCode,
       bookingCode: bookingCode ?? this.bookingCode, // ✅ إضافة bookingCode
       pickupTokenHash: pickupTokenHash ?? this.pickupTokenHash,
