@@ -15,6 +15,10 @@ class AdBannerCard extends StatefulWidget {
 }
 
 class _AdBannerCardState extends State<AdBannerCard> {
+  // Google's official test banner. Never click test ads or use them in release.
+  static const _androidTestAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  static const _iosTestAdUnitId = 'ca-app-pub-3940256099942544/2934735716';
+
   static const _androidAdUnitId = String.fromEnvironment(
     'ADMOB_BANNER_ANDROID_ID',
     defaultValue: 'ca-app-pub-7040845911809776/2951369417',
@@ -28,6 +32,12 @@ class _AdBannerCardState extends State<AdBannerCard> {
   bool _isLoaded = false;
 
   String get _adUnitId {
+    if (kDebugMode) {
+      return defaultTargetPlatform == TargetPlatform.iOS
+          ? _iosTestAdUnitId
+          : _androidTestAdUnitId;
+    }
+
     final configured = (defaultTargetPlatform == TargetPlatform.iOS
             ? dotenv.env['ADMOB_BANNER_IOS_ID']
             : dotenv.env['ADMOB_BANNER_ANDROID_ID'])
@@ -66,7 +76,9 @@ class _AdBannerCardState extends State<AdBannerCard> {
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
-          debugPrint('[Ads] Banner failed to load: ${error.code}');
+          debugPrint(
+            '[Ads] Banner failed to load: ${error.code} ${error.message}',
+          );
         },
       ),
     );
