@@ -522,9 +522,25 @@ void _installGlobalErrorHandlers() {
 
 Future<bool> _initializeFirebaseSafely() async {
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (Firebase.apps.isEmpty) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } catch (configuredError, configuredStack) {
+        // Android's google-services plugin already provides the native
+        // Firebase config. Use it as a fallback so FCM can still obtain a
+        // token when a dart-define/runtime API key is missing or stale.
+        debugPrint(
+          'Configured Firebase startup failed; trying native config: '
+          '$configuredError',
+        );
+        debugPrintStack(stackTrace: configuredStack);
+        if (Firebase.apps.isEmpty) {
+          await Firebase.initializeApp();
+        }
+      }
+    }
 
     debugPrint('Firebase initialized successfully');
 
