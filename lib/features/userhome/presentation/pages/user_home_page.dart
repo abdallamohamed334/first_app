@@ -3548,47 +3548,63 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildAddButton() {
+    final isDark = _isDark;
+    final shellColor = isDark ? const Color(0xFF171717) : Colors.white;
+    final selectedColor = isDark
+        ? const Color(0xFF3E315B)
+        : const Color(0xFFE9E0F6);
+    final selectedText = isDark ? Colors.white : const Color(0xFF57408E);
     return Hero(
       tag: 'loqma_home_add_button',
       child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(19),
+        color: shellColor,
+        borderRadius: BorderRadius.circular(24),
         elevation: 0,
         child: InkWell(
           onTap: _showAddSheet,
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(24),
           child: Ink(
-            width: 158,
-            height: 56,
+            width: 178,
+            height: 60,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_primaryRedDark, _primaryRed],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
+              color: shellColor,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : const Color(0xFFE8E4EE),
               ),
-              borderRadius: BorderRadius.circular(19),
               boxShadow: [
                 BoxShadow(
-                  color: _primaryRed.withValues(alpha: 0.28),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 7),
                 ),
               ],
             ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.add_rounded, color: Colors.white, size: 25),
-                SizedBox(width: 8),
-                Text(
-                  'أضف مشاركة',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
+                decoration: BoxDecoration(
+                  color: selectedColor,
+                  borderRadius: BorderRadius.circular(21),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add_rounded, color: selectedText, size: 22),
+                    const SizedBox(width: 7),
+                    Text(
+                      'أضف مشاركة',
+                      style: TextStyle(
+                        color: selectedText,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                  ),
+              ),
             ),
           ),
         ),
