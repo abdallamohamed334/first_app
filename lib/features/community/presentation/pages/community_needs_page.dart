@@ -393,7 +393,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -717,7 +717,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 0),
       sliver: SliverList.builder(
         itemCount: _needs.length + (_loadingMore ? 1 : 0),
         itemBuilder: (context, index) {
@@ -995,7 +995,7 @@ class _NeedCard extends StatelessWidget {
     final border = isDark ? const Color(0xFF30463B) : const Color(0xFFEEF3F0);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 9),
       child: Material(
         color: surface,
         borderRadius: BorderRadius.circular(20),
@@ -1020,19 +1020,19 @@ class _NeedCard extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(13),
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Stack(
                             children: [
                               Image.network(
                                 imageUrl,
                                 width: double.infinity,
-                                height: 156,
+                                height: 104,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) =>
                                     _needImageFallback(catIcon),
@@ -1049,16 +1049,16 @@ class _NeedCard extends StatelessWidget {
                           )
                         : _needImageFallback(catIcon),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Container(
-                        width: 44,
-                        height: 44,
+                        width: 38,
+                        height: 38,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: softSurface,
-                          borderRadius: BorderRadius.circular(13),
+                          borderRadius: BorderRadius.circular(11),
                         ),
                         child: imageUrl != null && imageUrl.isNotEmpty
                             ? ClipRRect(
@@ -1071,7 +1071,7 @@ class _NeedCard extends StatelessWidget {
                               )
                             : Icon(catIcon, color: _green, size: 22),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 9),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1162,7 +1162,7 @@ class _NeedCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: primaryText,
-                      fontSize: 15.5,
+                      fontSize: 14.5,
                       fontWeight: FontWeight.w900,
                       height: 1.4,
                     ),
@@ -1181,11 +1181,11 @@ class _NeedCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 9),
                   Row(
                     children: [
                       Container(
-                        width: 30,
+                        width: 28,
                         height: 30,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,

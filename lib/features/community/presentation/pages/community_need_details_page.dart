@@ -26,7 +26,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   static const _primary = Color(0xFF1F7A5C);
   static const _primaryDark = Color(0xFF11402E);
   static const _primarySoft = Color(0xFFE6F3EC);
-  static const _bg = Color(0xFFF7F5F1);
+  static const _bg = Color(0xFFF7FAF8);
   static const _ink = Color(0xFF16241E);
   static const _muted = Color(0xFF74857D);
   static const _border = Color(0xFFEAE5DA);
@@ -399,14 +399,14 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       child: Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
-          backgroundColor: _bg,
-          foregroundColor: _ink,
+          backgroundColor: _primaryDark,
+          foregroundColor: Colors.white,
           elevation: 0,
           scrolledUnderElevation: 0.5,
           centerTitle: true,
           title: const Text(
             'تفاصيل الاحتياج',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
           ),
         ),
         body: _loading

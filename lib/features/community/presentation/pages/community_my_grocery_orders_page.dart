@@ -9,6 +9,17 @@ import 'package:loqma/features/institutions/presentation/pages/institution_offer
 
 enum _OrderFilter { active, finished }
 
+enum _InstitutionFilter { all, grocery, shop, charity, other }
+
+String _institutionTypeLabel(InstitutionOfferRequest request) {
+  final institution = request.offer?['institutions'];
+  if (institution is Map) {
+    final raw = institution['institution_type']?.toString().trim();
+    if (raw != null && raw.isNotEmpty) return raw;
+  }
+  return 'مؤسسة';
+}
+
 class CommunityMyGroceryOrdersPage extends StatefulWidget {
   const CommunityMyGroceryOrdersPage({super.key});
 
@@ -22,6 +33,7 @@ class _CommunityMyGroceryOrdersPageState
   final InstitutionOffersRepository _repository = InstitutionOffersRepository();
   late Future<List<InstitutionOfferRequest>> _future;
   _OrderFilter _filter = _OrderFilter.active;
+  _InstitutionFilter _institutionFilter = _InstitutionFilter.all;
 
   @override
   void initState() {
@@ -98,18 +110,15 @@ class _CommunityMyGroceryOrdersPageState
             return _EmptyState(onRefresh: _refresh);
           }
 
-          final activeCount = requests.where((r) => r.isActive).length;
-          final finishedCount = requests.length - activeCount;
-
-          final filtered = requests
-              .where(
-                (r) =>
-                    _filter == _OrderFilter.active ? r.isActive : !r.isActive,
-              )
+          final institutionFiltered = requests.where(_matchesInstitution).toList();
+          final activeCount = institutionFiltered.where((r) => r.isActive).length;
+          final finishedCount = institutionFiltered.length - activeCount;
+          final filtered = institutionFiltered
+              .where((r) => _filter == _OrderFilter.active ? r.isActive : !r.isActive)
               .toList();
-
           return Column(
             children: [
+              _OrdersHeader(total: requests.length, active: activeCount),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 child: _FilterBar(
@@ -117,6 +126,13 @@ class _CommunityMyGroceryOrdersPageState
                   activeCount: activeCount,
                   finishedCount: finishedCount,
                   onChanged: (filter) => setState(() => _filter = filter),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+                child: _InstitutionFilterBar(
+                  selected: _institutionFilter,
+                  onChanged: (filter) => setState(() => _institutionFilter = filter),
                 ),
               ),
               Expanded(
@@ -162,6 +178,18 @@ class _CommunityMyGroceryOrdersPageState
         },
       ),
     );
+  }
+
+  bool _matchesInstitution(InstitutionOfferRequest request) {
+    if (_institutionFilter == _InstitutionFilter.all) return true;
+    final type = _institutionTypeLabel(request).toLowerCase();
+    return switch (_institutionFilter) {
+      _InstitutionFilter.grocery => type.contains('بقال') || type.contains('grocery'),
+      _InstitutionFilter.shop => type.contains('محل') || type.contains('متجر') || type.contains('shop'),
+      _InstitutionFilter.charity => type.contains('جمع') || type.contains('خيري') || type.contains('charity'),
+      _InstitutionFilter.other => !type.contains('بقال') && !type.contains('grocery') && !type.contains('محل') && !type.contains('متجر') && !type.contains('shop') && !type.contains('جمع') && !type.contains('خيري') && !type.contains('charity'),
+      _InstitutionFilter.all => true,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -369,6 +397,51 @@ class _CommunityMyGroceryOrdersPageState
   }
 }
 
+class _OrdersHeader extends StatelessWidget {
+  final int total;
+  final int active;
+  const _OrdersHeader({required this.total, required this.active});
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [colors.primary, const Color(0xFF2BAA76)]),
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('طلباتك في مكان واحد', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 4),
+          Text('$total طلب • $active نشط الآن', style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+        ])),
+        Container(width: 48, height: 48, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .16), shape: BoxShape.circle), child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 25)),
+      ]),
+    );
+  }
+}
+
+class _InstitutionFilterBar extends StatelessWidget {
+  final _InstitutionFilter selected;
+  final ValueChanged<_InstitutionFilter> onChanged;
+  const _InstitutionFilterBar({required this.selected, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final items = <_InstitutionFilter, String>{_InstitutionFilter.all: 'الكل', _InstitutionFilter.grocery: 'بقالة', _InstitutionFilter.shop: 'محلات', _InstitutionFilter.charity: 'مؤسسات خيرية', _InstitutionFilter.other: 'أخرى'};
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('نوع المؤسسة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: colors.onSurface)),
+      const SizedBox(height: 7),
+      SizedBox(height: 38, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: items.length, separatorBuilder: (_, __) => const SizedBox(width: 7), itemBuilder: (_, index) {
+        final entry = items.entries.elementAt(index);
+        final active = selected == entry.key;
+        return ChoiceChip(label: Text(entry.value), selected: active, onSelected: (_) => onChanged(entry.key), selectedColor: colors.primary, backgroundColor: colors.surfaceContainerHighest, labelStyle: TextStyle(color: active ? colors.onPrimary : colors.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w800), side: BorderSide(color: active ? colors.primary : colors.outlineVariant));
+      }))]);
+  }
+}
+
 // ============================================================
 // شريط الفلتر: نشط / منتهي
 // ============================================================
@@ -568,7 +641,10 @@ class _GroceryOrderTrackingCard extends StatelessWidget {
                     _InstitutionAvatar(logoUrl: institutionLogo),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
+                      child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                         institutionName.isNotEmpty ? institutionName : 'بقالة',
                         style: TextStyle(
                           fontSize: 13,
@@ -577,7 +653,13 @@ class _GroceryOrderTrackingCard extends StatelessWidget {
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _institutionTypeLabel(request),
+                          style: TextStyle(fontSize: 10, color: colors.onSurfaceVariant, fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                     _StatusChip(request: request),
                   ],

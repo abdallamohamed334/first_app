@@ -205,17 +205,17 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: colors.surface,
+        backgroundColor: _background,
         appBar: AppBar(
             title: const Text('طلباتي'),
             centerTitle: true,
-            backgroundColor: colors.surface,
-            foregroundColor: colors.onSurface,
+            backgroundColor: _darkGreen,
+            foregroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             actions: [
               IconButton(
-                  onPressed: _refresh, icon: const Icon(Icons.refresh_rounded))
+                  onPressed: _refresh, icon: const Icon(Icons.refresh_rounded, color: Colors.white))
             ]),
         body: FutureBuilder<List<Map<String, dynamic>>>(
           future: _future,
@@ -340,8 +340,8 @@ class _CommunityMyRequestsPageState extends State<CommunityMyRequestsPage> {
     final busy = _busyId == id;
 
     return Container(
-        margin: const EdgeInsets.only(bottom: 13),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(21),
