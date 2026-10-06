@@ -56,6 +56,13 @@ class _AdBannerCardState extends State<AdBannerCard> {
   }
 
   Future<void> _loadBanner() async {
+    if (kDebugMode) {
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: const ['36B1A66D9CDF208A83ADE52C6181EAB2'],
+        ),
+      );
+    }
     await MobileAds.instance.initialize();
     if (!mounted) return;
 
@@ -65,6 +72,7 @@ class _AdBannerCardState extends State<AdBannerCard> {
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (ad) {
+          debugPrint('[Ads] Banner loaded successfully: ${ad.adUnitId}');
           if (!mounted) {
             ad.dispose();
             return;
