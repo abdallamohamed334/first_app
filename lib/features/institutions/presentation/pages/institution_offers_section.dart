@@ -115,7 +115,7 @@ class _InstitutionOffersSectionState extends State<InstitutionOffersSection> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                itemCount: offers.take(8).length,
+                itemCount: offers.take(5).length,
                 separatorBuilder: (_, __) => const SizedBox(width: 14),
                 itemBuilder: (context, index) {
                   final offer = offers[index];

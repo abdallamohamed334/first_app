@@ -30,7 +30,32 @@ class InstitutionOffersRepository {
       final rows = await _client
           .from('institution_offers')
           .select('''
-            *,
+            id,
+            institution_id,
+            title,
+            description,
+            category,
+            quantity,
+            remaining_quantity,
+            symbolic_price,
+            original_price,
+            images,
+            pickup_location,
+            expires_at,
+            pickup_before,
+            status,
+            created_at,
+            updated_at,
+            food_type,
+            is_halal,
+            is_vegetarian,
+            food_condition,
+            requires_refrigeration,
+            pickup_notes,
+            contact_phone,
+            pickup_time,
+            deleted_at,
+            marketplace_category_id,
             institutions:institution_id (
               id,
               name,
@@ -43,7 +68,8 @@ class InstitutionOffersRepository {
           .eq('status', 'active')
           .gt('expires_at', now)
           .filter('deleted_at', 'is', 'null')
-          .order('created_at', ascending: false);
+          .order('expires_at', ascending: true)
+          .limit(50);
 
       return rows
           .whereType<Map>()

@@ -157,14 +157,17 @@ class _UserHomePageState extends State<UserHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
+      // ابدأ تحميل الـHome المستقل فورًا؛ قراءة الموقع لا يجب أن تحجب أول
+      // إطار أو تجعل المستخدم ينتظر قبل ظهور المحتوى الأساسي.
+      context.read<UserHomeBloc>().add(const UserHomeStarted());
+      _loadInstitutionOffers();
+      _loadServiceCategories();
+
       await _loadUserLocation();
       if (!mounted) return;
 
-      _loadNearbySymbolicProviders();
-      context.read<UserHomeBloc>().add(const UserHomeStarted());
-      _loadInstitutionOffers();
       _loadCommunityNeeds();
-      _loadServiceCategories();
+      _loadNearbySymbolicProviders();
       _loadNearbyCategoryOffers();
     });
   }
@@ -369,9 +372,13 @@ class _UserHomePageState extends State<UserHomePage> {
       if (!mounted) return;
 
       final sorted = offers
-          .where((offer) => offer.isActive)
+          .where((offer) => offer.isActive && offer.remainingQuantity > 0)
           .toList(growable: false)
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // الأولوية للعروض التي ستنتهي قريبًا، ثم الأحدث عند التساوي.
+        ..sort((a, b) {
+          final expiry = a.expiresAt.compareTo(b.expiresAt);
+          return expiry != 0 ? expiry : b.createdAt.compareTo(a.createdAt);
+        });
 
       setState(() => _institutionOffers = sorted);
       debugPrint('✅ Loaded institutionOffers: ${sorted.length}');
@@ -2111,7 +2118,8 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildCompanyOffersSlider() {
-    final offers = _institutionOffers.take(8).toList(growable: false);
+    // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
+    final offers = _institutionOffers.take(5).toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
       return const SizedBox(
         height: 244,

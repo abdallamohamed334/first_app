@@ -168,92 +168,34 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
 
       // ------------------------------------------------------
       // Load base food offers
-      // ------------------------------------------------------
-
-      final foodOffers = await repository.getOffers();
-
-      // ------------------------------------------------------
-      // Separate restaurant / institution
-      // ------------------------------------------------------
-
-      final restaurantOffers = <FoodOffer>[];
-      final institutionOffers = <FoodOffer>[];
-
-      for (final offer in foodOffers) {
-        final type = offer.businessType.trim().toLowerCase();
-
-        if (type == 'restaurant') {
-          restaurantOffers.add(
-            offer.copyWith(source: 'restaurant'),
-          );
-        } else {
-          institutionOffers.add(
-            offer.copyWith(source: 'institution'),
-          );
-        }
-      }
-
-      // ------------------------------------------------------
-      // Nearby food offers
-      // ------------------------------------------------------
-
-      List<FoodOffer> nearbyOffers = [];
-
-      if (userLatitude != null && userLongitude != null) {
-        try {
-          nearbyOffers = await _mapRepository.getNearbyOffers(
-            latitude: userLatitude,
-            longitude: userLongitude,
-            radiusMeters: 10000,
-          );
-        } catch (_) {
-          nearbyOffers = [];
-        }
-      }
-
-      // ------------------------------------------------------
-      // All institution offers
-      // ------------------------------------------------------
-
-      List<FoodOffer> allInstitutionOffers = [];
-
-      if (userLatitude != null && userLongitude != null) {
-        try {
-          allInstitutionOffers = await _mapRepository.getAllOffers(
-            latitude: userLatitude,
-            longitude: userLongitude,
-            limit: 50,
-            offset: 0,
-          );
-        } catch (_) {
-          allInstitutionOffers = [];
-        }
-      }
-
-      // ------------------------------------------------------
-      // Community offers
-      // ------------------------------------------------------
-
-      List<Map<String, dynamic>> communityOffers = [];
-
-      if (userLatitude != null && userLongitude != null) {
-        try {
-          communityOffers = await _communityRepository.getNearbyOffers(
-            latitude: userLatitude,
-            longitude: userLongitude,
-            limit: 50,
-            offset: 0,
-          );
-        } catch (_) {
-          communityOffers = [];
-        }
-      }
-
-      // ------------------------------------------------------
-      // Other Home data
-      // ------------------------------------------------------
-
-      final results = await Future.wait([
+      // كل مصادر الـHome مستقلة؛ تشغيلها بالتوازي يقلل زمن فتح الصفحة بشكل
+      // واضح مقارنة بالانتظار على كل استعلام قبل بدء التالي.
+      final hasLocation = userLatitude != null && userLongitude != null;
+      final results = await Future.wait<dynamic>([
+        repository.getOffers(),
+        hasLocation
+            ? _mapRepository.getNearbyOffers(
+                latitude: userLatitude!,
+                longitude: userLongitude!,
+                radiusMeters: 10000,
+              )
+            : Future.value(<FoodOffer>[]),
+        hasLocation
+            ? _mapRepository.getAllOffers(
+                latitude: userLatitude!,
+                longitude: userLongitude!,
+                limit: 50,
+                offset: 0,
+              )
+            : Future.value(<FoodOffer>[]),
+        hasLocation
+            ? _communityRepository.getNearbyOffers(
+                latitude: userLatitude!,
+                longitude: userLongitude!,
+                limit: 50,
+                offset: 0,
+              )
+            : Future.value(<Map<String, dynamic>>[]),
         repository.getDeliveryTasks(),
         repository.getDeliveryDonations(),
         repository.getCommunityStats(),
@@ -261,11 +203,16 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
         repository.getHomeBanners(),
       ]);
 
-      final deliveryTasks = results[0] as List<Map<String, dynamic>>;
-      final deliveryDonations = results[1] as List<DeliveryDonation>;
-      final communityStats = results[2] as CommunityStats;
-      final nearbyPlaces = results[3] as List<NearbyPlace>;
-      final banners = results[4] as List<HomeBanner>;
+      final foodOffers = results[0] as List<FoodOffer>;
+      final nearbyOffers = results[1] as List<FoodOffer>;
+      final allInstitutionOffers = results[2] as List<FoodOffer>;
+      final communityOffers = results[3] as List<Map<String, dynamic>>;
+
+      final deliveryTasks = results[4] as List<Map<String, dynamic>>;
+      final deliveryDonations = results[5] as List<DeliveryDonation>;
+      final communityStats = results[6] as CommunityStats;
+      final nearbyPlaces = results[7] as List<NearbyPlace>;
+      final banners = results[8] as List<HomeBanner>;
 
       // ------------------------------------------------------
       // Build unique all offers

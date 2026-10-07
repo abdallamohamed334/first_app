@@ -226,7 +226,8 @@ class UserHomeRepository {
           .eq('status', 'available')
           .eq('is_paused', false)
           .gt('expiry_time', now)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .limit(100);
 
       final offers = <FoodOffer>[];
 
@@ -611,6 +612,7 @@ class UserHomeRepository {
         'cafe',
         'juice_shop',
         'butcher',
+        'meat_shop',
         'fish_market',
         'poultry_shop',
         'dairy_shop',
