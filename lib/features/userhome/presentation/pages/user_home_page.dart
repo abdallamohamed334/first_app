@@ -2167,7 +2167,10 @@ class _UserHomePageState extends State<UserHomePage> {
     if (offers.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-        child: _buildFallbackBanner(),
+        child: SizedBox(
+          height: 238,
+          child: _buildFallbackBanner(),
+        ),
       );
     }
 
