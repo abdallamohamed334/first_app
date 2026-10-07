@@ -388,6 +388,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                       onOffer: () => _openAdd(
                         (_) => InstitutionAddOfferPage(
                           institutionId: institution.id,
+                          institutionType: institution.type,
                         ),
                       ),
                       onDonation: () => _openAdd(
@@ -1172,6 +1173,8 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
       'supermarket': 'سوبر ماركت',
       'cafe': 'كافيه',
       'hotel': 'فندق',
+      'home_restaurant': 'مطاعم منزلية',
+      'household_goods': 'أغراض منزلية',
     };
     return types[value] ?? 'مؤسسة';
   }

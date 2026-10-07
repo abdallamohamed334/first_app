@@ -34,6 +34,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     'wedding_hall',
     'game_store',
     'hotel',
+    'home_restaurant',
+    'household_goods',
   };
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _future;
@@ -1325,7 +1327,20 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              offer.institutionType!,
+                              const {
+                                    'home_restaurant': 'مطاعم منزلية',
+                                    'household_goods': 'أغراض منزلية',
+                                    'grocery': 'بقالة وسوبر ماركت',
+                                    'supermarket': 'بقالة وسوبر ماركت',
+                                    'bakery': 'مخبز',
+                                    'butcher': 'لحوم',
+                                    'meat_shop': 'لحوم',
+                                    'poultry_shop': 'دواجن',
+                                    'hotel': 'فندق',
+                                    'wedding_hall': 'قاعة أفراح',
+                                    'game_store': 'متجر ألعاب',
+                                  }[offer.institutionType!.trim().toLowerCase()] ??
+                                  offer.institutionType!,
                               style: const TextStyle(
                                 color: _primary,
                                 fontSize: 9.5,

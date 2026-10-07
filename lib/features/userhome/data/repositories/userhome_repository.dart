@@ -612,6 +612,10 @@ class UserHomeRepository {
         'hotel',
         'wedding_hall',
         'game_store',
+        'home-restaurants',
+        'household-items',
+        'home-sweets',
+        'home-food',
       };
       final isInstitutionOffers = institutionCategorySlugs.contains(slug);
 

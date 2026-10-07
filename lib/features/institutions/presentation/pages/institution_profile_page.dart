@@ -1173,6 +1173,8 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
       'supermarket': 'سوبر ماركت',
       'cafe': 'كافيه',
       'hotel': 'فندق',
+      'home_restaurant': 'مطاعم منزلية',
+      'household_goods': 'أغراض منزلية',
       'other': 'مؤسسة أخرى',
     };
     return types[type] ?? type;

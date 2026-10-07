@@ -76,6 +76,12 @@ const Set<String> _institutionCatalogSlugs = {
   'wedding_hall',
   'game_store',
   'hotel',
+  'home-restaurants',
+  'household-items',
+  'home_restaurant',
+  'household_goods',
+  'home-sweets',
+  'home-food',
 };
 
 enum _HomeMode { buy, swap, services }

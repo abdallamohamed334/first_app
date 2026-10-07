@@ -9,8 +9,13 @@ import '../../data/repositories/institutions_repository.dart';
 
 class InstitutionAddOfferPage extends StatefulWidget {
   final String institutionId;
+  final String institutionType;
 
-  const InstitutionAddOfferPage({super.key, required this.institutionId});
+  const InstitutionAddOfferPage({
+    super.key,
+    required this.institutionId,
+    required this.institutionType,
+  });
 
   @override
   State<InstitutionAddOfferPage> createState() =>
@@ -64,6 +69,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   bool _saving = false;
 
+  bool get _isHomeRestaurant =>
+      widget.institutionType.trim().toLowerCase() == 'home_restaurant';
+
   // ✅ قائمة التصنيفات
   final List<Map<String, dynamic>> _categories = [
     {'id': 'food', 'label': '🍽️ وجبات', 'icon': Icons.restaurant_rounded},
@@ -77,6 +85,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     {'id': 'drink', 'label': '🥤 مشروبات', 'icon': Icons.local_drink_rounded},
     {'id': 'meat', 'label': '🥩 لحوم', 'icon': Icons.restaurant_menu_rounded},
     {'id': 'other', 'label': '📦 أخرى', 'icon': Icons.category_rounded},
+    {'id': 'home_sweets', 'label': '🍰 حلويات', 'icon': Icons.cake_rounded},
+    {'id': 'home_food', 'label': '🍲 أكل بيتي', 'icon': Icons.restaurant_rounded},
   ];
 
   // ✅ قائمة حالات المنتج
@@ -90,6 +100,12 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       'color': const Color(0xFFD64545)
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isHomeRestaurant) _category = '';
+  }
 
   @override
   void dispose() {
@@ -257,6 +273,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         ? null
         : double.tryParse(_normalizeDigits(originalText).replaceAll(',', '.'));
 
+    if (_isHomeRestaurant &&
+        !const {'home_sweets', 'home_food'}.contains(_category)) {
+      _showMessage('اختر نوع الحاجة: حلويات أو أكل بيتي', error: true);
+      return;
+    }
     if (quantity == null || quantity <= 0) {
       _showMessage('اكتب كمية صحيحة أكبر من صفر', error: true);
       return;
@@ -445,6 +466,12 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (_isHomeRestaurant) ...[
+                        _buildHomeRestaurantKindSection(),
+                        const SizedBox(height: 20),
+                        const Divider(color: Color(0xFFE2EEE8)),
+                        const SizedBox(height: 24),
+                      ],
                       _buildImageSection(),
                       const SizedBox(height: 24),
                       const Divider(color: Color(0xFFE2EEE8)),
@@ -1084,10 +1111,57 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     );
   }
 
+  Widget _buildHomeRestaurantKindSection() {
+    final choices = _categories
+        .where(
+          (item) => const {'home_sweets', 'home_food'}.contains(item['id']),
+        )
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'نوع الحاجة',
+          style: TextStyle(
+            color: _primaryDark,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'اختار حلويات أو أكل بيتي، وبعدها كمّل تفاصيل العرض.',
+          style: TextStyle(color: _muted, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: choices.map((item) {
+            final selected = _category == item['id'];
+            return ChoiceChip(
+              selected: selected,
+              label: Text(item['label'] as String),
+              onSelected: _saving
+                  ? null
+                  : (_) => setState(() => _category = item['id'] as String),
+              selectedColor: _primary,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : _primaryDark,
+                fontWeight: FontWeight.w800,
+              ),
+            );
+          }).toList(growable: false),
+        ),
+      ],
+    );
+  }
+
   // ============================================================
   // ✅ التصنيفات
   // ============================================================
   Widget _buildCategorySection() {
+    if (_isHomeRestaurant) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

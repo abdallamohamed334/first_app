@@ -31,6 +31,10 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
     'wedding_hall',
     'game_store',
     'hotel',
+    'home-restaurants',
+    'household-items',
+    'home-sweets',
+    'home-food',
   };
   static const Color _bg = Color(0xFF0F0F0F);
   static const Color _card = Color(0xFF1C1C1E);

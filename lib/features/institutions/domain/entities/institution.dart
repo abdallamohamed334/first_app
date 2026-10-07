@@ -57,6 +57,10 @@ class Institution extends Equatable {
         return 'فندق';
       case 'restaurant':
         return 'مطعم';
+      case 'home_restaurant':
+        return 'مطاعم منزلية';
+      case 'household_goods':
+        return 'أغراض منزلية';
       default:
         return 'مؤسسة';
     }
