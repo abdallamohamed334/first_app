@@ -24,6 +24,17 @@ class InstitutionOffersPage extends StatefulWidget {
 }
 
 class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
+  static const Set<String> _allowedInstitutionTypes = {
+    'grocery',
+    'supermarket',
+    'bakery',
+    'butcher',
+    'meat_shop',
+    'poultry_shop',
+    'wedding_hall',
+    'game_store',
+    'hotel',
+  };
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _future;
   String _query = '';
@@ -122,6 +133,12 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     return true;
   }
 
+  bool _isAllowedInstitutionOffer(InstitutionOffer offer) {
+    return _allowedInstitutionTypes.contains(
+      offer.institutionType?.trim().toLowerCase(),
+    );
+  }
+
   bool _matchesLocationFiltersWithoutInstitution(InstitutionOffer offer) {
     return _offerGovernorate(offer) == _selectedGovernorate;
   }
@@ -145,7 +162,9 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
         body: FutureBuilder<List<InstitutionOffer>>(
           future: _future,
           builder: (context, snapshot) {
-            final allOffers = snapshot.data ?? const <InstitutionOffer>[];
+            final allOffers = (snapshot.data ?? const <InstitutionOffer>[])
+                .where(_isAllowedInstitutionOffer)
+                .toList(growable: false);
             final locationOffers = _locationFilteredOffers(allOffers);
             final activeCount = _countByFilter(locationOffers, _OfferFilter.active);
             final expiredCount =

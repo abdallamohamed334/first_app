@@ -384,7 +384,12 @@ class _UserHomePageState extends State<UserHomePage> {
       if (!mounted) return;
 
       final sorted = offers
-          .where((offer) => offer.isActive && offer.remainingQuantity > 0)
+          .where(
+            (offer) =>
+                offer.isActive &&
+                offer.remainingQuantity > 0 &&
+                _isAllowedInstitutionOffer(offer),
+          )
           .toList(growable: false)
         // الأولوية للعروض التي ستنتهي قريبًا، ثم الأحدث عند التساوي.
         ..sort((a, b) {
@@ -402,6 +407,14 @@ class _UserHomePageState extends State<UserHomePage> {
       if (!mounted) return;
       setState(() => _loadingInstitutionOffers = false);
     }
+  }
+
+  bool _isAllowedInstitutionOffer(InstitutionOffer offer) {
+    final type = offer.institutionType?.trim().toLowerCase();
+    if (type == 'supermarket') {
+      return _institutionCatalogSlugs.contains('grocery');
+    }
+    return _institutionCatalogSlugs.contains(type);
   }
 
   Future<void> _loadCommunityNeeds() async {
