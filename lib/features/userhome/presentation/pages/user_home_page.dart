@@ -2167,10 +2167,7 @@ class _UserHomePageState extends State<UserHomePage> {
     if (offers.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-        child: SizedBox(
-          height: 238,
-          child: _buildFallbackBanner(),
-        ),
+        child: _buildFallbackBanner(),
       );
     }
 
@@ -2388,86 +2385,89 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildFallbackBanner() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [_primaryRed, _primaryRedDark],
-            ),
-          ),
-        ),
-        Positioned(
-          left: -40,
-          bottom: -50,
-          child: Container(
-            width: 150,
-            height: 150,
+    return SizedBox(
+      height: 238,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.07),
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [_primaryRed, _primaryRedDark],
+              ),
             ),
           ),
-        ),
-        Positioned(
-          right: -20,
-          top: -50,
-          child: Container(
-            width: 130,
-            height: 130,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.05),
+          Positioned(
+            left: -40,
+            bottom: -50,
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.07),
+              ),
             ),
           ),
-        ),
-        Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.auto_awesome_rounded,
-                      color: Colors.white, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    'أهلًا بيك',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
+          Positioned(
+            right: -20,
+            top: -50,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome_rounded,
+                        color: Colors.white, size: 18),
+                    SizedBox(width: 6),
+                    Text(
+                      'أهلًا بيك',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                  ],
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'وِصلة بتجمعنا 🤝',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
                   ),
-                ],
-              ),
-              SizedBox(height: 10),
-              Text(
-                'وِصلة بتجمعنا 🤝',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 23,
-                  fontWeight: FontWeight.w900,
-                  height: 1.2,
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'اكتشف أكل وفرص قريبة منك\nوساعد في تقليل الهدر',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.5,
+                SizedBox(height: 8),
+                Text(
+                  'اكتشف أكل وفرص قريبة منك\nوساعد في تقليل الهدر',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
