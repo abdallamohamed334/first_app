@@ -60,7 +60,10 @@ class DefaultFirebaseOptions {
 
   // iOS: values from GoogleService-Info.plist for com.jood.app.
   static FirebaseOptions get ios => FirebaseOptions(
-        apiKey: _env('FIREBASE_IOS_API_KEY'),
+        // Firebase API keys are public client identifiers and are also present
+        // in GoogleService-Info.plist bundled with the iOS target.
+        apiKey: _optionalEnv('FIREBASE_IOS_API_KEY') ??
+            'AIzaSyD4NwdnUQ_NkhrkjDxWRZQgauW4NEyipc',
         appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
         messagingSenderId: '898976071862',
         projectId: 'flutter-app-45f07',
