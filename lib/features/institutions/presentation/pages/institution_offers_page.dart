@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/egypt_locations.dart';
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
 import 'institution_offer_details_page.dart';
@@ -26,6 +27,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _future;
   String _query = '';
+  String? _selectedGovernorate;
+  String? _selectedInstitutionId;
   _OfferFilter _filter = _OfferFilter.active;
 
   // ─── ألوان هوية وِصلة ───
@@ -46,6 +49,15 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     super.initState();
     _repository = widget.repository ?? InstitutionOffersRepository();
     _future = _repository.listAvailableOffers();
+    _loadUserGovernorate();
+  }
+
+  Future<void> _loadUserGovernorate() async {
+    final governorate = await _repository.getCurrentUserGovernorate();
+    if (!mounted || governorate == null) return;
+    if (EgyptLocations.names.contains(governorate)) {
+      setState(() => _selectedGovernorate = governorate);
+    }
   }
 
   Future<void> _reload() async {
@@ -73,6 +85,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     final query = _query.trim().toLowerCase();
 
     return offers.where((offer) {
+      if (!_matchesLocationFilters(offer)) return false;
+
       // ── فلتر الحالة
       final category = _offerCategory(offer);
       if (category != _filter) return false;
@@ -82,6 +96,40 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
       return offer.title.toLowerCase().contains(query) ||
           offer.institutionName.toLowerCase().contains(query);
     }).toList(growable: false);
+  }
+
+  String? _offerGovernorate(InstitutionOffer offer) {
+    final explicit = offer.institutionGovernorate?.trim();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+
+    final city = offer.institutionCity?.trim();
+    if (city == null || city.isEmpty) return null;
+    for (final entry in EgyptLocations.governorates.entries) {
+      if (entry.value.any((item) => item == city)) return entry.key;
+    }
+    return null;
+  }
+
+  bool _matchesLocationFilters(InstitutionOffer offer) {
+    if (_selectedGovernorate != null &&
+        _offerGovernorate(offer) != _selectedGovernorate) {
+      return false;
+    }
+    if (_selectedInstitutionId != null &&
+        offer.institutionId != _selectedInstitutionId) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _matchesLocationFiltersWithoutInstitution(InstitutionOffer offer) {
+    return _offerGovernorate(offer) == _selectedGovernorate;
+  }
+
+  List<InstitutionOffer> _locationFilteredOffers(
+    List<InstitutionOffer> offers,
+  ) {
+    return offers.where(_matchesLocationFilters).toList(growable: false);
   }
 
   int _countByFilter(List<InstitutionOffer> offers, _OfferFilter filter) {
@@ -98,11 +146,12 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
           future: _future,
           builder: (context, snapshot) {
             final allOffers = snapshot.data ?? const <InstitutionOffer>[];
-            final activeCount = _countByFilter(allOffers, _OfferFilter.active);
+            final locationOffers = _locationFilteredOffers(allOffers);
+            final activeCount = _countByFilter(locationOffers, _OfferFilter.active);
             final expiredCount =
-                _countByFilter(allOffers, _OfferFilter.expired);
+                _countByFilter(locationOffers, _OfferFilter.expired);
             final soldOutCount =
-                _countByFilter(allOffers, _OfferFilter.soldOut);
+                _countByFilter(locationOffers, _OfferFilter.soldOut);
 
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
@@ -162,6 +211,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                             expiredCount: expiredCount,
                             soldOutCount: soldOutCount,
                           ),
+                          const SizedBox(height: 12),
+                          _buildLocationFilters(allOffers),
                         ],
                       ),
                     ),
@@ -404,6 +455,146 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLocationFilters(List<InstitutionOffer> allOffers) {
+    final institutionsSource = _selectedGovernorate == null
+        ? allOffers
+        : allOffers.where(_matchesLocationFiltersWithoutInstitution);
+    final institutions = <String, String>{};
+    for (final offer in institutionsSource) {
+      if (offer.institutionId.trim().isNotEmpty) {
+        institutions[offer.institutionId] = offer.institutionName;
+      }
+    }
+    final institutionItems = institutions.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    final selectedInstitution = institutionItems.any(
+      (entry) => entry.key == _selectedInstitutionId,
+    )
+        ? _selectedInstitutionId
+        : null;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildDropdown<String>(
+                value: EgyptLocations.names.contains(_selectedGovernorate)
+                    ? _selectedGovernorate
+                    : null,
+                hint: 'كل المحافظات',
+                icon: Icons.location_on_outlined,
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('كل المحافظات'),
+                  ),
+                  ...EgyptLocations.names.map(
+                    (name) => DropdownMenuItem<String>(
+                      value: name,
+                      child: Text(name, overflow: TextOverflow.ellipsis),
+                    ),
+                  ),
+                ],
+                onChanged: (value) => setState(() {
+                  _selectedGovernorate = value;
+                  _selectedInstitutionId = null;
+                }),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDropdown<String>(
+                value: selectedInstitution,
+                hint: _selectedGovernorate == null
+                    ? 'كل المؤسسات'
+                    : 'كل مؤسسات المحافظة',
+                icon: Icons.storefront_outlined,
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('كل المؤسسات'),
+                  ),
+                  ...institutionItems.map(
+                    (entry) => DropdownMenuItem<String>(
+                      value: entry.key,
+                      child: Text(
+                        entry.value,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: institutionItems.isEmpty
+                    ? null
+                    : (value) => setState(
+                          () => _selectedInstitutionId = value,
+                        ),
+              ),
+            ),
+          ],
+        ),
+        if (_selectedGovernorate != null || _selectedInstitutionId != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                _selectedGovernorate = null;
+                _selectedInstitutionId = null;
+              }),
+              icon: const Icon(Icons.clear_all_rounded, size: 17),
+              label: const Text('مسح فلاتر المكان'),
+              style: TextButton.styleFrom(
+                foregroundColor: _primary,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required T? value,
+    required String hint,
+    required IconData icon,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?>? onChanged,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      isExpanded: true,
+      icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20),
+      onChanged: onChanged,
+      items: items,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: _primary, size: 19),
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: _inkSoft,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFEEF3F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFEEF3F0)),
+        ),
+      ),
+      style: const TextStyle(
+        color: _ink,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
       ),
     );
   }

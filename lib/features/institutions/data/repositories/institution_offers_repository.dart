@@ -62,6 +62,8 @@ class InstitutionOffersRepository {
               institution_type,
               logo_url,
               address,
+              governorate,
+              city,
               phone
             )
           ''')
@@ -69,7 +71,7 @@ class InstitutionOffersRepository {
           .gt('expires_at', now)
           .filter('deleted_at', 'is', 'null')
           .order('expires_at', ascending: true)
-          .limit(50);
+          .limit(200);
 
       return rows
           .whereType<Map>()
@@ -85,6 +87,26 @@ class InstitutionOffersRepository {
     } catch (e) {
       debugPrint('❌ listAvailableOffers error: $e');
       return [];
+    }
+  }
+
+  /// المحافظة المحفوظة للمستخدم الحالي، لاستخدامها كاختيار افتراضي في
+  /// كتالوج عروض المؤسسات.
+  Future<String?> getCurrentUserGovernorate() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) return null;
+
+      final row = await _client
+          .from('users')
+          .select('governorate')
+          .eq('id', userId)
+          .maybeSingle();
+      final value = row?['governorate']?.toString().trim();
+      return value == null || value.isEmpty ? null : value;
+    } catch (e) {
+      debugPrint('❌ getCurrentUserGovernorate error: $e');
+      return null;
     }
   }
 

@@ -8,6 +8,8 @@ class InstitutionOffer {
   final String institutionId;
   final String institutionName;
   final String? institutionType;
+  final String? institutionGovernorate;
+  final String? institutionCity;
   final String? institutionLogoUrl;
   final String title;
   final String description;
@@ -43,6 +45,8 @@ class InstitutionOffer {
     required this.institutionId,
     required this.institutionName,
     this.institutionType,
+    this.institutionGovernorate,
+    this.institutionCity,
     this.institutionLogoUrl,
     required this.title,
     required this.description,
@@ -181,6 +185,8 @@ class InstitutionOffer {
       institutionId: _text(json['institution_id']),
       institutionName: _text(institution['name'], fallback: 'مؤسسة'),
       institutionType: _nullableText(institution['institution_type']),
+      institutionGovernorate: _nullableText(institution['governorate']),
+      institutionCity: _nullableText(institution['city']),
       institutionLogoUrl: _firstNonEmptyText([
         institution['logo_url'],
         institution['image_url'],
@@ -253,6 +259,8 @@ class InstitutionOffer {
     String? institutionId,
     String? institutionName,
     String? institutionType,
+    String? institutionGovernorate,
+    String? institutionCity,
     String? institutionLogoUrl,
     String? title,
     String? description,
@@ -284,6 +292,9 @@ class InstitutionOffer {
       institutionId: institutionId ?? this.institutionId,
       institutionName: institutionName ?? this.institutionName,
       institutionType: institutionType ?? this.institutionType,
+      institutionGovernorate:
+          institutionGovernorate ?? this.institutionGovernorate,
+      institutionCity: institutionCity ?? this.institutionCity,
       institutionLogoUrl: institutionLogoUrl ?? this.institutionLogoUrl,
       title: title ?? this.title,
       description: description ?? this.description,
