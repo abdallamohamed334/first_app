@@ -66,6 +66,18 @@ class _AppFeatures {
   static const double nearbyRadiusKm = 70.0;
 }
 
+/// التصنيفات الوحيدة المسموح بها داخل كتالوج عروض المؤسسات.
+const Set<String> _institutionCatalogSlugs = {
+  'grocery',
+  'bakery',
+  'butcher',
+  'meat_shop',
+  'poultry_shop',
+  'wedding_hall',
+  'game_store',
+  'hotel',
+};
+
 enum _HomeMode { buy, swap, services }
 
 class UserHomePage extends StatefulWidget {
@@ -460,9 +472,15 @@ class _UserHomePageState extends State<UserHomePage> {
               );
       final institutionSubcategories = institutionRoot == null
           ? <Map<String, dynamic>>[]
-          : await _userHomeRepository.getSubCategories(
-              institutionRoot['id']?.toString() ?? '',
-            );
+          : (await _userHomeRepository.getSubCategories(
+                institutionRoot['id']?.toString() ?? '',
+              ))
+              .where(
+                (category) => _institutionCatalogSlugs.contains(
+                  category['slug']?.toString().trim().toLowerCase(),
+                ),
+              )
+              .toList(growable: false);
       if (institutionRoot != null) {
         final institutionOffers = await _userHomeRepository.getOffersByCategory(
           categoryId: institutionRoot['id']?.toString() ?? '',

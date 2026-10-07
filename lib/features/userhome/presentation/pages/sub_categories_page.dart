@@ -22,6 +22,16 @@ class SubCategoriesPage extends StatefulWidget {
 }
 
 class _SubCategoriesPageState extends State<SubCategoriesPage> {
+  static const Set<String> _institutionCatalogSlugs = {
+    'grocery',
+    'bakery',
+    'butcher',
+    'meat_shop',
+    'poultry_shop',
+    'wedding_hall',
+    'game_store',
+    'hotel',
+  };
   static const Color _bg = Color(0xFF0F0F0F);
   static const Color _card = Color(0xFF1C1C1E);
   static const Color _primaryRed = Color(0xFFE31C25);
@@ -62,6 +72,12 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
       final rows = (response as List)
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
+          .where(
+            (row) => widget.parentSlug != 'institution-offers' ||
+                _institutionCatalogSlugs.contains(
+                  row['slug']?.toString().trim().toLowerCase(),
+                ),
+          )
           .toList();
 
       setState(() {
