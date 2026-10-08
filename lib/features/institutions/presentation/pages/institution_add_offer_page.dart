@@ -96,7 +96,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     {'id': 'drink', 'label': '🥤 مشروبات', 'icon': Icons.local_drink_rounded},
     {'id': 'meat', 'label': '🥩 لحوم', 'icon': Icons.restaurant_menu_rounded},
     {'id': 'other', 'label': '📦 أخرى', 'icon': Icons.category_rounded},
-    {'id': 'home_sweets', 'label': '🍰 حلويات', 'icon': Icons.cake_rounded},
+    {
+      'id': 'home_sweets',
+      'label': '🍰 حلويات بيتي',
+      'icon': Icons.cake_rounded
+    },
     {'id': 'home_food', 'label': '🍲 أكل بيتي', 'icon': Icons.restaurant_rounded},
   ];
 
@@ -286,7 +290,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
     if (_isHomeRestaurant &&
         !const {'home_sweets', 'home_food'}.contains(_category)) {
-      _showMessage('اختر نوع الحاجة: حلويات أو أكل بيتي', error: true);
+      _showMessage('اختر نوع الحاجة: حلويات بيتي أو أكل بيتي', error: true);
       return;
     }
     if (quantity == null || quantity <= 0) {
@@ -1141,7 +1145,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'اختار حلويات أو أكل بيتي، وبعدها كمّل تفاصيل العرض.',
+          'اختار حلويات بيتي أو أكل بيتي، وبعدها كمّل تفاصيل العرض.',
           style: TextStyle(color: _muted, fontSize: 13),
         ),
         const SizedBox(height: 12),
