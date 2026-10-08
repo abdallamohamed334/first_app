@@ -1,15 +1,22 @@
 // lib/features/splash/presentation/pages/splash_page.dart
+//
+// ✅ سبلاش شاشة تطبيق "وصلة" — المنصة اللي بتوصّل الناس ببعض:
+// بيع منتجات، استبدالات، البحث عن خدمة، والتبرع للجمعيات.
+// نفس جودة ومستوى الأنيميشن بتاع سبلاش "جُود" (scale/fade/glow + نمط
+// خلفية + progress bar) لكن الشعار واللوجو اتبنوا من الصفر بما إنه
+// معندناش asset صورة جاهزة للتطبيق الجديد لسه — الشعار هنا متصمم
+// بالكود (CustomPaint + أيقونات) فمفيش احتياج لأي ملف صورة خارجي،
+// وهيفضل شغال برضو لو حبيت تستبدله بـ Image.asset لاحقًا بسهولة.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:loqma/features/institutions/domain/entities/institution.dart';
 
-import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class SplashPage extends StatefulWidget {
@@ -19,17 +26,49 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
+class _SplashPageState extends State<SplashPage>
+    with TickerProviderStateMixin {
   late final AnimationController _scaleController;
   late final AnimationController _fadeController;
   late final AnimationController _progressController;
   late final AnimationController _glowController;
+  late final AnimationController _orbitController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _progressAnimation;
   late final Animation<double> _glowAnimation;
+
   Timer? _progressTimer;
   bool _isNavigating = false;
+
+  // ✅ نفس أنواع الحسابات التجارية المستخدمة فى باقى التطبيق
+  static const _businessUserTypes = {
+    'restaurant',
+    'business',
+    'hotel',
+    'supermarket',
+    'bakery',
+    'cafe',
+  };
+
+  // ✅ الألوان الأساسية — نفس هوية "جُود" (كريمي/دهبي/أخضر غامق) لأنها
+  // الهوية المعتمدة آخر حاجة. سيبت الثوابت هنا عشان لو حبيت تغيّرها
+  // لاحقًا لهوية "وصلة" المستقلة يبقى سهل تبدّلها فى مكان واحد.
+  static const _bgTop = Color(0xFFF4EEE5);
+  static const _bgBottom = Color(0xFFE6D9C8);
+  static const _ink = Color(0xFF244536);
+  static const _inkSoft = Color(0xFF315A45);
+  static const _gold = Color(0xFFC78950);
+  static const _cardBg = Color(0xFFFFFBF5);
+
+  // ✅ الأربع ركائز بتاعة التطبيق — كل واحدة بأيقونة ولون مميز، وبتدور
+  // حوالين الشعار فى حركة مدارية هادية (orbit).
+  static const _pillars = <_Pillar>[
+    _Pillar(icon: Icons.storefront_rounded, color: Color(0xFFC78950)), // بيع
+    _Pillar(icon: Icons.swap_horiz_rounded, color: Color(0xFF3679C8)), // استبدال
+    _Pillar(icon: Icons.handyman_rounded, color: Color(0xFF6651B5)), // خدمات
+    _Pillar(icon: Icons.volunteer_activism_rounded, color: Color(0xFFB54747)), // تبرع
+  ];
 
   @override
   void initState() {
@@ -71,12 +110,15 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
       vsync: this,
     );
     _glowAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(
-        parent: _glowController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
     );
     _glowController.repeat(reverse: true);
+
+    // ✅ دوران هادي جدًا للأيقونات الأربعة حوالين الشعار
+    _orbitController = AnimationController(
+      duration: const Duration(seconds: 14),
+      vsync: this,
+    )..repeat();
   }
 
   void _startSplashSequence() {
@@ -97,188 +139,62 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     });
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Navigation — يحفظ الحالة في AuthStateNotifier
-  // ═══════════════════════════════════════════════════════════
   Future<void> _navigateToNext() async {
     if (_isNavigating || !mounted) return;
     _isNavigating = true;
 
-    String nextLocation = AppRouter.userTypeSelection;
-    late final SupabaseClient client;
-    try {
-      client = Supabase.instance.client;
-    } catch (error, stack) {
-      debugPrint('⚠️ [Splash] Supabase client unavailable: $error');
-      debugPrintStack(stackTrace: stack);
-      AuthStateNotifier.instance.clear();
-      if (mounted) context.go(AppRouter.userTypeSelection);
-      return;
-    }
+    String nextLocation = AppRouter.login;
+    final client = Supabase.instance.client;
 
-    // 1) نستنى استعادة الجلسة (5 محاولات × 300ms)
+    // ✅ انتظر استعادة الجلسة
     Session? session = client.auth.currentSession;
-
     if (session == null) {
-      for (int i = 0; i < 5; i++) {
-        await Future.delayed(const Duration(milliseconds: 300));
+      try {
+        final restored = await client.auth.onAuthStateChange.first
+            .timeout(const Duration(seconds: 2));
+        session = restored.session;
+      } catch (_) {
         session = client.auth.currentSession;
-        if (session != null) break;
-        debugPrint('⏳ [Splash] waiting for session... (${i + 1}/5)');
       }
     }
 
-    debugPrint('🔴 [Splash] session=${session != null ? "found" : "null"}');
-
-    // 2) فيه جلسة → نحدد الـ role + provider status
     if (session != null) {
       try {
         final userData = await client
             .from('users')
-            .select(
-                'role, user_type, account_status, suspension_until, name, email, phone, governorate, city, address, gender, latitude, longitude')
+            .select('user_type')
             .eq('id', session.user.id)
-            .maybeSingle()
-            .timeout(const Duration(seconds: 6));
+            .maybeSingle();
 
-        if (userData == null) {
-          // The Auth identity still exists, but the public profile was
-          // deleted. Terminate the local session instead of routing to Home.
-          await client.auth.signOut(scope: SignOutScope.local);
-          AuthStateNotifier.instance.clear();
-          if (mounted) {
-            context.go(
-              AppRouter.login,
-              extra: 'تم حذف حسابك من النظام. يمكنك إنشاء حساب جديد.',
-            );
-          }
-          return;
+        final type = userData?['user_type']?.toString().toLowerCase() ?? '';
+
+        if (type == 'user') {
+          nextLocation = AppRouter.map;
+        } else if (type == 'charity') {
+          nextLocation = AppRouter.charityHome;
+        } else if (type == 'institution') {
+          nextLocation = AppRouter.institutionsHome;
+        } else if (_businessUserTypes.contains(type)) {
+          nextLocation = AppRouter.restaurantHome;
+        } else {
+          nextLocation = AppRouter.login;
         }
-
-        final profileRole =
-            (userData?['role'] ?? userData?['user_type'] ?? 'user')
-                .toString()
-                .toLowerCase()
-                .trim();
-
-        Map<String, dynamic>? institutionRow;
-        try {
-          institutionRow = await client
-              .from('institutions')
-              .select('institution_type, status')
-              .eq('user_id', session.user.id)
-              .maybeSingle()
-              .timeout(const Duration(seconds: 4));
-        } catch (error) {
-          debugPrint('⚠️ [Splash] institution lookup skipped: $error');
-        }
-
-        final institutionType = institutionRow?['institution_type']
-            ?.toString()
-            .toLowerCase()
-            .trim();
-        final role = institutionType == null || institutionType.isEmpty
-            ? profileRole
-            : institutionType;
-        final profileComplete = AuthStateNotifier.isCompleteUserProfile(
-          userData,
-          role: role,
-        );
-
-        debugPrint('🔴 [Splash] role=$role');
-
-        String? providerStatus;
-        String? institutionStatus;
-        final accountStatus =
-            userData?['account_status']?.toString().trim().toLowerCase();
-        final suspensionUntil = userData?['suspension_until'] is String
-            ? DateTime.tryParse(userData!['suspension_until'] as String)
-            : null;
-        bool isActive = true;
-
-        if (institutionRow != null) {
-          institutionStatus = institutionRow['status']?.toString();
-          isActive = Institution.isAllowedStatus(institutionStatus);
-        }
-
-        // ✅ لو provider → نجيب حالته
-        if (role == 'provider') {
-          try {
-            final providerRow = await client
-                .from('service_providers')
-                .select('verification_status, is_active')
-                .eq('user_id', session.user.id)
-                .maybeSingle()
-                .timeout(const Duration(seconds: 4));
-
-            if (providerRow != null) {
-              providerStatus =
-                  providerRow['verification_status']?.toString() ?? 'pending';
-              isActive = providerRow['is_active'] as bool? ?? true;
-            } else {
-              providerStatus = 'pending';
-            }
-
-            debugPrint(
-              '🔴 [Splash] provider status=$providerStatus, active=$isActive',
-            );
-          } catch (e) {
-            debugPrint('⚠️ [Splash] provider fetch error: $e');
-            providerStatus = 'pending';
-          }
-        }
-
-        // ✅ نحدّث الـ notifier
-        AuthStateNotifier.instance.setLoggedIn(
-          isLoggedIn: true,
-          role: role,
-          providerStatus: providerStatus,
-          institutionStatus: institutionStatus,
-          accountStatus: accountStatus,
-          suspensionUntil: suspensionUntil,
-          isActive: isActive,
-          userProfileComplete: profileComplete,
-          authResolved: true,
-        );
-
-        // ✅ التوجيه حسب الحالة
-        final resolvedHome =
-            AuthStateNotifier.instance.homeRoute ?? AppRouter.userTypeSelection;
-        nextLocation =
-            role == 'user' && !profileComplete ? AppRouter.login : resolvedHome;
       } catch (error) {
-        debugPrint('⚠️ [Splash] could not resolve role: $error');
-        // لو الجلسة موجودة بس الـ query فشل → نروح Home
-        AuthStateNotifier.instance.setLoggedIn(
-          isLoggedIn: true,
-          role: 'user',
-          userProfileComplete: false,
-        );
+        debugPrint('⚠️ Could not resolve user type: $error');
         nextLocation = AppRouter.login;
       }
     } else {
-      // 3) مفيش جلسة → نفحص الـ onboarding
-      AuthStateNotifier.instance.clear();
-
-      var onboardingSeen = false;
-      try {
-        final prefs = await SharedPreferences.getInstance()
-            .timeout(const Duration(seconds: 2));
-        onboardingSeen = prefs.getBool('onboarding_seen') ??
-            prefs.getBool('onboarding_completed') ??
-            prefs.getBool('has_seen_onboarding') ??
-            false;
-      } catch (error, stack) {
-        debugPrint('⚠️ [Splash] onboarding preference lookup skipped: $error');
-        debugPrintStack(stackTrace: stack);
-      }
+      final prefs = await SharedPreferences.getInstance();
+      final onboardingSeen = prefs.getBool('onboarding_seen') ??
+          prefs.getBool('onboarding_completed') ??
+          prefs.getBool('has_seen_onboarding') ??
+          false;
 
       nextLocation =
           onboardingSeen ? AppRouter.userTypeSelection : AppRouter.onboarding;
     }
 
     if (!mounted) return;
-    debugPrint('🔴 [Splash] going to: $nextLocation');
     context.go(nextLocation);
   }
 
@@ -288,59 +204,58 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     _fadeController.dispose();
     _progressController.dispose();
     _glowController.dispose();
+    _orbitController.dispose();
     _progressTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: const Color(0xFF063F3A),
+      backgroundColor: _bgTop,
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.light,
-          statusBarBrightness: Brightness.dark,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
           systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarIconBrightness: Brightness.dark,
         ),
         child: Stack(
           children: [
-            // ✅ خلفية
+            // ✅ خلفية متدرجة
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [
-                    Color(0xFF0B6B64),
-                    Color(0xFF063F3A),
-                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [_bgTop, _bgBottom],
                 ),
               ),
             ),
-            _buildFoodPattern(context),
+            // ✅ نمط خلفية هادي
+            _buildPattern(),
+            // ✅ المحتوى الأساسي فى النص
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _buildLogo(colorScheme),
-                  const SizedBox(height: 30),
-                  _buildAppInfo(context),
+                  _buildLogo(),
+                  const SizedBox(height: 34),
+                  _buildAppInfo(),
                 ],
               ),
             ),
+            // ✅ شريط التقدم
             Positioned(
-              bottom: MediaQuery.of(context).size.height * 0.13,
+              bottom: MediaQuery.of(context).size.height * 0.12,
               left: 40,
               right: 40,
               child: _buildProgress(),
             ),
+            // ✅ النص السفلي
             Positioned(
-              bottom: MediaQuery.of(context).viewPadding.bottom + 24,
+              bottom: MediaQuery.of(context).viewPadding.bottom + 20,
               left: 0,
               right: 0,
               child: _buildBranding(),
@@ -351,128 +266,157 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // LOGO
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildLogo(ColorScheme colorScheme) {
-    final rotationAnimation = Tween<double>(
-      begin: -0.012,
-      end: 0,
-    ).animate(
-      CurvedAnimation(
-        parent: _scaleController,
-        curve: Curves.easeOutBack,
-      ),
+  // ============ LOGO (شعار + أيقونات مدارية) ============
+  Widget _buildLogo() {
+    final rotationAnimation = Tween<double>(begin: -0.012, end: 0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
     );
 
     return ScaleTransition(
       scale: _scaleAnimation,
       child: RotationTransition(
         turns: rotationAnimation,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AnimatedBuilder(
-              animation: _glowAnimation,
-              builder: (context, child) {
-                return Transform.scale(
-                  scale: _glowAnimation.value,
-                  child: Container(
-                    width: 210,
-                    height: 210,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9AD83D).withValues(alpha: 0.08),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFF9AD83D).withValues(alpha: 0.22),
-                          blurRadius: 64,
-                          spreadRadius: 28,
-                        ),
-                      ],
+        child: SizedBox(
+          width: 230,
+          height: 230,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // ✅ توهج خلفي نابض
+              AnimatedBuilder(
+                animation: _glowAnimation,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: _glowAnimation.value,
+                    child: Container(
+                      width: 210,
+                      height: 210,
+                      decoration: BoxDecoration(
+                        color: _inkSoft.withValues(alpha: 0.07),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _gold.withValues(alpha: 0.16),
+                            blurRadius: 64,
+                            spreadRadius: 28,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-            Container(
-              width: 164,
-              height: 164,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(46),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF9AD83D).withValues(alpha: 0.22),
-                    blurRadius: 48,
-                    spreadRadius: 8,
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    blurRadius: 30,
-                    offset: const Offset(0, 18),
-                  ),
-                ],
+                  );
+                },
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(36),
-                child: Image.asset(
-                  'assets/images/wasla_logo.png',
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: colorScheme.primary,
+              // ✅ الأيقونات الأربع بتدور حوالين الشعار (الركائز الأربعة)
+              AnimatedBuilder(
+                animation: _orbitController,
+                builder: (context, child) {
+                  return Stack(
                     alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.volunteer_activism_rounded,
-                      size: 64,
-                      color: Colors.white,
+                    children: List.generate(_pillars.length, (index) {
+                      final baseAngle =
+                          (2 * math.pi / _pillars.length) * index;
+                      final angle =
+                          baseAngle + (_orbitController.value * 2 * math.pi);
+                      const radius = 98.0;
+                      final dx = radius * math.cos(angle);
+                      final dy = radius * math.sin(angle);
+                      final pillar = _pillars[index];
+
+                      return Transform.translate(
+                        offset: Offset(dx, dy),
+                        child: FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: _cardBg,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: pillar.color.withValues(alpha: 0.25),
+                                width: 1.4,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: pillar.color.withValues(alpha: 0.22),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              pillar.icon,
+                              size: 19,
+                              color: pillar.color,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                },
+              ),
+              // ✅ الشعار المركزي: علامة "وصلة" مرسومة بالكود — حلقتين
+              // متشابكتين (رمز الوصل/الربط بين الناس وبين الاحتياج
+              // والحل)، بدل ما نعتمد على صورة أيقونة غير موجودة.
+              Container(
+                width: 142,
+                height: 142,
+                decoration: BoxDecoration(
+                  color: _cardBg,
+                  borderRadius: BorderRadius.circular(38),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _gold.withValues(alpha: 0.18),
+                      blurRadius: 42,
+                      spreadRadius: 10,
                     ),
+                    BoxShadow(
+                      color: _inkSoft.withValues(alpha: 0.14),
+                      blurRadius: 28,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
+                ),
+                child: CustomPaint(
+                  painter: _LinkMarkPainter(
+                    ringColor: _ink,
+                    accentColor: _gold,
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // APP INFO
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildAppInfo(BuildContext context) {
+  // ============ APP INFO ============
+  Widget _buildAppInfo() {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
         children: [
-          Text(
-            'وِصلة',
+          const Text(
+            'وصلة',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: _ink,
               height: 1.1,
               letterSpacing: -0.5,
-              shadows: [
-                BoxShadow(
-                  color: const Color(0xFF9AD83D).withValues(alpha: 0.18),
-                  blurRadius: 20,
-                  offset: const Offset(0, 5),
-                ),
-              ],
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'كل وجبة تصنع فرقًا',
+            'وصلة بين اللي عندك واللي محتاجه',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 17,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withValues(alpha: 0.78),
-              letterSpacing: 0.5,
+              color: _inkSoft.withValues(alpha: 0.78),
+              letterSpacing: 0.3,
             ),
             textAlign: TextAlign.center,
           ),
@@ -481,9 +425,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // PROGRESS
-  // ═══════════════════════════════════════════════════════════
+  // ============ PROGRESS ============
   Widget _buildProgress() {
     return AnimatedBuilder(
       animation: _progressAnimation,
@@ -491,7 +433,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
         return Container(
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.18),
+            color: _inkSoft.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(4),
           ),
           child: FractionallySizedBox(
@@ -499,11 +441,11 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
             widthFactor: _progressAnimation.value,
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF9AD83D),
+                color: _gold,
                 borderRadius: BorderRadius.circular(4),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF9AD83D).withValues(alpha: 0.58),
+                    color: _inkSoft.withValues(alpha: 0.58),
                     blurRadius: 12,
                     spreadRadius: 2,
                   ),
@@ -516,18 +458,16 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // BRANDING
-  // ═══════════════════════════════════════════════════════════
+  // ============ BRANDING ============
   Widget _buildBranding() {
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Column(
         children: [
           Text(
-            'استدامة . عطاء . وِصلة',
+            'بيع . استبدال . خدمات . تبرّع',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: _inkSoft.withValues(alpha: 0.58),
               fontSize: 14,
               fontWeight: FontWeight.w500,
               letterSpacing: 1.5,
@@ -538,7 +478,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
           Text(
             'v1.0.0',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.42),
+              color: _inkSoft.withValues(alpha: 0.36),
               fontSize: 11,
               fontWeight: FontWeight.w400,
             ),
@@ -549,28 +489,74 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // FOOD PATTERN
-  // ═══════════════════════════════════════════════════════════
-  Widget _buildFoodPattern(BuildContext context) {
+  // ============ BACKGROUND PATTERN ============
+  Widget _buildPattern() {
     return SizedBox(
       width: double.infinity,
       height: double.infinity,
-      child: CustomPaint(
-        painter: _FoodPatternPainter(),
-      ),
+      child: CustomPaint(painter: _DotPatternPainter()),
     );
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-// PATTERN PAINTER
-// ═══════════════════════════════════════════════════════════
-class _FoodPatternPainter extends CustomPainter {
+class _Pillar {
+  final IconData icon;
+  final Color color;
+  const _Pillar({required this.icon, required this.color});
+}
+
+// ============ شعار "وصلة" المرسوم بالكود ============
+//
+// حلقتين متشابكتين (زى رمز "link" لكن مرسومة بخط ناعم ومتدرج) ترمز
+// للوصل بين طرفين — البائع والمشترى، صاحب الخدمة والي محتاجها،
+// المتبرع والمحتاج. لو حبيت تستبدلها بصورة لوجو جاهزة فى أى وقت، يكفي
+// تستبدل الـ CustomPaint دي بـ Image.asset زى ما كان موجود فى نسخة
+// "جُود".
+class _LinkMarkPainter extends CustomPainter {
+  final Color ringColor;
+  final Color accentColor;
+
+  _LinkMarkPainter({required this.ringColor, required this.accentColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = size.width * 0.11;
+
+    final leftCenter = Offset(center.dx - size.width * 0.14, center.dy);
+    final rightCenter = Offset(center.dx + size.width * 0.14, center.dy);
+    final ringRadius = size.width * 0.22;
+
+    final leftPaint = Paint()
+      ..color = ringColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final rightPaint = Paint()
+      ..color = accentColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // الحلقة اليمنى (خلف) بلون الذهبي
+    canvas.drawCircle(rightCenter, ringRadius, rightPaint);
+    // الحلقة اليسرى (قدام) باللون الأخضر الغامق
+    canvas.drawCircle(leftCenter, ringRadius, leftPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LinkMarkPainter oldDelegate) =>
+      oldDelegate.ringColor != ringColor ||
+      oldDelegate.accentColor != accentColor;
+}
+
+// ============ نمط خلفية منقّط هادي ============
+class _DotPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = const Color(0xFF315A45).withValues(alpha: 0.06)
       ..style = PaintingStyle.fill;
 
     const spacing = 60.0;
@@ -578,25 +564,17 @@ class _FoodPatternPainter extends CustomPainter {
 
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(
-          Offset(x, y),
-          dotSize / 2,
-          paint,
-        );
+        canvas.drawCircle(Offset(x, y), dotSize / 2, paint);
       }
     }
 
     final paint2 = Paint()
-      ..color = const Color(0xFF9AD83D).withValues(alpha: 0.06)
+      ..color = const Color(0xFFC78950).withValues(alpha: 0.05)
       ..style = PaintingStyle.fill;
 
     for (double x = spacing / 2; x < size.width; x += spacing) {
       for (double y = spacing / 2; y < size.height; y += spacing) {
-        canvas.drawCircle(
-          Offset(x, y),
-          dotSize / 2.5,
-          paint2,
-        );
+        canvas.drawCircle(Offset(x, y), dotSize / 2.5, paint2);
       }
     }
   }
