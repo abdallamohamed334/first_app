@@ -1,6 +1,7 @@
 // lib/core/services/supabase_service.dart
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -1388,14 +1389,12 @@ class SupabaseService {
     }
   }
 
-  Future<String> uploadAvatar(String userId, String imagePath) async {
+  Future<String> uploadAvatar(String userId, Uint8List imageBytes) async {
     try {
       final fileName =
           'avatars/${userId}_${DateTime.now().millisecondsSinceEpoch}.webp';
 
-      final file = File(imagePath);
-
-      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      final encoded = await ImageUploadCodec.fromBytes(imageBytes);
       await adminClient.storage.from('avatars').uploadBinary(
             fileName,
             encoded,
