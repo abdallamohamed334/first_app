@@ -26,15 +26,10 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
 
   bool _loading = true;
 
-  String _filter = 'الكل';
+  String _filter = '';
   String _query = '';
-
-  static const List<String> filters = [
-    'الكل',
-    'ملابس',
-    'أثاث',
-    'إلكترونيات',
-    'أخرى',
+  List<Map<String, String>> _filters = const [
+    {'id': '', 'label': 'الكل'},
   ];
 
   // ============================================================
@@ -102,10 +97,20 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
     }
 
     try {
-      // Community عندنا = symbolic_sale فقط.
-      //
-      // لا نرسل listingType هنا لأن الـRepository
-      // أصبح مسؤولًا عن فرض symbolic_sale.
+      // التصنيفات مصدرها قاعدة البيانات حتى تظل الفلاتر متطابقة مع الحفظ.
+      final categoryRows = await _communityRepository.getActiveCategories();
+      final filters = <Map<String, String>>[
+        {'id': '', 'label': 'الكل'},
+        ...categoryRows
+            .where((category) => category['id'] != null)
+            .map((category) => <String, String>{
+                  'id': category['id'].toString(),
+                  'label': category['name_ar']?.toString().trim().isNotEmpty == true
+                      ? category['name_ar'].toString()
+                      : category['slug'].toString(),
+                })
+            .toList(growable: false),
+      ];
       final rows = await _personOffers();
 
       rows.sort(
@@ -120,6 +125,8 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
 
       setState(() {
         _offers = rows;
+        _filters = filters;
+        if (!_filters.any((item) => item['id'] == _filter)) _filter = '';
         _loading = false;
       });
     } catch (error) {
@@ -425,7 +432,7 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
           row,
         );
 
-        if (_filter != 'الكل') {
+        if (_filter.isNotEmpty) {
           if (!_categoryMatchesFilter(
             row,
             _filter,
@@ -512,33 +519,13 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
 
   bool _categoryMatchesFilter(
     Map<String, dynamic> row,
-    String filter,
+    String categoryId,
   ) {
-    final category = _norm(
-      _categoryArabic(row),
-    );
-
-    final normalizedFilter = _norm(filter);
-
-    if (normalizedFilter == 'ملابس') {
-      return category == 'ملابس';
-    }
-
-    if (normalizedFilter == 'اثاث') {
-      return category == 'اثاث';
-    }
-
-    if (normalizedFilter == 'الكترونيات') {
-      return category == 'الكترونيات';
-    }
-
-    if (normalizedFilter == 'اخري') {
-      return category == 'اخري';
-    }
-
-    return true;
+    final directId = row['category_id']?.toString();
+    final nested = row['community_categories'];
+    final nestedId = nested is Map ? nested['id']?.toString() : null;
+    return directId == categoryId || nestedId == categoryId;
   }
-
   // ============================================================
   // Build
   // ============================================================
@@ -812,21 +799,22 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: filters.length,
+        itemCount: _filters.length,
         separatorBuilder: (_, __) => const SizedBox(
           width: 8,
         ),
         itemBuilder: (_, index) {
-          final value = filters[index];
-
-          final selected = value == _filter;
+          final item = _filters[index];
+          final value = item['label'] ?? '';
+          final id = item['id'] ?? '';
+          final selected = id == _filter;
 
           return ChoiceChip(
             label: Text(value),
             selected: selected,
             onSelected: (_) {
               setState(() {
-                _filter = value;
+                _filter = id;
               });
             },
             selectedColor: colors.primary,
@@ -909,7 +897,7 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
           OutlinedButton.icon(
             onPressed: () {
               setState(() {
-                _filter = 'الكل';
+                _filter = '';
                 _search.clear();
               });
             },

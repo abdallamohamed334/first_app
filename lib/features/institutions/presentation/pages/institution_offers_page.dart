@@ -34,8 +34,6 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     'wedding_hall',
     'game_store',
     'hotel',
-    'home_restaurant',
-    'household_goods',
   };
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _future;
@@ -1328,8 +1326,6 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                             ),
                             child: Text(
                               const {
-                                    'home_restaurant': 'مطاعم منزلية',
-                                    'household_goods': 'أغراض منزلية',
                                     'grocery': 'بقالة وسوبر ماركت',
                                     'supermarket': 'بقالة وسوبر ماركت',
                                     'bakery': 'مخبز',
