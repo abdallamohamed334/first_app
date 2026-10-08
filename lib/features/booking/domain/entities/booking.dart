@@ -11,7 +11,6 @@ class Booking {
   final DateTime? updatedAt;
   final DateTime? completedAt;
   final String? notes;
-  final String? pickupTokenHash;
   final DateTime? pickupTokenExpiresAt;
   final DateTime? pickupTokenUsedAt;
   final String? offerTitle;
@@ -35,7 +34,6 @@ class Booking {
     this.updatedAt,
     this.completedAt,
     this.notes,
-    this.pickupTokenHash,
     this.pickupTokenExpiresAt,
     this.pickupTokenUsedAt,
     this.offerTitle,
@@ -51,13 +49,13 @@ class Booking {
 
   bool get canGenerateQR =>
       status == BookingStatus.readyForPickup &&
-      (pickupTokenHash == null || pickupTokenHash!.isEmpty);
+      (pickupTokenUsedAt != null ||
+          pickupTokenExpiresAt == null ||
+          !DateTime.now().toUtc().isBefore(pickupTokenExpiresAt!.toUtc()));
 
   bool get isTokenValid {
     final expiry = pickupTokenExpiresAt;
-    return pickupTokenHash != null &&
-        pickupTokenHash!.isNotEmpty &&
-        pickupTokenUsedAt == null &&
+    return pickupTokenUsedAt == null &&
         expiry != null &&
         DateTime.now().toUtc().isBefore(expiry.toUtc());
   }
@@ -97,7 +95,6 @@ class Booking {
       updatedAt: _date(json['updated_at']),
       completedAt: _date(json['completed_at']),
       notes: _clean(json['notes']),
-      pickupTokenHash: _clean(json['pickup_token_hash']),
       pickupTokenExpiresAt: _date(json['pickup_token_expires_at']),
       pickupTokenUsedAt: _date(json['pickup_token_used_at']),
       offerTitle: _clean(foodOffer?['title']) ?? _clean(json['offer_title']),
@@ -124,7 +121,6 @@ class Booking {
         'updated_at': updatedAt?.toUtc().toIso8601String(),
         'completed_at': completedAt?.toUtc().toIso8601String(),
         'notes': notes,
-        'pickup_token_hash': pickupTokenHash,
         'pickup_token_expires_at':
             pickupTokenExpiresAt?.toUtc().toIso8601String(),
         'pickup_token_used_at': pickupTokenUsedAt?.toUtc().toIso8601String(),

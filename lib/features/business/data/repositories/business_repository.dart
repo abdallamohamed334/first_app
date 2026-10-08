@@ -197,36 +197,17 @@ class BusinessRepository {
         return false;
       }
 
-      final expiresAt = DateTime.now().add(const Duration(hours: 24));
-
-      final updated = await _supabase.client
-          .from('offer_requests')
-          .update({
-            'status': 'ready_for_pickup',
-            'pickup_token_expires_at': expiresAt.toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', requestId)
-          .inFilter('restaurant_id', restaurantIds)
-          .eq('status', 'accepted')
-          .select('id, user_id, offer_id')
-          .maybeSingle();
-
-      if (updated == null) return false;
-
-      // إنشاء رمز الاستلام إن كانت دالة RPC موجودة.
-      try {
-        await _supabase.client.rpc(
-          'generate_pickup_token',
-          params: {
-            'p_request_id': requestId,
-            'p_user_id': request['user_id'],
-            'p_restaurant_id': restaurantIds.first,
-          },
-        );
-      } catch (e) {
-        print('⚠️ Pickup token generation failed: $e');
-      }
+      final rawResult = await _supabase.client.rpc(
+        'update_food_offer_request_status',
+        params: {
+          'p_request_id': requestId,
+          'p_next_status': 'ready_for_pickup',
+        },
+      );
+      final result = rawResult is List && rawResult.isNotEmpty
+          ? rawResult.first
+          : rawResult;
+      if (result is! Map || result['success'] != true) return false;
 
       try {
         await _supabase.client.rpc(

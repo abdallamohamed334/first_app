@@ -442,8 +442,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
           if (booking.completedAt != null)
             _buildInfoRow(
                 '✅ تاريخ التسليم', _formatDateTime(booking.completedAt!)),
-          if (booking.pickupTokenHash != null)
-            _buildInfoRow('🔑 كود الاستلام', booking.pickupTokenHash!),
         ],
       ),
     );
@@ -517,14 +515,10 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
 
   Widget _buildActions(
       BuildContext context, ColorScheme colorScheme, Booking booking) {
-    // ✅ الحصول على businessId
-    final businessId = booking.businessId ?? '';
-
     return Column(
       children: [
         // ✅ زر QR
-        if (booking.status == BookingStatus.readyForPickup &&
-            businessId.isNotEmpty)
+        if (booking.status == BookingStatus.readyForPickup)
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -534,8 +528,6 @@ class _BookingDetailsPageState extends State<BookingDetailsPage> {
                   MaterialPageRoute(
                     builder: (context) => PickupQRPage(
                       requestId: booking.id,
-                      businessId: businessId,
-                      existingToken: booking.pickupTokenHash,
                     ),
                   ),
                 );

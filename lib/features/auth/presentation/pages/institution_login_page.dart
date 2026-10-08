@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/features/auth/presentation/pages/institution_otp_verify_page.dart';
 import 'package:loqma/features/institutions/domain/entities/institution.dart';
@@ -55,6 +56,15 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     super.dispose();
   }
 
+  SupabaseClient _createTemporaryAuthClient() => SupabaseClient(
+        AppConfig.supabaseUrl,
+        AppConfig.supabaseAnonKey,
+        authOptions: const AuthClientOptions(
+          autoRefreshToken: false,
+          persistSession: false,
+        ),
+      );
+
   // ═══════════════════════════════════════════════════════════
   // LOGIN
   // ═══════════════════════════════════════════════════════════
@@ -67,6 +77,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     });
 
     final client = Supabase.instance.client;
+    final temporaryClient = _createTemporaryAuthClient();
     final email = _emailController.text.trim().toLowerCase();
     final passwordOrCode = _passwordController.text;
 
@@ -75,13 +86,18 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       // لا تستخدم signInWithPassword قبل الفحص، لأن الكود محفوظ كـ hash
       // في قاعدة البيانات وليس كنص عادي في التطبيق.
       if (_isCharity) {
-        await _loginAsCharity(client, email, passwordOrCode);
+        await _loginAsCharity(
+          client,
+          temporaryClient,
+          email,
+          passwordOrCode,
+        );
         return;
       }
 
-      // المؤسسة: كلمة المرور هي العامل الأول، ثم نطلب OTP ثابت من الإدارة.
+      // لا تحفظ الجلسة التشغيلية على العميل الدائم قبل اجتياز العامل الثاني.
       AuthStateNotifier.instance.beginInstitutionOtp();
-      final response = await client.auth.signInWithPassword(
+      final response = await temporaryClient.auth.signInWithPassword(
         email: email,
         password: passwordOrCode,
       );
@@ -91,14 +107,14 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         throw const AuthException('تعذر تسجيل الدخول');
       }
 
-      final institution = await client
+      final institution = await temporaryClient
           .from('institutions')
           .select('id')
           .eq('user_id', authUser.id)
           .maybeSingle();
       final refreshToken = response.session?.refreshToken;
       if (institution == null || refreshToken == null || refreshToken.isEmpty) {
-        await client.auth.signOut(scope: SignOutScope.local);
+        await temporaryClient.auth.signOut(scope: SignOutScope.local);
         AuthStateNotifier.instance.finishInstitutionOtp();
         if (!mounted) return;
         setState(() {
@@ -109,15 +125,26 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         return;
       }
 
-      if (!mounted) return;
+      if (!mounted) {
+        await temporaryClient.auth.signOut(scope: SignOutScope.local);
+        return;
+      }
+      final otpResponse = await temporaryClient.functions.invoke(
+        'send-partner-login-otp',
+        body: {'partnerType': 'institution'},
+      );
+      if (otpResponse.data is! Map || otpResponse.data['success'] != true) {
+        throw const AuthException('تعذر إرسال رمز التحقق إلى الرقم المسجل');
+      }
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => InstitutionOtpVerifyPage(
             verifyCode: (code) async {
-              final verification = await client.rpc(
-                'verify_institution_login_otp',
+              final verification = await temporaryClient.rpc(
+                'verify_partner_login_otp',
                 params: {
-                  'p_institution_id': institution['id'].toString(),
+                  'p_partner_type': 'institution',
+                  'p_partner_id': institution['id'].toString(),
                   'p_otp': code,
                 },
               );
@@ -126,18 +153,20 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
             onVerified: () async {
               try {
                 await client.auth.setSession(refreshToken);
+                await temporaryClient.auth.signOut(scope: SignOutScope.local);
                 await _loginAsInstitution(client, authUser.id);
                 if (client.auth.currentSession == null && mounted) {
                   Navigator.of(context).pop();
                 }
               } catch (_) {
                 await client.auth.signOut(scope: SignOutScope.local);
+                await temporaryClient.auth.signOut(scope: SignOutScope.local);
                 AuthStateNotifier.instance.finishInstitutionOtp();
                 rethrow;
               }
             },
             onCancelled: () async {
-              await client.auth.signOut(scope: SignOutScope.local);
+              await temporaryClient.auth.signOut(scope: SignOutScope.local);
               AuthStateNotifier.instance.finishInstitutionOtp();
             },
           ),
@@ -145,6 +174,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       );
     } on AuthException catch (error) {
       debugPrint('❌ Partner login auth error: ${error.message}');
+      await temporaryClient.auth.signOut(scope: SignOutScope.local);
       AuthStateNotifier.instance.finishInstitutionOtp();
       if (!mounted) return;
       setState(() {
@@ -154,6 +184,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       });
     } catch (error) {
       debugPrint('❌ Partner login error: $error');
+      await temporaryClient.auth.signOut(scope: SignOutScope.local);
       AuthStateNotifier.instance.finishInstitutionOtp();
       if (!mounted) return;
       setState(() {
@@ -168,6 +199,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
 
   Future<void> _loginAsCharity(
     SupabaseClient client,
+    SupabaseClient temporaryClient,
     String email,
     String accessCode,
   ) async {
@@ -195,7 +227,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     // الـ RPC يتحقق من كود الجمعية، لكن Flutter يحتاج Session حقيقية.
     // لذلك يجب أن يكون accessCode هو كلمة مرور حساب Auth للجمعية أيضًا.
     AuthStateNotifier.instance.beginInstitutionOtp();
-    final response = await client.auth.signInWithPassword(
+    final response = await temporaryClient.auth.signInWithPassword(
       email: email,
       password: accessCode,
     );
@@ -214,13 +246,14 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     if (rpcUserId == null || rpcCharityId == null || rpcUserId != authUser.id) {
       await _rejectSession(
         'بيانات الجمعية لا تتطابق مع حساب الدخول. تواصل مع الدعم.',
+        authClient: temporaryClient,
       );
       return;
     }
 
     final status = result['status']?.toString().toLowerCase() ?? 'pending';
 
-    final accountRow = await client
+    final accountRow = await temporaryClient
         .from('users')
         .select('account_status, suspension_until')
         .eq('id', authUser.id)
@@ -230,27 +263,41 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
             'active';
     if (accountStatus != 'active') {
       await _rejectSession(
-          'حساب الجمعية موقوف أو قيد المراجعة. تواصل مع الدعم.');
+        'حساب الجمعية موقوف أو قيد المراجعة. تواصل مع الدعم.',
+        authClient: temporaryClient,
+      );
       return;
     }
 
     if (status == 'rejected') {
-      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة وِصلة.');
+      await _rejectSession(
+        'تم رفض طلب الجمعية. برجاء التواصل مع إدارة وِصلة.',
+        authClient: temporaryClient,
+      );
       return;
     }
 
     if (status == 'suspended' || status == 'inactive') {
-      await _rejectSession('تم إيقاف حساب الجمعية. برجاء التواصل مع الدعم.');
+      await _rejectSession(
+        'تم إيقاف حساب الجمعية. تواصل مع الدعم.',
+        authClient: temporaryClient,
+      );
       return;
     }
 
     if (status == 'pending') {
-      await _rejectSession('حساب الجمعية ما زال تحت المراجعة.');
+      await _rejectSession(
+        'حساب الجمعية ما زال تحت المراجعة.',
+        authClient: temporaryClient,
+      );
       return;
     }
 
     if (status != 'approved' && status != 'active') {
-      await _rejectSession('لا يمكن الدخول بحساب الجمعية حاليًا.');
+      await _rejectSession(
+        'لا يمكن الدخول بحساب الجمعية حاليًا.',
+        authClient: temporaryClient,
+      );
       return;
     }
 
@@ -258,37 +305,62 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     final charityId = rpcCharityId;
     final refreshToken = response.session?.refreshToken;
     if (charityId == null || refreshToken == null || refreshToken.isEmpty) {
-      await _rejectSession('تعذر تجهيز خطوة التحقق، حاول مرة أخرى.');
+      await _rejectSession(
+        'تعذر تجهيز خطوة التحقق، حاول مرة أخرى.',
+        authClient: temporaryClient,
+      );
       return;
+    }
+
+    final otpResponse = await temporaryClient.functions.invoke(
+      'send-partner-login-otp',
+      body: {'partnerType': 'charity'},
+    );
+    if (otpResponse.data is! Map || otpResponse.data['success'] != true) {
+      throw const AuthException('تعذر إرسال رمز التحقق إلى الرقم المسجل');
     }
 
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => InstitutionOtpVerifyPage(
           verifyCode: (code) async {
-            final verification = await client.rpc(
-              'verify_charity_login_otp',
-              params: {'p_charity_id': charityId, 'p_otp': code},
+            final verification = await temporaryClient.rpc(
+              'verify_partner_login_otp',
+              params: {
+                'p_partner_type': 'charity',
+                'p_partner_id': charityId,
+                'p_otp': code,
+              },
             );
             return verification is Map && verification['allowed'] == true;
           },
           onVerified: () async {
-            await client.auth.setSession(refreshToken);
-            AuthStateNotifier.instance.finishInstitutionOtp();
-            AuthStateNotifier.instance.setLoggedIn(
-              isLoggedIn: true,
-              role: 'charity',
-              accountStatus: accountStatus,
-              suspensionUntil: accountRow?['suspension_until'] is String
-                  ? DateTime.tryParse(accountRow!['suspension_until'] as String)
-                  : null,
-              isActive: true,
-              authResolved: true,
-            );
-            if (mounted) context.go(AppRouter.charityHome);
+            try {
+              await client.auth.setSession(refreshToken);
+              await temporaryClient.auth.signOut(scope: SignOutScope.local);
+              AuthStateNotifier.instance.finishInstitutionOtp();
+              AuthStateNotifier.instance.setLoggedIn(
+                isLoggedIn: true,
+                role: 'charity',
+                accountStatus: accountStatus,
+                suspensionUntil: accountRow?['suspension_until'] is String
+                    ? DateTime.tryParse(
+                        accountRow!['suspension_until'] as String,
+                      )
+                    : null,
+                isActive: true,
+                authResolved: true,
+              );
+              if (mounted) context.go(AppRouter.charityHome);
+            } catch (_) {
+              await client.auth.signOut(scope: SignOutScope.local);
+              await temporaryClient.auth.signOut(scope: SignOutScope.local);
+              AuthStateNotifier.instance.finishInstitutionOtp();
+              rethrow;
+            }
           },
           onCancelled: () async {
-            await client.auth.signOut(scope: SignOutScope.local);
+            await temporaryClient.auth.signOut(scope: SignOutScope.local);
             AuthStateNotifier.instance.finishInstitutionOtp();
           },
         ),
@@ -382,8 +454,13 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     }
   }
 
-  Future<void> _rejectSession(String message) async {
-    await Supabase.instance.client.auth.signOut();
+  Future<void> _rejectSession(
+    String message, {
+    SupabaseClient? authClient,
+  }) async {
+    await (authClient ?? Supabase.instance.client)
+        .auth
+        .signOut(scope: SignOutScope.local);
     if (!mounted) return;
     setState(() => _errorMessage = message);
   }
