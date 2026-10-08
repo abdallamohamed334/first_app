@@ -184,9 +184,12 @@ class SeparateCharityDonationRepository {
           'donor_phone': donorPhone.trim(),
           'donor_notes': donorNotes?.trim(),
           'images': images,
-          'status': 'pending',
         })
-        .select()
+        .select('''
+          id, donor_id, charity_id, title, description, category, quantity,
+          condition, pickup_address, donor_phone, donor_notes, images, status,
+          created_at
+        ''')
         .single();
     final donation = Map<String, dynamic>.from(row);
     await _notifyDonationEvent(donation['id']?.toString() ?? '', 'created');
@@ -198,7 +201,7 @@ class SeparateCharityDonationRepository {
     final rows = await _client.from('charity_donation_requests').select('''
       id, title, description, category, quantity, condition, images,
       pickup_address, donor_phone, donor_notes, charity_notes, status,
-      pickup_token, pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
+      pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
       completed_at, created_at, updated_at,
       volunteer_type, volunteer_name, volunteer_phone,
       delivery_type, open_to_independent_volunteers,
@@ -308,7 +311,7 @@ class SeparateCharityDonationRepository {
       pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
       assigned_at, completed_at, created_at, updated_at,
       open_to_independent_volunteers, charity_accepted_at, volunteer_accepted_at,
-      charity_pickup_code, delivery_type, rejection_reason,
+      delivery_type, rejection_reason,
       users:donor_id (id, name, phone, email, avatar_url)
     ''').eq('charity_id', charityId).order('created_at', ascending: false);
 
@@ -648,26 +651,12 @@ class SeparateCharityDonationRepository {
 
   Future<String> getPickupCode(String requestId) async {
     try {
-      final userId = await _currentUserId();
-      final row = await _client
-          .from('charity_donation_requests')
-          .select('pickup_token, status, volunteer_name, volunteer_phone')
-          .eq('id', requestId)
-          .eq('donor_id', userId)
-          .maybeSingle();
-      if (row == null) throw Exception('التبرع غير موجود');
-      final currentStatus = row['status']?.toString().trim().toLowerCase();
-      final representativeAssigned =
-          (row['volunteer_name']?.toString().trim().isNotEmpty ?? false);
-      final canShow = currentStatus == 'volunteer_assigned' ||
-          (currentStatus == 'donor_ready' && representativeAssigned) ||
-          currentStatus == 'picked_up_from_donor' ||
-          currentStatus == 'in_transit';
-      if (!canShow) {
-        throw Exception('سيظهر الكود بعد أن تعيّن الجمعية المندوب');
-      }
-      final code = row['pickup_token']?.toString();
-      if (code == null || code.isEmpty) {
+      final result = await _client.rpc(
+        'get_donor_donation_pickup_token',
+        params: {'p_request_id': requestId},
+      );
+      final code = result?.toString() ?? '';
+      if (code.isEmpty) {
         throw Exception('لم يتم إنشاء كود ثابت لهذا التبرع');
       }
       return code;
@@ -892,13 +881,11 @@ class SeparateCharityDonationRepository {
 
   Future<String> getPickupCodeForVolunteer(String requestId) async {
     try {
-      final row = await _client
-          .from('charity_donation_requests')
-          .select('pickup_token')
-          .eq('id', requestId)
-          .maybeSingle();
-      if (row == null) throw Exception('التبرع غير موجود');
-      return row['pickup_token']?.toString() ?? '';
+      final result = await _client.rpc(
+        'get_assigned_donation_pickup_token',
+        params: {'p_request_id': requestId},
+      );
+      return result?.toString() ?? '';
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -955,13 +942,11 @@ class SeparateCharityDonationRepository {
 
   Future<String> getCharityPickupCode(String requestId) async {
     try {
-      final row = await _client
-          .from('charity_donation_requests')
-          .select('charity_pickup_code')
-          .eq('id', requestId)
-          .maybeSingle();
-      if (row == null) throw Exception('التبرع غير موجود');
-      return row['charity_pickup_code']?.toString() ?? '';
+      final result = await _client.rpc(
+        'get_charity_donation_pickup_code',
+        params: {'p_request_id': requestId},
+      );
+      return result?.toString() ?? '';
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -973,36 +958,11 @@ class SeparateCharityDonationRepository {
     String? charityId,
   }) async {
     try {
-      final row = await _client
-          .from('charity_donation_requests')
-          .select('charity_pickup_code, status')
-          .eq('id', requestId)
-          .maybeSingle();
-
-      if (row == null) {
-        throw Exception('التبرع غير موجود');
-      }
-
-      final storedCode = row['charity_pickup_code']?.toString() ?? '';
-      final currentStatus = row['status']?.toString() ?? '';
-
-      if (currentStatus != 'in_transit') {
-        throw Exception('لا يمكن تأكيد الوصول في هذه الحالة');
-      }
-
-      if (code.trim().isEmpty) {
-        throw Exception('يرجى إدخال كود المتطوع');
-      }
-
-      if (code.trim() != storedCode) {
-        throw Exception('كود المتطوع غير صحيح');
-      }
-
-      await _client.from('charity_donation_requests').update({
-        'status': 'completed',
-        'completed_at': DateTime.now().toIso8601String(),
-        'charity_received_at': DateTime.now().toIso8601String(),
-      }).eq('id', requestId);
+      await _client.rpc('confirm_charity_delivery_with_code', params: {
+        'p_request_id': requestId,
+        'p_code': code.trim(),
+        'p_charity_id': charityId,
+      });
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));

@@ -17,6 +17,8 @@ PROVIDER = ROOT / "lib/features/provider/data/repositories/service_provider_repo
 MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dart"
 LOAD_TEST = ROOT / "load_test.py"
 FIREBASE_OPTIONS = ROOT / "lib/firebase_options.dart"
+CHARITY_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261008234500_harden_charity_donation_access.sql"
+CHARITY_REPOSITORY = ROOT / "lib/features/charity/data/repositories/charity_donation_repository_separate.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -34,6 +36,8 @@ def main() -> None:
     map_page = MAP_PAGE.read_text()
     load_test = LOAD_TEST.read_text()
     firebase_options = FIREBASE_OPTIONS.read_text()
+    charity_access_migration = CHARITY_ACCESS_MIGRATION.read_text()
+    charity_repository = CHARITY_REPOSITORY.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -77,6 +81,17 @@ def main() -> None:
     require(rpc_migration, "list_public_volunteers() FROM anon, PUBLIC", "authenticated-only volunteers RPC")
     for protected in ("id_card_front_url", "id_card_back_url", "profile_locked_at"):
         require(sensitive_grant_migration, protected, f"sensitive provider revoke: {protected}")
+
+    require(charity_access_migration, "REVOKE ALL PRIVILEGES ON TABLE public.charity_donation_requests", "charity donation table privilege reset")
+    require(charity_access_migration, "GRANT UPDATE (charity_notes)", "charity notes-only direct update")
+    require(charity_access_migration, "DROP POLICY IF EXISTS volunteer_open_requests_authenticated", "open volunteer row policy removal")
+    require(charity_access_migration, "get_donor_donation_pickup_token", "donor-owned pickup token RPC")
+    require(charity_access_migration, "get_assigned_donation_pickup_token", "assigned-volunteer pickup token RPC")
+    require(charity_access_migration, "confirm_charity_delivery_with_code", "atomic charity delivery confirmation RPC")
+    if re.search(r"\.select\([^)]*(?<![A-Za-z0-9_])(pickup_token|charity_pickup_code)(?![A-Za-z0-9_])", charity_repository, re.DOTALL):
+        raise AssertionError("charity repository still selects pickup secrets directly")
+    if "'status': 'completed'" in charity_repository or "'charity_pickup_code'" in charity_repository:
+        raise AssertionError("charity repository still writes delivery state or pickup secrets directly")
 
     print("security regression checks: PASS")
 
