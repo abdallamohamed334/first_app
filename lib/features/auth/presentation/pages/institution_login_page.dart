@@ -61,7 +61,6 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         AppConfig.supabaseAnonKey,
         authOptions: const AuthClientOptions(
           autoRefreshToken: false,
-          persistSession: false,
         ),
       );
 
