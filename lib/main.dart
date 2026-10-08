@@ -42,6 +42,8 @@ import 'features/institutions/domain/entities/institution.dart';
 import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
+Future<dynamic>? _supabaseInitialization;
+StreamSubscription<AuthState>? _authStateSubscription;
 
 // Keep dart-define/.env overrides for CI and staging. A public client config
 // asset is also bundled so a manually built APK does not fail at startup when
@@ -103,10 +105,21 @@ Future<void> main() async {
     debugPrint('Supabase initialization skipped: missing client configuration');
   } else {
     try {
-      await Supabase.initialize(
+      final initialization = _supabaseInitialization ??= Supabase.initialize(
         url: supabaseUrl,
         publishableKey: supabaseAnonKey,
-      ).timeout(const Duration(seconds: 5));
+      );
+      try {
+        await initialization.timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        // Future.timeout does not cancel initialization; keep it for retry.
+        rethrow;
+      } catch (_) {
+        if (identical(_supabaseInitialization, initialization)) {
+          _supabaseInitialization = null;
+        }
+        rethrow;
+      }
 
       debugPrint('Supabase initialized successfully');
 
@@ -303,7 +316,9 @@ Future<void> _applyRealtimeAccountState(
 /// مزامنة الجلسة مع users و service_providers و institutions قبل السماح للـ router بالتوجيه.
 /// لا نحدد الدور من users.user_type وحده، لأن الحساب قد يكون مستخدمًا ومزود خدمة.
 void _attachAuthStateSync() {
-  Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+  if (_authStateSubscription != null) return;
+  _authStateSubscription =
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
     final event = data.event;
     final session = data.session;
 
@@ -334,7 +349,7 @@ void _attachAuthStateSync() {
 
     // مهم: لا نضع role=user هنا. ننتظر نتيجة الجدولين أولًا.
     authState.beginSync();
-    debugPrint('🔄 [AuthState] resolving session for $userId');
+    debugPrint('🔄 [AuthState] resolving authenticated session');
 
     try {
       final client = Supabase.instance.client;
@@ -359,7 +374,8 @@ void _attachAuthStateSync() {
       ]);
 
       // تجاهل نتيجة Listener قديمة لو وصل حدث أحدث أثناء الاستعلام.
-      if (generation != _authSyncGeneration) return;
+      if (generation != _authSyncGeneration ||
+          client.auth.currentUser?.id != userId) return;
 
       final profile = results[0] as Map<String, dynamic>?;
       final provider = results[1] as Map<String, dynamic>?;
@@ -377,16 +393,23 @@ void _attachAuthStateSync() {
         debugPrint('⚠️ [AuthState] institution lookup skipped: $error');
       }
 
+      if (generation != _authSyncGeneration ||
+          client.auth.currentUser?.id != userId) return;
+
       if (profile == null) {
-        debugPrint('⚠️ [AuthState] no user row for $userId');
+        debugPrint('⚠️ [AuthState] no user row for the active session');
         authState.clear();
         return;
       }
 
-      final profileRole = (profile['user_type'] ?? profile['role'] ?? 'user')
-          .toString()
+      final storedProfileRole = (profile['user_type'] ?? profile['role'])
+          ?.toString()
           .trim()
           .toLowerCase();
+      final profileRole =
+          storedProfileRole == null || storedProfileRole.isEmpty
+              ? 'unknown'
+              : storedProfileRole;
       final profileComplete = AuthStateNotifier.isCompleteUserProfile(
         profile,
         role: profileRole,

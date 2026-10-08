@@ -1,7 +1,6 @@
 // lib/core/services/supabase_service.dart
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -159,7 +158,7 @@ class SupabaseService {
 
   String _currentDevicePlatform() {
     if (kIsWeb) return 'web';
-    return Platform.operatingSystem;
+    return defaultTargetPlatform.name.toLowerCase();
   }
 
   Future<void> upsertFcmDevice({
@@ -943,46 +942,10 @@ class SupabaseService {
   // OFFER REQUESTS
   // ═══════════════════════════════════════════════════════════
   Future<Map<String, dynamic>> acceptOfferRequest(String requestId) async {
-    try {
-      final request = await client
-          .from('offer_requests')
-          .select('offer_id, user_id, status')
-          .eq('id', requestId)
-          .maybeSingle();
-
-      if (request == null) throw Exception('الطلب غير موجود');
-      if (request['status'] != 'pending') {
-        throw Exception('لا يمكن قبول طلب غير معلق');
-      }
-
-      final offerId = request['offer_id'] as String;
-
-      final updatedRequest = await client
-          .from('offer_requests')
-          .update({
-            'status': 'accepted',
-            'updated_at': DateTime.now().toIso8601String(),
-            'notified_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', requestId)
-          .select()
-          .single();
-
-      await client.from('food_offers').update({
-        'status': 'reserved',
-        'reserved_by': request['user_id'],
-        'reserved_at': DateTime.now().toIso8601String(),
-        'is_paused': true,
-        'paused_at': DateTime.now().toIso8601String(),
-        'paused_reason': 'تم قبول طلب استلام',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', offerId);
-
-      return updatedRequest;
-    } catch (e) {
-      debugPrint('❌ acceptOfferRequest error: $e');
-      rethrow;
-    }
+    return updateOfferRequestStatus(
+      requestId: requestId,
+      status: 'accepted',
+    );
   }
 
   Future<Map<String, dynamic>> rejectOfferRequest(String requestId) async {
@@ -1305,12 +1268,8 @@ class SupabaseService {
   }
 
   Future<String> _getDeviceName() async {
-    try {
-      if (kIsWeb) return 'Web Browser';
-      return Platform.localHostname;
-    } catch (e) {
-      return Platform.operatingSystem;
-    }
+    if (kIsWeb) return 'Web Browser';
+    return defaultTargetPlatform.name;
   }
 
   Future<String> _getAppVersion() async {

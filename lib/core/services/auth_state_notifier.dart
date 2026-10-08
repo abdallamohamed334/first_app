@@ -136,7 +136,7 @@ class AuthStateNotifier extends ChangeNotifier {
       case 'admin':
         return '/admin/account-cases';
       default:
-        return '/institutions-home';
+        return '/account-restricted';
     }
   }
 

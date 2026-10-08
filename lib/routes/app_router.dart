@@ -135,7 +135,33 @@ class AppRouter {
         return loc == accountRestricted ? null : accountRestricted;
       }
 
-      if (loc.startsWith('/admin/') && auth.role != 'admin') {
+      // Unknown or malformed roles must fail closed instead of inheriting an
+      // institution route from a permissive fallback.
+      if (auth.homeRoute == accountRestricted) {
+        return loc == accountRestricted ? null : accountRestricted;
+      }
+
+      if (loc == institutionsHome && auth.homeRoute != institutionsHome) {
+        return auth.homeRoute ?? userTypeSelection;
+      }
+      if (loc == restaurantHome && auth.homeRoute != restaurantHome) {
+        return auth.homeRoute ?? userTypeSelection;
+      }
+      const protectedProviderRoutes = {
+        providerHome,
+        providerPending,
+        providerReviews,
+        providerEditProfile,
+      };
+      if (protectedProviderRoutes.contains(loc) && auth.role != 'provider') {
+        return auth.homeRoute ?? userTypeSelection;
+      }
+      if (loc == charityHome && auth.role != 'charity') {
+        return auth.homeRoute ?? userTypeSelection;
+      }
+
+      if ((loc.startsWith('/admin/') || loc == adminSwapReports) &&
+          auth.role != 'admin') {
         return auth.homeRoute ?? home;
       }
 

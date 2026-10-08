@@ -769,6 +769,7 @@ class UserHomeRepository {
           ''')
           .inFilter('marketplace_category_id', categoryIds)
           .eq('status', 'available')
+          .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
           .order('created_at', ascending: false)
           .limit(200);
 
@@ -876,6 +877,7 @@ class UserHomeRepository {
           ''')
           .inFilter('marketplace_category_id', categoryIds)
           .eq('status', 'active')
+          .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
           .order('created_at', ascending: false)
           .limit(200);
 
@@ -984,6 +986,7 @@ class UserHomeRepository {
           .inFilter('marketplace_category_id', categoryIds)
           .eq('status', 'available')
           .eq('is_paused', false)
+          .gt('expiry_time', DateTime.now().toUtc().toIso8601String())
           .order('created_at', ascending: false)
           .limit(200);
 

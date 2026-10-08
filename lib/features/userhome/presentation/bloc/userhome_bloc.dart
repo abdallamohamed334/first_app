@@ -82,6 +82,8 @@ class ClearCategorySelection extends UserHomeEvent {
 // ============================================================
 
 class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
+  int _loadGeneration = 0;
+
   final UserHomeRepository repository;
   final MapRepository _mapRepository;
   final CommunityOfferRepository _communityRepository;
@@ -124,10 +126,12 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
     UserHomeStarted event,
     Emitter<UserHomeState> emit,
   ) async {
+    final generation = ++_loadGeneration;
     emit(const UserHomeLoading());
 
     try {
       final currentUser = await repository.getCurrentUser();
+      if (generation != _loadGeneration || emit.isDone) return;
 
       if (currentUser == null) {
         emit(const UserHomeUnauthenticated());
@@ -139,6 +143,7 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
       // ------------------------------------------------------
 
       final userData = await repository.getUserData();
+      if (generation != _loadGeneration || emit.isDone) return;
 
       double? userLatitude;
       double? userLongitude;
@@ -207,6 +212,8 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
         repository.getNearbyPlaces(),
         repository.getHomeBanners(),
       ]);
+
+      if (generation != _loadGeneration || emit.isDone) return;
 
       final foodOffers = results[0] as List<FoodOffer>;
       final nearbyOffers = results[1] as List<FoodOffer>;
@@ -282,8 +289,9 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
       // THEN preload main categories in background
       // ------------------------------------------------------
 
-      unawaited(_preloadCategories());
+      unawaited(_preloadCategories(generation));
     } catch (error) {
+      if (generation != _loadGeneration || emit.isDone) return;
       emit(
         UserHomeError(
           _friendlyError(error),
@@ -296,11 +304,12 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
   // PRELOAD CATEGORIES (background)
   // ==========================================================
 
-  Future<void> _preloadCategories() async {
+  Future<void> _preloadCategories(int generation) async {
     try {
       debugPrint('🔥 Loading categories...');
 
       final categories = await repository.getMainCategories();
+      if (generation != _loadGeneration || isClosed) return;
 
       debugPrint('🔥 Categories loaded: ${categories.length}');
 

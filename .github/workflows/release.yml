@@ -22,6 +22,8 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      - name: Security regression checks
+        run: python3 tool/security_regression_check.py
       - name: Production static gate
         run: python3 tool/production_gate.py
       - name: Analyze (errors are fatal; legacy warnings are reported)

@@ -24,6 +24,14 @@ USER_HOME_REPOSITORY = ROOT / "lib/features/userhome/data/repositories/userhome_
 SUPABASE_SERVICE = ROOT / "lib/core/services/supabase_service.dart"
 VOLUNTEER_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/volunteer_donations_tracking_page.dart"
 DONOR_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/community_my_charity_donations_page.dart"
+AUTH_STATE = ROOT / "lib/core/services/auth_state_notifier.dart"
+APP_ROUTER = ROOT / "lib/routes/app_router.dart"
+ONBOARDING_BLOC = ROOT / "lib/features/onboarding/presentation/bloc/onboarding_bloc.dart"
+USER_HOME_BLOC = ROOT / "lib/features/userhome/presentation/bloc/userhome_bloc.dart"
+ERROR_MAPPER = ROOT / "lib/core/errors/app_error_mapper.dart"
+RELEASE_WORKFLOW = ROOT / ".github/workflows/release.yml"
+PROFILE_PAGE = ROOT / "lib/features/auth/presentation/pages/complete_profile_page.dart"
+FOOD_OFFER_MIGRATION = ROOT / "supabase/migrations/20261008235500_atomic_food_offer_request_lifecycle.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -48,6 +56,14 @@ def main() -> None:
     supabase_service = SUPABASE_SERVICE.read_text()
     volunteer_tracking_page = VOLUNTEER_TRACKING_PAGE.read_text()
     donor_tracking_page = DONOR_TRACKING_PAGE.read_text()
+    auth_state = AUTH_STATE.read_text()
+    app_router = APP_ROUTER.read_text()
+    onboarding_bloc = ONBOARDING_BLOC.read_text()
+    user_home_bloc = USER_HOME_BLOC.read_text()
+    error_mapper = ERROR_MAPPER.read_text()
+    release_workflow = RELEASE_WORKFLOW.read_text()
+    profile_page = PROFILE_PAGE.read_text()
+    food_offer_migration = FOOD_OFFER_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -120,6 +136,31 @@ def main() -> None:
     if ".stream(primaryKey: ['id'])" in donor_tracking_page:
         raise AssertionError("donor tracking still streams all donation columns")
     require(donor_tracking_page, "Timer.periodic(", "safe donor status refresh")
+
+    require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
+    require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")
+    require(app_router, "loc == institutionsHome && auth.homeRoute != institutionsHome", "institution route role guard")
+    require(app_router, "protectedProviderRoutes.contains(loc) && auth.role != 'provider'", "provider route role allowlist")
+    require(app_router, "loc == charityHome && auth.role != 'charity'", "charity route role allowlist")
+    require(onboarding_bloc, "setBool('onboarding_seen', true)", "persisted onboarding completion")
+    require(user_home_bloc, "generation != _loadGeneration", "stale UserHome load guard")
+    require(main_dart, "client.auth.currentUser?.id != userId", "session identity recheck after auth sync awaits")
+    require(main_dart, "_supabaseInitialization ??= Supabase.initialize(", "single-flight Supabase initialization")
+    require(main_dart, "storedProfileRole == null || storedProfileRole.isEmpty", "unknown role handling for incomplete profile")
+    if re.search(r"debugPrint\([^\n]*(?:userId|phone|\$name)", main_dart):
+        raise AssertionError("auth logs expose user identifiers or phone/name values")
+    require(user_home_repository, "expires_at.is.null,expires_at.gt.", "community/institution category expiry filters")
+    require(user_home_repository, ".gt('expiry_time', DateTime.now().toUtc().toIso8601String())", "food category expiry filter")
+    if "_bioCtrl" in profile_page:
+        raise AssertionError("profile page offers bio even though public.users has no bio column")
+    require(profile_page, "avatarUrl = await _storage.uploadAvatar(", "avatar upload must succeed before full profile success")
+    require(release_workflow, "python3 tool/security_regression_check.py", "release security gate")
+    require(food_offer_migration, "IF auth.uid() IS NULL", "authenticated food-request lifecycle")
+    require(food_offer_migration, "AND status = 'available'", "single-request reservation guard")
+    require(food_offer_migration, "IF NOT FOUND THEN", "atomic offer reservation failure rollback")
+    for shared_file in (supabase_service, error_mapper):
+        if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
+            raise AssertionError("shared app code imports dart:io and blocks web compilation")
 
     print("security regression checks: PASS")
 

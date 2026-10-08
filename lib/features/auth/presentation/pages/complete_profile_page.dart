@@ -39,7 +39,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final _phoneCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-  final _bioCtrl = TextEditingController();
 
   final _supabase = SupabaseService();
   final _storage = StorageService.instance;
@@ -98,7 +97,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _phoneCtrl.dispose();
     _whatsappCtrl.dispose();
     _addressCtrl.dispose();
-    _bioCtrl.dispose();
     super.dispose();
   }
 
@@ -255,14 +253,10 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     try {
       String? avatarUrl = _avatarUrl;
       if (_avatarFile != null) {
-        try {
-          avatarUrl = await _storage.uploadAvatar(
-            userId: widget.user.id,
-            imageFile: _avatarFile!,
-          );
-        } catch (e) {
-          debugPrint('⚠️ Avatar upload failed: $e');
-        }
+        avatarUrl = await _storage.uploadAvatar(
+          userId: widget.user.id,
+          imageFile: _avatarFile!,
+        );
       }
 
       await _supabase.updateProfile(
@@ -288,8 +282,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
           await _supabase.client
               .from('users')
               .update({'email': emailInput}).eq('id', widget.user.id);
-        } catch (e) {
-          debugPrint('⚠️ Email update failed: $e');
+        } catch (error) {
+          debugPrint('[CompleteProfile] Optional email sync failed: $error');
         }
       }
 
@@ -521,16 +515,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                           : null,
                     ),
                     const SizedBox(height: 16),
-
-                    // ── نبذة
-                    _buildLabel('نبذة عنك (اختياري)'),
-                    _buildField(
-                      controller: _bioCtrl,
-                      hint: 'اكتب نبذة قصيرة عنك',
-                      icon: Icons.info_outline_rounded,
-                      maxLines: 3,
-                    ),
-                    const SizedBox(height: 28),
 
                     // ── Save Button
                     SizedBox(
