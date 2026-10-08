@@ -63,6 +63,9 @@ BEGIN
       WHERE id = r.offer_id
         AND status = 'reserved'
         AND reserved_by = r.user_id;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Accepted offer reservation could not be released';
+      END IF;
     END IF;
   ELSE
     IF business_owner_id IS DISTINCT FROM auth.uid() THEN
