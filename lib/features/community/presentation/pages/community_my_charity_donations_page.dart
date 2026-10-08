@@ -22,7 +22,8 @@ class _CommunityMyCharityDonationsPageState
   late Future<List<Map<String, dynamic>>> _future;
   String _filter = 'all';
   bool _loadingCode = false;
-  StreamSubscription<List<Map<String, dynamic>>>? _donationSubscription;
+  Timer? _donationRefreshTimer;
+  bool _refreshInProgress = false;
   final Map<String, String> _knownStatuses = <String, String>{};
 
   // ─────────────── الألوان ───────────────
@@ -47,12 +48,18 @@ class _CommunityMyCharityDonationsPageState
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null || userId.isEmpty) return;
 
-    _donationSubscription = Supabase.instance.client
-        .from('charity_donation_requests')
-        .stream(primaryKey: ['id']).listen((allRows) {
-      final rows = allRows
-          .where((row) => row['donor_id']?.toString() == userId)
-          .toList();
+    _donationRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshDonationData(),
+    );
+  }
+
+  Future<void> _refreshDonationData() async {
+    if (!mounted || _refreshInProgress) return;
+    _refreshInProgress = true;
+    try {
+      final rows = await _repository.getMyDonations();
+      if (!mounted) return;
       for (final row in rows) {
         final id = row['id']?.toString();
         final status = row['status']?.toString();
@@ -63,32 +70,21 @@ class _CommunityMyCharityDonationsPageState
           _message(_statusLabel(status));
         }
       }
-      if (mounted) {
-        setState(() {
-          _future = _repository.getMyDonations();
-        });
-      }
-    }, onError: (error) {
-      debugPrint('DIRECT CHARITY TRACKING REALTIME ERROR: $error');
-    });
+      setState(() => _future = Future.value(rows));
+    } catch (error) {
+      debugPrint('CHARITY DONATION STATUS REFRESH ERROR: $error');
+    } finally {
+      _refreshInProgress = false;
+    }
   }
 
   @override
   void dispose() {
-    _donationSubscription?.cancel();
+    _donationRefreshTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _refresh() async {
-    final next = _repository.getMyDonations();
-    if (!mounted) return;
-    setState(() {
-      _future = next;
-    });
-    try {
-      await next;
-    } catch (_) {}
-  }
+  Future<void> _refresh() => _refreshDonationData();
 
   Future<void> _showPickupCode(String requestId) async {
     if (_loadingCode) return;

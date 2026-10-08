@@ -300,15 +300,31 @@ class UserHomeRepository {
   // Delivery Tasks
   // ---------------------------------------------------------------------------
 
-  Future<List<Map<String, dynamic>>> getDeliveryTasks() async {
+  Future<List<Map<String, dynamic>>> getDeliveryTasks({
+    required double latitude,
+    required double longitude,
+  }) async {
     try {
-      final response = await _client
-          .from('delivery_tasks')
-          .select('*')
-          .eq('status', 'pending')
-          .limit(10);
-
-      return response.map((item) => Map<String, dynamic>.from(item)).toList();
+      final response = await _client.rpc('nearby_rescue_tasks', params: {
+        'p_lat': latitude,
+        'p_lng': longitude,
+        'p_radius_km': 15.0,
+        'p_limit': 10,
+      });
+      if (response is! List) return [];
+      return response.map((raw) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        return <String, dynamic>{
+          'id': item['id'],
+          'title': item['title'],
+          'donor_name': item['donor_name'],
+          'pickup_location': item['pickup_address'],
+          'delivery_location': item['charity_name'],
+          'quantity': item['quantity'],
+          'distance': item['distance_km'],
+          'pickup_before': item['pickup_before'],
+        };
+      }).toList();
     } catch (e) {
       debugPrint('❌ getDeliveryTasks error: $e');
       return [];
@@ -321,51 +337,20 @@ class UserHomeRepository {
 
   Future<List<DeliveryDonation>> getDeliveryDonations() async {
     try {
-      final response = await _client
-          .from('charity_donation_requests')
-          .select('''
-            *,
-            charities:charity_id (
-              id,
-              name,
-              logo,
-              address,
-              phone
-            ),
-            users:donor_id (
-              id,
-              name,
-              email,
-              avatar_url
-            )
-          ''')
-          .eq('status', 'pending')
-          .order('created_at', ascending: false)
-          .limit(10);
+      final response = await _client.rpc(
+        'list_open_donations_for_volunteers',
+        params: const {'p_city': null},
+      );
+      if (response is! List) return [];
 
       final donations = <DeliveryDonation>[];
 
-      for (final rawJson in response) {
+      for (final raw in response.take(10)) {
         try {
-          final json = Map<String, dynamic>.from(rawJson);
-
-          final charityRaw = json['charities'];
-          final charity = charityRaw is Map
-              ? Map<String, dynamic>.from(charityRaw)
-              : <String, dynamic>{};
-
-          final charityName = charity['name']?.toString() ?? 'جمعية خيرية';
-
-          final donorRaw = json['users'];
-          final donor = donorRaw is Map
-              ? Map<String, dynamic>.from(donorRaw)
-              : <String, dynamic>{};
-
-          final donorName = donor['name']?.toString() ?? 'متبرع';
-
+          final json = Map<String, dynamic>.from(raw as Map);
+          final charityName = json['charity_name']?.toString() ?? 'جمعية خيرية';
           final imagesRaw = json['images'];
           final images = <String>[];
-
           if (imagesRaw is List) {
             for (final image in imagesRaw) {
               final value = image?.toString().trim();
@@ -376,30 +361,27 @@ class UserHomeRepository {
           }
 
           final image = images.isNotEmpty ? images.first : null;
-
-          DateTime createdAt = DateTime.now();
-          final createdAtRaw = json['created_at']?.toString();
-          if (createdAtRaw != null && createdAtRaw.isNotEmpty) {
-            createdAt = DateTime.tryParse(createdAtRaw) ?? DateTime.now();
-          }
+          final createdAt = DateTime.tryParse(
+                json['created_at']?.toString() ?? '',
+              ) ??
+              DateTime.now();
+          final city = json['pickup_city']?.toString() ?? '';
 
           final donation = DeliveryDonation(
             id: json['id']?.toString() ?? '',
             title: json['title']?.toString() ?? 'تبرع طعام',
             description: json['description']?.toString() ?? '',
-            pickupLocation: json['pickup_location']?.toString() ?? 'غير محدد',
-            deliveryLocation:
-                json['delivery_location']?.toString() ?? 'غير محدد',
+            pickupLocation: city.isEmpty ? 'يظهر بعد قبول المهمة' : city,
+            deliveryLocation: charityName,
             distance: 0.0,
             quantity: _toInt(json['quantity']) ?? 0,
-            foodType: json['food_type']?.toString() ?? 'وجبات',
-            status: json['status']?.toString() ?? 'pending',
-            donorName: donorName,
-            donorImage: donor['avatar_url']?.toString(),
+            foodType: json['category']?.toString() ?? 'وجبات',
+            status: json['status']?.toString() ?? 'volunteer_needed',
+            donorName: 'متبرع',
             createdAt: createdAt,
             image: image,
             charityName: charityName,
-            city: json['pickup_city']?.toString() ?? '',
+            city: city,
           );
 
           donations.add(donation);

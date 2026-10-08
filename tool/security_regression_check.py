@@ -19,6 +19,11 @@ LOAD_TEST = ROOT / "load_test.py"
 FIREBASE_OPTIONS = ROOT / "lib/firebase_options.dart"
 CHARITY_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261008234500_harden_charity_donation_access.sql"
 CHARITY_REPOSITORY = ROOT / "lib/features/charity/data/repositories/charity_donation_repository_separate.dart"
+FEED_RLS_MIGRATION = ROOT / "supabase/migrations/20261008235000_harden_user_feed_rls.sql"
+USER_HOME_REPOSITORY = ROOT / "lib/features/userhome/data/repositories/userhome_repository.dart"
+SUPABASE_SERVICE = ROOT / "lib/core/services/supabase_service.dart"
+VOLUNTEER_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/volunteer_donations_tracking_page.dart"
+DONOR_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/community_my_charity_donations_page.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -38,6 +43,11 @@ def main() -> None:
     firebase_options = FIREBASE_OPTIONS.read_text()
     charity_access_migration = CHARITY_ACCESS_MIGRATION.read_text()
     charity_repository = CHARITY_REPOSITORY.read_text()
+    feed_rls_migration = FEED_RLS_MIGRATION.read_text()
+    user_home_repository = USER_HOME_REPOSITORY.read_text()
+    supabase_service = SUPABASE_SERVICE.read_text()
+    volunteer_tracking_page = VOLUNTEER_TRACKING_PAGE.read_text()
+    donor_tracking_page = DONOR_TRACKING_PAGE.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -92,6 +102,24 @@ def main() -> None:
         raise AssertionError("charity repository still selects pickup secrets directly")
     if "'status': 'completed'" in charity_repository or "'charity_pickup_code'" in charity_repository:
         raise AssertionError("charity repository still writes delivery state or pickup secrets directly")
+
+    require(feed_rls_migration, "CREATE POLICY favorites_owner_select", "owner-scoped favorites RLS")
+    require(feed_rls_migration, "CREATE POLICY delivery_tasks_assigned_volunteer_read", "assigned-task RLS")
+    require(feed_rls_migration, "SECURITY DEFINER", "secured rescue-list RPC")
+    require(feed_rls_migration, "موقع الاستلام الدقيق متاح بعد قبول المهمة", "redacted pre-claim location")
+    require(feed_rls_migration, "AND pickup_before > now()", "unexpired atomic task claim")
+    require(feed_rls_migration, "REVOKE EXECUTE ON FUNCTION public.nearby_rescue_tasks", "anon rescue-list revoke")
+    if ".from('delivery_tasks')" in user_home_repository or ".from('charity_donation_requests')" in user_home_repository:
+        raise AssertionError("UserHome still directly reads open task/donation rows")
+    require(user_home_repository, "list_open_donations_for_volunteers", "safe open-donation RPC")
+    require(supabase_service, ".select('id, title, description, points_required, image, is_active')", "safe rewards catalog columns")
+    require(supabase_service, "json['image'] ?? json['image_url']", "live rewards image column mapping")
+    if "charity_pickup_code" in volunteer_tracking_page or re.search(r"\.select\(['\"]\s*\*", volunteer_tracking_page):
+        raise AssertionError("volunteer tracking page selects a private pickup code or all donation columns")
+    require(volunteer_tracking_page, "getCharityPickupCode(_donationId)", "authorized charity code RPC")
+    if ".stream(primaryKey: ['id'])" in donor_tracking_page:
+        raise AssertionError("donor tracking still streams all donation columns")
+    require(donor_tracking_page, "Timer.periodic(", "safe donor status refresh")
 
     print("security regression checks: PASS")
 

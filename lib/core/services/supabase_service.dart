@@ -35,10 +35,10 @@ class RewardData {
   factory RewardData.fromJson(Map<String, dynamic> json) {
     return RewardData(
       id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
       pointsRequired: json['points_required'] as int? ?? 0,
-      imageUrl: json['image_url'] as String?,
+      imageUrl: (json['image'] ?? json['image_url'])?.toString(),
       isActive: json['is_active'] as bool? ?? true,
     );
   }
@@ -49,7 +49,7 @@ class RewardData {
       'title': title,
       'description': description,
       'points_required': pointsRequired,
-      'image_url': imageUrl,
+      'image': imageUrl,
       'is_active': isActive,
     };
   }
@@ -653,7 +653,7 @@ class SupabaseService {
 
       final rewardsResponse = await adminClient
           .from('rewards')
-          .select()
+          .select('id, title, description, points_required, image, is_active')
           .eq('is_active', true)
           .order('points_required', ascending: true);
 

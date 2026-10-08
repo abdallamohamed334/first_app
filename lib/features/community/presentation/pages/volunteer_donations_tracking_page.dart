@@ -82,17 +82,21 @@ class _VolunteerDonationsTrackingPageState
           .client
           .from('charity_donation_requests')
           .select('''
-            *,
-            charities:charity_id (id, name, logo),
-            users:donor_id (id, name, phone)
+            id, title, description, quantity, images, pickup_address,
+            pickup_city, donor_phone, status, created_at, updated_at,
+            volunteer_accepted_at, donor_pickup_confirmed_at,
+            charity_received_at, completed_at,
+            charities:charity_id (id, name, logo)
           ''')
           .eq('volunteer_id', user.id)
           .order('created_at', ascending: false);
 
       final List<Map<String, dynamic>> donations = [];
       for (var item in response) {
-        final charity = item['charities'] as Map<String, dynamic>?;
-        final donor = item['users'] as Map<String, dynamic>?;
+        final charityRaw = item['charities'];
+        final charity = charityRaw is Map
+            ? Map<String, dynamic>.from(charityRaw)
+            : const <String, dynamic>{};
 
         // ✅ نفس فلترة الروابط الصالحة الموجودة في صفحة التفاصيل بالظبط
         final rawImages = item['images'];
@@ -111,10 +115,10 @@ class _VolunteerDonationsTrackingPageState
           'images': images,
           'pickup_address': item['pickup_address'] ?? '',
           'pickup_city': item['pickup_city'] ?? '',
-          'charity_name': charity?['name'] ?? 'جمعية خيرية',
-          'charity_logo': charity?['logo'],
-          'donor_name': donor?['name'] ?? 'متبرع',
-          'donor_phone': donor?['phone'],
+          'charity_name': charity['name'] ?? 'جمعية خيرية',
+          'charity_logo': charity['logo'],
+          'donor_name': 'متبرع',
+          'donor_phone': item['donor_phone'],
           'status': item['status']?.toString() ?? 'volunteer_assigned',
           'created_at': item['created_at'],
           'updated_at': item['updated_at'],
@@ -122,10 +126,7 @@ class _VolunteerDonationsTrackingPageState
           'donor_pickup_confirmed_at': item['donor_pickup_confirmed_at'],
           'charity_received_at': item['charity_received_at'],
           'completed_at': item['completed_at'],
-          'charity_pickup_code': item['charity_pickup_code'],
-          // نمرر الـ map الأصلي كامل زي ما هو عشان صفحة التفاصيل تحتاجه
-          'charities': item['charities'],
-          'users': item['users'],
+          'charities': charity,
         });
       }
 
@@ -306,10 +307,15 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
   @override
   void initState() {
     super.initState();
-    // ✅ لو الكود موجود أصلاً في الـ donation، استخدمه
-    final existing = widget.donation['charity_pickup_code']?.toString();
-    if (existing != null && existing.isNotEmpty) {
-      _charityCode = existing;
+    if (_status == 'in_transit') _loadCharityCode();
+  }
+
+  Future<void> _loadCharityCode() async {
+    try {
+      final code = await widget.repository.getCharityPickupCode(_donationId);
+      if (mounted) setState(() => _charityCode = code);
+    } catch (error) {
+      debugPrint('CHARITY PICKUP CODE LOAD ERROR: $error');
     }
   }
 

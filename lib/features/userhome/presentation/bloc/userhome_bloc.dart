@@ -196,7 +196,12 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
                 offset: 0,
               )
             : Future.value(<Map<String, dynamic>>[]),
-        repository.getDeliveryTasks(),
+        hasLocation
+            ? repository.getDeliveryTasks(
+                latitude: userLatitude!,
+                longitude: userLongitude!,
+              )
+            : Future.value(<Map<String, dynamic>>[]),
         repository.getDeliveryDonations(),
         repository.getCommunityStats(),
         repository.getNearbyPlaces(),
