@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 
 void main() {
   final repository = ServiceProviderRepository();

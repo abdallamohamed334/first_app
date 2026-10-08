@@ -2,17 +2,17 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/theme/theme_notifier.dart';
+import 'package:loqma/core/theme/theme_notifier.dart';
 
-import 'package:wasla/core/models/user_model.dart';
-import 'package:wasla/core/services/storage_service.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/auth/presentation/pages/location_picker_page.dart';
+import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/core/services/storage_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
 
-import 'package:wasla/features/auth/presentation/pages/login_page.dart';
-import 'package:wasla/features/community/presentation/pages/my_community_needs_page.dart';
-import 'package:wasla/features/community/presentation/pages/community_my_requests_page.dart';
-import 'package:wasla/features/swap/presentation/pages/swap_pages.dart';
+import 'package:loqma/features/auth/presentation/pages/login_page.dart';
+import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
+import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/profile_bloc.dart';

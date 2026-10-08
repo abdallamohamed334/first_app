@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:wasla/core/errors/app_error_mapper.dart';
-import 'package:wasla/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
+import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
 
 class BusinessRestaurantDirectDonationPage extends StatefulWidget {
   const BusinessRestaurantDirectDonationPage({super.key});

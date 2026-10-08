@@ -1,10 +1,10 @@
 ﻿// lib/features/community/presentation/pages/community_my_offers_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
-import 'package:wasla/features/community/presentation/pages/add_community_offer_page.dart';
-import 'package:wasla/features/community/presentation/utils/offer_expiry_helper.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 import '../../data/repositories/community_my_offers_repository.dart';
 
 class CommunityMyOffersPage extends StatefulWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/core/pickup/data/repositories/pickup_repository.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/pickup/data/repositories/pickup_repository.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class PickupScanPage extends StatefulWidget {

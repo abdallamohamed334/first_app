@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/notification/domain/entities/notification.dart';
+import 'package:loqma/features/notification/domain/entities/notification.dart';
 
 OverlayEntry? _activeNotificationEntry;
 Timer? _notificationDismissTimer;

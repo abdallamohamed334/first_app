@@ -7,7 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/routes/app_router.dart';
 import 'package:universal_html/html.dart' as html;
 
 import '../../../../core/services/location_service.dart';

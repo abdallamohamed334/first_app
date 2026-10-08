@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 part 'charity_event.dart';
 part 'charity_state.dart';

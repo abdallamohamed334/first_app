@@ -1,7 +1,7 @@
 // lib/features/volunteer/presentation/widgets/volunteer_list_item.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/volunteer/presentation/models/volunteer_model.dart';
+import 'package:loqma/features/volunteer/presentation/models/volunteer_model.dart';
 
 class VolunteerListItem extends StatelessWidget {
   final VolunteerModel volunteer;

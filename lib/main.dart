@@ -3,11 +3,11 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:wasla/features/business/restaurant/data/repositories/session_aware_scope.dart';
+import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
 import 'features/map/data/repositories/map_repository_impl.dart';
-import 'package:wasla/features/notification/notification_injection.dart';
-import 'package:wasla/features/userhome/data/repositories/userhome_repository.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/features/notification/notification_injection.dart';
+import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:loqma/routes/app_router.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';

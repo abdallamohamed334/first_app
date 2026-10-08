@@ -2,11 +2,11 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:wasla/features/services/data/repositories/service_providers_repository.dart';
-import 'package:wasla/features/services/domain/entities/service_category.dart';
-import 'package:wasla/features/services/domain/entities/service_provider.dart';
-import 'package:wasla/features/services/presentation/pages/service_provider_details_page.dart';
-import 'package:wasla/core/constants/egypt_locations.dart';
+import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
+import 'package:loqma/features/services/domain/entities/service_category.dart';
+import 'package:loqma/features/services/domain/entities/service_provider.dart';
+import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceCategoryPage extends StatefulWidget {

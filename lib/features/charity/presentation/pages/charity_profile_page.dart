@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:wasla/core/services/loqma_image_storage_service.dart';
+import 'package:loqma/core/services/loqma_image_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wasla/features/auth/presentation/pages/login_page.dart';
+import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
 class CharityProfilePage extends StatefulWidget {
   const CharityProfilePage({super.key});

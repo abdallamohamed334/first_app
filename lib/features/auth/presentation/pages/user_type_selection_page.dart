@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/routes/app_router.dart';
 
 class UserTypeSelectionPage extends StatelessWidget {
   const UserTypeSelectionPage({super.key});

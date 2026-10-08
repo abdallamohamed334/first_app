@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
-import 'package:wasla/features/community/presentation/pages/community_charities_page.dart';
-import 'package:wasla/features/community/presentation/pages/community_charity_details_page.dart';
-import 'package:wasla/features/community/presentation/pages/community_charity_option.dart';
+import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
+import 'package:loqma/features/community/presentation/pages/community_charities_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_charity_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_charity_option.dart';
 
 /// Home section for verified, active charities.
 /// It intentionally renders at most three cards; the full list remains available

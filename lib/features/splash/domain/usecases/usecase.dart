@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wasla/core/errors/failures.dart';
+import 'package:loqma/core/errors/failures.dart';
 
 /// Base class for all use cases
 abstract class UseCase<Type, Params> {

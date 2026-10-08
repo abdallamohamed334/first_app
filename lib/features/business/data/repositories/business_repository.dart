@@ -1,5 +1,5 @@
-import 'package:wasla/core/models/business.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/models/business.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 class BusinessRepository {
   final SupabaseService _supabase;

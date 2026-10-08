@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dartz/dartz.dart' as dartz;
 import 'package:go_router/go_router.dart';
-import 'package:wasla/core/repositories/auth_repository.dart';
-import 'package:wasla/core/models/user_model.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/core/repositories/auth_repository.dart';
+import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/routes/app_router.dart';
 
-import 'package:wasla/core/services/firebase_messaging_service.dart';
+import 'package:loqma/core/services/firebase_messaging_service.dart';
 
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';

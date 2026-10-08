@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/home_level_progress.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/models/user_model.dart';
+import 'package:loqma/core/models/user_model.dart';
 
 class HomeLevelProgress extends StatelessWidget {
   final UserModel user;

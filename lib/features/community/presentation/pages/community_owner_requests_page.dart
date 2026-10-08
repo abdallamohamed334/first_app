@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/features/community/data/repositories/community_requests_repository.dart';
-import 'package:wasla/core/errors/app_error_mapper.dart';
+import 'package:loqma/features/community/data/repositories/community_requests_repository.dart';
+import 'package:loqma/core/errors/app_error_mapper.dart';
 import 'community_qr_scanner_page.dart';
 
 class CommunityOwnerRequestsPage extends StatefulWidget {

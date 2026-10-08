@@ -1,8 +1,8 @@
 // lib/features/marketplace/data/datasources/marketplace_remote_datasource.dart
 
-import 'package:wasla/features/marketplace/data/models/marketplace_attribute_model.dart';
-import 'package:wasla/features/marketplace/data/models/marketplace_attribute_option_model.dart';
-import 'package:wasla/features/marketplace/data/models/marketplace_offer_model.dart';
+import 'package:loqma/features/marketplace/data/models/marketplace_attribute_model.dart';
+import 'package:loqma/features/marketplace/data/models/marketplace_attribute_option_model.dart';
+import 'package:loqma/features/marketplace/data/models/marketplace_offer_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MarketplaceRemoteDataSource {

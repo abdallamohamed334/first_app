@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 
 class MyDirectCharityDonationsPage extends StatefulWidget {
   const MyDirectCharityDonationsPage({super.key});

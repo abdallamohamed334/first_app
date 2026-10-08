@@ -1,10 +1,10 @@
 // lib/features/community/presentation/pages/community_needs_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/community/data/repositories/community_needs_repository.dart';
-import 'package:wasla/features/community/presentation/pages/community_need_details_page.dart';
-import 'package:wasla/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
+import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
 
 class CommunityNeedsPage extends StatefulWidget {
   const CommunityNeedsPage({super.key});

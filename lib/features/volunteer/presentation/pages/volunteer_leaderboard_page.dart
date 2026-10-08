@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import '../bloc/volunteer_bloc.dart';
 import '../bloc/volunteer_event.dart';
 import '../bloc/volunteer_state.dart';

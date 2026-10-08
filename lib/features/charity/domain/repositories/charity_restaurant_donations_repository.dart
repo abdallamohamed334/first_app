@@ -1,7 +1,7 @@
 // lib/features/charity/domain/repositories/charity_restaurant_donations_repository.dart
 
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 class CharityRestaurantDonationsRepository {
   final SupabaseClient _client = SupabaseService().client;

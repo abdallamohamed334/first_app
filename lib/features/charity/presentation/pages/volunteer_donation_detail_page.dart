@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ✅ أضفنا الاستيراد عشان Clipboard
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class VolunteerDonationDetailPage extends StatefulWidget {

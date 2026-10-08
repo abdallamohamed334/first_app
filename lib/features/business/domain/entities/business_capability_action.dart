@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/core/models/business.dart';
-import 'package:wasla/features/business/domain/entities/business_capability.dart';
+import 'package:loqma/core/models/business.dart';
+import 'package:loqma/features/business/domain/entities/business_capability.dart';
 
 class BusinessCapabilityAction extends StatelessWidget {
   final Business business;

@@ -1,8 +1,8 @@
 // lib/features/institutions/presentation/pages/institutions_home_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/auth/presentation/pages/login_page.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
 import '../../data/repositories/institutions_repository.dart';
 import '../../data/repositories/institution_offers_repository.dart';

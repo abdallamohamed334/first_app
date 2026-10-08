@@ -1,7 +1,7 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 class FcmService {
   final SupabaseClient client;

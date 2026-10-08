@@ -3,10 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:wasla/core/services/auth_state_notifier.dart';
-import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
-import 'package:wasla/features/provider/presentation/utils/service_category_icons.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
+import 'package:loqma/routes/app_router.dart';
 
 class ProviderProfilePage extends StatefulWidget {
   const ProviderProfilePage({super.key});

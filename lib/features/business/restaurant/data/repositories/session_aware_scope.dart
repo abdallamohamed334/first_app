@@ -2,18 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/services/auth_identity_resolver.dart';
-import 'package:wasla/core/services/firebase_messaging_service.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/booking/data/repositories/booking_repository.dart';
-import 'package:wasla/features/booking/presentation/bloc/booking_bloc.dart';
-import 'package:wasla/features/business/data/repositories/business_repository.dart';
-import 'package:wasla/features/business/presentation/bloc/business_dashboard_bloc.dart';
-import 'package:wasla/features/charity/presentation/bloc/charity_bloc.dart';
-import 'package:wasla/features/map/presentation/bloc/map_bloc.dart';
-import 'package:wasla/features/notification/presentation/bloc/notification_bloc.dart';
-import 'package:wasla/features/notification/notification_injection.dart';
-import 'package:wasla/features/volunteer/presentation/bloc/volunteer_bloc.dart';
+import 'package:loqma/core/services/auth_identity_resolver.dart';
+import 'package:loqma/core/services/firebase_messaging_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
+import 'package:loqma/features/booking/presentation/bloc/booking_bloc.dart';
+import 'package:loqma/features/business/data/repositories/business_repository.dart';
+import 'package:loqma/features/business/presentation/bloc/business_dashboard_bloc.dart';
+import 'package:loqma/features/charity/presentation/bloc/charity_bloc.dart';
+import 'package:loqma/features/map/presentation/bloc/map_bloc.dart';
+import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
+import 'package:loqma/features/notification/notification_injection.dart';
+import 'package:loqma/features/volunteer/presentation/bloc/volunteer_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Keeps the provider tree mounted while the auth session changes.

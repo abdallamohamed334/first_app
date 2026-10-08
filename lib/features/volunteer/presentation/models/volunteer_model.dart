@@ -1,6 +1,6 @@
 // lib/features/volunteer/presentation/models/volunteer_model.dart
 
-import 'package:wasla/core/models/user_model.dart';
+import 'package:loqma/core/models/user_model.dart';
 
 // ✅ VolunteerModel
 class VolunteerModel {

@@ -1,4 +1,4 @@
-import 'package:wasla/features/notification/domain/repositories/notification_repository.dart';
+import 'package:loqma/features/notification/domain/repositories/notification_repository.dart';
 
 class MarkAllAsRead {
   final NotificationRepository repository;

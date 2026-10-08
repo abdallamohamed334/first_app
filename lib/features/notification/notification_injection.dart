@@ -1,9 +1,9 @@
 import 'package:get_it/get_it.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/notification/data/datasources/notification_remote_datasource.dart';
-import 'package:wasla/features/notification/data/repositories/notification_repository_impl.dart';
-import 'package:wasla/features/notification/domain/repositories/notification_repository.dart';
-import 'package:wasla/features/notification/presentation/bloc/notification_bloc.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/notification/data/datasources/notification_remote_datasource.dart';
+import 'package:loqma/features/notification/data/repositories/notification_repository_impl.dart';
+import 'package:loqma/features/notification/domain/repositories/notification_repository.dart';
+import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'domain/usecases/get_notifications.dart';

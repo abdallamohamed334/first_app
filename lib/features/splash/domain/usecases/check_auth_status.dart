@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
-import 'package:wasla/core/errors/failures.dart';
-import 'package:wasla/features/splash/domain/usecases/usecase.dart';
+import 'package:loqma/core/errors/failures.dart';
+import 'package:loqma/features/splash/domain/usecases/usecase.dart';
 import '../repositories/auth_repository.dart';
 
 @injectable

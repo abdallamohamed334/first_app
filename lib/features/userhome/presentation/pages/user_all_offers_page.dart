@@ -4,17 +4,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/charity/presentation/pages/person_offer_details_page.dart';
-import 'package:wasla/features/notification/presentation/bloc/notification_bloc.dart';
-import 'package:wasla/features/notification/presentation/bloc/notification_state.dart';
-import 'package:wasla/features/notification/presentation/pages/notifications_page.dart';
-import 'package:wasla/features/offers/domain/entities/food_offer.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
+import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
+import 'package:loqma/features/notification/presentation/bloc/notification_state.dart';
+import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
+import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:wasla/features/userhome/data/repositories/userhome_repository.dart';
-import 'package:wasla/features/userhome/presentation/bloc/userhome_bloc.dart';
-import 'package:wasla/features/userhome/presentation/bloc/userhome_state.dart';
-import 'package:wasla/features/userhome/presentation/pages/my_restaurant_requests_tab.dart';
+import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
+import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:loqma/features/userhome/presentation/pages/my_restaurant_requests_tab.dart';
 
 class UserAllOffersPage extends StatefulWidget {
   final List<FoodOffer>? offers;

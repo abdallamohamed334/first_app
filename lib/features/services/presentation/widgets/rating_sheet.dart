@@ -1,7 +1,7 @@
 // lib/features/services/presentation/widgets/rating_sheet.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/services/data/repositories/service_providers_repository.dart';
+import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 
 class RatingSheet extends StatefulWidget {
   final String providerId;

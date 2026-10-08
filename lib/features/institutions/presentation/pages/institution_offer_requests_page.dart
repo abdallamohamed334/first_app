@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repositories/institution_offers_repository.dart';

@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:wasla/core/services/auth_state_notifier.dart';
-import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/routes/app_router.dart';
 
 import 'provider_dashboard_page.dart';
 import 'provider_reviews_page.dart';

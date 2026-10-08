@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/home_offers_list.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/offers/domain/entities/food_offer.dart';
+import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class HomeOffersList extends StatelessWidget {

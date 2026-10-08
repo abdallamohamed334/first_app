@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:wasla/features/userhome/presentation/pages/category_offers_page.dart';
+import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
 
 class SubCategoriesPage extends StatefulWidget {
   final String parentId;

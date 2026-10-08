@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/community/presentation/pages/community_offers_page.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/presentation/pages/community_offers_page.dart';
 
 class CommunityHomeOffersSection extends StatefulWidget {
   const CommunityHomeOffersSection({super.key});

@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/home_nearby_places.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/models/nearby_place.dart';
+import 'package:loqma/core/models/nearby_place.dart';
 
 class HomeNearbyPlaces extends StatelessWidget {
   final List<NearbyPlace> places;

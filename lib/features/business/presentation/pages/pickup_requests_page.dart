@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/business/data/repositories/business_repository.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/business/data/repositories/business_repository.dart';
 
 class PickupRequestsPage extends StatefulWidget {
   final String businessId;

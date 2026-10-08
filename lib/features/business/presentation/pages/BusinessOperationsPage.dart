@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/features/business/data/repositories/restaurant_operations_repository.dart';
+import 'package:loqma/features/business/data/repositories/restaurant_operations_repository.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:wasla/core/errors/app_error_mapper.dart';
+import 'package:loqma/core/errors/app_error_mapper.dart';
 
 class BusinessOperationsPage extends StatefulWidget {
   const BusinessOperationsPage({super.key});

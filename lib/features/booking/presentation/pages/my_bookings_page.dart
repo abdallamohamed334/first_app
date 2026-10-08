@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/core/pickup/presentation/pages/pickup_qr_page.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/booking/data/repositories/booking_repository.dart';
-import 'package:wasla/features/booking/domain/entities/booking.dart';
+import 'package:loqma/core/pickup/presentation/pages/pickup_qr_page.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
+import 'package:loqma/features/booking/domain/entities/booking.dart';
 import '../bloc/booking_bloc.dart';
 import 'booking_details_page.dart';
 

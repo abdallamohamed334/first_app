@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/booking/domain/entities/booking.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/booking/domain/entities/booking.dart';
 
 class BookingRepository {
   final SupabaseService _supabase;

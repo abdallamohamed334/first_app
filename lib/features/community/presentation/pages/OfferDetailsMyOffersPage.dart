@@ -1,9 +1,9 @@
 // lib/features/community/presentation/pages/offer_details_myoffers_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/config/app_config.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/community/presentation/pages/user_profile_page.dart';
+import 'package:loqma/core/config/app_config.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 
 class OfferDetailsMyOffersPage extends StatefulWidget {
   final Map<String, dynamic> offer;

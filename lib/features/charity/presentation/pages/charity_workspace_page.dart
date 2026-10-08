@@ -1,16 +1,16 @@
 // lib/features/charity/presentation/pages/charity_workspace_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_bottom_nav_bar.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_donation_requests_page.dart';
-import 'package:wasla/features/institutions/presentation/pages/charity_institution_donations_page.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_bottom_nav_bar.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_donation_requests_page.dart';
+import 'package:loqma/features/institutions/presentation/pages/charity_institution_donations_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
-import 'package:wasla/features/charity/data/repositories/charity_institution_donations_repository.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_profile_page.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_notifications_page.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_volunteers_management_page.dart';
-import 'package:wasla/features/charity/presentation/pages/charity_restaurant_donations_page.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/features/charity/data/repositories/charity_institution_donations_repository.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_profile_page.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_notifications_page.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_volunteers_management_page.dart';
+import 'package:loqma/features/charity/presentation/pages/charity_restaurant_donations_page.dart';
 
 class CharityWorkspacePage extends StatefulWidget {
   const CharityWorkspacePage({super.key});

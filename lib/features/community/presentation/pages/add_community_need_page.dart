@@ -5,8 +5,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/community/data/repositories/community_needs_repository.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 
 class AddCommunityNeedPage extends StatefulWidget {
   final String? needId;

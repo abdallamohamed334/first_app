@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 import '../../domain/entities/institution_offer.dart';
 import '../../domain/entities/institution_offer_request.dart';

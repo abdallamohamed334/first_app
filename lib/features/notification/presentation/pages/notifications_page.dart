@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wasla/features/donation/presentation/pages/offer_details_page.dart';
-import 'package:wasla/features/community/presentation/pages/community_my_requests_page.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/features/donation/presentation/pages/offer_details_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import '../bloc/notification_bloc.dart';
 import '../bloc/notification_event.dart';
 import '../bloc/notification_state.dart';

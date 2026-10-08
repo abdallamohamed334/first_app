@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wasla/core/errors/app_error_mapper.dart';
-import 'package:wasla/core/services/auth_state_notifier.dart';
-import 'package:wasla/core/services/otp_service.dart';
-import 'package:wasla/core/models/user_model.dart';
-import 'package:wasla/features/auth/presentation/pages/user_profile_setup_flow.dart';
+import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/core/services/otp_service.dart';
+import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/features/auth/presentation/pages/user_profile_setup_flow.dart';
 
 void main() {
   group('AppErrorMapper', () {

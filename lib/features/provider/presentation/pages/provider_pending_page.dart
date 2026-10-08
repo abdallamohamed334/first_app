@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:wasla/core/services/auth_state_notifier.dart';
-import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
-import 'package:wasla/routes/app_router.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/routes/app_router.dart';
 
 class ProviderPendingPage extends StatefulWidget {
   final Map<String, dynamic>? provider;

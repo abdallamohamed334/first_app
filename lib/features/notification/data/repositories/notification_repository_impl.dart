@@ -2,10 +2,10 @@
 // 6️⃣ notification_repository_impl.dart
 // ============================================================
 import 'package:dartz/dartz.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/features/notification/data/datasources/notification_remote_datasource.dart';
-import 'package:wasla/features/notification/domain/entities/notification.dart';
-import 'package:wasla/features/notification/domain/repositories/notification_repository.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/notification/data/datasources/notification_remote_datasource.dart';
+import 'package:loqma/features/notification/domain/entities/notification.dart';
+import 'package:loqma/features/notification/domain/repositories/notification_repository.dart';
 
 class NotificationRepositoryImpl implements NotificationRepository {
   final NotificationRemoteDataSource remoteDataSource;

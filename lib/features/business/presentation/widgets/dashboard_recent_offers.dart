@@ -1,8 +1,8 @@
 // lib/features/business/presentation/widgets/dashboard_recent_offers.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/services/supabase_service.dart';
-import 'package:wasla/core/widgets/loqma_lazy_image.dart';
+import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/widgets/loqma_lazy_image.dart';
 
 class DashboardRecentOffers extends StatefulWidget {
   final String businessId;

@@ -1,7 +1,7 @@
 // lib/features/business/presentation/bloc/business_dashboard_state.dart
 
 import 'package:equatable/equatable.dart';
-import 'package:wasla/core/models/business.dart';
+import 'package:loqma/core/models/business.dart';
 
 abstract class BusinessDashboardState extends Equatable {
   const BusinessDashboardState();

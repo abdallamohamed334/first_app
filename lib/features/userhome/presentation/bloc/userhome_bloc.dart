@@ -5,15 +5,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:wasla/core/models/community_stats.dart';
-import 'package:wasla/core/models/nearby_place.dart';
-import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
-import 'package:wasla/features/offers/domain/entities/food_offer.dart';
-import 'package:wasla/features/map/data/repositories/map_repository.dart';
-import 'package:wasla/features/userhome/data/repositories/userhome_repository.dart';
-import 'package:wasla/features/userhome/presentation/bloc/userhome_state.dart';
-import 'package:wasla/features/userhome/presentation/widgets/home_banner_carousel.dart';
-import 'package:wasla/features/userhome/presentation/widgets/home_delivery_donations.dart';
+import 'package:loqma/core/models/community_stats.dart';
+import 'package:loqma/core/models/nearby_place.dart';
+import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
+import 'package:loqma/features/offers/domain/entities/food_offer.dart';
+import 'package:loqma/features/map/data/repositories/map_repository.dart';
+import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_banner_carousel.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_delivery_donations.dart';
 
 // ============================================================
 // EVENTS

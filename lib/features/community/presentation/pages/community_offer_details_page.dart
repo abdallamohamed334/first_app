@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wasla/core/config/app_config.dart';
-import 'package:wasla/core/widgets/ad_banner_card.dart';
-import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
-import 'package:wasla/features/community/presentation/pages/user_profile_page.dart';
+import 'package:loqma/core/config/app_config.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
+import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
+import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
 
 class CommunityOfferDetailsPage extends StatefulWidget {
   final Map<String, dynamic> offer;

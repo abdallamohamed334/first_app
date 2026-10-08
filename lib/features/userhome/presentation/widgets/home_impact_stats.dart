@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/home_impact_stats.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/core/models/community_stats.dart';
+import 'package:loqma/core/models/community_stats.dart';
 
 class HomeImpactStats extends StatelessWidget {
   final CommunityStats stats;

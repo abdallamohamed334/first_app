@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:injectable/injectable.dart';
-import 'package:wasla/core/errors/failures.dart';
+import 'package:loqma/core/errors/failures.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../../../core/data/datasources/local/auth_local_datasource.dart';
 

@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:injectable/injectable.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import '../models/volunteer_model.dart';
 import 'volunteer_event.dart';
 import 'volunteer_state.dart';

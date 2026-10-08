@@ -1,7 +1,7 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:wasla/core/services/image_upload_codec.dart';
+import 'package:loqma/core/services/image_upload_codec.dart';
 
 class SwapRepository {
   final SupabaseClient _client;

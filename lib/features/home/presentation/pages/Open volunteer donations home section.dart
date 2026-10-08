@@ -1,9 +1,9 @@
 // lib/features/home/presentation/widgets/open_volunteer_donations_home_section.dart
 
 import 'package:flutter/material.dart';
-import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
-import 'package:wasla/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
-import 'package:wasla/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
+import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
+import 'package:loqma/features/home/presentation/pages/all_open_volunteer_donations_page.dart';
 
 class OpenVolunteerDonationsHomeSection extends StatefulWidget {
   const OpenVolunteerDonationsHomeSection({super.key});

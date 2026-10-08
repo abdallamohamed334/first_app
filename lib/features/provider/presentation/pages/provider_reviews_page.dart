@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
-import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 
 double? _providerDouble(dynamic value) {
   if (value == null) return null;

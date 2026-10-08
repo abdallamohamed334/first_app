@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:wasla/core/errors/app_error_mapper.dart';
-import 'package:wasla/features/business/domain/entities/business_capability.dart';
-import 'package:wasla/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
-import 'package:wasla/features/business/restaurant/presentation/widgets/business_restaurant_widgets.dart';
-import 'package:wasla/features/business/restaurant/presentation/widgets/business_restaurant_state_widgets.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_offers_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_create_offer_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_direct_donation_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_pickup_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_profile_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_donations_page.dart';
-import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_requests_page.dart';
+import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:loqma/features/business/domain/entities/business_capability.dart';
+import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
+import 'package:loqma/features/business/restaurant/presentation/widgets/business_restaurant_widgets.dart';
+import 'package:loqma/features/business/restaurant/presentation/widgets/business_restaurant_state_widgets.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_offers_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_create_offer_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_direct_donation_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_pickup_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_profile_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_donations_page.dart';
+import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_requests_page.dart';
 
 class BusinessRestaurantPage extends StatefulWidget {
   final String? businessId;

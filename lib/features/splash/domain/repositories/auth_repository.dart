@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
-import 'package:wasla/core/errors/failures.dart';
-import 'package:wasla/core/services/supabase_service.dart';
+import 'package:loqma/core/errors/failures.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 
 abstract class AuthRepository {
   AuthRepository(SupabaseService supabaseService);

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wasla/core/widgets/ad_banner_card.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';

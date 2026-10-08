@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:wasla/features/swap/data/swap_repository.dart';
+import 'package:loqma/features/swap/data/swap_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SwapListingsPage extends StatefulWidget {
