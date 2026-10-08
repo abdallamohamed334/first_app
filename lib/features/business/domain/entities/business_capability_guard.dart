@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/business/domain/entities/business_capability.dart';
+import 'package:wasla/features/business/domain/entities/business_capability.dart';
 
 class BusinessCapabilityGuard {
   const BusinessCapabilityGuard._();

@@ -1,7 +1,7 @@
 // lib/features/home/presentation/widgets/home_leaderboard.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class HomeLeaderboard extends StatefulWidget {
   const HomeLeaderboard({super.key});

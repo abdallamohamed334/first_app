@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/swap/data/swap_repository.dart';
+import 'package:wasla/features/swap/data/swap_repository.dart';
 
 class SwapReportsPage extends StatefulWidget {
   const SwapReportsPage({super.key});

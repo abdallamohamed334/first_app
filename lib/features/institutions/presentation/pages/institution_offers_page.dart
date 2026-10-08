@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:loqma/core/constants/egypt_locations.dart';
+import 'package:wasla/core/constants/egypt_locations.dart';
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
 import 'institution_offer_details_page.dart';

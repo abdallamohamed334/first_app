@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:loqma/features/provider/presentation/pages/widgets/provider_status_guard.dart';
+import 'package:wasla/features/provider/presentation/pages/widgets/provider_status_guard.dart';
 
 import '../core/services/auth_state_notifier.dart';
 import '../features/splash/presentation/pages/splash_page.dart';

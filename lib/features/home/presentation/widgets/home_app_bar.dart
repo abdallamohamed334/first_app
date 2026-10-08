@@ -1,5 +1,5 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:loqma/core/models/user_model.dart';
+import 'package:wasla/core/models/user_model.dart';
 
 class HomeAppBar extends StatelessWidget {
   final UserModel user;

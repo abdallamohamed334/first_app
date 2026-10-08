@@ -8,9 +8,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:loqma/core/services/location_service.dart';
-import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
-import 'package:loqma/core/constants/egypt_locations.dart';
+import 'package:wasla/core/services/location_service.dart';
+import 'package:wasla/features/provider/data/repositories/service_provider_repository.dart';
+import 'package:wasla/core/constants/egypt_locations.dart';
 
 class ProviderEditProfilePage extends StatefulWidget {
   const ProviderEditProfilePage({super.key});

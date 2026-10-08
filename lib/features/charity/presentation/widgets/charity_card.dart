@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:loqma/core/widgets/page_transition.dart';
-import 'package:loqma/core/widgets/loqma_lazy_image.dart';
+import 'package:wasla/core/widgets/page_transition.dart';
+import 'package:wasla/core/widgets/loqma_lazy_image.dart';
 import '../pages/charity_details_page.dart';
 
 class CharityCard extends StatelessWidget {

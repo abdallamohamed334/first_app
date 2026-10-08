@@ -3,13 +3,13 @@
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
-import 'package:loqma/core/models/community_stats.dart';
-import 'package:loqma/core/models/nearby_place.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer.dart';
-import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
-import 'package:loqma/features/userhome/presentation/widgets/home_banner_carousel.dart';
-import 'package:loqma/features/userhome/presentation/widgets/home_delivery_donations.dart';
+import 'package:wasla/core/models/community_stats.dart';
+import 'package:wasla/core/models/nearby_place.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/offers/domain/entities/food_offer.dart';
+import 'package:wasla/features/userhome/domain/entities/category_offer.dart';
+import 'package:wasla/features/userhome/presentation/widgets/home_banner_carousel.dart';
+import 'package:wasla/features/userhome/presentation/widgets/home_delivery_donations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserHomeRepository {

@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 
-import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
+import 'package:wasla/features/swap/presentation/pages/swap_pages.dart';
 import 'my_community_needs_page.dart';
 import 'community_my_charity_donations_page.dart';
 import 'community_my_offers_page.dart';

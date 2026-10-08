@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:loqma/core/utils/validators.dart';
+import 'package:wasla/core/utils/validators.dart';
 
 void main() {
   group('Validators', () {

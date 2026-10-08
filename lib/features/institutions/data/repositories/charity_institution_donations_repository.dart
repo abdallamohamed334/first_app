@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class CharityInstitutionDonationsRepository {
   final SupabaseClient _client;

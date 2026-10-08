@@ -1,5 +1,5 @@
-import 'package:loqma/core/pickup/domain/entities/pickup_token.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/pickup/domain/entities/pickup_token.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class PickupRepository {
   final SupabaseService _supabase;

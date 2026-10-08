@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/charity/presentation/pages/add_charity_donation_page.dart';
+import 'package:wasla/features/community/presentation/pages/add_community_offer_page.dart';
 
 class HomeCharitiesAndActionsSection extends StatefulWidget {
   const HomeCharitiesAndActionsSection({super.key});

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/core/services/auth_identity_resolver.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/core/services/auth_identity_resolver.dart';
 import 'package:go_router/go_router.dart';
-import 'package:loqma/routes/app_router.dart';
-import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
+import 'package:wasla/routes/app_router.dart';
+import 'package:wasla/features/charity/presentation/pages/add_charity_donation_page.dart';
 
 class CharityDetailsPage extends StatefulWidget {
   final Map<String, dynamic> charity;

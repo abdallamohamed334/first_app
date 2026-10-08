@@ -1,7 +1,7 @@
 // lib/features/institutions/presentation/pages/report_product_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/features/institutions/data/repositories/institutions_repository.dart';
+import 'package:wasla/features/institutions/data/repositories/institutions_repository.dart';
 
 class ReportProductPage extends StatefulWidget {
   final String offerId;

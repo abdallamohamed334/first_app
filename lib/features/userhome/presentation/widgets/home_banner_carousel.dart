@@ -3,9 +3,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/institutions/presentation/pages/institution_offer_details_page.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer.dart';
 
 class HomeBanner {
   final String id;

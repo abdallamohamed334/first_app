@@ -1,9 +1,9 @@
 // lib/features/services/data/repositories/service_providers_repository.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/services/domain/entities/service_provider.dart';
-import 'package:loqma/features/services/domain/entities/service_review.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/services/domain/entities/service_provider.dart';
+import 'package:wasla/features/services/domain/entities/service_review.dart';
 
 class ServiceProvidersRepository {
   final _client = SupabaseService().client;

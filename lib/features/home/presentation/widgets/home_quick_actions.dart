@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:loqma/core/widgets/page_transition.dart';
-import 'package:loqma/features/charity/presentation/pages/charities_page.dart';
+import 'package:wasla/core/widgets/page_transition.dart';
+import 'package:wasla/features/charity/presentation/pages/charities_page.dart';
 
 class HomeQuickActions extends StatelessWidget {
   const HomeQuickActions({super.key});

@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/community/data/repositories/community_needs_repository.dart';
+import 'package:wasla/features/community/presentation/pages/add_community_need_page.dart';
 
 class CommunityNeedDetailsPage extends StatefulWidget {
   final String needId;

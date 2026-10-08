@@ -1,7 +1,7 @@
 // lib/features/institutions/presentation/pages/institution_booking_search_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
+import 'package:wasla/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'institution_booking_details_page.dart';
 
 // ✅ تعريف الألوان خارج الكلاس

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:loqma/features/community/data/repositories/community_requests_repository.dart';
-import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:wasla/features/community/data/repositories/community_requests_repository.dart';
+import 'package:wasla/core/errors/app_error_mapper.dart';
 
 class CommunityMyRequestsPage extends StatefulWidget {
   const CommunityMyRequestsPage({super.key});

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class DirectCharityQrScannerPage extends StatefulWidget {

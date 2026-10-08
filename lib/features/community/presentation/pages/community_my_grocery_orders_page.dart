@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer_request.dart';
-import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer_request.dart';
+import 'package:wasla/features/institutions/data/repositories/institution_offers_repository.dart';
+import 'package:wasla/features/institutions/presentation/pages/institution_offer_details_page.dart';
 
 enum _OrderFilter { active, finished }
 

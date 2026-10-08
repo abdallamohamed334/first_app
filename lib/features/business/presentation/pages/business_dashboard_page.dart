@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/business/domain/entities/business_capability.dart';
+import 'package:wasla/features/business/domain/entities/business_capability.dart';
 
-import 'package:loqma/core/models/business.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/business/data/repositories/business_repository.dart';
-import 'package:loqma/features/business/presentation/pages/BusinessOperationsPage.dart';
-import 'package:loqma/features/business/presentation/pages/pickup_requests_page.dart';
-import 'package:loqma/features/business/presentation/pages/scan_qr_page.dart';
-import 'package:loqma/features/business/presentation/pages/add_offer_page.dart';
-import 'package:loqma/features/auth/presentation/pages/login_page.dart';
+import 'package:wasla/core/models/business.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/business/data/repositories/business_repository.dart';
+import 'package:wasla/features/business/presentation/pages/BusinessOperationsPage.dart';
+import 'package:wasla/features/business/presentation/pages/pickup_requests_page.dart';
+import 'package:wasla/features/business/presentation/pages/scan_qr_page.dart';
+import 'package:wasla/features/business/presentation/pages/add_offer_page.dart';
+import 'package:wasla/features/auth/presentation/pages/login_page.dart';
 
 class BusinessDashboardPage extends StatefulWidget {
   final String businessId;

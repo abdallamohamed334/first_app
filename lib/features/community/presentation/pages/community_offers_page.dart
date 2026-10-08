@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
+import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
 
 class CommunityOffersPage extends StatefulWidget {
   const CommunityOffersPage({super.key});

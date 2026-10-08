@@ -17,7 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:loqma/routes/app_router.dart';
+import 'package:wasla/routes/app_router.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:loqma/features/community/data/repositories/community_requests_repository.dart';
-import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:wasla/features/community/data/repositories/community_requests_repository.dart';
+import 'package:wasla/core/errors/app_error_mapper.dart';
 
 class CommunityQrScannerPage extends StatefulWidget {
   const CommunityQrScannerPage({super.key});

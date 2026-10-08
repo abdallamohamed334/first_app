@@ -3,23 +3,23 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:loqma/core/config/app_config.dart';
+import 'package:wasla/core/config/app_config.dart';
 
-import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
+import 'package:wasla/features/charity/presentation/pages/person_offer_details_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer.dart';
+import 'package:wasla/features/institutions/presentation/pages/institution_offer_details_page.dart';
 
-import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute.dart';
-import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute_option.dart';
-import 'package:loqma/features/marketplace/domain/entities/marketplace_offer.dart';
-import 'package:loqma/features/marketplace/presentation/bloc/marketplace_bloc.dart';
-import 'package:loqma/features/marketplace/presentation/bloc/marketplace_event.dart';
-import 'package:loqma/features/marketplace/presentation/bloc/marketplace_state.dart';
+import 'package:wasla/features/marketplace/domain/entities/marketplace_attribute.dart';
+import 'package:wasla/features/marketplace/domain/entities/marketplace_attribute_option.dart';
+import 'package:wasla/features/marketplace/domain/entities/marketplace_offer.dart';
+import 'package:wasla/features/marketplace/presentation/bloc/marketplace_bloc.dart';
+import 'package:wasla/features/marketplace/presentation/bloc/marketplace_event.dart';
+import 'package:wasla/features/marketplace/presentation/bloc/marketplace_state.dart';
 
-import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
-import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
-import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:wasla/features/userhome/domain/entities/category_offer.dart';
+import 'package:wasla/features/userhome/presentation/bloc/userhome_bloc.dart';
+import 'package:wasla/features/userhome/presentation/bloc/userhome_state.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS

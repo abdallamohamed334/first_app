@@ -5,8 +5,8 @@ import 'dart:typed_data';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:loqma/core/services/image_upload_codec.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/image_upload_codec.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 import '../../domain/entities/institution.dart';
 import '../../domain/entities/institution_offer.dart';

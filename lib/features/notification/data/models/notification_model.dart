@@ -1,4 +1,4 @@
-import 'package:loqma/features/notification/domain/entities/notification.dart';
+import 'package:wasla/features/notification/domain/entities/notification.dart';
 
 class NotificationModel extends AppNotification {
   const NotificationModel({

@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
-import 'package:loqma/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/charity/presentation/pages/volunteer_donation_detail_page.dart';
 
 // ثوابت الألوان - نفس ألوان صفحة التفاصيل بالظبط عشان يبقوا متطابقين بصريًا
 const _green = Color(0xFF0B7650);

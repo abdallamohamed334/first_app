@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_action_feedback.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/charity/presentation/pages/charity_action_feedback.dart';
 
 /// صفحة تبرعات المطاعم للجمعية.
 ///

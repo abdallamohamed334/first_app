@@ -1,11 +1,11 @@
 // lib/features/charity/presentation/pages/charity_donation_requests_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_action_feedback.dart';
-import 'package:loqma/features/charity/presentation/pages/charity_person_donation_details_page.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/auth/presentation/pages/login_page.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/charity/presentation/pages/charity_action_feedback.dart';
+import 'package:wasla/features/charity/presentation/pages/charity_person_donation_details_page.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/auth/presentation/pages/login_page.dart';
 
 class CharityDonationRequestsPage extends StatefulWidget {
   const CharityDonationRequestsPage({super.key});

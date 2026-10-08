@@ -1,7 +1,7 @@
 // lib/core/services/whatsapp_service.dart
 
 import 'package:flutter/foundation.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class WhatsAppService {
   final _client = SupabaseService().client;

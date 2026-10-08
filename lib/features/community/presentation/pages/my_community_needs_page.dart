@@ -1,9 +1,9 @@
 // lib/features/community/presentation/pages/my_community_needs_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
-import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:wasla/features/community/data/repositories/community_needs_repository.dart';
+import 'package:wasla/features/community/presentation/pages/community_need_details_page.dart';
+import 'package:wasla/features/community/presentation/pages/add_community_need_page.dart';
 
 enum _NeedSort { newest, oldest, urgent }
 

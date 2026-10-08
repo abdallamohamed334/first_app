@@ -1,7 +1,7 @@
 // lib/features/institutions/presentation/pages/institution_edit_offer_dialog.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
+import 'package:wasla/features/institutions/data/repositories/institution_offers_repository.dart';
 
 class InstitutionEditOfferDialog extends StatefulWidget {
   final Map<String, dynamic> offer;

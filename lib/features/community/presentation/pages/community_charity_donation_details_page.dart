@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
 
 class CommunityCharityDonationDetailsPage extends StatefulWidget {
   final Map<String, dynamic> donation;

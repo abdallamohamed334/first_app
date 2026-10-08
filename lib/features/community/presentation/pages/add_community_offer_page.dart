@@ -5,11 +5,11 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
-import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
-import 'package:loqma/features/marketplace/data/repositories/marketplace_repository_impl.dart';
-import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute.dart';
-import 'package:loqma/features/marketplace/domain/entities/marketplace_attribute_option.dart';
+import 'package:wasla/features/auth/presentation/pages/location_picker_page.dart';
+import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
+import 'package:wasla/features/marketplace/data/repositories/marketplace_repository_impl.dart';
+import 'package:wasla/features/marketplace/domain/entities/marketplace_attribute.dart';
+import 'package:wasla/features/marketplace/domain/entities/marketplace_attribute_option.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T) test) {

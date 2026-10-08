@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_page.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
-import 'package:loqma/features/business/restaurant/presentation/widgets/business_restaurant_state_widgets.dart';
+import 'package:wasla/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
+import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_page.dart';
+import 'package:wasla/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
+import 'package:wasla/features/business/restaurant/presentation/widgets/business_restaurant_state_widgets.dart';
 
 class BusinessRestaurantRequestsPage extends StatefulWidget {
   final BusinessRestaurantRepository? repository;

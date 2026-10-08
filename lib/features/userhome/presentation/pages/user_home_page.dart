@@ -10,47 +10,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:loqma/core/config/app_config.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/core/theme/theme_notifier.dart';
+import 'package:wasla/core/config/app_config.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/core/theme/theme_notifier.dart';
 
-import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart';
-import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
-import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
-import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_needs_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
-import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
-import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
-import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
-import 'package:loqma/features/notification/presentation/pages/notifications_page.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
-import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
+import 'package:wasla/features/booking/presentation/pages/my_bookings_page.dart';
+import 'package:wasla/features/charity/presentation/pages/add_charity_donation_page.dart';
+import 'package:wasla/features/charity/presentation/pages/person_offer_details_page.dart';
+import 'package:wasla/features/community/data/repositories/community_needs_repository.dart';
+import 'package:wasla/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:wasla/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_need_details_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_needs_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_tracking_page.dart';
+import 'package:wasla/features/community/presentation/pages/my_community_needs_page.dart';
+import 'package:wasla/features/community/presentation/utils/offer_expiry_helper.dart';
+import 'package:wasla/features/institutions/data/repositories/institution_offers_repository.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer.dart';
+import 'package:wasla/features/institutions/presentation/pages/institution_offer_details_page.dart';
+import 'package:wasla/features/notification/presentation/pages/notifications_page.dart';
+import 'package:wasla/features/offers/domain/entities/food_offer.dart';
+import 'package:wasla/features/offers/domain/entities/food_offer_status.dart';
+import 'package:wasla/features/profile/presentation/pages/profile_page.dart';
 // ✅ خدمات
-import 'package:loqma/features/services/data/repositories/service_categories_repository.dart';
-import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
-import 'package:loqma/features/services/domain/entities/service_category.dart';
-import 'package:loqma/features/services/domain/entities/service_provider.dart';
-import 'package:loqma/features/services/presentation/pages/service_category_page.dart';
-import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
-import 'package:loqma/features/services/presentation/pages/service_providers_map_page.dart';
-import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
-import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
-import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
-import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
-import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
-import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
-import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
-import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
-import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
-import 'package:loqma/features/swap/data/swap_repository.dart';
+import 'package:wasla/features/services/data/repositories/service_categories_repository.dart';
+import 'package:wasla/features/services/data/repositories/service_providers_repository.dart';
+import 'package:wasla/features/services/domain/entities/service_category.dart';
+import 'package:wasla/features/services/domain/entities/service_provider.dart';
+import 'package:wasla/features/services/presentation/pages/service_category_page.dart';
+import 'package:wasla/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:wasla/features/services/presentation/pages/service_providers_map_page.dart';
+import 'package:wasla/features/userhome/presentation/bloc/userhome_bloc.dart';
+import 'package:wasla/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:wasla/features/userhome/data/repositories/userhome_repository.dart';
+import 'package:wasla/features/userhome/domain/entities/category_offer.dart';
+import 'package:wasla/features/userhome/presentation/pages/category_offers_page.dart';
+import 'package:wasla/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
+import 'package:wasla/features/userhome/presentation/pages/user_all_offers_page.dart';
+import 'package:wasla/features/userhome/presentation/pages/user_institution_offers_page.dart';
+import 'package:wasla/features/swap/presentation/pages/swap_pages.dart';
+import 'package:wasla/features/swap/data/swap_repository.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات

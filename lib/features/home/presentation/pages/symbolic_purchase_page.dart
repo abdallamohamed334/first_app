@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
+import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
 
 class SymbolicPurchasePage extends StatefulWidget {
   const SymbolicPurchasePage({super.key});

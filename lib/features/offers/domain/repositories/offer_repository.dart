@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import 'package:loqma/core/errors/failures.dart';
+import 'package:wasla/core/errors/failures.dart';
 import '../entities/food_offer.dart';
 
 abstract class OfferRepository {

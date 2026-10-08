@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
+import 'package:wasla/core/models/user_model.dart';
+import 'package:wasla/features/userhome/presentation/pages/user_home_page.dart'
     as user_home;
 
 import 'complete_profile_page.dart';

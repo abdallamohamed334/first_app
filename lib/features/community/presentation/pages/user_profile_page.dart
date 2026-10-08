@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:wasla/features/community/data/repositories/community_offer_repository.dart';
+import 'package:wasla/features/community/presentation/pages/community_offer_details_page.dart';
 import 'package:url_launcher/url_launcher.dart'; // ✅ أضف الاستيراد
 
 class UserProfilePage extends StatefulWidget {

@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
-import 'package:loqma/core/models/community_stats.dart';
-import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer.dart';
-import 'package:loqma/features/offers/domain/entities/offer_request_status.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart'; // ✅ أضف الـ import
+import 'package:wasla/core/models/community_stats.dart';
+import 'package:wasla/core/models/user_model.dart';
+import 'package:wasla/features/offers/domain/entities/food_offer.dart';
+import 'package:wasla/features/offers/domain/entities/offer_request_status.dart';
+import 'package:wasla/features/institutions/domain/entities/institution_offer.dart'; // ✅ أضف الـ import
 
 abstract class HomeState extends Equatable {
   const HomeState();

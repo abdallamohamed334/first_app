@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/offers/domain/entities/food_offer.dart';
+import 'package:wasla/features/offers/domain/entities/food_offer.dart';
 
 class BuyPage extends StatefulWidget {
   final List<FoodOffer> offers;

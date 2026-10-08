@@ -1,10 +1,10 @@
 // lib/features/booking/presentation/pages/booking_details_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/core/pickup/presentation/pages/pickup_qr_page.dart';
-import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
-import 'package:loqma/features/booking/domain/entities/booking.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/core/pickup/presentation/pages/pickup_qr_page.dart';
+import 'package:wasla/features/booking/data/repositories/booking_repository.dart';
+import 'package:wasla/features/booking/domain/entities/booking.dart';
 
 class BookingDetailsPage extends StatefulWidget {
   final String bookingId;

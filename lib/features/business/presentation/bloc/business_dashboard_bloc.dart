@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:loqma/core/models/business.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/business/data/repositories/business_repository.dart';
+import 'package:wasla/core/models/business.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/business/data/repositories/business_repository.dart';
 
 // ============ EVENTS ============
 abstract class BusinessDashboardEvent extends Equatable {

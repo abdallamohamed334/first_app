@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/auth/presentation/pages/login_page.dart';
-import 'package:loqma/features/institutions/data/repositories/institutions_repository.dart';
-import 'package:loqma/features/institutions/domain/entities/institution.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/auth/presentation/pages/login_page.dart';
+import 'package:wasla/features/institutions/data/repositories/institutions_repository.dart';
+import 'package:wasla/features/institutions/domain/entities/institution.dart';
 
 class InstitutionProfilePage extends StatefulWidget {
   final Institution institution;

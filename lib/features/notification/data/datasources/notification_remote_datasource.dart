@@ -1,4 +1,4 @@
-import 'package:loqma/features/notification/data/models/notification_model.dart';
+import 'package:wasla/features/notification/data/models/notification_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract class NotificationRemoteDataSource {

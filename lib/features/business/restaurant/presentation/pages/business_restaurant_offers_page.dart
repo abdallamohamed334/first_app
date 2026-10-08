@@ -1,9 +1,9 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:loqma/core/config/app_config.dart';
+import 'package:wasla/core/config/app_config.dart';
 
-import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
-import 'package:loqma/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
+import 'package:wasla/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
+import 'package:wasla/features/business/restaurant/presentation/pages/business_restaurant_offer_details_page.dart';
+import 'package:wasla/features/business/restaurant/presentation/pages/restaurant_operation_feedback.dart';
 
 class BusinessRestaurantOffersPage extends StatefulWidget {
   const BusinessRestaurantOffersPage({super.key});

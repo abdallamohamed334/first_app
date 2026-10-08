@@ -2,7 +2,7 @@
 
 import 'dart:math' as math;
 
-import 'package:loqma/features/map/data/repositories/map_repository.dart';
+import 'package:wasla/features/map/data/repositories/map_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../offers/domain/entities/food_offer.dart';
 import '../../../../core/services/location_service.dart';

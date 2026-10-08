@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/core/errors/app_error_mapper.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/errors/app_error_mapper.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class BusinessProfilePage extends StatefulWidget {
   const BusinessProfilePage({super.key});

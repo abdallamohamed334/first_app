@@ -5,7 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 import '../../data/repositories/institutions_repository.dart';
 import 'institution_offer_request_details_page.dart';

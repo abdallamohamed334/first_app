@@ -4,8 +4,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/booking/data/repositories/booking_repository.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 class PickupQRPage extends StatefulWidget {

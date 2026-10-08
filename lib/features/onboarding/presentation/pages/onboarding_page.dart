@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:loqma/routes/app_router.dart';
+import 'package:wasla/routes/app_router.dart';
 
 import '../bloc/onboarding_bloc.dart';
 

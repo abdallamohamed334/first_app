@@ -2,10 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:loqma/core/repositories/auth_repository.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/auth/presentation/pages/login_page.dart';
-import 'package:loqma/features/auth/presentation/pages/otp_verify_page.dart';
+import 'package:wasla/core/repositories/auth_repository.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/auth/presentation/pages/login_page.dart';
+import 'package:wasla/features/auth/presentation/pages/otp_verify_page.dart';
 
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';

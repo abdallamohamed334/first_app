@@ -4,8 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:loqma/core/services/loqma_image_storage_service.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/services/loqma_image_storage_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 
 class AddOfferPage extends StatefulWidget {
   final String businessId;

@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:loqma/core/constants/egypt_locations.dart';
-import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/core/services/auth_state_notifier.dart';
-import 'package:loqma/core/services/storage_service.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/core/repositories/auth_repository.dart';
+import 'package:wasla/core/constants/egypt_locations.dart';
+import 'package:wasla/core/models/user_model.dart';
+import 'package:wasla/core/services/auth_state_notifier.dart';
+import 'package:wasla/core/services/storage_service.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/core/repositories/auth_repository.dart';
 import 'location_picker_page.dart';
 
 class CompleteProfilePage extends StatefulWidget {

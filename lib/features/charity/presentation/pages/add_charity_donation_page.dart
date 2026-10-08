@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:loqma/features/community/presentation/pages/community_charities_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_charity_option.dart';
-import 'package:loqma/core/errors/app_error_mapper.dart';
-import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:wasla/features/community/presentation/pages/community_charities_page.dart';
+import 'package:wasla/features/community/presentation/pages/community_charity_option.dart';
+import 'package:wasla/core/errors/app_error_mapper.dart';
+import 'package:wasla/features/charity/data/repositories/charity_donation_repository_separate.dart';
 
 class AddCharityDonationPage extends StatefulWidget {
   const AddCharityDonationPage({super.key});

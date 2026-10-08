@@ -3,10 +3,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/core/repositories/auth_repository.dart';
-import 'package:loqma/core/services/auth_state_notifier.dart';
-import 'package:loqma/core/services/supabase_service.dart';
+import 'package:wasla/core/models/user_model.dart';
+import 'package:wasla/core/repositories/auth_repository.dart';
+import 'package:wasla/core/services/auth_state_notifier.dart';
+import 'package:wasla/core/services/supabase_service.dart';
 import 'package:go_router/go_router.dart';
 import 'user_profile_setup_flow.dart';
 

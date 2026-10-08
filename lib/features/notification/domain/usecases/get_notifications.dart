@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import 'package:loqma/features/notification/domain/repositories/notification_repository.dart';
+import 'package:wasla/features/notification/domain/repositories/notification_repository.dart';
 
 import '../entities/notification.dart';
 

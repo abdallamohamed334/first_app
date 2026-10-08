@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:loqma/features/community/presentation/pages/community_charity_option.dart';
+import 'package:wasla/features/community/presentation/pages/community_charity_option.dart';
 
 class CommunityCharityDetailsPage extends StatelessWidget {
   final CommunityCharityOption charity;

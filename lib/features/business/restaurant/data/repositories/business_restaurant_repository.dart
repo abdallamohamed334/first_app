@@ -1,8 +1,8 @@
 import 'package:image_picker/image_picker.dart';
-import 'package:loqma/core/services/loqma_image_storage_service.dart';
+import 'package:wasla/core/services/loqma_image_storage_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/business/domain/entities/business_capability.dart';
+import 'package:wasla/core/services/supabase_service.dart';
+import 'package:wasla/features/business/domain/entities/business_capability.dart';
 
 class BusinessRestaurantRepository {
   final SupabaseClient _client;
