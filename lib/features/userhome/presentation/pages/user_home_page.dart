@@ -1318,7 +1318,8 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildLocationRow(state)),
-        SliverToBoxAdapter(child: _buildHeroBanner(state)),
+        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
+        SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
@@ -2086,67 +2087,51 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildHeroBanner(UserHomeLoaded state) {
-    final banners = state.banners;
-    final hasBanners = banners.isNotEmpty;
+  Widget _buildCompanyOffersSlider() {
+    // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
+    final offers = _institutionOffers.take(5).toList(growable: false);
+    if (_loadingInstitutionOffers && offers.isEmpty) {
+      return const SizedBox(
+        height: 244,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+      );
+    }
+
+    if (offers.isEmpty) return const SizedBox.shrink();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startBannerAutoPlay(banners.length);
+      if (mounted) _startBannerAutoPlay(offers.length);
     });
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
       child: Column(
         children: [
-          Container(
-            height: 172,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+          SizedBox(
+            height: 238,
+            child: PageView.builder(
+              controller: _bannerController,
+              itemCount: offers.length,
+              onPageChanged: (index) {
+                if (mounted) setState(() => _bannerIndex = index);
+              },
+              itemBuilder: (_, index) => _buildCompanyOfferCard(offers[index]),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: hasBanners
-                ? PageView.builder(
-                    controller: _bannerController,
-                    itemCount: banners.length,
-                    onPageChanged: (i) => setState(() => _bannerIndex = i),
-                    itemBuilder: (context, index) {
-                      return _BannerImage(banner: banners[index]);
-                    },
-                  )
-                : _buildFallbackBanner(),
           ),
-          if (hasBanners && banners.length > 1) ...[
-            SizedBox(height: 12),
+          if (offers.length > 1) ...[
+            const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(banners.length, (i) {
-                final active = i == _bannerIndex;
+              children: List.generate(offers.length, (index) {
+                final active = index == _bannerIndex;
                 return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
+                  duration: const Duration(milliseconds: 240),
                   margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 22 : 6,
+                  width: active ? 24 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: active
-                        ? _primaryRed
-                        : _textSecondary.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(4),
-                    boxShadow: active
-                        ? [
-                            BoxShadow(
-                              color: _primaryRed.withValues(alpha: 0.5),
-                              blurRadius: 8,
-                            ),
-                          ]
-                        : null,
+                    color: active ? _textPrimary : _border,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 );
               }),
@@ -2157,89 +2142,172 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildFallbackBanner() {
-    return SizedBox(
-      height: 238,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [_primaryRed, _primaryRedDark],
-              ),
-            ),
+  Widget _buildCompanyOfferCard(InstitutionOffer offer) {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(28),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => InstitutionOfferDetailsPage(offer: offer),
           ),
-          Positioned(
-            left: -40,
-            bottom: -50,
-            child: Container(
-              width: 150,
-              height: 150,
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (offer.firstImage != null)
+              CachedNetworkImage(
+                imageUrl: offer.firstImage!,
+                fit: BoxFit.cover,
+                memCacheWidth: 1080,
+                maxWidthDiskCache: 1080,
+                errorWidget: (_, __, ___) => _buildCompanyOfferBackdrop(),
+              )
+            else
+              _buildCompanyOfferBackdrop(),
+            DecoratedBox(
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.07),
-              ),
-            ),
-          ),
-          Positioned(
-            right: -20,
-            top: -50,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome_rounded,
-                        color: Colors.white, size: 18),
-                    SizedBox(width: 6),
-                    Text(
-                      'أهلًا بيك',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.08),
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.black.withValues(alpha: 0.9),
                   ],
+                  stops: const [0, 0.42, 1],
                 ),
-                SizedBox(height: 10),
-                Text(
-                  'وِصلة بتجمعنا 🤝',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
+              ),
+            ),
+            Positioned(
+              top: 14,
+              right: 14,
+              child: _offerGlassPill(Icons.campaign_rounded, 'عرض من مؤسسة'),
+            ),
+            Positioned(
+              top: 14,
+              left: 14,
+              child:
+                  _offerGlassPill(Icons.schedule_rounded, offer.timeRemaining),
+            ),
+            Positioned(
+              left: 18,
+              right: 18,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    offer.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 21,
+                      height: 1.08,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'اكتشف أكل وفرص قريبة منك\nوساعد في تقليل الهدر',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    height: 1.5,
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        backgroundImage: offer.institutionLogoUrl != null
+                            ? CachedNetworkImageProvider(
+                                offer.institutionLogoUrl!)
+                            : null,
+                        child: offer.institutionLogoUrl == null
+                            ? const Icon(Icons.business_rounded,
+                                color: Colors.white, size: 16)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          offer.institutionName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      _offerPricePill(offer),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompanyOfferBackdrop() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [_textPrimary, _cardSoft],
+        ),
+      ),
+      child: Icon(
+        Icons.storefront_rounded,
+        size: 86,
+        color: _textSecondary.withValues(alpha: 0.35),
+      ),
+    );
+  }
+
+  Widget _offerGlassPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.36),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _offerPricePill(InstitutionOffer offer) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        offer.symbolicPrice <= 0
+            ? 'مجاني'
+            : '${offer.symbolicPrice.toStringAsFixed(0)} ج.م',
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -4573,46 +4641,6 @@ class _CommunityEmptyCard extends StatelessWidget {
               child: Text('أضف', style: TextStyle(fontWeight: FontWeight.w800)),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// BANNER IMAGE
-// ============================================================
-class _BannerImage extends StatelessWidget {
-  final dynamic banner;
-
-  const _BannerImage({required this.banner});
-
-  @override
-  Widget build(BuildContext context) {
-    String? imageUrl;
-    try {
-      final json = (banner as dynamic).toJson();
-      imageUrl = json['image_url']?.toString();
-    } catch (_) {}
-
-    if (imageUrl == null || imageUrl.isEmpty || imageUrl == 'null') {
-      return Container(
-        color: _UserHomePageState._cardSoft,
-        child: Center(
-          child: Icon(Icons.restaurant_menu_rounded,
-              color: _UserHomePageState._textSecondary, size: 42),
-        ),
-      );
-    }
-
-    return CachedNetworkImage(
-      imageUrl: imageUrl,
-      fit: BoxFit.cover,
-      errorWidget: (_, __, ___) => Container(
-        color: _UserHomePageState._cardSoft,
-        child: Center(
-          child: Icon(Icons.restaurant_menu_rounded,
-              color: _UserHomePageState._textSecondary, size: 42),
         ),
       ),
     );

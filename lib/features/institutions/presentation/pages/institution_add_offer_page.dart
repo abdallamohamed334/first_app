@@ -69,8 +69,19 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   bool _saving = false;
 
-  bool get _isHomeRestaurant =>
-      widget.institutionType.trim().toLowerCase() == 'home_restaurant';
+  bool get _isHomeRestaurant {
+    final type = widget.institutionType
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(RegExp(r'\s+'), '_');
+    return const {
+      'home_restaurant',
+      'home_restaurants',
+      'مطاعم_منزلية',
+      'مطاعم_منزليه',
+    }.contains(type);
+  }
 
   // ✅ قائمة التصنيفات
   final List<Map<String, dynamic>> _categories = [
