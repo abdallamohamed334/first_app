@@ -49,9 +49,12 @@ class SeparateCharityDonationRepository {
           'donor_phone': donorPhone.trim(),
           'donor_notes': donorNotes?.trim(),
           'images': images,
-          'status': 'pending',
         })
-        .select()
+        .select('''
+          id, donor_id, charity_id, title, description, category, quantity,
+          condition, pickup_address, donor_phone, donor_notes, images, status,
+          created_at
+        ''')
         .single();
     return Map<String, dynamic>.from(row);
   }

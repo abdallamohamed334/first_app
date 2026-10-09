@@ -9,6 +9,7 @@ import 'package:loqma/core/pickup/presentation/pages/pickup_qr_page.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
+import 'package:loqma/features/booking/data/repositories/booking_repository.dart';
 
 class OfferDetailsPage extends StatefulWidget {
   final Map<String, dynamic> offer;
@@ -278,30 +279,21 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
 
     setState(() => _isBooking = true);
     try {
-      final restaurantId = await _resolveRestaurantId(offerId);
-      if (restaurantId == null || restaurantId.isEmpty) {
-        _snack('لا يوجد مطعم مرتبط بهذا العرض', Colors.red);
+      final booking = await BookingRepository(SupabaseService()).createBooking(
+        offerId: offerId,
+        userId: user.id,
+        businessId: _string('business_id'),
+      );
+      if (booking == null) {
+        _snack('تعذر إنشاء الحجز. حدّث الصفحة وحاول مرة أخرى.', Colors.red);
         return;
       }
-
-      final response = await _client
-          .from('offer_requests')
-          .insert({
-            'offer_id': offerId,
-            'user_id': user.id,
-            'restaurant_id': restaurantId,
-            'status': 'pending',
-            'requested_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .select('id')
-          .single();
 
       if (!mounted) return;
       setState(() {
         _hasRequested = true;
-        _requestStatus = 'pending';
-        _requestId = response['id']?.toString();
+        _requestStatus = booking.status.value;
+        _requestId = booking.id;
         _isRequestedByUser = true;
         _isAccepted = false;
       });
@@ -316,45 +308,6 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
     }
   }
 
-  Future<String?> _resolveRestaurantId(String offerId) async {
-    final businessId = _string('business_id');
-    String? ownerId;
-
-    if (businessId.isNotEmpty) {
-      final businessRow = await _client
-          .from('businesses')
-          .select('user_id')
-          .eq('id', businessId)
-          .maybeSingle();
-      ownerId = businessRow?['user_id']?.toString();
-    }
-
-    if (ownerId == null || ownerId.isEmpty) {
-      final row = await _client
-          .from('food_offers')
-          .select('business_id')
-          .eq('id', offerId)
-          .maybeSingle();
-      final id = row?['business_id']?.toString();
-      if (id != null && id.isNotEmpty) {
-        final businessRow = await _client
-            .from('businesses')
-            .select('user_id')
-            .eq('id', id)
-            .maybeSingle();
-        ownerId = businessRow?['user_id']?.toString();
-      }
-    }
-
-    if (ownerId == null || ownerId.isEmpty) return null;
-    final restaurant = await _client
-        .from('restaurants')
-        .select('id')
-        .eq('user_id', ownerId)
-        .maybeSingle();
-    return restaurant?['id']?.toString();
-  }
-
   Future<void> _showPickupQr() async {
     final user = await SupabaseService().getCurrentUser();
     if (user == null) {
@@ -365,7 +318,7 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
     try {
       final row = await _client
           .from('offer_requests')
-          .select('id, pickup_token_hash, status')
+          .select('id, status')
           .eq('offer_id', _string('id'))
           .eq('user_id', user.id)
           .eq('status', 'ready_for_pickup')
@@ -376,19 +329,13 @@ class _OfferDetailsPageState extends State<OfferDetailsPage> {
         return;
       }
 
-      final restaurantId = await _resolveRestaurantId(_string('id'));
-      if (!mounted || restaurantId == null || restaurantId.isEmpty) {
-        _snack('لا يوجد مطعم مرتبط بالحجز', Colors.red);
-        return;
-      }
+      if (!mounted) return;
 
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PickupQRPage(
             requestId: row['id'].toString(),
-            businessId: restaurantId,
-            existingToken: row['pickup_token_hash']?.toString(),
           ),
         ),
       );

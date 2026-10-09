@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'onboarding_event.dart';
 part 'onboarding_state.dart';
@@ -89,6 +90,12 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   ) async {
     emit(const OnboardingLoading());
     await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setBool('onboarding_seen', true);
+    } catch (error) {
+      debugPrint('[Onboarding] Could not persist completion: $error');
+    }
     emit(const OnboardingCompleted());
   }
 

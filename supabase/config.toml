@@ -167,6 +167,9 @@ verify_jwt = false
 [functions.send-whatsapp]
 verify_jwt = true
 
+[functions.send-partner-login-otp]
+verify_jwt = true
+
 # Vector Buckets are available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
 

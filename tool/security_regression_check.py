@@ -17,6 +17,21 @@ PROVIDER = ROOT / "lib/features/provider/data/repositories/service_provider_repo
 MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dart"
 LOAD_TEST = ROOT / "load_test.py"
 FIREBASE_OPTIONS = ROOT / "lib/firebase_options.dart"
+CHARITY_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261008234500_harden_charity_donation_access.sql"
+CHARITY_REPOSITORY = ROOT / "lib/features/charity/data/repositories/charity_donation_repository_separate.dart"
+FEED_RLS_MIGRATION = ROOT / "supabase/migrations/20261008235000_harden_user_feed_rls.sql"
+USER_HOME_REPOSITORY = ROOT / "lib/features/userhome/data/repositories/userhome_repository.dart"
+SUPABASE_SERVICE = ROOT / "lib/core/services/supabase_service.dart"
+VOLUNTEER_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/volunteer_donations_tracking_page.dart"
+DONOR_TRACKING_PAGE = ROOT / "lib/features/community/presentation/pages/community_my_charity_donations_page.dart"
+AUTH_STATE = ROOT / "lib/core/services/auth_state_notifier.dart"
+APP_ROUTER = ROOT / "lib/routes/app_router.dart"
+ONBOARDING_BLOC = ROOT / "lib/features/onboarding/presentation/bloc/onboarding_bloc.dart"
+USER_HOME_BLOC = ROOT / "lib/features/userhome/presentation/bloc/userhome_bloc.dart"
+ERROR_MAPPER = ROOT / "lib/core/errors/app_error_mapper.dart"
+RELEASE_WORKFLOW = ROOT / ".github/workflows/release.yml"
+PROFILE_PAGE = ROOT / "lib/features/auth/presentation/pages/complete_profile_page.dart"
+FOOD_OFFER_MIGRATION = ROOT / "supabase/migrations/20261008235500_atomic_food_offer_request_lifecycle.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -34,6 +49,21 @@ def main() -> None:
     map_page = MAP_PAGE.read_text()
     load_test = LOAD_TEST.read_text()
     firebase_options = FIREBASE_OPTIONS.read_text()
+    charity_access_migration = CHARITY_ACCESS_MIGRATION.read_text()
+    charity_repository = CHARITY_REPOSITORY.read_text()
+    feed_rls_migration = FEED_RLS_MIGRATION.read_text()
+    user_home_repository = USER_HOME_REPOSITORY.read_text()
+    supabase_service = SUPABASE_SERVICE.read_text()
+    volunteer_tracking_page = VOLUNTEER_TRACKING_PAGE.read_text()
+    donor_tracking_page = DONOR_TRACKING_PAGE.read_text()
+    auth_state = AUTH_STATE.read_text()
+    app_router = APP_ROUTER.read_text()
+    onboarding_bloc = ONBOARDING_BLOC.read_text()
+    user_home_bloc = USER_HOME_BLOC.read_text()
+    error_mapper = ERROR_MAPPER.read_text()
+    release_workflow = RELEASE_WORKFLOW.read_text()
+    profile_page = PROFILE_PAGE.read_text()
+    food_offer_migration = FOOD_OFFER_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -77,6 +107,60 @@ def main() -> None:
     require(rpc_migration, "list_public_volunteers() FROM anon, PUBLIC", "authenticated-only volunteers RPC")
     for protected in ("id_card_front_url", "id_card_back_url", "profile_locked_at"):
         require(sensitive_grant_migration, protected, f"sensitive provider revoke: {protected}")
+
+    require(charity_access_migration, "REVOKE ALL PRIVILEGES ON TABLE public.charity_donation_requests", "charity donation table privilege reset")
+    require(charity_access_migration, "GRANT UPDATE (charity_notes)", "charity notes-only direct update")
+    require(charity_access_migration, "DROP POLICY IF EXISTS volunteer_open_requests_authenticated", "open volunteer row policy removal")
+    require(charity_access_migration, "get_donor_donation_pickup_token", "donor-owned pickup token RPC")
+    require(charity_access_migration, "get_assigned_donation_pickup_token", "assigned-volunteer pickup token RPC")
+    require(charity_access_migration, "confirm_charity_delivery_with_code", "atomic charity delivery confirmation RPC")
+    if re.search(r"\.select\([^)]*(?<![A-Za-z0-9_])(pickup_token|charity_pickup_code)(?![A-Za-z0-9_])", charity_repository, re.DOTALL):
+        raise AssertionError("charity repository still selects pickup secrets directly")
+    if "'status': 'completed'" in charity_repository or "'charity_pickup_code'" in charity_repository:
+        raise AssertionError("charity repository still writes delivery state or pickup secrets directly")
+
+    require(feed_rls_migration, "CREATE POLICY favorites_owner_select", "owner-scoped favorites RLS")
+    require(feed_rls_migration, "CREATE POLICY delivery_tasks_assigned_volunteer_read", "assigned-task RLS")
+    require(feed_rls_migration, "SECURITY DEFINER", "secured rescue-list RPC")
+    require(feed_rls_migration, "موقع الاستلام الدقيق متاح بعد قبول المهمة", "redacted pre-claim location")
+    require(feed_rls_migration, "AND pickup_before > now()", "unexpired atomic task claim")
+    require(feed_rls_migration, "REVOKE EXECUTE ON FUNCTION public.nearby_rescue_tasks", "anon rescue-list revoke")
+    if ".from('delivery_tasks')" in user_home_repository or ".from('charity_donation_requests')" in user_home_repository:
+        raise AssertionError("UserHome still directly reads open task/donation rows")
+    require(user_home_repository, "list_open_donations_for_volunteers", "safe open-donation RPC")
+    require(supabase_service, ".select('id, title, description, points_required, image, is_active')", "safe rewards catalog columns")
+    require(supabase_service, "json['image'] ?? json['image_url']", "live rewards image column mapping")
+    if "charity_pickup_code" in volunteer_tracking_page or re.search(r"\.select\(['\"]\s*\*", volunteer_tracking_page):
+        raise AssertionError("volunteer tracking page selects a private pickup code or all donation columns")
+    require(volunteer_tracking_page, "getCharityPickupCode(_donationId)", "authorized charity code RPC")
+    if ".stream(primaryKey: ['id'])" in donor_tracking_page:
+        raise AssertionError("donor tracking still streams all donation columns")
+    require(donor_tracking_page, "Timer.periodic(", "safe donor status refresh")
+
+    require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
+    require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")
+    require(app_router, "loc == institutionsHome && auth.homeRoute != institutionsHome", "institution route role guard")
+    require(app_router, "protectedProviderRoutes.contains(loc) && auth.role != 'provider'", "provider route role allowlist")
+    require(app_router, "loc == charityHome && auth.role != 'charity'", "charity route role allowlist")
+    require(onboarding_bloc, "setBool('onboarding_seen', true)", "persisted onboarding completion")
+    require(user_home_bloc, "generation != _loadGeneration", "stale UserHome load guard")
+    require(main_dart, "client.auth.currentUser?.id != userId", "session identity recheck after auth sync awaits")
+    require(main_dart, "_supabaseInitialization ??= Supabase.initialize(", "single-flight Supabase initialization")
+    require(main_dart, "storedProfileRole == null || storedProfileRole.isEmpty", "unknown role handling for incomplete profile")
+    if re.search(r"debugPrint\([^\n]*(?:userId|phone|\$name)", main_dart):
+        raise AssertionError("auth logs expose user identifiers or phone/name values")
+    require(user_home_repository, "expires_at.is.null,expires_at.gt.", "community/institution category expiry filters")
+    require(user_home_repository, ".gt('expiry_time', DateTime.now().toUtc().toIso8601String())", "food category expiry filter")
+    if "_bioCtrl" in profile_page:
+        raise AssertionError("profile page offers bio even though public.users has no bio column")
+    require(profile_page, "avatarUrl = await _storage.uploadAvatar(", "avatar upload must succeed before full profile success")
+    require(release_workflow, "python3 tool/security_regression_check.py", "release security gate")
+    require(food_offer_migration, "IF auth.uid() IS NULL", "authenticated food-request lifecycle")
+    require(food_offer_migration, "AND status = 'available'", "single-request reservation guard")
+    require(food_offer_migration, "IF NOT FOUND THEN", "atomic offer reservation failure rollback")
+    for shared_file in (supabase_service, error_mapper):
+        if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
+            raise AssertionError("shared app code imports dart:io and blocks web compilation")
 
     print("security regression checks: PASS")
 

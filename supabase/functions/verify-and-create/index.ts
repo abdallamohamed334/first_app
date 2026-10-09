@@ -34,8 +34,8 @@ serve(async (req) => {
     // Never log OTPs, profile PII, or other authentication material.
 
     if (
-      !phone ||
-      !code ||
+      typeof phone !== "string" ||
+      typeof code !== "string" ||
       !profile ||
       typeof profile !== "object" ||
       Array.isArray(profile)
@@ -46,7 +46,7 @@ serve(async (req) => {
       typeof profile.role === "string"
         ? profile.role.trim().toLowerCase()
         : "user";
-    if (!["user", "provider", "institution"].includes(requestedRole)) {
+    if (!["user", "provider"].includes(requestedRole)) {
       return err("نوع الحساب غير مدعوم", 400);
     }
 
@@ -55,47 +55,35 @@ serve(async (req) => {
     if (cleanPhone.startsWith("0")) cleanPhone = "20" + cleanPhone.slice(1);
     else if (cleanPhone.length === 10) cleanPhone = "20" + cleanPhone;
 
-    if (
-      !/^20\d{10}$/.test(cleanPhone) ||
-      !/^\d{6}$/.test(String(code).trim())
-    ) {
+    const cleanCode = code.trim();
+    if (!/^20\d{10}$/.test(cleanPhone) || !/^\d{6}$/.test(cleanCode)) {
       return err("بيانات التحقق غير صحيحة", 400);
     }
 
-    // ✅ 2. تحقق من الكود
-    const { data: otp, error: otpFetchError } = await adminClient
-      .from("otp_codes")
-      .select("*")
-      .eq("phone", cleanPhone)
-      .eq("verified", false)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (otpFetchError) {
-      console.error("❌ OTP fetch error:", JSON.stringify(otpFetchError));
-      return err("تعذر قراءة الكود");
+    // Consume under a per-phone database lock: a challenge can succeed once only.
+    const { data: otpResult, error: otpError } = await adminClient.rpc(
+      "consume_otp_challenge",
+      {
+        p_phone: cleanPhone,
+        p_code: cleanCode,
+        p_login_mode: requestedRole,
+      },
+    );
+    if (otpError) {
+      console.error("OTP consumption failed", otpError.code);
+      return err("تعذر التحقق الآن، حاول مرة أخرى", 503);
     }
-
-    if (!otp) return err("مفيش كود، اطلب كود جديد");
-    if (new Date(otp.expires_at) < new Date()) return err("انتهت صلاحية الكود");
-    if ((otp.attempts || 0) >= 5) return err("تجاوزت عدد المحاولات");
-
-    if (otp.code !== code) {
-      await adminClient
-        .from("otp_codes")
-        .update({ attempts: (otp.attempts || 0) + 1 })
-        .eq("id", otp.id);
-      return err("الكود غلط");
+    if (otpResult?.success !== true) {
+      const reason = otpResult?.reason;
+      const message = reason === "expired"
+        ? "انتهت صلاحية الكود، اطلب كودًا جديدًا"
+        : reason === "not_found" || reason === "already_consumed"
+        ? "لا يوجد كود صالح، اطلب كودًا جديدًا"
+        : reason === "attempts_exceeded"
+        ? "تجاوزت عدد المحاولات، اطلب كودًا جديدًا"
+        : "الكود غير صحيح";
+      return err(message, reason === "attempts_exceeded" ? 429 : 400);
     }
-
-    console.log("✅ Code verified");
-
-    // ✅ 3. علّم الكود
-    await adminClient
-      .from("otp_codes")
-      .update({ verified: true })
-      .eq("id", otp.id);
 
     // ✅ 4. المفاتيح الداخلية
     const internalEmail = `${cleanPhone}@loqma.local`;
@@ -218,7 +206,7 @@ serve(async (req) => {
     // Login must never overwrite an existing profile with empty/default
     // registration fields. Only send profile fields when they were supplied;
     // a new account still receives the required defaults.
-    final Map<String, dynamic> userPatch = <String, dynamic>{
+    const userPatch: Record<string, unknown> = {
       "id": finalUserId,
       "phone": cleanPhone,
       "is_phone_verified": true,
@@ -233,11 +221,11 @@ serve(async (req) => {
       userPatch["role"] = requestedRole;
       userPatch["user_type"] = requestedRole;
     }
-    final updateQuery = isNewUser
-        ? adminClient.from("users").upsert(userPatch, onConflict: "id")
+    const updateQuery = isNewUser
+        ? adminClient.from("users").upsert(userPatch, { onConflict: "id" })
         : adminClient.from("users").update(userPatch).eq("id", finalUserId);
-    final updateResult = await updateQuery;
-    final upsertError = updateResult.error;
+    const updateResult = await updateQuery;
+    const upsertError = updateResult.error;
 
     if (upsertError) {
       console.error("❌ User upsert error:", JSON.stringify(upsertError));
@@ -263,7 +251,10 @@ serve(async (req) => {
       // Login must never create a partial provider row. Registration carries
       // categoryId; a login without an existing profile gets a clear response.
       if (!existingProvider && !profile.categoryId) {
-        return err("الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.");
+        return err(
+          "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.",
+          403,
+        );
       }
 
       if (!existingProvider) {
@@ -307,9 +298,8 @@ serve(async (req) => {
       });
 
     if (updatePwError) {
-      console.error("❌ Password update error:", JSON.stringify(updatePwError));
-    } else {
-      console.log("✅ Password updated");
+      console.error("Password update failed:", updatePwError.code);
+      return err("تعذر تجهيز جلسة الحساب، حاول مرة أخرى", 503);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -322,8 +312,8 @@ serve(async (req) => {
       });
 
     if (signInError || !sessionData.session) {
-      console.error("❌ SignIn error:", JSON.stringify(signInError));
-      return err("تعذر تسجيل الدخول: " + (signInError?.message || ""));
+      console.error("SignIn error:", signInError?.code ?? "no_session");
+      return err("تعذر تسجيل الدخول، حاول مرة أخرى", 503);
     }
 
     console.log("✅ Session created");
@@ -353,7 +343,7 @@ serve(async (req) => {
   }
 });
 
-function err(message: string, status = 200) {
+function err(message: string, status = 500) {
   return new Response(JSON.stringify({ success: false, error: message }), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },

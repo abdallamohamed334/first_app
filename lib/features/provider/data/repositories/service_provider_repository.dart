@@ -52,6 +52,11 @@ class ServiceProviderRepository {
     return cleaned;
   }
 
+  String _maskPhone(String phone) {
+    if (phone.length < 6) return '******';
+    return '${phone.substring(0, 4)}******${phone.substring(phone.length - 2)}';
+  }
+
   Map<String, dynamic>? _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
@@ -245,7 +250,8 @@ class ServiceProviderRepository {
       }
 
       debugPrint(
-        '📤 [Provider OTP] Sending to $cleanPhone (loginMode=$loginMode)',
+        '📤 [Provider OTP] Sending to ${_maskPhone(cleanPhone)} '
+        '(loginMode=$loginMode)',
       );
 
       final response = await _client.functions.invoke(
@@ -267,7 +273,7 @@ class ServiceProviderRepository {
       }
 
       final returned = data['phone']?.toString() ?? cleanPhone;
-      debugPrint('✅ [Provider OTP] Sent to $returned');
+      debugPrint('✅ [Provider OTP] Sent to ${_maskPhone(returned)}');
       return Right(returned);
     } catch (error) {
       debugPrint('❌ [Provider OTP] send exception: $error');
@@ -591,22 +597,40 @@ class ServiceProviderRepository {
       if (availabilityNote != null) {
         data['availability_note'] = availabilityNote.trim();
       }
-      if (!profileLocked && idCardFrontUrl != null) {
-        data['id_card_front_url'] = idCardFrontUrl;
-      }
-      if (!profileLocked && idCardBackUrl != null) {
-        data['id_card_back_url'] = idCardBackUrl;
-      }
-      if (!profileLocked && idCardFrontUrl != null && idCardBackUrl != null) {
-        data['profile_locked_at'] = DateTime.now().toUtc().toIso8601String();
-      }
-
       final row = await _client
           .from('service_providers')
           .update(data)
           .eq('id', providerId)
           .select()
           .single();
+
+      if (!profileLocked &&
+          (idCardFrontUrl != null || idCardBackUrl != null)) {
+        final linked = await _client.rpc(
+          'link_my_provider_identity_documents',
+          params: {
+            'p_provider_id': providerId,
+            'p_front_path': idCardFrontUrl,
+            'p_back_path': idCardBackUrl,
+          },
+        );
+        if (linked is! Map || linked['success'] != true) {
+          final message = linked is Map
+              ? linked['message']?.toString()
+              : null;
+          return Left(message?.isNotEmpty == true
+              ? message!
+              : 'تعذر حفظ مستندات الهوية');
+        }
+
+        final refreshed = await _client
+            .from('service_providers')
+            .select()
+            .eq('id', providerId)
+            .single();
+        debugPrint('✅ [Provider] Profile and KYC references updated');
+        return Right(Map<String, dynamic>.from(refreshed));
+      }
 
       debugPrint('✅ [Provider] Profile updated');
 
@@ -650,13 +674,14 @@ class ServiceProviderRepository {
       }
 
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      const contentType = 'image/webp';
       await _client.storage.from('provider-images').uploadBinary(
             fileName,
             encoded,
             fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: false,
-              contentType: 'image/webp',
+              contentType: contentType,
             ),
           );
 
@@ -695,10 +720,11 @@ class ServiceProviderRepository {
       final path =
           '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.webp';
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      const contentType = 'image/webp';
       await _client.storage.from('provider-documents').uploadBinary(
             path,
             encoded,
-            fileOptions: const FileOptions(contentType: 'image/webp'),
+            fileOptions: FileOptions(contentType: contentType),
           );
       return Right(path);
     } catch (error) {

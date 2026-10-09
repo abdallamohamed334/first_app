@@ -29,9 +29,9 @@ serve(async (req) => {
     });
   }
   try {
-    const { phone, code } = await req.json();
+    const { phone, code, loginMode = "user" } = await req.json();
 
-    if (!phone || !code) {
+    if (typeof phone !== "string" || typeof code !== "string") {
       return errorResponse("الرقم والكود مطلوبين");
     }
 
@@ -43,45 +43,33 @@ serve(async (req) => {
       cleanPhone = "20" + cleanPhone;
     }
 
-    // ✅ نجيب الكود
-    const { data: otpData, error: fetchError } = await supabase
-      .from("otp_codes")
-      .select("*")
-      .eq("phone", cleanPhone)
-      .eq("verified", false)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (fetchError || !otpData) {
-      return errorResponse("مفيش كود لهذا الرقم، اطلب كود جديد");
+    const cleanCode = String(code).trim();
+    if (!/^\d{6}$/.test(cleanCode)) {
+      return errorResponse("بيانات التحقق غير صحيحة");
     }
-
-    // ✅ نشوف الوقت
-    if (new Date(otpData.expires_at) < new Date()) {
-      return errorResponse("انتهت صلاحية الكود، اطلب كود جديد");
+    const { data: otpResult, error: consumeError } = await supabase.rpc(
+      "consume_otp_challenge",
+      {
+        p_phone: cleanPhone,
+        p_code: cleanCode,
+        p_login_mode: loginMode,
+      },
+    );
+    if (consumeError) {
+      console.error("OTP consumption failed", consumeError.code);
+      return errorResponse("تعذر التحقق الآن، حاول مرة أخرى", 503);
     }
-
-    // ✅ نشوف المحاولات
-    if (otpData.attempts >= 5) {
-      return errorResponse("تجاوزت عدد المحاولات، اطلب كود جديد");
+    if (otpResult?.success !== true) {
+      const reason = otpResult?.reason;
+      const message = reason === "expired"
+        ? "انتهت صلاحية الكود، اطلب كود جديد"
+        : reason === "attempts_exceeded"
+        ? "تجاوزت عدد المحاولات، اطلب كود جديد"
+        : reason === "not_found" || reason === "already_consumed"
+        ? "مفيش كود صالح، اطلب كود جديد"
+        : "الكود غلط، حاول تاني";
+      return errorResponse(message, reason === "attempts_exceeded" ? 429 : 400);
     }
-
-    // ✅ نتحقق من الكود
-    if (otpData.code !== code) {
-      await supabase
-        .from("otp_codes")
-        .update({ attempts: otpData.attempts + 1 })
-        .eq("id", otpData.id);
-
-      return errorResponse("الكود غلط، حاول تاني");
-    }
-
-    // ✅ علامة إنه اتأكد
-    await supabase
-      .from("otp_codes")
-      .update({ verified: true })
-      .eq("id", otpData.id);
 
     // ✅ نجيب الـ user (لو موجود)
     const { data: existingUser } = await supabase
@@ -98,9 +86,9 @@ serve(async (req) => {
           email: `${cleanPhone}@loqma.app`,
         });
 
-      if (signInError) {
-        console.error("SignIn error:", signInError);
-        return errorResponse("تعذر تسجيل الدخول");
+    if (signInError) {
+        console.error("SignIn error:", signInError.code);
+        return errorResponse("تعذر تسجيل الدخول", 503);
       }
 
       return new Response(
@@ -130,14 +118,17 @@ serve(async (req) => {
       },
     );
   } catch (e) {
-    console.error("Error:", e);
-    return errorResponse(e.message || "خطأ غير متوقع");
+    console.error(
+      "verify-otp failed:",
+      e instanceof Error ? e.name : "unknown_error",
+    );
+    return errorResponse("خطأ غير متوقع", 500);
   }
 });
 
-function errorResponse(message: string) {
+function errorResponse(message: string, status = 400) {
   return new Response(JSON.stringify({ success: false, error: message }), {
-    status: 400,
+    status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }

@@ -106,13 +106,13 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
               const Icon(Icons.verified_user_rounded, color: _primary, size: 64),
               const SizedBox(height: 20),
               const Text(
-                'تحقق من المؤسسة',
+                'تأكيد تسجيل الدخول',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink, fontSize: 25, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
               Text(
-                'اكتب كود التحقق الثابت الذي أرسلته لك إدارة وِصلة لإكمال تسجيل الدخول.',
+                'اكتب الرمز المؤقت الذي أرسلناه إلى رقم الاتصال المسجل لإكمال تسجيل الدخول. الرمز صالح لمدة 5 دقائق ويُستخدم مرة واحدة.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink.withValues(alpha: 0.7), height: 1.6),
               ),

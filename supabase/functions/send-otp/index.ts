@@ -8,7 +8,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-const WAPILOT_TOKEN = Deno.env.get("WAPILOT_TOKEN")!;
+const WAPILOT_TOKEN = Deno.env.get("WAPILOT_TOKEN") ?? "";
 const WAPILOT_BASE = "https://api.wapilot.net/api";
 const INSTANCE_ID = "instance5694";
 
@@ -28,6 +28,9 @@ serve(async (req) => {
 
   if (req.method !== "POST") {
     return errorResponse("طريقة الطلب غير صحيحة", 405);
+  }
+  if (!WAPILOT_TOKEN) {
+    return errorResponse("خدمة إرسال كود التحقق غير مهيأة", 503);
   }
 
   try {
@@ -67,25 +70,6 @@ serve(async (req) => {
       return errorResponse("طلبات كثيرة، حاول مرة أخرى بعد قليل", 429);
     }
 
-    // Prevent OTP spam across function instances using the database as the source of truth.
-    const { data: recentOtp, error: recentOtpError } = await supabase
-      .from("otp_codes")
-      .select("created_at")
-      .eq("phone", cleanPhone)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (recentOtpError) {
-      console.error("recent OTP lookup failed", recentOtpError.code);
-      return errorResponse("تعذر تجهيز كود التحقق", 500);
-    }
-    if (
-      recentOtp?.created_at &&
-      Date.now() - new Date(recentOtp.created_at).getTime() < 60_000
-    ) {
-      return errorResponse("انتظر دقيقة قبل طلب كود جديد", 429);
-    }
-
     // افحص الحالة قبل حذف أو إنشاء أو إرسال أي OTP.
     const { data: access, error: accessError } = await supabase.rpc(
       "check_phone_access",
@@ -116,32 +100,31 @@ serve(async (req) => {
       );
     }
 
-    const { error: deleteError } = await supabase
-      .from("otp_codes")
-      .delete()
-      .eq("phone", cleanPhone)
-      .eq("verified", false);
-
-    if (deleteError) {
-      console.error("Delete old OTP error:", deleteError);
-      return errorResponse("تعذر تجهيز كود التحقق", 500);
-    }
-
     const random = new Uint32Array(1);
     crypto.getRandomValues(random);
     const code = String(random[0] % 1_000_000).padStart(6, "0");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const { error: insertError } = await supabase.from("otp_codes").insert({
-      phone: cleanPhone,
-      code,
-      expires_at: expiresAt,
-      verified: false,
-    });
-
-    if (insertError) {
-      console.error("Insert OTP error:", insertError);
-      return errorResponse("تعذر إنشاء الكود", 500);
+    const { data: challenge, error: challengeError } = await supabase.rpc(
+      "create_otp_challenge",
+      {
+        p_phone: cleanPhone,
+        p_code: code,
+        p_login_mode: loginMode,
+        p_expires_at: expiresAt,
+      },
+    );
+    if (challengeError) {
+      console.error("OTP challenge creation failed", challengeError.code);
+      return errorResponse("تعذر تجهيز كود التحقق", 500);
+    }
+    if (challenge?.success !== true) {
+      return errorResponse(
+        challenge?.reason === "cooldown"
+          ? "انتظر دقيقة قبل طلب كود جديد"
+          : "تعذر تجهيز كود التحقق",
+        challenge?.reason === "cooldown" ? 429 : 500,
+      );
     }
 
     const waResponse = await fetch(
@@ -161,12 +144,13 @@ serve(async (req) => {
             `صالح لمدة 5 دقايق.\n\n` +
             `⚠️ متشاركهوش مع حد.`,
         }),
+        signal: AbortSignal.timeout(10_000),
       },
     );
 
     if (!waResponse.ok) {
-      const err = await waResponse.text();
-      console.error("WhatsApp error:", err);
+      await waResponse.text();
+      console.error("WhatsApp provider rejected OTP delivery");
 
       await supabase
         .from("otp_codes")
