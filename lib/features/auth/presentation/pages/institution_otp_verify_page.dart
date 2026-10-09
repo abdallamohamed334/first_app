@@ -112,7 +112,7 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'اكتب الرمز المؤقت الذي أرسلناه إلى رقم الاتصال المسجل لإكمال تسجيل الدخول. الرمز صالح لمدة 5 دقائق ويُستخدم مرة واحدة.',
+                'أدخل الكود المكوّن من 6 أرقام الذي زوّدك به فريق وِصلة. يتم التحقق منه في قاعدة البيانات فقط؛ لا يُرسل برسالة.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink.withValues(alpha: 0.7), height: 1.6),
               ),

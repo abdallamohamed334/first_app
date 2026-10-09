@@ -128,22 +128,14 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         await temporaryClient.auth.signOut(scope: SignOutScope.local);
         return;
       }
-      final otpResponse = await temporaryClient.functions.invoke(
-        'send-partner-login-otp',
-        body: {'partnerType': 'institution'},
-      );
-      if (otpResponse.data is! Map || otpResponse.data['success'] != true) {
-        throw const AuthException('تعذر إرسال رمز التحقق إلى الرقم المسجل');
-      }
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => InstitutionOtpVerifyPage(
             verifyCode: (code) async {
               final verification = await temporaryClient.rpc(
-                'verify_partner_login_otp',
+                'verify_institution_login_otp',
                 params: {
-                  'p_partner_type': 'institution',
-                  'p_partner_id': institution['id'].toString(),
+                  'p_institution_id': institution['id'].toString(),
                   'p_otp': code,
                 },
               );
@@ -311,23 +303,14 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       return;
     }
 
-    final otpResponse = await temporaryClient.functions.invoke(
-      'send-partner-login-otp',
-      body: {'partnerType': 'charity'},
-    );
-    if (otpResponse.data is! Map || otpResponse.data['success'] != true) {
-      throw const AuthException('تعذر إرسال رمز التحقق إلى الرقم المسجل');
-    }
-
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => InstitutionOtpVerifyPage(
           verifyCode: (code) async {
             final verification = await temporaryClient.rpc(
-              'verify_partner_login_otp',
+              'verify_charity_login_otp',
               params: {
-                'p_partner_type': 'charity',
-                'p_partner_id': charityId,
+                'p_charity_id': charityId,
                 'p_otp': code,
               },
             );

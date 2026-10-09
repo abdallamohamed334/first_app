@@ -32,6 +32,9 @@ ERROR_MAPPER = ROOT / "lib/core/errors/app_error_mapper.dart"
 RELEASE_WORKFLOW = ROOT / ".github/workflows/release.yml"
 PROFILE_PAGE = ROOT / "lib/features/auth/presentation/pages/complete_profile_page.dart"
 FOOD_OFFER_MIGRATION = ROOT / "supabase/migrations/20261008235500_atomic_food_offer_request_lifecycle.sql"
+PARTNER_LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_login_page.dart"
+PARTNER_OTP_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_otp_verify_page.dart"
+MANUAL_PARTNER_OTP_MIGRATION = ROOT / "supabase/migrations/20261009223400_restore_manual_partner_login_otp.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -64,6 +67,9 @@ def main() -> None:
     release_workflow = RELEASE_WORKFLOW.read_text()
     profile_page = PROFILE_PAGE.read_text()
     food_offer_migration = FOOD_OFFER_MIGRATION.read_text()
+    partner_login_page = PARTNER_LOGIN_PAGE.read_text()
+    partner_otp_page = PARTNER_OTP_PAGE.read_text()
+    manual_partner_otp_migration = MANUAL_PARTNER_OTP_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -158,6 +164,17 @@ def main() -> None:
     require(food_offer_migration, "IF auth.uid() IS NULL", "authenticated food-request lifecycle")
     require(food_offer_migration, "AND status = 'available'", "single-request reservation guard")
     require(food_offer_migration, "IF NOT FOUND THEN", "atomic offer reservation failure rollback")
+    if "send-partner-login-otp" in partner_login_page:
+        raise AssertionError("partner login must not send an OTP message")
+    require(partner_login_page, "verify_institution_login_otp", "manual institution-code database verification")
+    require(partner_login_page, "verify_charity_login_otp", "manual charity-code database verification")
+    require(partner_otp_page, "يتم التحقق منه في قاعدة البيانات فقط", "manual code verification copy")
+    require(manual_partner_otp_migration, "REVOKE ALL ON FUNCTION public.verify_institution_login_otp(uuid, text)", "manual institution verifier access reset")
+    if not re.search(r"GRANT EXECUTE ON FUNCTION public\.verify_institution_login_otp\(uuid, text\)\s+TO authenticated", manual_partner_otp_migration):
+        raise AssertionError("missing authenticated-only institution verifier grant")
+    require(manual_partner_otp_migration, "REVOKE ALL ON FUNCTION public.verify_charity_login_otp(uuid, text)", "manual charity verifier access reset")
+    if not re.search(r"GRANT EXECUTE ON FUNCTION public\.verify_charity_login_otp\(uuid, text\)\s+TO authenticated", manual_partner_otp_migration):
+        raise AssertionError("missing authenticated-only charity verifier grant")
     for shared_file in (supabase_service, error_mapper):
         if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")
