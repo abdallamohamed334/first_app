@@ -35,6 +35,7 @@ FOOD_OFFER_MIGRATION = ROOT / "supabase/migrations/20261008235500_atomic_food_of
 PARTNER_LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_login_page.dart"
 PARTNER_OTP_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_otp_verify_page.dart"
 MANUAL_PARTNER_OTP_MIGRATION = ROOT / "supabase/migrations/20261009223400_restore_manual_partner_login_otp.sql"
+MANUAL_PARTNER_OTP_REGEX_MIGRATION = ROOT / "supabase/migrations/20261009224200_fix_manual_partner_login_otp_regex.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -70,6 +71,7 @@ def main() -> None:
     partner_login_page = PARTNER_LOGIN_PAGE.read_text()
     partner_otp_page = PARTNER_OTP_PAGE.read_text()
     manual_partner_otp_migration = MANUAL_PARTNER_OTP_MIGRATION.read_text()
+    manual_partner_otp_regex_migration = MANUAL_PARTNER_OTP_REGEX_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -175,6 +177,10 @@ def main() -> None:
     require(manual_partner_otp_migration, "REVOKE ALL ON FUNCTION public.verify_charity_login_otp(uuid, text)", "manual charity verifier access reset")
     if not re.search(r"GRANT EXECUTE ON FUNCTION public\.verify_charity_login_otp\(uuid, text\)\s+TO authenticated", manual_partner_otp_migration):
         raise AssertionError("missing authenticated-only charity verifier grant")
+    require(manual_partner_otp_regex_migration, "CREATE OR REPLACE FUNCTION public.verify_institution_login_otp", "corrected institution code verifier")
+    require(manual_partner_otp_regex_migration, "CREATE OR REPLACE FUNCTION public.verify_charity_login_otp", "corrected charity code verifier")
+    if manual_partner_otp_regex_migration.count("p_otp !~ '^[0-9]{6}$'") != 2:
+        raise AssertionError("manual partner code verifiers must validate six ASCII digits explicitly")
     for shared_file in (supabase_service, error_mapper):
         if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")
