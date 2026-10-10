@@ -514,11 +514,17 @@ class UserHomeRepository {
         },
       );
       final grouped = <String, List<CategoryOffer>>{};
+      final seenOfferIdsByRoot = <String, Set<String>>{};
       for (final rawRow in (response as List)) {
         final row = Map<String, dynamic>.from(rawRow as Map);
         final rootId = row['root_category_id']?.toString() ?? '';
         final offerId = row['offer_id']?.toString() ?? '';
         if (rootId.isEmpty || offerId.isEmpty) continue;
+        final seenIds = seenOfferIdsByRoot.putIfAbsent(
+          rootId,
+          () => <String>{},
+        );
+        if (!seenIds.add(offerId)) continue;
         final imagesRaw = row['images'];
         final images = imagesRaw is List
             ? imagesRaw
@@ -725,7 +731,7 @@ class UserHomeRepository {
         '(categories=${allCategoryIds.length})',
       );
 
-      return filtered;
+      return uniqueCategoryOffersById(filtered);
     } catch (e, stack) {
       debugPrint('❌ getOffersByCategory ERROR: $e');
       debugPrintStack(stackTrace: stack);

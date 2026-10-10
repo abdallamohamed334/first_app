@@ -84,6 +84,13 @@ const Set<String> _institutionCatalogSlugs = {
   'home-food',
 };
 
+const Set<String> _homeRestaurantInstitutionTypes = {
+  'home_restaurant',
+  'home-restaurant',
+  'home_restaurants',
+  'home-restaurants',
+};
+
 enum _HomeMode { buy, swap, services }
 
 class UserHomePage extends StatefulWidget {
@@ -389,14 +396,19 @@ class _UserHomePageState extends State<UserHomePage> {
       final offers = await _institutionOffersRepository.listAvailableOffers();
       if (!mounted) return;
 
-      final sorted = offers
-          .where(
-            (offer) =>
-                offer.isActive &&
-                offer.remainingQuantity > 0 &&
-                _isAllowedInstitutionOffer(offer),
-          )
-          .toList(growable: false)
+      final offersById = <String, InstitutionOffer>{};
+      for (final offer in offers) {
+        final id = offer.id.trim();
+        if (id.isEmpty ||
+            !offer.isActive ||
+            offer.remainingQuantity <= 0 ||
+            !_isAllowedInstitutionOffer(offer)) {
+          continue;
+        }
+        offersById.putIfAbsent(id, () => offer);
+      }
+
+      final sorted = offersById.values.toList(growable: false)
         // الأولوية للعروض التي ستنتهي قريبًا، ثم الأحدث عند التساوي.
         ..sort((a, b) {
           final expiry = a.expiresAt.compareTo(b.expiresAt);
@@ -421,6 +433,11 @@ class _UserHomePageState extends State<UserHomePage> {
       return _institutionCatalogSlugs.contains('grocery');
     }
     return _institutionCatalogSlugs.contains(type);
+  }
+
+  bool _isHomeRestaurantOffer(InstitutionOffer offer) {
+    final type = offer.institutionType?.trim().toLowerCase();
+    return _homeRestaurantInstitutionTypes.contains(type);
   }
 
   Future<void> _loadCommunityNeeds() async {
@@ -2089,7 +2106,11 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildCompanyOffersSlider() {
     // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
-    final offers = _institutionOffers.take(5).toList(growable: false);
+    // عروض مطاعم البيت لها قسمها المخصص؛ لا تعرضها مرة ثانية هنا.
+    final offers = _institutionOffers
+        .where((offer) => !_isHomeRestaurantOffer(offer))
+        .take(5)
+        .toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
       return const SizedBox(
         height: 244,
