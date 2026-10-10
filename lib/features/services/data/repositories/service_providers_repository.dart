@@ -293,7 +293,7 @@ class ServiceProvidersRepository {
       return ServiceReview.fromMap(Map<String, dynamic>.from(row));
     } catch (e) {
       debugPrint('❌ getUserReview error: $e');
-      return null;
+      rethrow;
     }
   }
 

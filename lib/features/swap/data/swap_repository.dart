@@ -38,6 +38,39 @@ class SwapRepository {
     return _client.storage.from('swap-images').getPublicUrl(path);
   }
 
+  /// Validates contact values against the database trigger before uploads begin.
+  static void validateContactNumbers({
+    required String contactPhone,
+    required String contactWhatsapp,
+  }) {
+    final phone = _cleanPhone(contactPhone);
+    final whatsapp = _cleanPhone(contactWhatsapp);
+    if (!_isValidPhone(phone)) {
+      throw Exception('رقم الهاتف غير صحيح (مثال: 01012345678)');
+    }
+    if (!_isValidPhone(whatsapp)) {
+      throw Exception('رقم الواتساب غير صحيح (مثال: 01012345678)');
+    }
+  }
+
+  /// Removes only objects belonging to this bucket from public image URLs.
+  Future<void> removeUploadedListingImages(List<String> publicUrls) async {
+    final paths = <String>[];
+    for (final value in publicUrls) {
+      final segments = Uri.tryParse(value)?.pathSegments;
+      if (segments == null) continue;
+      final bucketIndex = segments.indexOf('swap-images');
+      if (bucketIndex < 0 || bucketIndex + 1 >= segments.length) continue;
+      paths.add(segments.skip(bucketIndex + 1).join('/'));
+    }
+    if (paths.isEmpty) return;
+    try {
+      await _client.storage.from('swap-images').remove(paths);
+    } catch (_) {
+      // Cleanup is best-effort; never hide the original submission failure.
+    }
+  }
+
   Future<List<Map<String, dynamic>>> listOpenListings({
     String? search,
     String? governorate,
@@ -314,11 +347,13 @@ class SwapRepository {
     return Map<String, dynamic>.from(row);
   }
 
-  String _cleanPhone(String value) =>
+  static String _cleanPhone(String value) =>
       value.trim().replaceAll(RegExp(r'[^0-9+ ()-]'), '');
-  bool _isValidPhone(String value) {
+  static bool _isValidPhone(String value) {
     final digits = value.replaceAll(RegExp(r'[^0-9]'), '').length;
-    return digits >= 8 && digits <= 15;
+    return digits >= 8 &&
+        digits <= 15 &&
+        RegExp(r'^[0-9+ ()-]{8,20}$').hasMatch(value.trim());
   }
 
   Future<List<Map<String, dynamic>>> myListings() async {

@@ -85,6 +85,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final List<String> _existingImageUrls = [];
 
   String _expiryOption = '7_days';
+  DateTime? _originalExpiresAt;
+  bool _expirySelectionChanged = false;
   bool _termsAccepted = false;
 
   bool _isSubmitting = false;
@@ -269,6 +271,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     _categoryNameAr = data['category_name']?.toString();
     _marketplaceCategoryId = data['marketplace_category_id']?.toString();
 
+    _originalExpiresAt = DateTime.tryParse(data['expires_at']?.toString() ?? '');
     _expiryOption = _deriveExpiryOption(data['expires_at']);
 
     final rawAttrs = data['marketplace_attributes'];
@@ -357,6 +360,19 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (_locationController.text.trim() != origLoc) return true;
       if (_phoneController.text.trim() != origPhone) return true;
       if (_whatsappController.text.trim() != origWhatsapp) return true;
+
+      final originalPrice = num.tryParse(data['price']?.toString() ?? '');
+      final currentPrice = num.tryParse(_priceController.text.trim());
+      if (originalPrice != currentPrice) return true;
+      final originalQuantity =
+          int.tryParse(data['quantity']?.toString() ?? '');
+      final currentQuantity =
+          int.tryParse(_quantityController.text.trim());
+      if (originalQuantity != currentQuantity) return true;
+      if (_categoryId != data['category_id']?.toString()) return true;
+      if (_marketplaceCategoryId !=
+          data['marketplace_category_id']?.toString()) return true;
+      if (_expirySelectionChanged) return true;
 
       final origLat = (data['latitude'] as num?)?.toDouble();
       final origLng = (data['longitude'] as num?)?.toDouble();
@@ -811,10 +827,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     } catch (e, st) {
       debugPrint('❌ [Options] ${attribute.slug}: $e');
       debugPrint('$st');
-      if (!mounted) return;
+      if (!mounted || requestId != _categoryRequestId) return;
       setState(() {
         _marketplaceOptions[attribute.slug] = const [];
         _optionsLoading.remove(attribute.slug);
+        _attributesStatus = 'error';
       });
     }
   }
@@ -1008,6 +1025,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   DateTime? _getExpiresAt() {
+    if (_isEditMode && !_expirySelectionChanged) {
+      return _originalExpiresAt;
+    }
     final now = DateTime.now();
     switch (_expiryOption) {
       case '7_days':
@@ -1038,6 +1058,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
+    if (_attributesStatus == 'loading' ||
+        _isLoadingMarketplaceAttributes ||
+        _optionsLoading.isNotEmpty) {
+      _showMessage('انتظر حتى يكتمل تحميل مواصفات التصنيف');
+      return;
+    }
+    if (_attributesStatus == 'error') {
+      _showMessage('تعذر تحميل مواصفات التصنيف. أعد اختيار التصنيف وحاول مجددًا');
+      return;
+    }
     if (_marketplaceAttributes.isNotEmpty) {
       final marketplaceError = _validateMarketplaceAttributes();
       if (marketplaceError != null) {
@@ -2546,7 +2576,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ],
             onChanged: (value) {
               if (value == null) return;
-              setState(() => _expiryOption = value);
+              setState(() {
+                _expiryOption = value;
+                _expirySelectionChanged = true;
+              });
             },
           ),
           const SizedBox(height: 8),

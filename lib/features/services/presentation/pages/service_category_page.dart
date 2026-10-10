@@ -37,6 +37,8 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   List<String> _availableCities = [];
   bool _loading = true;
   String? _error;
+  int _providersRequestGeneration = 0;
+  int _citiesRequestGeneration = 0;
 
   // ── ألوان
   static const _bg = Color(0xFF0F0F0F);
@@ -60,6 +62,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
 
   /// ✅ نجيب المناطق + المزودين مع بعض (أول مرة)
   Future<void> _loadAreasAndProviders() async {
+    final requestGeneration = ++_providersRequestGeneration;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -86,7 +89,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         city: _city,
       );
 
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
         _availableAreas = areas;
         _availableGovernorates = governorates;
@@ -96,7 +99,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
       });
     } catch (e) {
       debugPrint('❌ load error: $e');
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
         _loading = false;
         _error = 'تعذر تحميل مقدمي الخدمة';
@@ -106,6 +109,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
 
   /// ✅ لما نغيّر فلتر (مش محتاج نعيد جلب المناطق)
   Future<void> _reloadProviders() async {
+    final requestGeneration = ++_providersRequestGeneration;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -122,14 +126,14 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         governorate: _governorate,
         city: _city,
       );
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
         _providers = list;
         _loading = false;
       });
     } catch (e) {
       debugPrint('❌ reload error: $e');
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
         _loading = false;
         _error = 'تعذر تحميل مقدمي الخدمة';
@@ -427,6 +431,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             value: _governorate,
             items: _availableGovernorates,
             onChanged: (value) async {
+              final citiesRequestGeneration = ++_citiesRequestGeneration;
               setState(() {
                 _governorate = value;
                 _city = null;
@@ -437,7 +442,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   categoryId: widget.category.id,
                   governorate: value,
                 );
-                if (mounted) setState(() => _availableCities = cities);
+                if (mounted &&
+                    citiesRequestGeneration == _citiesRequestGeneration &&
+                    _governorate == value) {
+                  setState(() => _availableCities = cities);
+                }
               }
               _reloadProviders();
             },

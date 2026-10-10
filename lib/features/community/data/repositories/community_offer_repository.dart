@@ -285,6 +285,7 @@ class CommunityOfferRepository {
     // ==========================================================
 
     final uploadedPaths = <String>[];
+    String? insertedCommunityOfferId;
 
     try {
       for (final image in images) {
@@ -363,6 +364,7 @@ class CommunityOfferRepository {
           'تم إنشاء العرض ولكن تعذر الحصول على رقم العرض',
         );
       }
+      insertedCommunityOfferId = communityOfferId;
 
       if (kDebugMode) {
         debugPrint(
@@ -458,6 +460,22 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
+      if (insertedCommunityOfferId != null) {
+        try {
+          await _client
+              .from('community_offers')
+              .update({
+                'status': 'cancelled',
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+              })
+              .eq('id', insertedCommunityOfferId)
+              .eq('owner_id', authUser.id);
+        } catch (rollbackError) {
+          if (kDebugMode) {
+            debugPrint('⚠️ Failed to cancel incomplete offer: $rollbackError');
+          }
+        }
+      }
       if (uploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(uploadedPaths);
       }
@@ -680,6 +698,7 @@ class CommunityOfferRepository {
     // ==========================================================
 
     final newlyUploadedPaths = <String>[];
+    var offerRowUpdated = false;
 
     try {
       for (final image in newImages) {
@@ -764,6 +783,7 @@ class CommunityOfferRepository {
           .single();
 
       final result = Map<String, dynamic>.from(response);
+      offerRowUpdated = true;
 
       if (kDebugMode) {
         debugPrint(
@@ -862,7 +882,7 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
-      if (newlyUploadedPaths.isNotEmpty) {
+      if (!offerRowUpdated && newlyUploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(newlyUploadedPaths);
       }
 

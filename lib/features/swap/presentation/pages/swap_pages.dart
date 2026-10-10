@@ -1,10 +1,11 @@
-import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:loqma/features/swap/data/swap_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SwapListingsPage extends StatefulWidget {
@@ -1059,6 +1060,7 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
     'أخرى'
   ];
   final List<XFile> _images = [];
+  final Map<String, Future<Uint8List>> _imagePreviewBytes = {};
   String? _governorate;
   String _condition = 'any';
   bool _busy = false;
@@ -1125,12 +1127,23 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
       _toast(context, Exception('اختار تصنيفًا واحدًا على الأقل'));
       return;
     }
-    setState(() => _busy = true);
     try {
-      final imageUrls = <String>[];
+      SwapRepository.validateContactNumbers(
+        contactPhone: _phone.text,
+        contactWhatsapp: _whatsapp.text,
+      );
+    } catch (error) {
+      _toast(context, error);
+      return;
+    }
+    setState(() => _busy = true);
+    final imageUrls = <String>[];
+    var createAttempted = false;
+    try {
       for (final image in _images) {
         imageUrls.add(await _repo.uploadListingImage(image));
       }
+      createAttempted = true;
       await _repo.createListing(
         wantedTitle: _title.text,
         description: _desc.text,
@@ -1144,6 +1157,12 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
+      // A known PostgREST rejection means no listing row was accepted. For
+      // ambiguous transport failures, keep the files to avoid breaking a row
+      // that may have committed before the connection dropped.
+      if (!createAttempted || e is PostgrestException) {
+        await _repo.removeUploadedListingImages(imageUrls);
+      }
       if (mounted) _toast(context, e);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -1151,10 +1170,20 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
   }
 
   Future<void> _pickImage() async {
-    final images =
-        await _picker.pickMultiImage(imageQuality: 82, maxWidth: 1600);
-    if (!mounted || images.isEmpty) return;
-    setState(() => _images.addAll(images.take(6 - _images.length)));
+    try {
+      final images =
+          await _picker.pickMultiImage(imageQuality: 82, maxWidth: 1600);
+      if (!mounted || images.isEmpty) return;
+      setState(() {
+        final selected = images.take(6 - _images.length).toList();
+        _images.addAll(selected);
+        for (final image in selected) {
+          _imagePreviewBytes.putIfAbsent(image.path, image.readAsBytes);
+        }
+      });
+    } catch (error) {
+      if (mounted) _toast(context, Exception('تعذر اختيار الصور، حاول مرة أخرى'));
+    }
   }
 
   @override
@@ -1311,14 +1340,40 @@ class _CreateSwapListingPageState extends State<CreateSwapListingPage> {
                                   mainAxisSpacing: 8),
                           itemBuilder: (_, index) =>
                               Stack(fit: StackFit.expand, children: [
-                            Image.file(File(_images[index].path),
-                                fit: BoxFit.cover),
+                            FutureBuilder<Uint8List>(
+                              future: _imagePreviewBytes.putIfAbsent(
+                                _images[index].path,
+                                _images[index].readAsBytes,
+                              ),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasData) {
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Center(
+                                      child: Icon(Icons.broken_image_outlined),
+                                    ),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return const Center(
+                                    child: Icon(Icons.broken_image_outlined),
+                                  );
+                                }
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              },
+                            ),
                             Positioned(
                                 top: 3,
                                 right: 3,
                                 child: InkWell(
                                     onTap: () =>
-                                        setState(() => _images.removeAt(index)),
+                                        setState(() {
+                                          final removed = _images.removeAt(index);
+                                          _imagePreviewBytes.remove(removed.path);
+                                        }),
                                     child: const CircleAvatar(
                                         radius: 12,
                                         backgroundColor: Colors.black54,

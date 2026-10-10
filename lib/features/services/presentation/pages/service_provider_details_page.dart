@@ -35,6 +35,7 @@ class _ServiceProviderDetailsPageState
   // ✅ تقييم المستخدم الحالي
   ServiceReview? _myReview;
   bool _checkingMyReview = true;
+  bool _reviewCheckFailed = false;
 
   // ── ألوان
   static const _bg = Color(0xFF0F0F0F);
@@ -60,7 +61,6 @@ class _ServiceProviderDetailsPageState
     super.initState();
     _provider = widget.provider;
     _loadReviews();
-    _checkMyReview();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -98,12 +98,12 @@ class _ServiceProviderDetailsPageState
         _reviews = list;
         _loadingReviews = false;
       });
-      await _checkMyReview();
     } catch (e) {
       debugPrint('❌ loadReviews error: $e');
       if (!mounted) return;
       setState(() => _loadingReviews = false);
     }
+    await _checkMyReview();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -125,11 +125,15 @@ class _ServiceProviderDetailsPageState
       setState(() {
         _myReview = review;
         _checkingMyReview = false;
+        _reviewCheckFailed = false;
       });
     } catch (e) {
       debugPrint('❌ _checkMyReview error: $e');
       if (!mounted) return;
-      setState(() => _checkingMyReview = false);
+      setState(() {
+        _checkingMyReview = false;
+        _reviewCheckFailed = true;
+      });
     }
   }
 
@@ -1621,6 +1625,17 @@ class _ServiceProviderDetailsPageState
             ),
           ),
         ),
+      );
+    }
+
+    if (_reviewCheckFailed) {
+      return OutlinedButton.icon(
+        onPressed: () {
+          setState(() => _checkingMyReview = true);
+          _checkMyReview();
+        },
+        icon: const Icon(Icons.refresh_rounded),
+        label: const Text('تعذر التحقق من تقييمك — أعد المحاولة'),
       );
     }
 
