@@ -25,11 +25,9 @@ class ServiceProvidersRepository {
   // ═══════════════════════════════════════════════════════════
   Future<List<ServiceProvider>> listByCategory({
     required String categoryId,
-    String? providerType,
-    String? pricingType,
-    String? area, // ✅ جديد — فلتر المنطقة
     String? governorate,
     String? city,
+    bool ratingAscending = false,
     int limit = 50,
   }) async {
     try {
@@ -38,13 +36,6 @@ class ServiceProvidersRepository {
           .select(_publicProviderColumns)
           .eq('category_id', categoryId);
 
-      if (providerType != null && providerType.isNotEmpty) {
-        query = query.eq('provider_type', providerType);
-      }
-      if (pricingType != null && pricingType.isNotEmpty) {
-        query = query.eq('pricing_type', pricingType);
-      }
-
       if (governorate != null && governorate.isNotEmpty) {
         query = query.eq('governorate', governorate);
       }
@@ -52,13 +43,8 @@ class ServiceProvidersRepository {
         query = query.eq('city', city);
       }
 
-      // ✅ فلتر المنطقة — يتحقق إن المزود بيخدم المنطقة دي
-      if (area != null && area.isNotEmpty) {
-        query = query.contains('service_areas', [area]);
-      }
-
       final rows = await query
-          .order('rating_avg', ascending: false)
+          .order('rating_avg', ascending: ratingAscending)
           .order('total_reviews', ascending: false)
           .limit(limit);
 

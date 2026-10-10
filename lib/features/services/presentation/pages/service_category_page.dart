@@ -6,7 +6,6 @@ import 'package:loqma/features/services/data/repositories/service_providers_repo
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
-import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceCategoryPage extends StatefulWidget {
@@ -24,15 +23,12 @@ class ServiceCategoryPage extends StatefulWidget {
 class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   final _repository = ServiceProvidersRepository();
 
-  // ── Filters
-  String? _providerType; // null = all | individual | company
-  String? _pricingType; // null = all | free | symbolic | market
-  String? _area; // ✅ جديد — المنطقة المختارة
+  // ── Location and rating sort
   String? _governorate;
   String? _city;
+  bool _ratingAscending = false;
 
   List<ServiceProvider> _providers = [];
-  List<String> _availableAreas = []; // ✅ المناطق المتاحة
   List<String> _availableGovernorates = [];
   List<String> _availableCities = [];
   bool _loading = true;
@@ -57,11 +53,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   @override
   void initState() {
     super.initState();
-    _loadAreasAndProviders();
+    _loadGovernoratesAndProviders();
   }
 
-  /// ✅ نجيب المناطق + المزودين مع بعض (أول مرة)
-  Future<void> _loadAreasAndProviders() async {
+  /// Loads available governorates and service providers on first display.
+  Future<void> _loadGovernoratesAndProviders() async {
     final requestGeneration = ++_providersRequestGeneration;
     if (mounted) {
       setState(() {
@@ -71,28 +67,23 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     }
 
     try {
-      // 1) نجيب المناطق والمحافظات المتاحة
-      final areas = await _repository.getAvailableAreas(
-        categoryId: widget.category.id,
-      );
+      // Load available governorates.
       final governorates = await _repository.getAvailableGovernorates(
         categoryId: widget.category.id,
       );
+      if (!mounted) return;
+      setState(() => _availableGovernorates = governorates);
 
-      // 2) نجيب المزودين
+      // Load providers using only location filters and the selected rating order.
       final list = await _repository.listByCategory(
         categoryId: widget.category.id,
-        providerType: _providerType,
-        pricingType: _pricingType,
-        area: _area,
         governorate: _governorate,
         city: _city,
+        ratingAscending: _ratingAscending,
       );
 
       if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
-        _availableAreas = areas;
-        _availableGovernorates = governorates;
         _availableCities = const [];
         _providers = list;
         _loading = false;
@@ -120,11 +111,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     try {
       final list = await _repository.listByCategory(
         categoryId: widget.category.id,
-        providerType: _providerType,
-        pricingType: _pricingType,
-        area: _area,
         governorate: _governorate,
         city: _city,
+        ratingAscending: _ratingAscending,
       );
       if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
@@ -144,11 +133,9 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   /// ✅ زر "مسح الفلاتر"
   void _clearFilters() {
     setState(() {
-      _providerType = null;
-      _pricingType = null;
-      _area = null;
       _governorate = null;
       _city = null;
+      _ratingAscending = false;
       _availableCities = const [];
     });
     _reloadProviders();
@@ -248,168 +235,90 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   // Filters
   // ═══════════════════════════════════════════════════════════
   Widget _buildFilters() {
-    final hasActiveFilter =
-        _providerType != null || _pricingType != null || _area != null;
+    final hasLocationFilter = _governorate != null || _city != null;
+    final shouldShowClear = hasLocationFilter || _ratingAscending;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── نوع مقدم الخدمة ──
-          SizedBox(
-            height: 34,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _filterChip(
-                  label: 'الكل',
-                  icon: Icons.apps_rounded,
-                  selected: _providerType == null,
-                  onTap: () {
-                    setState(() => _providerType = null);
-                    _reloadProviders();
-                  },
+          if (_availableGovernorates.isNotEmpty) _locationFilters(),
+          if (_availableGovernorates.isNotEmpty) const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, color: _gold, size: 19),
+              const SizedBox(width: 7),
+              const Text(
+                'الترتيب حسب التقييم',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'أفراد',
-                  icon: Icons.person_rounded,
-                  selected: _providerType == 'individual',
-                  onTap: () {
-                    setState(() => _providerType = 'individual');
-                    _reloadProviders();
-                  },
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'شركات',
-                  icon: Icons.business_rounded,
-                  selected: _providerType == 'company',
-                  onTap: () {
-                    setState(() => _providerType = 'company');
-                    _reloadProviders();
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ── نوع التسعير ──
-          SizedBox(
-            height: 34,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _filterChip(
-                  label: 'كل الأسعار',
-                  icon: Icons.tune_rounded,
-                  selected: _pricingType == null,
-                  onTap: () {
-                    setState(() => _pricingType = null);
-                    _reloadProviders();
-                  },
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'تطوعي',
-                  icon: Icons.favorite_rounded,
-                  color: _green,
-                  selected: _pricingType == 'free',
-                  onTap: () {
-                    setState(() => _pricingType = 'free');
-                    _reloadProviders();
-                  },
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'رمزي',
-                  icon: Icons.volunteer_activism_rounded,
-                  color: _orange,
-                  selected: _pricingType == 'symbolic',
-                  onTap: () {
-                    setState(() => _pricingType = 'symbolic');
-                    _reloadProviders();
-                  },
-                ),
-                const SizedBox(width: 8),
-                _filterChip(
-                  label: 'سعر السوق',
-                  icon: Icons.payments_rounded,
-                  selected: _pricingType == 'market',
-                  onTap: () {
-                    setState(() => _pricingType = 'market');
-                    _reloadProviders();
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          if (_availableGovernorates.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _locationFilters(),
-          ],
-
-          // ✅ ── فلتر المنطقة (يظهر بس لما يكون فيه مناطق)
-          if (_availableAreas.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 34,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _filterChip(
-                    label: 'كل المناطق',
-                    icon: Icons.location_city_rounded,
-                    selected: _area == null,
-                    color: _blue,
-                    onTap: () {
-                      setState(() => _area = null);
-                      _reloadProviders();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  ..._availableAreas.map((area) {
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _filterChip(
-                        label: area,
-                        icon: Icons.location_on_rounded,
-                        selected: _area == area,
-                        color: _blue,
-                        onTap: () {
-                          setState(() => _area = area);
-                          _reloadProviders();
-                        },
-                      ),
-                    );
-                  }),
-                ],
               ),
-            ),
-          ],
-
-          // ✅ زر "مسح الفلاتر" (يظهر بس لما فيه فلتر شغال)
-          if (hasActiveFilter) ...[
-            const SizedBox(height: 6),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  height: 42,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _border),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<bool>(
+                      value: _ratingAscending,
+                      isExpanded: true,
+                      dropdownColor: _cardSoft,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: _textSecondary,
+                      ),
+                      style: const TextStyle(
+                        color: _textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: false,
+                          child: Text('الأعلى تقييمًا أولًا'),
+                        ),
+                        DropdownMenuItem(
+                          value: true,
+                          child: Text('الأقل تقييمًا أولًا'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null || value == _ratingAscending) return;
+                        setState(() => _ratingAscending = value);
+                        _reloadProviders();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (shouldShowClear) ...[
+            const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: _clearFilters,
                 icon: const Icon(Icons.refresh_rounded, size: 14),
                 label: const Text(
-                  'مسح الفلاتر',
+                  'مسح الموقع والترتيب',
                   style: TextStyle(fontSize: 11.5),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: _primaryRed,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -508,65 +417,6 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                   DropdownMenuItem<String>(value: item, child: Text(item)))
               .toList(),
           onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-
-  Widget _filterChip({
-    required String label,
-    required IconData icon,
-    required bool selected,
-    required VoidCallback onTap,
-    Color color = _primaryRed,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: selected
-              ? LinearGradient(
-                  colors: [color, color.withValues(alpha: 0.75)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                )
-              : null,
-          color: selected ? null : _card,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(
-            color: selected ? Colors.transparent : _border,
-            width: 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: selected ? Colors.white : _textSecondary,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? Colors.white : _textPrimary,
-                fontSize: 11.5,
-                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -835,15 +685,6 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                         label: p.city!,
                         color: _blue,
                       ),
-                    // ✅ لو المزود بيخدم المنطقة المختارة
-                    if (_area != null) ...[
-                      const SizedBox(width: 6),
-                      _pill(
-                        icon: Icons.check_circle_rounded,
-                        label: 'بيخدم $_area',
-                        color: _green,
-                      ),
-                    ],
                     if (p.isAvailable)
                       _pill(
                         icon: Icons.check_circle_rounded,
@@ -1077,7 +918,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   // ═══════════════════════════════════════════════════════════
   Widget _buildEmpty() {
     final hasFilter =
-        _providerType != null || _pricingType != null || _area != null;
+        _governorate != null || _city != null || _ratingAscending;
 
     return Center(
       child: Padding(
@@ -1101,9 +942,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
             const SizedBox(height: 20),
             Text(
-              _area != null
-                  ? 'مفيش ${widget.category.nameAr} متاحين في $_area'
-                  : 'مفيش ${widget.category.nameAr} متاحين دلوقتي',
+              _city != null
+                  ? 'مفيش ${widget.category.nameAr} متاحين في $_city'
+                  : _governorate != null
+                      ? 'مفيش ${widget.category.nameAr} متاحين في $_governorate'
+                      : 'مفيش ${widget.category.nameAr} متاحين دلوقتي',
               style: const TextStyle(
                 color: _textPrimary,
                 fontSize: 16,
@@ -1113,7 +956,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'جرّب تغير الفلاتر أو ارجع بعدين',
+              'جرّب تغيير المحافظة أو المدينة أو ترتيب التقييم',
               style: TextStyle(
                 color: _textSecondary,
                 fontSize: 12.5,
@@ -1168,7 +1011,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _loadAreasAndProviders,
+              onPressed: _loadGovernoratesAndProviders,
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('إعادة المحاولة'),
               style: FilledButton.styleFrom(
