@@ -36,6 +36,11 @@ PARTNER_LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_lo
 PARTNER_OTP_PAGE = ROOT / "lib/features/auth/presentation/pages/institution_otp_verify_page.dart"
 MANUAL_PARTNER_OTP_MIGRATION = ROOT / "supabase/migrations/20261009223400_restore_manual_partner_login_otp.sql"
 MANUAL_PARTNER_OTP_REGEX_MIGRATION = ROOT / "supabase/migrations/20261009224200_fix_manual_partner_login_otp_regex.sql"
+LOGIN_SECURITY_MIGRATION = ROOT / "supabase/migrations/20261010092000_secure_partner_login_and_pre_auth.sql"
+LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/login_page.dart"
+PROVIDER_AUTH_PAGE = ROOT / "lib/features/provider/presentation/pages/provider_auth_page.dart"
+SEND_OTP_FUNCTION = ROOT / "supabase/functions/send-otp/index.ts"
+VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.ts"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -72,6 +77,11 @@ def main() -> None:
     partner_otp_page = PARTNER_OTP_PAGE.read_text()
     manual_partner_otp_migration = MANUAL_PARTNER_OTP_MIGRATION.read_text()
     manual_partner_otp_regex_migration = MANUAL_PARTNER_OTP_REGEX_MIGRATION.read_text()
+    login_security_migration = LOGIN_SECURITY_MIGRATION.read_text()
+    login_page = LOGIN_PAGE.read_text()
+    provider_auth_page = PROVIDER_AUTH_PAGE.read_text()
+    send_otp_function = SEND_OTP_FUNCTION.read_text()
+    verify_and_create_function = VERIFY_AND_CREATE_FUNCTION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -80,7 +90,6 @@ def main() -> None:
     require(migration, "WHERE sp.user_id = auth.uid()", "session-bound provider lookup")
     require(migration, "REVOKE ALL ON FUNCTION public.get_provider_auth_state() FROM PUBLIC, anon", "auth RPC anon revoke")
     require(public_provider_migration, "RETURNS TABLE(\n  verification_status text,\n  is_active boolean", "minimal provider phone response")
-    require(migration, "GRANT EXECUTE ON FUNCTION public.find_provider_by_phone(text) TO anon, authenticated", "pre-OTP lookup grant")
     require(public_provider_migration, "CASE WHEN auth.uid() IS NOT NULL THEN sp.phone END", "authenticated provider contact access")
     require(public_provider_migration, "REVOKE ALL ON public.published_service_providers FROM PUBLIC", "public provider privilege reset")
     for sensitive in ("id_card_front_url", "id_card_back_url", "verification_notes", "verified_by", "verified_at", "company_legal_name", "employees_count", "founded_year"):
@@ -181,6 +190,33 @@ def main() -> None:
     require(manual_partner_otp_regex_migration, "CREATE OR REPLACE FUNCTION public.verify_charity_login_otp", "corrected charity code verifier")
     if manual_partner_otp_regex_migration.count("p_otp !~ '^[0-9]{6}$'") != 2:
         raise AssertionError("manual partner code verifiers must validate six ASCII digits explicitly")
+    require(login_security_migration, "CREATE SCHEMA IF NOT EXISTS private", "private partner-secret schema")
+    require(login_security_migration, "access_code_hash IS NULL AND login_otp_hash IS NULL", "charity hash removal from API rows")
+    require(login_security_migration, "CHECK (login_otp_hash IS NULL)", "institution hash removal from API rows")
+    require(login_security_migration, "otp_failed_attempts", "partner OTP attempt counter")
+    require(login_security_migration, "now() + interval '15 minutes'", "partner OTP lockout")
+    require(login_security_migration, "v_user_role <> 'user'", "deny non-user roles in user OTP mode")
+    require(login_security_migration, "REVOKE ALL ON FUNCTION public.find_provider_by_phone(text) FROM PUBLIC, anon, authenticated", "pre-auth provider lookup revoke")
+    require(login_security_migration, "REVOKE ALL ON FUNCTION public.check_ordinary_user_by_phone(text) FROM PUBLIC, anon, authenticated", "pre-auth ordinary-user lookup revoke")
+    for client_file, client_text in (
+        (LOGIN_PAGE, login_page),
+        (PROVIDER_AUTH_PAGE, provider_auth_page),
+        (PROVIDER, provider),
+        (ROOT / "lib/core/repositories/auth_repository.dart", (ROOT / "lib/core/repositories/auth_repository.dart").read_text()),
+    ):
+        for private_lookup in ("find_provider_by_phone", "check_ordinary_user_by_phone"):
+            if private_lookup in client_text:
+                raise AssertionError(f"pre-auth client lookup remains in {client_file.relative_to(ROOT)}: {private_lookup}")
+    if "_goToPendingPage" in provider_auth_page:
+        raise AssertionError("provider pending status is exposed before phone ownership is verified")
+    require(send_otp_function, '"check_phone_access"', "server-side OTP issuance role check")
+    require(send_otp_function, '"create_otp_challenge"', "atomic OTP challenge creation")
+    require(send_otp_function, "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.", "non-enumerating OTP rejection")
+    require(verify_and_create_function, '"check_phone_access"', "role re-check before OTP consumption")
+    require(verify_and_create_function, '"consume_otp_challenge"', "atomic OTP consumption")
+    require(verify_and_create_function, '"phone_normalized"', "normalized phone account lookup")
+    if ".isNotEmpty" in verify_and_create_function:
+        raise AssertionError("Edge Function contains a Dart-only string API")
     for shared_file in (supabase_service, error_mapper):
         if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")

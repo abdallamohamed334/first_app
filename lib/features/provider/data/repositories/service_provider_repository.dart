@@ -182,60 +182,7 @@ class ServiceProviderRepository {
     return missing;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // 🔍 التحقق من وجود مزود برقم الموبايل
-  // ═══════════════════════════════════════════════════════════
-  /// بترجّع:
-  /// - null → الرقم مش مسجل كمزود
-  /// - Map → المزود موجود (مع بياناته)
-  Future<Either<String, Map<String, dynamic>?>> checkProviderByPhone({
-    required String phone,
-  }) async {
-    try {
-      // Keep the pre-OTP login lookup limited to the fields it needs.
-      final rows = await _client.rpc(
-        'find_provider_by_phone',
-        params: {'p_phone': phone},
-      );
-
-      if (rows.isEmpty) {
-        debugPrint('🔍 [Provider] No provider found for this phone');
-        return const Right(null);
-      }
-
-      final row = rows.first;
-
-      debugPrint(
-        '🔍 [Provider] Found provider: '
-        'status=${row['verification_status']}, '
-        'active=${row['is_active']}',
-      );
-
-      return Right(Map<String, dynamic>.from(row));
-    } catch (error) {
-      debugPrint('❌ [Provider] checkByPhone error: $error');
-      return Left(_friendlyError(error));
-    }
-  }
-
-  /// يمنع استخدام رقم حساب المستخدم العادي لإنشاء/دخول حساب مزود خدمة.
-  /// يرجع true فقط عند وجود حساب عادي بنفس الرقم، بدون كشف بيانات شخصية.
-  Future<Either<String, bool>> checkOrdinaryUserByPhone({
-    required String phone,
-  }) async {
-    try {
-      final result = await _client.rpc(
-        'check_ordinary_user_by_phone',
-        params: {'p_phone': phone},
-      );
-      return Right(result == true);
-    } catch (error) {
-      debugPrint('❌ [Provider] ordinary-user phone check error: $error');
-      return Left(_friendlyError(error));
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // 📱 OTP — إرسال الكود
   // ═══════════════════════════════════════════════════════════
   Future<Either<String, String>> sendProviderOtp({

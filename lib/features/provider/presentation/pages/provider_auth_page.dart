@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -115,66 +114,6 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     _tabController.animateTo(index);
   }
 
-  /// ✅ يروح لصفحة Pending
-  Future<void> _goToPendingPage(Map<String, dynamic> provider) async {
-    final status = (provider['verification_status']?.toString() ?? 'pending')
-        .trim()
-        .toLowerCase();
-    final isActive = provider['is_active'] as bool? ?? true;
-    final rejected = status == 'rejected';
-    final suspended = status == 'suspended' || !isActive;
-
-    debugPrint(
-      '🚫 [Provider] blocked login (status=$status, active=$isActive)',
-    );
-
-    if (rejected || suspended) {
-      if (mounted) {
-        setState(() => _loading = false);
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            title: Text(
-              rejected
-                  ? 'تم رفض حساب مزود الخدمة'
-                  : 'تم إيقاف حساب مزود الخدمة',
-              textAlign: TextAlign.right,
-            ),
-            content: Text(
-              rejected
-                  ? 'لا يمكن الدخول إلى صفحة مزود الخدمة لأن الحساب مرفوض. تواصل مع الدعم لمعرفة السبب.'
-                  : 'تم إيقاف حساب مزود الخدمة. تواصل مع الدعم لإعادة تفعيل الحساب.',
-              textAlign: TextAlign.right,
-            ),
-            actions: [
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('حسنًا'),
-              ),
-            ],
-          ),
-        );
-      }
-
-      await _repo.logout();
-      if (mounted) context.go(AppRouter.userTypeSelection);
-      return;
-    }
-
-    AuthStateNotifier.instance.setLoggedIn(
-      isLoggedIn: true,
-      role: 'provider',
-      providerStatus: status,
-      isActive: isActive,
-      authResolved: true,
-    );
-
-    if (!mounted) return;
-    setState(() => _loading = false);
-    context.go(AppRouter.providerPending, extra: provider);
-  }
-
   // ══════════════════════════════════════════════════════════
   // Support WhatsApp
   // ══════════════════════════════════════════════════════════
@@ -250,7 +189,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
   }
 
   // ══════════════════════════════════════════════════════════
-  // LOGIN — يفحص الحالة قبل OTP
+  // LOGIN — يطلب OTP قبل كشف حالة الحساب
   // ══════════════════════════════════════════════════════════
   Future<void> _handleLoginOtp() async {
     FocusScope.of(context).unfocus();
@@ -266,79 +205,6 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
 
     final phone = _loginPhone.text.trim();
 
-    final ordinaryUserCheck =
-        await _repo.checkOrdinaryUserByPhone(phone: phone);
-    if (!mounted) return;
-    var ordinaryUserFound = false;
-    String? ordinaryUserCheckError;
-    ordinaryUserCheck.fold(
-      (error) => ordinaryUserCheckError = error,
-      (found) => ordinaryUserFound = found,
-    );
-    if (ordinaryUserCheckError != null) {
-      setState(() {
-        _loading = false;
-        _errorMessage = ordinaryUserCheckError;
-      });
-      return;
-    }
-    if (ordinaryUserFound) {
-      setState(() {
-        _loading = false;
-        _errorMessage =
-            'لا يمكن الدخول بهذا الرقم لأنه مسجل بالفعل كمستخدم عادي. استخدم رقمًا آخر لمزود الخدمة.';
-      });
-      return;
-    }
-
-    // 1️⃣ هل الرقم مسجل؟
-    final checkResult = await _repo.checkProviderByPhone(phone: phone);
-    if (!mounted) return;
-
-    Map<String, dynamic>? existingProvider;
-    bool hasError = false;
-    String? errorText;
-
-    checkResult.fold(
-      (err) {
-        hasError = true;
-        errorText = err;
-      },
-      (provider) => existingProvider = provider,
-    );
-
-    if (hasError) {
-      setState(() {
-        _loading = false;
-        _errorMessage = errorText;
-      });
-      return;
-    }
-
-    // 2️⃣ الرقم مش مسجل
-    if (existingProvider == null) {
-      setState(() {
-        _loading = false;
-        _errorMessage = 'الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد الأول.';
-        _showSwitchToRegister = true;
-      });
-      return;
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // 3️⃣ ✅ لو مش approved أو مش active → روح PendingPage فوراً
-    // ══════════════════════════════════════════════════════════
-    final status =
-        existingProvider!['verification_status']?.toString() ?? 'pending';
-    final isActive = existingProvider!['is_active'] as bool? ?? true;
-
-    if (status != 'approved' || !isActive) {
-      // ✅ روح PendingPage بدون إرسال OTP
-      await _goToPendingPage(existingProvider!);
-      return;
-    }
-
-    // 4️⃣ approved + active → أرسل OTP
     final result = await _repo.sendProviderOtp(
       phone: phone,
       loginMode: 'provider',
@@ -366,7 +232,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
   }
 
   // ══════════════════════════════════════════════════════════
-  // REGISTER — يفحص الحالة قبل OTP
+  // REGISTER — صلاحية الرقم يحددها الخادم أثناء طلب OTP
   // ══════════════════════════════════════════════════════════
   Future<void> _handleRegisterOtp() async {
     FocusScope.of(context).unfocus();
@@ -387,64 +253,6 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
 
     final phone = _regPhone.text.trim();
 
-    final ordinaryUserCheck =
-        await _repo.checkOrdinaryUserByPhone(phone: phone);
-    if (!mounted) return;
-    var ordinaryUserFound = false;
-    String? ordinaryUserCheckError;
-    ordinaryUserCheck.fold(
-      (error) => ordinaryUserCheckError = error,
-      (found) => ordinaryUserFound = found,
-    );
-    if (ordinaryUserCheckError != null) {
-      setState(() {
-        _loading = false;
-        _errorMessage = ordinaryUserCheckError;
-      });
-      return;
-    }
-    if (ordinaryUserFound) {
-      setState(() {
-        _loading = false;
-        _errorMessage =
-            'لا يمكن التسجيل بهذا الرقم لأنه مسجل بالفعل كمستخدم عادي. استخدم رقمًا آخر لمزود الخدمة.';
-      });
-      return;
-    }
-
-    // 1️⃣ هل الرقم مسجل؟
-    final checkResult = await _repo.checkProviderByPhone(phone: phone);
-    if (!mounted) return;
-
-    Map<String, dynamic>? existingProvider;
-    bool hasError = false;
-    String? errorText;
-
-    checkResult.fold(
-      (err) {
-        hasError = true;
-        errorText = err;
-      },
-      (provider) => existingProvider = provider,
-    );
-
-    if (hasError) {
-      setState(() {
-        _loading = false;
-        _errorMessage = errorText;
-      });
-      return;
-    }
-
-    // ══════════════════════════════════════════════════════════
-    // 2️⃣ ✅ لو الرقم مسجل بالفعل → روح PendingPage فوراً
-    // ══════════════════════════════════════════════════════════
-    if (existingProvider != null) {
-      await _goToPendingPage(existingProvider!);
-      return;
-    }
-
-    // 3️⃣ الرقم جديد → أرسل OTP
     final result = await _repo.sendProviderOtp(
       phone: phone,
       loginMode: 'provider',

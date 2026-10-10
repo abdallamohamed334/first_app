@@ -484,36 +484,6 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // 🛡️ فحص مزود الخدمة قبل دخول المستخدم العادي
-  // ═══════════════════════════════════════════════════════════
-  String _intlPhone(String localPhone) {
-    final digits = localPhone.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.startsWith('0') && digits.length == 11) {
-      return '20${digits.substring(1)}';
-    }
-    if (digits.startsWith('20') && digits.length == 12) return digits;
-    return digits;
-  }
-
-  Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
-    final local = _normalizeEgyptianPhone(phone);
-    final intl = _intlPhone(local);
-    if (intl.isEmpty) return null;
-
-    // Direct anon SELECT on service_providers is intentionally revoked.
-    // Use the restricted RPC that exposes only provider-routing fields.
-    final rows = await SupabaseService().client.rpc(
-      'find_provider_by_phone',
-      params: {'p_phone': intl},
-    );
-
-    if (rows is List && rows.isNotEmpty && rows.first is Map) {
-      return Map<String, dynamic>.from(rows.first as Map);
-    }
-    return null;
-  }
-
   Future<Map<String, dynamic>?> _findProviderByUserId(String userId) async {
     final row = await SupabaseService()
         .client
@@ -637,13 +607,6 @@ class _LoginPageState extends State<LoginPage>
     setState(() => _isLoading = true);
 
     try {
-      final provider = await _findProviderByPhone(phone);
-      if (provider != null) {
-        if (mounted) setState(() => _isLoading = false);
-        await _showProviderBlockedMessage(provider: provider);
-        return;
-      }
-
       debugPrint('[Login] sending OTP request');
 
       final result = await _authRepo.sendOtp(phone: phone);

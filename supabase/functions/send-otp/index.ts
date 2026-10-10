@@ -85,13 +85,11 @@ serve(async (req) => {
     }
 
     if (!access || access.allowed !== true) {
-      console.warn(`OTP blocked: mode=${loginMode}, reason=${access?.reason}`);
-
+      console.warn("OTP request blocked by account access check");
       return new Response(
         JSON.stringify({
           success: false,
-          error: access?.message ?? "لا يمكن إرسال كود لهذا الرقم",
-          reason: access?.reason ?? "phone_not_allowed",
+          error: "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.",
         }),
         {
           status: 403,

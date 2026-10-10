@@ -28,12 +28,11 @@ class AuthRepository {
         _webVapidKey = webVapidKey;
 
   // ═══════════════════════════════════════════════════════════
-  // 🎯 الأدوار المدعومة للتسجيل (3 بس)
+  // 🎯 الأدوار المدعومة للتسجيل
   // ═══════════════════════════════════════════════════════════
   static const Set<String> _supportedRoles = {
     'user',
     'provider',
-    'institution',
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -147,36 +146,6 @@ class AuthRepository {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // 🛡️ منع استخدام رقم مزود الخدمة كحساب مستخدم عادي
-  // ═══════════════════════════════════════════════════════════
-  Future<Map<String, dynamic>?> _findProviderByPhone(String phone) async {
-    final raw = phone.replaceAll(RegExp(r'[^\d]'), '');
-    if (raw.isEmpty) return null;
-
-    // service_providers is intentionally not readable by anon. The narrowly
-    // scoped SECURITY DEFINER RPC returns only login-routing state.
-    final rows = await _supabase.client.rpc(
-      'find_provider_by_phone',
-      params: {'p_phone': raw},
-    );
-
-    if (rows is List && rows.isNotEmpty && rows.first is Map) {
-      return Map<String, dynamic>.from(rows.first as Map);
-    }
-    return null;
-  }
-
-  Future<String?> _providerBlockMessage(String phone) async {
-    final provider = await _findProviderByPhone(phone);
-    if (provider == null) return null;
-
-    final status = provider['verification_status']?.toString().trim();
-    final statusText = status == null || status.isEmpty ? 'غير محددة' : status;
-    return 'الرقم ده مسجل كمزود خدمة وحالته "$statusText". '
-        'استخدم دخول مقدم الخدمة.';
-  }
-
-  // ═══════════════════════════════════════════════════════════
   // 📤 إرسال كود التحقق على واتساب
   // ═══════════════════════════════════════════════════════════
   Future<Either<String, String>> sendOtp({
@@ -192,12 +161,6 @@ class AuthRepository {
 
       if (cleanPhone.length < 10 || cleanPhone.length > 15) {
         return const Left('رقم الهاتف غير صحيح');
-      }
-
-      final providerBlock = await _providerBlockMessage(cleanPhone);
-      if (providerBlock != null) {
-        debugPrint('🚫 [Auth] Provider phone blocked from ordinary login');
-        return Left(providerBlock);
       }
 
       debugPrint('Sending OTP request (mode=$loginMode)');
@@ -250,15 +213,6 @@ class AuthRepository {
       final role = (profile['role'] ?? 'user').toString().toLowerCase();
       if (!_supportedRoles.contains(role)) {
         return const Left('نوع الحساب غير مدعوم');
-      }
-
-      // حماية ثانية بعد إدخال OTP، في حالة تم تجاوز فحص الواجهة.
-      if (role == 'user') {
-        final providerBlock = await _providerBlockMessage(cleanPhone);
-        if (providerBlock != null) {
-          debugPrint('🚫 [Auth] Provider phone blocked during verification');
-          return Left(providerBlock);
-        }
       }
 
       debugPrint('Verifying OTP request (role=$role)');
@@ -376,6 +330,11 @@ class AuthRepository {
         return const Left('رقم الهاتف غير صحيح');
       }
       if (!_supportedRoles.contains(cleanRole)) {
+        if (cleanRole == 'institution') {
+          return const Left(
+            'حسابات المؤسسات ينشئها فريق وِصلة. استخدم بوابة دخول المؤسسات.',
+          );
+        }
         return const Left('نوع الحساب غير مدعوم');
       }
 
@@ -388,13 +347,6 @@ class AuthRepository {
       if (cleanRole == 'institution') {
         if (institutionType == null || institutionType.isEmpty) {
           return const Left('اختار نوع المؤسسة');
-        }
-      }
-
-      if (cleanRole == 'user') {
-        final providerBlock = await _providerBlockMessage(cleanPhone);
-        if (providerBlock != null) {
-          return Left(providerBlock);
         }
       }
 

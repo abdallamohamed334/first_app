@@ -60,6 +60,20 @@ serve(async (req) => {
       return err("بيانات التحقق غير صحيحة", 400);
     }
 
+    // Re-check role and account status at verification time, not only when
+    // issuing the OTP. This closes role-change and cross-role replay windows.
+    const { data: access, error: accessError } = await adminClient.rpc(
+      "check_phone_access",
+      { p_phone: cleanPhone, p_login_mode: requestedRole },
+    );
+    if (accessError) {
+      console.error("Phone access check failed", accessError.code);
+      return err("تعذر التحقق من صلاحية الحساب، حاول مرة أخرى", 503);
+    }
+    if (access?.allowed !== true) {
+      return err("لا يمكن إكمال تسجيل الدخول بهذا الرقم", 403);
+    }
+
     // Consume under a per-phone database lock: a challenge can succeed once only.
     const { data: otpResult, error: otpError } = await adminClient.rpc(
       "consume_otp_challenge",
@@ -100,11 +114,15 @@ serve(async (req) => {
     let isNewUser = false;
 
     // (أ) لو في public.users → نجرب auth بنفس الـ ID
-    const { data: publicUser } = await adminClient
+    const { data: publicUser, error: publicUserError } = await adminClient
       .from("users")
       .select("id")
-      .eq("phone", cleanPhone)
+      .eq("phone_normalized", cleanPhone)
       .maybeSingle();
+    if (publicUserError) {
+      console.error("Public user lookup failed", publicUserError.code);
+      return err("تعذر التحقق من الحساب، حاول مرة أخرى", 503);
+    }
 
     if (publicUser?.id) {
       try {
@@ -190,11 +208,15 @@ serve(async (req) => {
     // users has a trigger that keeps role and user_type in sync. Set both
     // explicitly; otherwise user_type defaults to "user" and provider
     // registration is rejected by the database guard.
-    const { data: conflictRow } = await adminClient
+    const { data: conflictRow, error: conflictError } = await adminClient
       .from("users")
       .select("id")
-      .eq("phone", cleanPhone)
+      .eq("phone_normalized", cleanPhone)
       .maybeSingle();
+    if (conflictError) {
+      console.error("Phone conflict lookup failed", conflictError.code);
+      return err("تعذر التحقق من الحساب، حاول مرة أخرى", 503);
+    }
     if (conflictRow?.id && conflictRow.id !== finalUserId) {
       console.warn("Phone conflict detected; automatic cleanup skipped");
       return err("رقم الهاتف مرتبط بحساب آخر", 409);
@@ -211,11 +233,13 @@ serve(async (req) => {
       "phone": cleanPhone,
       "is_phone_verified": true,
     };
-    if (isNewUser || (profile["name"]?.toString().trim().isNotEmpty ?? false)) {
-      userPatch["name"] = profile["name"]?.toString().trim() ?? "";
+    const profileName = typeof profile.name === "string" ? profile.name.trim() : "";
+    if (isNewUser || profileName.length > 0) {
+      userPatch["name"] = profileName;
     }
-    if (isNewUser || (profile["city"]?.toString().trim().isNotEmpty ?? false)) {
-      userPatch["city"] = profile["city"]?.toString().trim() ?? "طنطا";
+    const profileCity = typeof profile.city === "string" ? profile.city.trim() : "";
+    if (isNewUser || profileCity.length > 0) {
+      userPatch["city"] = profileCity || "طنطا";
     }
     if (isNewUser) {
       userPatch["role"] = requestedRole;
