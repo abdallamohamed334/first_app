@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/material.dart';
 
-import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
 import 'my_community_needs_page.dart';
 import 'community_my_charity_donations_page.dart';
 import 'community_my_offers_page.dart';
@@ -18,7 +17,6 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
     (label: 'تبرعاتي', icon: Icons.favorite_rounded),
     (label: 'طلبات البقالة والفنادق', icon: Icons.storefront_rounded),
     (label: 'عروضي', icon: Icons.campaign_rounded),
-    (label: 'استبدالاتي', icon: Icons.swap_horizontal_circle_rounded),
   ];
 
   @override
@@ -80,7 +78,6 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
             CommunityMyCharityDonationsPage(),
             CommunityMyGroceryOrdersPage(),
             CommunityMyOffersPage(),
-            MySwapsPage(),
           ],
         ),
       ),

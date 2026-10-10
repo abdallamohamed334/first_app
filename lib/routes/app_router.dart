@@ -13,7 +13,6 @@ import '../features/auth/presentation/pages/user_type_selection_page.dart';
 import '../features/auth/presentation/pages/institution_login_page.dart';
 import '../features/auth/presentation/pages/account_restricted_page.dart';
 import '../features/admin/presentation/pages/account_cases_page.dart';
-import '../features/admin/presentation/pages/swap_reports_page.dart';
 
 // ✅ Provider (مزود الخدمة)
 import '../features/provider/presentation/pages/provider_auth_page.dart';
@@ -42,7 +41,6 @@ import '../features/business/restaurant/presentation/pages/business_restaurant_p
 import '../features/charity/presentation/pages/charity_workspace_page.dart';
 
 import '../features/institutions/presentation/pages/institutions_home_page.dart';
-import '../features/swap/presentation/pages/swap_pages.dart';
 
 class AppRouter {
   // ═══════════════════════════════════════════════════════════
@@ -71,7 +69,6 @@ class AppRouter {
   static const String providerHome = '/provider-home';
   static const String institutionsHome = '/institutions-home';
   static const String adminAccountCases = '/admin/account-cases';
-  static const String adminSwapReports = '/admin/swap-reports';
 
   // ── Secondary
   static const String map = '/map';
@@ -82,7 +79,6 @@ class AppRouter {
   static const String charities = '/charities';
   static const String offerDetails = '/offer/:id';
   static const String placeholder = '/placeholder';
-  static const String swaps = '/swaps';
 
   // ⚠️ Legacy
   static const String restaurantHome = '/restaurant-home';
@@ -160,7 +156,7 @@ class AppRouter {
         return auth.homeRoute ?? userTypeSelection;
       }
 
-      if ((loc.startsWith('/admin/') || loc == adminSwapReports) &&
+      if (loc.startsWith('/admin/') &&
           auth.role != 'admin') {
         return auth.homeRoute ?? home;
       }
@@ -446,11 +442,6 @@ class AppRouter {
         builder: (context, state) => const AccountCasesPage(),
       ),
 
-      GoRoute(
-        path: adminSwapReports,
-        name: 'admin-swap-reports',
-        builder: (context, state) => const SwapReportsPage(),
-      ),
 
       // ─────────────────────────────────────────────
       // 7. Provider Home (Dashboard)
@@ -541,11 +532,6 @@ class AppRouter {
         },
       ),
 
-      GoRoute(
-        path: swaps,
-        name: 'swaps',
-        builder: (context, state) => const SwapListingsPage(),
-      ),
 
       // ─────────────────────────────────────────────
       // 16. Placeholder

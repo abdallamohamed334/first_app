@@ -1,7 +1,7 @@
 // lib/features/splash/presentation/pages/splash_page.dart
 //
 // ✅ سبلاش شاشة تطبيق "وصلة" — المنصة اللي بتوصّل الناس ببعض:
-// بيع منتجات، استبدالات، البحث عن خدمة، والتبرع للجمعيات.
+// بيع منتجات، البحث عن خدمة، والتبرع للجمعيات.
 // نفس جودة ومستوى الأنيميشن بتاع سبلاش "جُود" (scale/fade/glow + نمط
 // خلفية + progress bar) لكن الشعار واللوجو اتبنوا من الصفر بما إنه
 // معندناش asset صورة جاهزة للتطبيق الجديد لسه — الشعار هنا متصمم
@@ -65,7 +65,6 @@ class _SplashPageState extends State<SplashPage>
   // حوالين الشعار فى حركة مدارية هادية (orbit).
   static const _pillars = <_Pillar>[
     _Pillar(icon: Icons.storefront_rounded, color: Color(0xFFC78950)), // بيع
-    _Pillar(icon: Icons.swap_horiz_rounded, color: Color(0xFF3679C8)), // استبدال
     _Pillar(icon: Icons.handyman_rounded, color: Color(0xFF6651B5)), // خدمات
     _Pillar(icon: Icons.volunteer_activism_rounded, color: Color(0xFFB54747)), // تبرع
   ];
@@ -465,7 +464,7 @@ class _SplashPageState extends State<SplashPage>
       child: Column(
         children: [
           Text(
-            'بيع . استبدال . خدمات . تبرّع',
+            'بيع . خدمات . تبرّع',
             style: TextStyle(
               color: _inkSoft.withValues(alpha: 0.58),
               fontSize: 14,
