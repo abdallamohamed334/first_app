@@ -6,6 +6,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/errors/app_error_mapper.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/auth_state_notifier.dart';
 import '../../../../core/services/image_upload_codec.dart';
@@ -93,6 +94,13 @@ class ServiceProviderRepository {
     if (raw.contains('rate') || raw.contains('too many')) {
       return 'محاولات كثيرة. استنى شوية وحاول تاني.';
     }
+    if (raw.contains('cannot send code') ||
+        raw.contains('لا يمكن إرسال كود') ||
+        raw.contains('account type') ||
+        raw.contains('نوع الحساب') ||
+        raw.contains('provider phone')) {
+      return 'لا يمكن إرسال كود لهذا الرقم. تأكد أن الرقم مرتبط بحساب مزود خدمة أو سجّل حسابًا جديدًا.';
+    }
     if (raw.contains('network') ||
         raw.contains('socket') ||
         raw.contains('timeout') ||
@@ -105,7 +113,55 @@ class ServiceProviderRepository {
     if (raw.contains('23502') || raw.contains('not-null')) {
       return 'بيانات ناقصة. تأكد من اكتمال الحقول.';
     }
-    return 'تعذر إتمام العملية. حاول تاني.';
+    return AppErrorMapper.message(
+      error,
+      fallback: 'تعذر إتمام العملية حاليًا. حاول تاني.',
+    );
+  }
+
+  /// يحوّل رسائل الـEdge Function القادمة في response.data إلى رسائل آمنة.
+  /// لا نعرض نص الخطأ القادم من Supabase مباشرة لأنه قد يحتوي على تفاصيل
+  /// داخلية من قاعدة البيانات أو أسماء دوال وسياسات RLS.
+  String _friendlyProviderOtpResponseError(
+    String error, {
+    required bool isSending,
+  }) {
+    final raw = error.trim().toLowerCase();
+    if (raw.isEmpty) {
+      return isSending
+          ? 'تعذر إرسال كود التحقق. حاول تاني.'
+          : 'كود التحقق غير صحيح أو منتهي.';
+    }
+
+    if (raw.contains('rate') ||
+        raw.contains('too many') ||
+        raw.contains('انتظر') ||
+        raw.contains('429')) {
+      return 'تم تجاوز عدد المحاولات. انتظر دقيقة ثم حاول مرة أخرى.';
+    }
+    if (isSending &&
+        (raw.contains('cannot send') ||
+            raw.contains('لا يمكن إرسال') ||
+            raw.contains('account type') ||
+            raw.contains('نوع الحساب') ||
+            raw.contains('provider'))) {
+      return 'لا يمكن إرسال كود لهذا الرقم. تأكد أن الرقم مرتبط بحساب مزود خدمة أو سجّل حسابًا جديدًا.';
+    }
+    if (!isSending &&
+        (raw.contains('otp') ||
+            raw.contains('code') ||
+            raw.contains('كود') ||
+            raw.contains('رمز') ||
+            raw.contains('expired') ||
+            raw.contains('منتهي'))) {
+      return 'كود التحقق غير صحيح أو منتهي. اطلب كودًا جديدًا وحاول مرة أخرى.';
+    }
+    if (raw.contains('phone') || raw.contains('رقم')) {
+      return 'رقم الهاتف غير صحيح أو غير مرتبط بالحساب المطلوب.';
+    }
+    return isSending
+        ? 'تعذر إرسال كود التحقق حاليًا. حاول تاني.'
+        : 'تعذر التحقق من الكود حاليًا. حاول تاني.';
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -212,18 +268,16 @@ class ServiceProviderRepository {
       final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
-        debugPrint('❌ [Provider OTP] error: $err');
-        if (err.contains('rate') || err.contains('too many')) {
-          return const Left('انتظر دقيقة قبل طلب كود جديد');
-        }
-        return Left(err.isNotEmpty ? err : 'تعذر إرسال الكود');
+        debugPrint('❌ [Provider OTP] error response received');
+        return Left(_friendlyProviderOtpResponseError(err, isSending: true));
       }
 
       final returned = data['phone']?.toString() ?? cleanPhone;
       debugPrint('✅ [Provider OTP] Sent to ${_maskPhone(returned)}');
       return Right(returned);
-    } catch (error) {
-      debugPrint('❌ [Provider OTP] send exception: $error');
+    } catch (error, stack) {
+      debugPrint('❌ [Provider OTP] send exception: ${error.runtimeType}');
+      debugPrintStack(stackTrace: stack);
       return Left(_friendlyError(error));
     }
   }
@@ -277,8 +331,8 @@ class ServiceProviderRepository {
       final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
-        debugPrint('❌ [Provider OTP] verify error: $err');
-        return Left(err.isNotEmpty ? err : 'كود التحقق غير صحيح');
+        debugPrint('❌ [Provider OTP] verify error response received');
+        return Left(_friendlyProviderOtpResponseError(err, isSending: false));
       }
 
       final refreshToken = data['refresh_token']?.toString();
