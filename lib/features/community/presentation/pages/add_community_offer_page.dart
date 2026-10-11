@@ -92,6 +92,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   bool _isSubmitting = false;
   bool _isLoadingCategories = false;
   bool _isInitializing = false;
+  bool _isPickingImages = false;
 
   List<Map<String, dynamic>> _categories = const [];
 
@@ -980,11 +981,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   // Images
   // ═══════════════════════════════════════════════════════════
   Future<void> _pickImages() async {
+    if (_isPickingImages) return;
+
     if (_totalImages >= 6) {
       _showMessage('يمكنك إضافة 6 صور كحد أقصى');
       return;
     }
 
+    setState(() => _isPickingImages = true);
     try {
       final picked = await _picker.pickMultiImage(
         imageQuality: 82,
@@ -997,6 +1001,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     } catch (error) {
       debugPrint('❌ Failed to pick images: $error');
       if (mounted) _showMessage('تعذر اختيار الصور، حاول مرة أخرى');
+    } finally {
+      if (mounted) setState(() => _isPickingImages = false);
     }
   }
 
@@ -1066,6 +1072,12 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
     if (_attributesStatus == 'error') {
       _showMessage('تعذر تحميل مواصفات التصنيف. أعد اختيار التصنيف وحاول مجددًا');
+      return;
+    }
+    if (_attributesStatus == 'missingCategory' ||
+        _marketplaceCategoryId == null ||
+        _marketplaceCategoryId!.isEmpty) {
+      _showMessage('التصنيف المختار غير متاح للبيع حاليًا. اختر تصنيفًا آخر.');
       return;
     }
     if (_marketplaceAttributes.isNotEmpty) {
@@ -1587,7 +1599,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   Widget _addImageButton(ColorScheme colors) {
     return InkWell(
-      onTap: _totalImages == 6 ? null : _pickImages,
+      onTap: _totalImages == 6 || _isPickingImages ? null : _pickImages,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: 104,
@@ -1599,11 +1611,20 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              color: colors.primary,
-              size: 28,
-            ),
+            _isPickingImages
+                ? SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: colors.primary,
+                    ),
+                  )
+                : Icon(
+                    Icons.add_photo_alternate_outlined,
+                    color: colors.primary,
+                    size: 28,
+                  ),
             const SizedBox(height: 5),
             Text(
               'أضف صورًا',
@@ -2495,9 +2516,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           const SizedBox(height: 14),
           _field(
             _locationController,
-            'وصف المكان (اختياري)',
+            'وصف مكان الاستلام *',
             'مثال: شارع البحر، قرب مسجد...',
             Icons.place_outlined,
+            requiredField: true,
           ),
           const SizedBox(height: 14),
           _field(

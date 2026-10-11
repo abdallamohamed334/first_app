@@ -867,6 +867,14 @@ class CommunityOfferRepository {
         }
       }
 
+      final primaryImage = existing['image']?.toString();
+      if (primaryImage != null && primaryImage.isNotEmpty) {
+        final primaryPath = _storagePath(primaryImage);
+        if (primaryPath.isNotEmpty && !oldStoragePaths.contains(primaryPath)) {
+          oldStoragePaths.add(primaryPath);
+        }
+      }
+
       final removedPaths =
           oldStoragePaths.where((p) => !cleanKeptPaths.contains(p)).toList();
 
@@ -1652,11 +1660,27 @@ class CommunityOfferRepository {
   // ============================================================
 
   String _storagePath(String value) {
-    if (value.startsWith('community-offers/')) {
-      return value.substring('community-offers/'.length);
+    final clean = value.trim();
+    if (clean.isEmpty) return '';
+
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      try {
+        final segments = Uri.parse(clean).pathSegments;
+        final bucketIndex = segments.indexOf('community-offers');
+        if (bucketIndex >= 0 && bucketIndex < segments.length - 1) {
+          return segments.sublist(bucketIndex + 1).join('/');
+        }
+      } catch (_) {
+        return '';
+      }
+      return '';
     }
 
-    return value;
+    if (clean.startsWith('community-offers/')) {
+      return clean.substring('community-offers/'.length);
+    }
+
+    return clean;
   }
 
   // ============================================================
