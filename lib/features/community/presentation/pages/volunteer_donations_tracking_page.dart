@@ -78,43 +78,52 @@ class _VolunteerDonationsTrackingPageState
         return;
       }
 
-      final response = await SupabaseService()
-          .client
+      final response = await SupabaseService().client
           .from('charity_donation_requests')
           .select('''
-            *,
-            charities:charity_id (id, name, logo),
-            users:donor_id (id, name, phone)
+            id, title, description, category, categories, items, condition,
+            quantity, images, pickup_address,
+            pickup_city, donor_phone, status, created_at, updated_at,
+            volunteer_accepted_at, donor_pickup_confirmed_at,
+            charity_received_at, completed_at,
+            charities:charity_id (id, name, logo)
           ''')
           .eq('volunteer_id', user.id)
+          .filter('deleted_at', 'is', null)
           .order('created_at', ascending: false);
 
       final List<Map<String, dynamic>> donations = [];
       for (var item in response) {
-        final charity = item['charities'] as Map<String, dynamic>?;
-        final donor = item['users'] as Map<String, dynamic>?;
+        final charityRaw = item['charities'];
+        final charity = charityRaw is Map
+            ? Map<String, dynamic>.from(charityRaw)
+            : const <String, dynamic>{};
 
         // ✅ نفس فلترة الروابط الصالحة الموجودة في صفحة التفاصيل بالظبط
         final rawImages = item['images'];
         final images = rawImages is List
             ? rawImages
-                .map((v) => v.toString())
-                .where((url) => url.startsWith('http'))
-                .toList()
+                  .map((v) => v.toString())
+                  .where((url) => url.startsWith('http'))
+                  .toList()
             : <String>[];
 
         donations.add({
           'id': item['id'],
           'title': item['title'] ?? 'تبرع',
           'description': item['description'] ?? '',
+          'category': item['category'],
+          'categories': item['categories'],
+          'items': item['items'],
+          'condition': item['condition'],
           'quantity': item['quantity'] ?? 1,
           'images': images,
           'pickup_address': item['pickup_address'] ?? '',
           'pickup_city': item['pickup_city'] ?? '',
-          'charity_name': charity?['name'] ?? 'جمعية خيرية',
-          'charity_logo': charity?['logo'],
-          'donor_name': donor?['name'] ?? 'متبرع',
-          'donor_phone': donor?['phone'],
+          'charity_name': charity['name'] ?? 'جمعية خيرية',
+          'charity_logo': charity['logo'],
+          'donor_name': 'متبرع',
+          'donor_phone': item['donor_phone'],
           'status': item['status']?.toString() ?? 'volunteer_assigned',
           'created_at': item['created_at'],
           'updated_at': item['updated_at'],
@@ -122,10 +131,7 @@ class _VolunteerDonationsTrackingPageState
           'donor_pickup_confirmed_at': item['donor_pickup_confirmed_at'],
           'charity_received_at': item['charity_received_at'],
           'completed_at': item['completed_at'],
-          'charity_pickup_code': item['charity_pickup_code'],
-          // نمرر الـ map الأصلي كامل زي ما هو عشان صفحة التفاصيل تحتاجه
-          'charities': item['charities'],
-          'users': item['users'],
+          'charities': charity,
         });
       }
 
@@ -306,10 +312,15 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
   @override
   void initState() {
     super.initState();
-    // ✅ لو الكود موجود أصلاً في الـ donation، استخدمه
-    final existing = widget.donation['charity_pickup_code']?.toString();
-    if (existing != null && existing.isNotEmpty) {
-      _charityCode = existing;
+    if (_status == 'in_transit') _loadCharityCode();
+  }
+
+  Future<void> _loadCharityCode() async {
+    try {
+      final code = await widget.repository.getCharityPickupCode(_donationId);
+      if (mounted) setState(() => _charityCode = code);
+    } catch (error) {
+      debugPrint('CHARITY PICKUP CODE LOAD ERROR: $error');
     }
   }
 
@@ -366,16 +377,19 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Row(
             children: [
               Icon(Icons.qr_code_scanner_rounded, color: _green),
               SizedBox(width: 10),
               Text(
                 'تأكيد استلام التبرع',
-                style:
-                    TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
+                style: TextStyle(
+                  color: _darkGreen,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -410,8 +424,10 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: _green, width: 2),
                   ),
-                  prefixIcon:
-                      const Icon(Icons.lock_outline_rounded, color: _green),
+                  prefixIcon: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: _green,
+                  ),
                   counterText: '',
                 ),
                 onSubmitted: (_) =>
@@ -433,7 +449,9 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check_rounded),
               label: const Text('تأكيد الاستلام'),
@@ -527,8 +545,9 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
 
       // 2) توليد كود الجمعية تلقائياً
       try {
-        final code =
-            await widget.repository.generateCharityPickupCode(_donationId);
+        final code = await widget.repository.generateCharityPickupCode(
+          _donationId,
+        );
         if (!mounted) return;
         setState(() {
           _charityCode = code;
@@ -763,12 +782,15 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusData.$2.withAlpha(20),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                      color: statusData.$2.withAlpha(50)),
+                                    color: statusData.$2.withAlpha(50),
+                                  ),
                                 ),
                                 child: Text(
                                   statusData.$1,
@@ -792,18 +814,18 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_back_ios_rounded,
-                        size: 14, color: colors.onSurfaceVariant),
+                    Icon(
+                      Icons.arrow_back_ios_rounded,
+                      size: 14,
+                      color: colors.onSurfaceVariant,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 _SimpleTimeline(status: _status),
                 const SizedBox(height: 12),
                 // منطقة الأزرار - GestureDetector فاضي يمنع فتح صفحة التفاصيل
-                GestureDetector(
-                  onTap: () {},
-                  child: _buildActionArea(),
-                ),
+                GestureDetector(onTap: () {}, child: _buildActionArea()),
               ],
             ),
           ),
@@ -966,8 +988,12 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
     }
   }
 
-  Widget _actionButton(String label, IconData icon, VoidCallback onTap,
-      {required Color color}) {
+  Widget _actionButton(
+    String label,
+    IconData icon,
+    VoidCallback onTap, {
+    required Color color,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
@@ -981,8 +1007,9 @@ class _VolunteerDonationCardState extends State<_VolunteerDonationCard> {
           backgroundColor: color,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );
@@ -1039,8 +1066,9 @@ class _SimpleTimeline extends StatelessWidget {
                     _steps[index].$1,
                     style: TextStyle(
                       fontSize: 7,
-                      color:
-                          isActive ? colors.onSurface : colors.onSurfaceVariant,
+                      color: isActive
+                          ? colors.onSurface
+                          : colors.onSurfaceVariant,
                       fontWeight: isActive ? FontWeight.w800 : FontWeight.w500,
                     ),
                     maxLines: 1,

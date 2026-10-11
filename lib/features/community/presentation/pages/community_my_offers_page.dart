@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_offer_edit_dialog.dart';
 import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 import '../../data/repositories/community_my_offers_repository.dart';
 
@@ -173,20 +173,15 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
   // ============================================================
 
   Future<void> _editOffer(Map<String, dynamic> offer) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddCommunityOfferPage(
-          offerId: offer['id']?.toString(),
-          initialData: offer,
-        ),
-      ),
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => CommunityOfferEditDialog(offer: offer),
     );
 
-    if (result != null && mounted) {
+    if (result == true && mounted) {
       await _load();
       if (mounted) {
-        _showMessage('✅ تم تحديث العرض بنجاح', success: true);
+        _showMessage('تم تحديث الاسم والمواصفات بنجاح', success: true);
       }
     }
   }
@@ -421,7 +416,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
       // ✅ النشط: available أو active بس
       if (status != 'available' && status != 'active') return false;
 
-      final expiresAt = _parseDate(offer['expires_at']);
+      final expiresAt = _expiryForOffer(offer);
       return expiresAt == null || expiresAt.isAfter(DateTime.now());
     }).toList();
   }
@@ -436,7 +431,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
 
       // ✅ available بس expires_at فات → منتهي
       if (status == 'available' || status == 'active') {
-        final expiresAt = _parseDate(offer['expires_at']);
+        final expiresAt = _expiryForOffer(offer);
         return expiresAt != null && !expiresAt.isAfter(DateTime.now());
       }
 
@@ -450,6 +445,16 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
       final status = (offer['status'] ?? '').toString().toLowerCase();
       return status == 'completed';
     }).toList();
+  }
+
+  DateTime? _expiryForOffer(Map<String, dynamic> offer) {
+    final isWeeklySale = offer['charity_id'] == null &&
+        offer['listing_type']?.toString() == 'symbolic_sale';
+    final expiry = OfferExpiryHelper.effectiveExpiry(
+      expiresAt: _parseDate(offer['expires_at']),
+      createdAt: isWeeklySale ? _parseDate(offer['created_at']) : null,
+    );
+    return expiry;
   }
 
   /// ✅ كل العروض المنتهية (expired + completed)
@@ -798,10 +803,12 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
     final offerId = offer['id'].toString();
     final busy = _busyOfferId == offerId;
 
-    final expiresAt = _parseDate(offer['expires_at']);
+    final expiresAt = _expiryForOffer(offer);
 
     // ✅ هل العرض "تم البيع" (completed)؟
     final isCompleted = status.toLowerCase() == 'completed';
+    final isSymbolicSale = offer['charity_id'] == null &&
+        offer['listing_type']?.toString() == 'symbolic_sale';
 
     const editColor = Color(0xFF3679C8);
     const completeColor = Color(0xFF0B9B63);
@@ -914,19 +921,23 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(status),
+                        color: isExpired
+                            ? const Color(0xFF71837C)
+                            : _getStatusColor(status),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                _getStatusColor(status).withValues(alpha: 0.4),
+                            color: (isExpired
+                                    ? const Color(0xFF71837C)
+                                    : _getStatusColor(status))
+                                .withValues(alpha: 0.4),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Text(
-                        _getStatusLabel(status),
+                        isExpired ? 'منتهي' : _getStatusLabel(status),
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
@@ -1128,15 +1139,17 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
                                 onTap: () => _markAsCompleted(offer),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildActionButton(
-                                label: 'تعديل',
-                                icon: Icons.edit_rounded,
-                                color: editColor,
-                                onTap: () => _editOffer(offer),
+                            if (isSymbolicSale) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildActionButton(
+                                  label: 'تعديل',
+                                  icon: Icons.edit_rounded,
+                                  color: editColor,
+                                  onTap: () => _editOffer(offer),
+                                ),
                               ),
-                            ),
+                            ],
                             const SizedBox(width: 8),
                             _buildIconOnlyButton(
                               icon: Icons.delete_rounded,
@@ -1149,7 +1162,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
                           // ══════════════════════════════════════
                           // ✅ عرض منتهي (expired) → تجديد + حذف
                           // ══════════════════════════════════════
-                          else if (!isCompleted) ...[
+                          else if (!isCompleted && isSymbolicSale) ...[
                             Expanded(
                               child: _buildActionButton(
                                 label: 'تجديد',
@@ -1164,6 +1177,18 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
                               color: deleteColor,
                               onTap: () => _deleteOffer(offerId),
                               tooltip: 'إلغاء العرض',
+                            ),
+                          ]
+
+                          // Non-sale community offers cannot be renewed here.
+                          else if (!isCompleted) ...[
+                            Expanded(
+                              child: _buildActionButton(
+                                label: 'حذف العرض',
+                                icon: Icons.delete_rounded,
+                                color: deleteColor,
+                                onTap: () => _deleteOffer(offerId),
+                              ),
                             ),
                           ]
 

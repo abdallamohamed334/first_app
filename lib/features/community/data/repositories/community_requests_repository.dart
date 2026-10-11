@@ -8,6 +8,15 @@ class CommunityRequestsRepository {
 
   String? get currentUserId => _client.auth.currentUser?.id;
 
+  Map<String, dynamic> _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is List && value.isNotEmpty && value.first is Map) {
+      return Map<String, dynamic>.from(value.first as Map);
+    }
+    throw Exception('استجابة غير صالحة من الخادم');
+  }
+
   // ✅ دالة جلب عروض المؤسسات (من جدول community_offers)
   Future<List<Map<String, dynamic>>> getInstitutionOffers() async {
     final rows = await _client
@@ -75,37 +84,27 @@ class CommunityRequestsRepository {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
 
-    final offer = await _client
-        .from('community_offers')
-        .select('owner_id, charity_id, title')
-        .eq('id', offerId)
-        .single();
-
-    final inserted = await _client
-        .from('community_requests')
-        .insert({
-          'offer_id': offerId,
-          'requester_id': user.id,
-          'owner_id': offer['owner_id'],
-          'charity_id': offer['charity_id'],
-          'message': message?.trim().isEmpty == true ? null : message?.trim(),
-        })
-        .select()
-        .single();
-
-    final request = Map<String, dynamic>.from(inserted);
-    final ownerId = offer['owner_id']?.toString();
+    final result = await _client.rpc(
+      'community_create_request',
+      params: {
+        'p_offer_id': offerId,
+        'p_message': message?.trim().isEmpty == true ? null : message?.trim(),
+      },
+    );
+    final request = _asMap(result);
+    final ownerId = request['owner_id']?.toString();
+    final offerTitle = request['offer_title']?.toString() ?? 'عرض المجتمع';
     if (ownerId != null && ownerId.isNotEmpty && ownerId != user.id) {
       await _sendPush(
         userId: ownerId,
         title: 'طلب جديد على عرضك',
-        body: 'يوجد مستخدم مهتم بالعرض: ${offer['title'] ?? 'عرض المجتمع'}',
+        body: 'يوجد مستخدم مهتم بالعرض: $offerTitle',
         type: 'offer_request',
         referenceId: request['id'].toString(),
       );
     }
 
-    final charityId = offer['charity_id']?.toString();
+    final charityId = request['charity_id']?.toString();
     if (charityId != null && charityId.isNotEmpty) {
       final charity = await _client
           .from('charities')
@@ -262,83 +261,43 @@ class CommunityRequestsRepository {
     required String requestId,
     required String status,
   }) async {
-    if (![
-      'accepted',
-      'rejected',
-      'cancelled',
-      'ready_for_pickup',
-      'completed',
-    ].contains(status)) {
+    if (!['accepted', 'rejected', 'cancelled', 'ready_for_pickup']
+        .contains(status)) {
       throw Exception('حالة الطلب غير مسموحة');
     }
 
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
 
-    final request = await _client
-        .from('community_requests')
-        .select(
-            'id, requester_id, owner_id, status, community_offers:offer_id(title)')
-        .eq('id', requestId)
-        .or('owner_id.eq.${user.id},requester_id.eq.${user.id}')
-        .maybeSingle();
-
-    if (request == null) {
-      throw Exception('الطلب غير موجود أو ليس لديك صلاحية');
-    }
-
-    final currentStatus = request['status']?.toString() ?? '';
-    if (status == 'ready_for_pickup') {
-      if (request['owner_id']?.toString() != user.id) {
-        throw Exception('فقط صاحب العرض يستطيع تجهيز الطلب');
-      }
-      if (currentStatus != 'accepted') {
-        throw Exception('لا يمكن التجهيز قبل قبول الطلب');
-      }
-    }
-
-    final patch = <String, dynamic>{
-      'status': status,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    };
-    if (status == 'accepted') {
-      patch['accepted_at'] = DateTime.now().toUtc().toIso8601String();
-    }
-    if (status == 'completed') {
-      patch['completed_at'] = DateTime.now().toUtc().toIso8601String();
-    }
-
-    final updated = await _client
-        .from('community_requests')
-        .update(patch)
-        .eq('id', requestId)
-        .or('owner_id.eq.${user.id},requester_id.eq.${user.id}')
-        .select('id');
-
-    if ((updated as List).isEmpty) {
-      throw Exception('لا يمكن تحديث هذا الطلب');
-    }
-
+    final result = await _client.rpc(
+      'community_update_request_status',
+      params: {'p_request_id': requestId, 'p_next_status': status},
+    );
+    final request = _asMap(result);
     final requesterId = request['requester_id']?.toString();
-    if (requesterId != null &&
-        requesterId.isNotEmpty &&
-        requesterId != user.id) {
-      final offer = request['community_offers'];
-      final offerTitle = offer is Map
-          ? (offer['title']?.toString() ?? 'عرض المجتمع')
-          : 'عرض المجتمع';
+    final ownerId = request['owner_id']?.toString();
+    final notifyUserId = requesterId == user.id ? ownerId : requesterId;
+    if (notifyUserId != null &&
+        notifyUserId.isNotEmpty &&
+        notifyUserId != user.id) {
+      final offerTitle =
+          request['offer_title']?.toString() ?? 'عرض المجتمع';
       final notification = <String, dynamic>{
-        'user_id': requesterId,
+        'user_id': notifyUserId,
         'title': status == 'ready_for_pickup'
             ? 'العرض جاهز للاستلام'
             : status == 'accepted'
                 ? 'تم قبول طلبك'
                 : status == 'rejected'
                     ? 'تم رفض طلبك'
-                    : 'تحديث على طلبك',
+                    : status == 'cancelled'
+                        ? 'تم إلغاء الطلب'
+                        : 'تحديث على طلبك',
         'body': status == 'ready_for_pickup'
             ? 'العرض "$offerTitle" أصبح جاهزًا للاستلام.'
-            : 'تم تحديث حالة طلبك على العرض "$offerTitle".',
+            : status == 'cancelled'
+                ? 'تم إلغاء الطلب على العرض "$offerTitle".'
+                : 'تم تحديث حالة طلبك على العرض "$offerTitle".',
         'type': status == 'rejected'
             ? 'request_rejected'
             : status == 'ready_for_pickup'
@@ -355,7 +314,7 @@ class CommunityRequestsRepository {
         await _client.from('notifications').insert(notification);
       } catch (_) {}
       await _sendPush(
-        userId: requesterId,
+        userId: notifyUserId,
         title: notification['title'].toString(),
         body: notification['body'].toString(),
         type: notification['type'].toString(),

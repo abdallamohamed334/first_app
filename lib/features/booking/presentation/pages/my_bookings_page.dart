@@ -217,19 +217,11 @@ class _MyBookingsViewState extends State<_MyBookingsView> {
   }
 
   Future<void> _showQR(Booking booking) async {
-    final id = booking.businessId ?? booking.restaurantId ?? '';
-    if (id.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('لا يوجد مطعم مرتبط بهذا الطلب')));
-      return;
-    }
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PickupQRPage(
           requestId: booking.id,
-          businessId: id,
-          existingToken: booking.pickupTokenHash,
         ),
       ),
     );

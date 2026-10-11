@@ -106,13 +106,13 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
               const Icon(Icons.verified_user_rounded, color: _primary, size: 64),
               const SizedBox(height: 20),
               const Text(
-                'تحقق من المؤسسة',
+                'تأكيد تسجيل الدخول',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink, fontSize: 25, fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 10),
               Text(
-                'اكتب كود التحقق الثابت الذي أرسلته لك إدارة Khedma لإكمال تسجيل الدخول.',
+                'أدخل الكود المكوّن من 6 أرقام الذي زوّدك به فريق Khedma. يتم التحقق منه في قاعدة البيانات فقط؛ لا يُرسل برسالة.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink.withValues(alpha: 0.7), height: 1.6),
               ),

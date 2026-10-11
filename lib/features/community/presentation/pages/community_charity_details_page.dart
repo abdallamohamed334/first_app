@@ -4,30 +4,32 @@ import 'package:loqma/features/community/presentation/pages/community_charity_op
 class CommunityCharityDetailsPage extends StatelessWidget {
   final CommunityCharityOption charity;
 
-  const CommunityCharityDetailsPage({
-    super.key,
-    required this.charity,
-  });
+  const CommunityCharityDetailsPage({super.key, required this.charity});
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final accent = colors.brightness == Brightness.dark
+        ? const Color(0xFF48C98A)
+        : const Color(0xFF0B7650);
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAF8),
+      backgroundColor: colors.surface,
       appBar: AppBar(
         title: const Text('تفاصيل الجمعية'),
         centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF123F31),
+        backgroundColor: colors.surface,
+        foregroundColor: colors.onSurface,
         elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 30),
         children: [
           _hero(),
           const SizedBox(height: 16),
-          _infoCard(),
+          _infoCard(colors),
           const SizedBox(height: 14),
-          _descriptionCard(),
+          _descriptionCard(colors),
           const SizedBox(height: 20),
           SizedBox(
             height: 56,
@@ -36,8 +38,10 @@ class CommunityCharityDetailsPage extends StatelessWidget {
               icon: const Icon(Icons.favorite_rounded),
               label: const Text('اختيار هذه الجمعية'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0B7650),
-                foregroundColor: Colors.white,
+                backgroundColor: accent,
+                foregroundColor: colors.brightness == Brightness.dark
+                    ? colors.surface
+                    : Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18),
                 ),
@@ -82,9 +86,13 @@ class CommunityCharityDetailsPage extends StatelessWidget {
               children: [
                 Icon(Icons.verified_rounded, color: Colors.white, size: 18),
                 SizedBox(width: 5),
-                Text('جمعية موثقة',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700)),
+                Text(
+                  'جمعية موثقة',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
             ),
           ],
@@ -98,8 +106,11 @@ class CommunityCharityDetailsPage extends StatelessWidget {
       return const CircleAvatar(
         radius: 44,
         backgroundColor: Colors.white24,
-        child:
-            Icon(Icons.account_balance_rounded, color: Colors.white, size: 44),
+        child: Icon(
+          Icons.account_balance_rounded,
+          color: Colors.white,
+          size: 44,
+        ),
       );
     }
     return ClipOval(
@@ -111,84 +122,106 @@ class CommunityCharityDetailsPage extends StatelessWidget {
         errorBuilder: (_, __, ___) => const CircleAvatar(
           radius: 44,
           backgroundColor: Colors.white24,
-          child: Icon(Icons.account_balance_rounded,
-              color: Colors.white, size: 44),
+          child: Icon(
+            Icons.account_balance_rounded,
+            color: Colors.white,
+            size: 44,
+          ),
         ),
       ),
     );
   }
 
-  Widget _infoCard() => _card(
-        children: [
-          if (charity.address?.isNotEmpty == true)
-            _row(Icons.location_on_outlined, 'العنوان', charity.address!),
-          if (charity.phone?.isNotEmpty == true)
-            _row(Icons.phone_outlined, 'الهاتف', charity.phone!),
-          if (charity.email?.isNotEmpty == true)
-            _row(Icons.email_outlined, 'البريد الإلكتروني', charity.email!),
-          if (charity.rating != null)
-            _row(Icons.star_outline_rounded, 'التقييم',
-                charity.rating!.toString()),
-        ],
-      );
+  Widget _infoCard(ColorScheme colors) => _card(
+    colors,
+    children: [
+      if (charity.address?.isNotEmpty == true)
+        _row(colors, Icons.location_on_outlined, 'العنوان', charity.address!),
+      if (charity.phone?.isNotEmpty == true)
+        _row(colors, Icons.phone_outlined, 'الهاتف', charity.phone!),
+      if (charity.email?.isNotEmpty == true)
+        _row(colors, Icons.email_outlined, 'البريد الإلكتروني', charity.email!),
+      if (charity.rating != null)
+        _row(
+          colors,
+          Icons.star_outline_rounded,
+          'التقييم',
+          charity.rating!.toString(),
+        ),
+    ],
+  );
 
-  Widget _descriptionCard() => _card(
-        children: [
-          const Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'عن الجمعية',
-              style: TextStyle(
-                color: Color(0xFF123F31),
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+  Widget _descriptionCard(ColorScheme colors) => _card(
+    colors,
+    children: [
+      Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          'عن الجمعية',
+          style: TextStyle(
+            color: colors.onSurface,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
           ),
-          const SizedBox(height: 10),
-          Text(
-            charity.description?.isNotEmpty == true
-                ? charity.description!
-                : 'لا توجد تفاصيل إضافية عن الجمعية حاليًا.',
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF60746B), height: 1.6),
-          ),
-        ],
-      );
+        ),
+      ),
+      const SizedBox(height: 10),
+      Text(
+        charity.description?.isNotEmpty == true
+            ? charity.description!
+            : 'لا توجد تفاصيل إضافية عن الجمعية حاليًا.',
+        textAlign: TextAlign.right,
+        style: TextStyle(color: colors.onSurfaceVariant, height: 1.6),
+      ),
+    ],
+  );
 
-  Widget _card({required List<Widget> children}) => Container(
+  Widget _card(ColorScheme colors, {required List<Widget> children}) =>
+      Container(
         padding: const EdgeInsets.all(17),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colors.surfaceContainerLow,
           borderRadius: BorderRadius.circular(21),
-          border: Border.all(color: const Color(0xFFE1ECE6)),
+          border: Border.all(color: colors.outlineVariant),
         ),
         child: Column(children: children),
       );
 
-  Widget _row(IconData icon, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF0B7650), size: 21),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(label,
-                      style: const TextStyle(
-                          color: Color(0xFF8A9B93), fontSize: 11)),
-                  const SizedBox(height: 2),
-                  Text(value,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                          color: Color(0xFF123F31),
-                          fontWeight: FontWeight.w700)),
-                ],
-              ),
+  Widget _row(ColorScheme colors, IconData icon, String label, String value) {
+    final accent = colors.brightness == Brightness.dark
+        ? const Color(0xFF48C98A)
+        : const Color(0xFF0B7650);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: accent, size: 21),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }

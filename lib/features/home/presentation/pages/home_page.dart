@@ -34,6 +34,8 @@ import '../bloc/home_state.dart';
 const _green = Color(0xFF0B7650);
 const _darkGreen = Color(0xFF123F31);
 const _background = Color(0xFFF6FAF8);
+const _offerCardSurface = Color(0xFFF0F4F2);
+const _offerCardBorder = Color(0xFFD9E4DE);
 
 enum _HomeMode { shop, rescue }
 
@@ -1040,12 +1042,13 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
                 Row(children: [
                   Expanded(
-                    child: _addOption(Icons.sell_rounded, 'بيع بسعر رمزي', () {
+                    child: _addOption(Icons.sell_rounded, 'إضافة شيء للبيع', () {
                       Navigator.pop(context);
                       Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const AddCommunityOfferPage()));
+                              builder: (_) =>
+                                  const AddCommunityOfferPage()));
                     }),
                   ),
                   const SizedBox(width: 10),
@@ -1193,9 +1196,16 @@ class _InstitutionOfferCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFDCEBE4)),
+          color: _offerCardSurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _offerCardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: _darkGreen.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1344,9 +1354,17 @@ class _CompactOfferCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFDCEBE4))),
+          color: _offerCardSurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _offerCardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: _darkGreen.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(

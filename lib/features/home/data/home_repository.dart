@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/errors/app_error_mapper.dart';
 
 class OfferCard {
   final String id, title, image, foodType, businessName;
@@ -156,9 +157,11 @@ class HomeRepository {
   }
 
   Future<String?> reserveOffer(String offerId, int quantity) async {
+    final userId = _db.auth.currentUser?.id;
+    if (userId == null) return 'UNAUTHENTICATED';
     final res = await _db.rpc('reserve_food_offer', params: {
       'p_offer_id': offerId,
-      'p_user_id': _db.auth.currentUser!.id,
+      'p_user_id': userId,
       'p_quantity': quantity,
     });
     return (res as Map<String, dynamic>)['ok'] == true
@@ -166,11 +169,21 @@ class HomeRepository {
         : (res['error'] as String? ?? 'UNKNOWN');
   }
 
-  Future<bool> claimRescueTask(String taskId) => _db.rpc('claim_delivery_task',
-      params: {'p_task_id': taskId, 'p_user_id': _db.auth.currentUser!.id});
+  Future<bool> claimRescueTask(String taskId) async {
+    final userId = _db.auth.currentUser?.id;
+    if (userId == null) return false;
+    final response = await _db.rpc(
+      'claim_delivery_task',
+      params: {'p_task_id': taskId, 'p_user_id': userId},
+    );
+    return response == true;
+  }
 
   Future<void> toggleFavorite(String offerId, bool isFav) async {
-    final uid = _db.auth.currentUser!.id;
+    final uid = _db.auth.currentUser?.id;
+    if (uid == null) {
+      throw const AppUserException('سجّل الدخول لتنفيذ هذه العملية.');
+    }
     if (isFav) {
       await _db.from('favorites').insert(
           {'user_id': uid, 'target_type': 'food_offer', 'target_id': offerId});

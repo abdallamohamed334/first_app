@@ -6,6 +6,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/errors/app_error_mapper.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/auth_state_notifier.dart';
 import '../../../../core/services/image_upload_codec.dart';
@@ -52,6 +53,11 @@ class ServiceProviderRepository {
     return cleaned;
   }
 
+  String _maskPhone(String phone) {
+    if (phone.length < 6) return '******';
+    return '${phone.substring(0, 4)}******${phone.substring(phone.length - 2)}';
+  }
+
   Map<String, dynamic>? _asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) return Map<String, dynamic>.from(value);
@@ -88,6 +94,13 @@ class ServiceProviderRepository {
     if (raw.contains('rate') || raw.contains('too many')) {
       return 'محاولات كثيرة. استنى شوية وحاول تاني.';
     }
+    if (raw.contains('cannot send code') ||
+        raw.contains('لا يمكن إرسال كود') ||
+        raw.contains('account type') ||
+        raw.contains('نوع الحساب') ||
+        raw.contains('provider phone')) {
+      return 'لا يمكن إرسال كود لهذا الرقم. تأكد أن الرقم مرتبط بحساب مزود خدمة أو سجّل حسابًا جديدًا.';
+    }
     if (raw.contains('network') ||
         raw.contains('socket') ||
         raw.contains('timeout') ||
@@ -100,7 +113,55 @@ class ServiceProviderRepository {
     if (raw.contains('23502') || raw.contains('not-null')) {
       return 'بيانات ناقصة. تأكد من اكتمال الحقول.';
     }
-    return 'تعذر إتمام العملية. حاول تاني.';
+    return AppErrorMapper.message(
+      error,
+      fallback: 'تعذر إتمام العملية حاليًا. حاول تاني.',
+    );
+  }
+
+  /// يحوّل رسائل الـEdge Function القادمة في response.data إلى رسائل آمنة.
+  /// لا نعرض نص الخطأ القادم من Supabase مباشرة لأنه قد يحتوي على تفاصيل
+  /// داخلية من قاعدة البيانات أو أسماء دوال وسياسات RLS.
+  String _friendlyProviderOtpResponseError(
+    String error, {
+    required bool isSending,
+  }) {
+    final raw = error.trim().toLowerCase();
+    if (raw.isEmpty) {
+      return isSending
+          ? 'تعذر إرسال كود التحقق. حاول تاني.'
+          : 'كود التحقق غير صحيح أو منتهي.';
+    }
+
+    if (raw.contains('rate') ||
+        raw.contains('too many') ||
+        raw.contains('انتظر') ||
+        raw.contains('429')) {
+      return 'تم تجاوز عدد المحاولات. انتظر دقيقة ثم حاول مرة أخرى.';
+    }
+    if (isSending &&
+        (raw.contains('cannot send') ||
+            raw.contains('لا يمكن إرسال') ||
+            raw.contains('account type') ||
+            raw.contains('نوع الحساب') ||
+            raw.contains('provider'))) {
+      return 'لا يمكن إرسال كود لهذا الرقم. تأكد أن الرقم مرتبط بحساب مزود خدمة أو سجّل حسابًا جديدًا.';
+    }
+    if (!isSending &&
+        (raw.contains('otp') ||
+            raw.contains('code') ||
+            raw.contains('كود') ||
+            raw.contains('رمز') ||
+            raw.contains('expired') ||
+            raw.contains('منتهي'))) {
+      return 'كود التحقق غير صحيح أو منتهي. اطلب كودًا جديدًا وحاول مرة أخرى.';
+    }
+    if (raw.contains('phone') || raw.contains('رقم')) {
+      return 'رقم الهاتف غير صحيح أو غير مرتبط بالحساب المطلوب.';
+    }
+    return isSending
+        ? 'تعذر إرسال كود التحقق حاليًا. حاول تاني.'
+        : 'تعذر التحقق من الكود حاليًا. حاول تاني.';
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -177,60 +238,7 @@ class ServiceProviderRepository {
     return missing;
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // 🔍 التحقق من وجود مزود برقم الموبايل
-  // ═══════════════════════════════════════════════════════════
-  /// بترجّع:
-  /// - null → الرقم مش مسجل كمزود
-  /// - Map → المزود موجود (مع بياناته)
-  Future<Either<String, Map<String, dynamic>?>> checkProviderByPhone({
-    required String phone,
-  }) async {
-    try {
-      // Keep the pre-OTP login lookup limited to the fields it needs.
-      final rows = await _client.rpc(
-        'find_provider_by_phone',
-        params: {'p_phone': phone},
-      );
-
-      if (rows.isEmpty) {
-        debugPrint('🔍 [Provider] No provider found for this phone');
-        return const Right(null);
-      }
-
-      final row = rows.first;
-
-      debugPrint(
-        '🔍 [Provider] Found provider: '
-        'status=${row['verification_status']}, '
-        'active=${row['is_active']}',
-      );
-
-      return Right(Map<String, dynamic>.from(row));
-    } catch (error) {
-      debugPrint('❌ [Provider] checkByPhone error: $error');
-      return Left(_friendlyError(error));
-    }
-  }
-
-  /// يمنع استخدام رقم حساب المستخدم العادي لإنشاء/دخول حساب مزود خدمة.
-  /// يرجع true فقط عند وجود حساب عادي بنفس الرقم، بدون كشف بيانات شخصية.
-  Future<Either<String, bool>> checkOrdinaryUserByPhone({
-    required String phone,
-  }) async {
-    try {
-      final result = await _client.rpc(
-        'check_ordinary_user_by_phone',
-        params: {'p_phone': phone},
-      );
-      return Right(result == true);
-    } catch (error) {
-      debugPrint('❌ [Provider] ordinary-user phone check error: $error');
-      return Left(_friendlyError(error));
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
   // 📱 OTP — إرسال الكود
   // ═══════════════════════════════════════════════════════════
   Future<Either<String, String>> sendProviderOtp({
@@ -245,7 +253,8 @@ class ServiceProviderRepository {
       }
 
       debugPrint(
-        '📤 [Provider OTP] Sending to $cleanPhone (loginMode=$loginMode)',
+        '📤 [Provider OTP] Sending to ${_maskPhone(cleanPhone)} '
+        '(loginMode=$loginMode)',
       );
 
       final response = await _client.functions.invoke(
@@ -259,18 +268,16 @@ class ServiceProviderRepository {
       final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
-        debugPrint('❌ [Provider OTP] error: $err');
-        if (err.contains('rate') || err.contains('too many')) {
-          return const Left('انتظر دقيقة قبل طلب كود جديد');
-        }
-        return Left(err.isNotEmpty ? err : 'تعذر إرسال الكود');
+        debugPrint('❌ [Provider OTP] error response received');
+        return Left(_friendlyProviderOtpResponseError(err, isSending: true));
       }
 
       final returned = data['phone']?.toString() ?? cleanPhone;
-      debugPrint('✅ [Provider OTP] Sent to $returned');
+      debugPrint('✅ [Provider OTP] Sent to ${_maskPhone(returned)}');
       return Right(returned);
-    } catch (error) {
-      debugPrint('❌ [Provider OTP] send exception: $error');
+    } catch (error, stack) {
+      debugPrint('❌ [Provider OTP] send exception: ${error.runtimeType}');
+      debugPrintStack(stackTrace: stack);
       return Left(_friendlyError(error));
     }
   }
@@ -324,8 +331,8 @@ class ServiceProviderRepository {
       final data = _asMap(response.data);
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
-        debugPrint('❌ [Provider OTP] verify error: $err');
-        return Left(err.isNotEmpty ? err : 'كود التحقق غير صحيح');
+        debugPrint('❌ [Provider OTP] verify error response received');
+        return Left(_friendlyProviderOtpResponseError(err, isSending: false));
       }
 
       final refreshToken = data['refresh_token']?.toString();
@@ -591,22 +598,40 @@ class ServiceProviderRepository {
       if (availabilityNote != null) {
         data['availability_note'] = availabilityNote.trim();
       }
-      if (!profileLocked && idCardFrontUrl != null) {
-        data['id_card_front_url'] = idCardFrontUrl;
-      }
-      if (!profileLocked && idCardBackUrl != null) {
-        data['id_card_back_url'] = idCardBackUrl;
-      }
-      if (!profileLocked && idCardFrontUrl != null && idCardBackUrl != null) {
-        data['profile_locked_at'] = DateTime.now().toUtc().toIso8601String();
-      }
-
       final row = await _client
           .from('service_providers')
           .update(data)
           .eq('id', providerId)
           .select()
           .single();
+
+      if (!profileLocked &&
+          (idCardFrontUrl != null || idCardBackUrl != null)) {
+        final linked = await _client.rpc(
+          'link_my_provider_identity_documents',
+          params: {
+            'p_provider_id': providerId,
+            'p_front_path': idCardFrontUrl,
+            'p_back_path': idCardBackUrl,
+          },
+        );
+        if (linked is! Map || linked['success'] != true) {
+          final message = linked is Map
+              ? linked['message']?.toString()
+              : null;
+          return Left(message?.isNotEmpty == true
+              ? message!
+              : 'تعذر حفظ مستندات الهوية');
+        }
+
+        final refreshed = await _client
+            .from('service_providers')
+            .select()
+            .eq('id', providerId)
+            .single();
+        debugPrint('✅ [Provider] Profile and KYC references updated');
+        return Right(Map<String, dynamic>.from(refreshed));
+      }
 
       debugPrint('✅ [Provider] Profile updated');
 
@@ -650,13 +675,14 @@ class ServiceProviderRepository {
       }
 
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      const contentType = 'image/webp';
       await _client.storage.from('provider-images').uploadBinary(
             fileName,
             encoded,
             fileOptions: FileOptions(
               cacheControl: '3600',
               upsert: false,
-              contentType: 'image/webp',
+              contentType: contentType,
             ),
           );
 
@@ -695,10 +721,11 @@ class ServiceProviderRepository {
       final path =
           '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.webp';
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      const contentType = 'image/webp';
       await _client.storage.from('provider-documents').uploadBinary(
             path,
             encoded,
-            fileOptions: const FileOptions(contentType: 'image/webp'),
+            fileOptions: FileOptions(contentType: contentType),
           );
       return Right(path);
     } catch (error) {

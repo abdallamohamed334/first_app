@@ -121,3 +121,17 @@ class CategoryOffer extends Equatable {
         createdAt,
       ];
 }
+
+/// Keeps the first occurrence of each marketplace offer id.
+/// Category feeds can overlap while joining several nested categories.
+List<CategoryOffer> uniqueCategoryOffersById(
+  Iterable<CategoryOffer> offers,
+) {
+  final unique = <String, CategoryOffer>{};
+  for (final offer in offers) {
+    final id = offer.id.trim();
+    if (id.isEmpty) continue;
+    unique.putIfAbsent(id, () => offer);
+  }
+  return unique.values.toList(growable: false);
+}

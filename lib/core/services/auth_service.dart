@@ -100,7 +100,7 @@ class AuthService {
         await _client.auth.setSession(refreshToken);
       }
 
-      debugPrint('✅ Session set for ${data['user']?['name']}');
+      debugPrint('✅ Session established');
 
       return {
         'success': true,

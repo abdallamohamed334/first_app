@@ -49,8 +49,6 @@ import 'package:loqma/features/userhome/presentation/pages/category_offers_page.
 import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
-import 'package:loqma/features/swap/presentation/pages/swap_pages.dart';
-import 'package:loqma/features/swap/data/swap_repository.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات
@@ -84,7 +82,14 @@ const Set<String> _institutionCatalogSlugs = {
   'home-food',
 };
 
-enum _HomeMode { buy, swap, services }
+const Set<String> _homeRestaurantInstitutionTypes = {
+  'home_restaurant',
+  'home-restaurant',
+  'home_restaurants',
+  'home-restaurants',
+};
+
+enum _HomeMode { buy, services }
 
 class UserHomePage extends StatefulWidget {
   const UserHomePage({super.key});
@@ -104,9 +109,6 @@ class _UserHomePageState extends State<UserHomePage> {
       ServiceCategoriesRepository();
   final ServiceProvidersRepository _serviceProvidersRepository =
       ServiceProvidersRepository();
-  final SwapRepository _swapRepository = SwapRepository();
-  Future<List<Map<String, dynamic>>>? _nearbySwapsFuture;
-
   int _currentPage = 0;
   List<InstitutionOffer> _institutionOffers = [];
   bool _loadingInstitutionOffers = false;
@@ -184,7 +186,6 @@ class _UserHomePageState extends State<UserHomePage> {
       await _loadUserLocation();
       if (!mounted) return;
 
-      _loadCommunityNeeds();
       _loadNearbySymbolicProviders();
       _loadNearbyCategoryOffers();
     });
@@ -389,14 +390,19 @@ class _UserHomePageState extends State<UserHomePage> {
       final offers = await _institutionOffersRepository.listAvailableOffers();
       if (!mounted) return;
 
-      final sorted = offers
-          .where(
-            (offer) =>
-                offer.isActive &&
-                offer.remainingQuantity > 0 &&
-                _isAllowedInstitutionOffer(offer),
-          )
-          .toList(growable: false)
+      final offersById = <String, InstitutionOffer>{};
+      for (final offer in offers) {
+        final id = offer.id.trim();
+        if (id.isEmpty ||
+            !offer.isActive ||
+            offer.remainingQuantity <= 0 ||
+            !_isAllowedInstitutionOffer(offer)) {
+          continue;
+        }
+        offersById.putIfAbsent(id, () => offer);
+      }
+
+      final sorted = offersById.values.toList(growable: false)
         // الأولوية للعروض التي ستنتهي قريبًا، ثم الأحدث عند التساوي.
         ..sort((a, b) {
           final expiry = a.expiresAt.compareTo(b.expiresAt);
@@ -421,6 +427,11 @@ class _UserHomePageState extends State<UserHomePage> {
       return _institutionCatalogSlugs.contains('grocery');
     }
     return _institutionCatalogSlugs.contains(type);
+  }
+
+  bool _isHomeRestaurantOffer(InstitutionOffer offer) {
+    final type = offer.institutionType?.trim().toLowerCase();
+    return _homeRestaurantInstitutionTypes.contains(type);
   }
 
   Future<void> _loadCommunityNeeds() async {
@@ -556,11 +567,9 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Future<void> _refresh() async {
     context.read<UserHomeBloc>().add(const UserHomeRefreshed());
-    _nearbySwapsFuture = _swapRepository.listMyGovernorateOpenListings();
     await _loadUserLocation();
     await Future.wait([
       _loadInstitutionOffers(),
-      _loadCommunityNeeds(),
       _loadServiceCategories(),
       _loadNearbySymbolicProviders(),
       _loadNearbyCategoryOffers(),
@@ -1113,198 +1122,7 @@ class _UserHomePageState extends State<UserHomePage> {
         onRefresh: _refresh,
         child: _homeMode == _HomeMode.buy
             ? _buildBuyContent(state)
-            : _homeMode == _HomeMode.swap
-                ? _buildSwapHomeContent()
-                : _buildServicesContent(),
-      ),
-    );
-  }
-
-  Widget _buildSwapHomeContent() {
-    return CustomScrollView(
-      physics:
-          const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-      slivers: [
-        SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 110),
-            child: FutureBuilder<List<Map<String, dynamic>>>(
-              future: _nearbySwapsFuture ??=
-                  _swapRepository.listMyGovernorateOpenListings(),
-              builder: (context, snapshot) {
-                final rows = snapshot.data ?? const <Map<String, dynamic>>[];
-                return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Card(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.all(18),
-                          leading: Icon(Icons.swap_horizontal_circle_rounded,
-                              size: 44,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onPrimaryContainer),
-                          title: const Text('استبدالات قريبة منك',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w900, fontSize: 18)),
-                          subtitle: const Padding(
-                              padding: EdgeInsets.only(top: 6),
-                              child: Text(
-                                  'عروض الاستبدال داخل محافظتك، ويمكنك رؤية كل العروض من هنا.')),
-                          trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                          onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const SwapListingsPage())),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (snapshot.connectionState == ConnectionState.waiting)
-                        const Center(
-                            child: Padding(
-                                padding: EdgeInsets.all(24),
-                                child: CircularProgressIndicator()))
-                      else if (rows.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(children: [
-                            Icon(Icons.location_searching_rounded,
-                                size: 42,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant),
-                            const SizedBox(height: 8),
-                            const Text('لا توجد عروض استبدال في محافظتك حاليًا',
-                                textAlign: TextAlign.center),
-                            const SizedBox(height: 6),
-                            TextButton.icon(
-                              onPressed: () async {
-                                await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => const ProfilePage()));
-                                if (mounted) {
-                                  final future = _swapRepository
-                                      .listMyGovernorateOpenListings();
-                                  setState(() {
-                                    _nearbySwapsFuture = future;
-                                  });
-                                }
-                              },
-                              icon: const Icon(Icons.edit_location_alt_rounded),
-                              label: const Text('تأكد من تحديد محافظتك'),
-                            ),
-                          ]),
-                        )
-                      else
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: rows.length > 6 ? 6 : rows.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                  childAspectRatio: .68),
-                          itemBuilder: (context, index) =>
-                              _buildNearbySwapCard(rows[index]),
-                        ),
-                    ]);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNearbySwapCard(Map<String, dynamic> row) {
-    final colors = Theme.of(context).colorScheme;
-    final images =
-        (row['images'] as List? ?? []).map((e) => e.toString()).toList();
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) =>
-                    SwapDetailsPage(listingId: row['id'].toString()))),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
-              child: Stack(fit: StackFit.expand, children: [
-            images.isEmpty
-                ? Container(
-                    color: colors.surfaceContainerHighest,
-                    child: Icon(Icons.swap_horiz_rounded,
-                        size: 52, color: colors.onSurfaceVariant))
-                : CachedNetworkImage(
-                    imageUrl: images.first,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 720,
-                    maxWidthDiskCache: 720,
-                    fadeInDuration: const Duration(milliseconds: 120),
-                    placeholder: (_, __) => Container(
-                        color: colors.surfaceContainerHighest,
-                        child: const Center(
-                            child: CircularProgressIndicator(strokeWidth: 2))),
-                    errorWidget: (_, __, ___) => Icon(
-                        Icons.image_not_supported_outlined,
-                        size: 42,
-                        color: colors.onSurfaceVariant)),
-            Positioned(
-                top: 9,
-                right: 9,
-                child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .72),
-                        shape: BoxShape.circle),
-                    child: const Icon(Icons.favorite_border_rounded,
-                        color: Colors.white, size: 20))),
-            Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                    padding: const EdgeInsets.fromLTRB(9, 28, 9, 8),
-                    decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, Color(0xDD000000)])),
-                    child: Text('مطلوب: ${row['wanted_title']}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 15)))),
-          ])),
-          Padding(
-              padding: const EdgeInsets.fromLTRB(9, 8, 9, 10),
-              child: Row(children: [
-                CircleAvatar(
-                    radius: 11,
-                    backgroundColor: colors.primaryContainer,
-                    child: Icon(Icons.person_rounded,
-                        size: 13, color: colors.onPrimaryContainer)),
-                const SizedBox(width: 5),
-                Expanded(
-                    child: Text('${row['governorate'] ?? 'المحافظة'} • جديد',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)))
-              ])),
-        ]),
+            : _buildServicesContent(),
       ),
     );
   }
@@ -1321,49 +1139,9 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
-        SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
-    );
-  }
-
-  Widget _buildSwapSection() {
-    final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
-      child: Card(
-        color: colors.primaryContainer,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const SwapListingsPage())),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(children: [
-              Icon(Icons.swap_horizontal_circle_rounded,
-                  size: 42, color: colors.onPrimaryContainer),
-              SizedBox(width: 12),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    Text('استبدال شيء',
-                        style: TextStyle(
-                            color: colors.onPrimaryContainer,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900)),
-                    SizedBox(height: 4),
-                    Text(
-                        'انشر ما تريد واستقبل عروضًا مثل: لابتوب مقابل iPhone 11',
-                        style: TextStyle(color: colors.onPrimaryContainer)),
-                  ])),
-              Icon(Icons.arrow_forward_ios_rounded,
-                  size: 18, color: colors.onPrimaryContainer),
-            ]),
-          ),
-        ),
-      ),
     );
   }
 
@@ -1401,16 +1179,6 @@ class _UserHomePageState extends State<UserHomePage> {
                 label: 'شراء',
                 subtitle: 'أكل وعروض',
                 color: _primaryRed,
-              ),
-            ),
-            SizedBox(width: 4),
-            Expanded(
-              child: _buildModeTile(
-                mode: _HomeMode.swap,
-                icon: Icons.swap_horizontal_circle_rounded,
-                label: 'استبدال',
-                subtitle: 'بدّل حاجتك',
-                color: _green,
               ),
             ),
             SizedBox(width: 4),
@@ -2089,7 +1857,11 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildCompanyOffersSlider() {
     // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
-    final offers = _institutionOffers.take(5).toList(growable: false);
+    // عروض مطاعم البيت لها قسمها المخصص؛ لا تعرضها مرة ثانية هنا.
+    final offers = _institutionOffers
+        .where((offer) => !_isHomeRestaurantOffer(offer))
+        .take(5)
+        .toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
       return const SizedBox(
         height: 244,
@@ -3266,11 +3038,13 @@ class _UserHomePageState extends State<UserHomePage> {
       trailing: GestureDetector(
         onTap: () {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AddCommunityOfferPage()),
+            MaterialPageRoute(
+              builder: (_) => const AddCommunityOfferPage(),
+            ),
           );
         },
         child: Text(
-          'أضف عرض',
+          'أضف شيئًا للبيع',
           style: TextStyle(
             color: _primaryRed,
             fontSize: 13,
@@ -3283,7 +3057,8 @@ class _UserHomePageState extends State<UserHomePage> {
               onAdd: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (_) => const AddCommunityOfferPage()),
+                    builder: (_) => const AddCommunityOfferPage(),
+                  ),
                 );
               },
             )
@@ -3559,31 +3334,20 @@ class _UserHomePageState extends State<UserHomePage> {
                   SizedBox(height: 12),
                   _AddActionTile(
                     icon: Icons.sell_rounded,
-                    title: 'أبيع حاجة بسعر رمزي',
-                    subtitle: 'عندي حاجة عايز أبيعها بسعر بسيط',
+                    title: 'أضيف حاجة للبيع',
+                    subtitle: 'عندي حاجة عايز أبيعها',
                     color: _orange,
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const AddCommunityOfferPage()),
+                          builder: (_) =>
+                              const AddCommunityOfferPage(),
+                        ),
                       );
                     },
                   ),
                   SizedBox(height: 12),
-                  _AddActionTile(
-                    icon: Icons.swap_horizontal_circle_rounded,
-                    title: 'استبدل حاجة',
-                    subtitle: 'عندي حاجة وعايز أبدلها بحاجة تانية',
-                    color: _blue,
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const CreateSwapListingPage()),
-                      );
-                    },
-                  ),
                   SizedBox(height: 12),
                   _AddActionTile(
                     icon: Icons.volunteer_activism_outlined,
@@ -3608,68 +3372,67 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _card,
-        border: Border(
-          top: BorderSide(color: _border, width: 1),
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _isDark ? 0.28 : 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _BottomNavItem(
-                index: 0,
-                currentIndex: _currentPage,
-                icon: Icons.home_rounded,
-                outlinedIcon: Icons.home_outlined,
-                label: 'الرئيسية',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 1,
-                currentIndex: _currentPage,
-                icon: Icons.grid_view_rounded,
-                outlinedIcon: Icons.grid_view_rounded,
-                label: 'الأقسام',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 2,
-                currentIndex: _currentPage,
-                icon: Icons.volunteer_activism_rounded,
-                outlinedIcon: Icons.volunteer_activism_outlined,
-                label: 'الاحتياجات',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 3,
-                currentIndex: _currentPage,
-                icon: Icons.receipt_long_rounded,
-                outlinedIcon: Icons.receipt_long_rounded,
-                label: 'الطلبات',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 4,
-                currentIndex: _currentPage,
-                icon: Icons.person_rounded,
-                outlinedIcon: Icons.person_outline_rounded,
-                label: 'حسابي',
-                onTap: _selectPage,
-              ),
-            ],
-          ),
+        child: Row(
+          children: [
+            _BottomNavItem(
+              index: 0,
+              currentIndex: _currentPage,
+              icon: Icons.home_rounded,
+              outlinedIcon: Icons.home_outlined,
+              label: 'الرئيسية',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 1,
+              currentIndex: _currentPage,
+              icon: Icons.grid_view_rounded,
+              outlinedIcon: Icons.grid_view_rounded,
+              label: 'الأقسام',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 2,
+              currentIndex: _currentPage,
+              icon: Icons.volunteer_activism_rounded,
+              outlinedIcon: Icons.volunteer_activism_outlined,
+              label: 'الاحتياجات',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 3,
+              currentIndex: _currentPage,
+              icon: Icons.receipt_long_rounded,
+              outlinedIcon: Icons.receipt_long_outlined,
+              label: 'الطلبات',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 4,
+              currentIndex: _currentPage,
+              icon: Icons.person_rounded,
+              outlinedIcon: Icons.person_outline_rounded,
+              label: 'حسابي',
+              onTap: _selectPage,
+            ),
+          ],
         ),
       ),
     );
@@ -4009,14 +3772,16 @@ class _FoodOfferLargeCard extends StatelessWidget {
       child: Container(
         width: 260,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(20),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 16,
-              offset: const Offset(0, 7),
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -4135,13 +3900,15 @@ class _FoodOfferCard extends StatelessWidget {
       child: Container(
         width: 180,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(18),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 12,
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
               offset: const Offset(0, 6),
             ),
           ],
@@ -4302,13 +4069,15 @@ class _CommunityOfferCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: _UserHomePageState._card,
-            borderRadius: BorderRadius.circular(18),
+            color: _UserHomePageState._cardSoft,
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: _UserHomePageState._border, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 12,
+                color: Colors.black.withValues(
+                  alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+                ),
+                blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -4411,13 +4180,15 @@ class _CommunityOfferCard extends StatelessWidget {
       child: Container(
         width: 180,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(18),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 12,
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
               offset: const Offset(0, 6),
             ),
           ],
@@ -4606,7 +4377,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'ابدأ بيع بسعر رمزي',
+                    'أضف شيئًا للبيع',
                     style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontWeight: FontWeight.w800,
@@ -4615,7 +4386,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'عندك حاجة مش محتاجها؟ اعرضها بسعر رمزي.',
+                    'عندك حاجة مش محتاجها؟ اعرضها للبيع بسعر مناسب.',
                     style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 12,
@@ -4743,6 +4514,9 @@ class _BottomNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = index == currentIndex;
+    final selectedForeground = _UserHomePageState._isDark
+        ? Colors.black
+        : Colors.white;
 
     return Expanded(
       child: GestureDetector(
@@ -4763,38 +4537,21 @@ class _BottomNavItem extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? _UserHomePageState._primaryRed.withValues(alpha: 0.14)
+                      ? _UserHomePageState._primaryRed
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(100),
-                  border: selected
-                      ? Border.all(
-                          color: _UserHomePageState._primaryRed
-                              .withValues(alpha: 0.4),
-                          width: 1,
-                        )
-                      : null,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: _UserHomePageState._primaryRed
-                                .withValues(alpha: 0.28),
-                            blurRadius: 12,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   selected ? icon : outlinedIcon,
                   size: 20,
                   color: selected
-                      ? _UserHomePageState._primaryRed
+                      ? selectedForeground
                       : _UserHomePageState._textSecondary,
                 ),
               ),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 260),
+                duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 style: TextStyle(
                   color: selected
@@ -4803,7 +4560,11 @@ class _BottomNavItem extends StatelessWidget {
                   fontSize: 9.5,
                   fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
                 ),
-                child: Text(label),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -5083,10 +4844,15 @@ class _HomeCategoryOfferCard extends StatelessWidget {
     return SizedBox(
       width: 214,
       child: Material(
-        color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(22),
-        elevation: 0,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
+        color: _UserHomePageState._cardSoft,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: _UserHomePageState._border),
+        ),
+        elevation: 1,
+        shadowColor: Colors.black.withValues(
+          alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,

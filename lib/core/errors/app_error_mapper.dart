@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,11 +19,13 @@ class AppErrorMapper {
       return _postgrestMessage(error);
     }
 
-    if (error is SocketException || error is TimeoutException) {
+    final raw = error.toString().toLowerCase();
+    if (error is TimeoutException ||
+        raw.contains('socketexception') ||
+        raw.contains('clientexception') ||
+        raw.contains('handshakeexception')) {
       return 'لا يوجد اتصال بالإنترنت. تحقق من الشبكة وحاول مرة أخرى.';
     }
-
-    final raw = error.toString().toLowerCase();
 
     if (raw.contains('permission') ||
         raw.contains('row-level security') ||

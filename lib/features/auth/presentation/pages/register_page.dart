@@ -386,7 +386,7 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('📌 [Register] name=$name phone=$phone role=${widget.role}');
+      debugPrint('[Register] starting registration');
 
       // ── نبني البروفايل كامل (للأدوار)
       final profile = <String, dynamic>{

@@ -3,6 +3,8 @@ class CommunityCharityOption {
   final String name;
   final String? logo;
   final String? address;
+  final String? city;
+  final String? governorate;
   final String? phone;
   final String? email;
   final String? description;
@@ -16,6 +18,8 @@ class CommunityCharityOption {
     required this.name,
     this.logo,
     this.address,
+    this.city,
+    this.governorate,
     this.phone,
     this.email,
     this.description,
@@ -34,6 +38,9 @@ class CommunityCharityOption {
       name: map['name']?.toString() ?? 'جمعية بدون اسم',
       logo: map['logo']?.toString(),
       address: map['address']?.toString(),
+      city: (map['city'] ?? map['district'])?.toString(),
+      governorate: (map['governorate'] ?? map['province'] ?? map['region'])
+          ?.toString(),
       phone: map['phone']?.toString(),
       email: map['email']?.toString(),
       description: map['description']?.toString(),

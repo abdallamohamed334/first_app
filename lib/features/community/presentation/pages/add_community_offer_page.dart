@@ -84,12 +84,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final List<String> _removedImagePaths = [];
   final List<String> _existingImageUrls = [];
 
-  String _expiryOption = '7_days';
+  DateTime? _originalExpiresAt;
   bool _termsAccepted = false;
 
   bool _isSubmitting = false;
   bool _isLoadingCategories = false;
   bool _isInitializing = false;
+  bool _isPickingImages = false;
 
   List<Map<String, dynamic>> _categories = const [];
 
@@ -207,6 +208,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         return 'أدخل ${_attributeLabel(attribute)}';
     }
   }
+
   bool get _isEditMode => widget.isEditMode;
   int get _totalImages => _keptImagePaths.length + _newImages.length;
 
@@ -269,7 +271,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     _categoryNameAr = data['category_name']?.toString();
     _marketplaceCategoryId = data['marketplace_category_id']?.toString();
 
-    _expiryOption = _deriveExpiryOption(data['expires_at']);
+    _originalExpiresAt = DateTime.tryParse(
+      data['expires_at']?.toString() ?? '',
+    );
 
     final rawAttrs = data['marketplace_attributes'];
     if (rawAttrs is List) {
@@ -302,19 +306,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
 
     _termsAccepted = true;
-  }
-
-  String _deriveExpiryOption(dynamic expiresAt) {
-    if (expiresAt == null) return 'never';
-    final text = expiresAt.toString().trim();
-    if (text.isEmpty || text == 'null') return 'never';
-    final date = DateTime.tryParse(text);
-    if (date == null) return '7_days';
-    final diff = date.difference(DateTime.now());
-    if (diff.inDays <= 7) return '7_days';
-    if (diff.inDays <= 14) return '14_days';
-    if (diff.inDays <= 30) return '30_days';
-    return '30_days';
   }
 
   String _extractStoragePath(String url) {
@@ -358,6 +349,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (_phoneController.text.trim() != origPhone) return true;
       if (_whatsappController.text.trim() != origWhatsapp) return true;
 
+      final originalPrice = num.tryParse(data['price']?.toString() ?? '');
+      final currentPrice = num.tryParse(_priceController.text.trim());
+      if (originalPrice != currentPrice) return true;
+      final originalQuantity = int.tryParse(data['quantity']?.toString() ?? '');
+      final currentQuantity = int.tryParse(_quantityController.text.trim());
+      if (originalQuantity != currentQuantity) return true;
+      if (_categoryId != data['category_id']?.toString()) return true;
+      if (_marketplaceCategoryId != data['marketplace_category_id']?.toString())
+        return true;
+
       final origLat = (data['latitude'] as num?)?.toDouble();
       final origLng = (data['longitude'] as num?)?.toDouble();
       if (_lat != origLat) return true;
@@ -382,7 +383,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     if (_categoryId != null && _categoryId!.isNotEmpty) return true;
     if (_selectedMarketplaceOptionIds.isNotEmpty) return true;
     if (_selectedMarketplaceValues.isNotEmpty) return true;
-    if (_expiryOption != '7_days') return true;
     if (_termsAccepted) return true;
     return false;
   }
@@ -394,9 +394,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         icon: Container(
           width: 60,
           height: 60,
@@ -554,6 +552,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
+    final hasSubcategories = _categories.any(
+      (candidate) => candidate['parent_id']?.toString() == value,
+    );
+    if (hasSubcategories) {
+      _showMessage(
+        'ده تصنيف رئيسي. اختار تصنيفًا فرعيًا علشان تظهر المتطلبات.',
+      );
+      return;
+    }
+
     final requestId = ++_categoryRequestId;
 
     setState(() {
@@ -688,16 +696,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       );
 
       final filtered = rows
-          .map((r) => MarketplaceAttribute(
-                attributeId: r['id'] as String,
-                slug: r['slug'] as String,
-                nameAr: r['name_ar'] as String,
-                nameEn: r['name_en'] as String,
-                inputType: r['input_type'] as String,
-                sortOrder: r['sort_order'] as int,
-                isRequired: r['is_required'] as bool,
-                isFilterable: r['is_filterable'] as bool,
-              ))
+          .map(
+            (r) => MarketplaceAttribute(
+              attributeId: r['id'] as String,
+              slug: r['slug'] as String,
+              nameAr: r['name_ar'] as String,
+              nameEn: r['name_en'] as String,
+              inputType: r['input_type'] as String,
+              sortOrder: r['sort_order'] as int,
+              isRequired: r['is_required'] as bool,
+              isFilterable: r['is_filterable'] as bool,
+            ),
+          )
           .toList();
 
       debugPrint(
@@ -720,8 +730,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       });
 
       // 4) options
-      final selectAttrs =
-          filtered.where((a) => a.inputType == 'select').toList();
+      final selectAttrs = filtered
+          .where((a) => a.inputType == 'select')
+          .toList();
 
       if (selectAttrs.isNotEmpty) {
         setState(() {
@@ -776,15 +787,17 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
       var options = (optionsRaw as List)
           .whereType<Map>()
-          .map((row) => MarketplaceAttributeOption(
-                id: row['id']?.toString() ?? '',
-                attributeId: row['attribute_id']?.toString() ?? '',
-                value: row['value']?.toString() ?? '',
-                labelAr: row['label_ar']?.toString() ?? '',
-                labelEn: row['label_en']?.toString() ?? '',
-                sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
-                parentOptionId: row['parent_option_id']?.toString(),
-              ))
+          .map(
+            (row) => MarketplaceAttributeOption(
+              id: row['id']?.toString() ?? '',
+              attributeId: row['attribute_id']?.toString() ?? '',
+              value: row['value']?.toString() ?? '',
+              labelAr: row['label_ar']?.toString() ?? '',
+              labelEn: row['label_en']?.toString() ?? '',
+              sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
+              parentOptionId: row['parent_option_id']?.toString(),
+            ),
+          )
           .where((o) => o.id.isNotEmpty)
           .toList();
 
@@ -811,10 +824,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     } catch (e, st) {
       debugPrint('❌ [Options] ${attribute.slug}: $e');
       debugPrint('$st');
-      if (!mounted) return;
+      if (!mounted || requestId != _categoryRequestId) return;
       setState(() {
         _marketplaceOptions[attribute.slug] = const [];
         _optionsLoading.remove(attribute.slug);
+        _attributesStatus = 'error';
       });
     }
   }
@@ -963,11 +977,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   // Images
   // ═══════════════════════════════════════════════════════════
   Future<void> _pickImages() async {
+    if (_isPickingImages) return;
+
     if (_totalImages >= 6) {
       _showMessage('يمكنك إضافة 6 صور كحد أقصى');
       return;
     }
 
+    setState(() => _isPickingImages = true);
     try {
       final picked = await _picker.pickMultiImage(
         imageQuality: 82,
@@ -980,6 +997,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     } catch (error) {
       debugPrint('❌ Failed to pick images: $error');
       if (mounted) _showMessage('تعذر اختيار الصور، حاول مرة أخرى');
+    } finally {
+      if (mounted) setState(() => _isPickingImages = false);
     }
   }
 
@@ -1008,19 +1027,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   DateTime? _getExpiresAt() {
-    final now = DateTime.now();
-    switch (_expiryOption) {
-      case '7_days':
-        return now.add(const Duration(days: 7));
-      case '14_days':
-        return now.add(const Duration(days: 14));
-      case '30_days':
-        return now.add(const Duration(days: 30));
-      case 'never':
-        return null;
-      default:
-        return now.add(const Duration(days: 7));
+    if (_isEditMode) {
+      return _originalExpiresAt ?? DateTime.now().add(const Duration(days: 7));
     }
+    return DateTime.now().add(const Duration(days: 7));
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1038,6 +1048,24 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
+    if (_attributesStatus == 'loading' ||
+        _isLoadingMarketplaceAttributes ||
+        _optionsLoading.isNotEmpty) {
+      _showMessage('انتظر حتى يكتمل تحميل مواصفات التصنيف');
+      return;
+    }
+    if (_attributesStatus == 'error') {
+      _showMessage(
+        'تعذر تحميل مواصفات التصنيف. أعد اختيار التصنيف وحاول مجددًا',
+      );
+      return;
+    }
+    if (_attributesStatus == 'missingCategory' ||
+        _marketplaceCategoryId == null ||
+        _marketplaceCategoryId!.isEmpty) {
+      _showMessage('التصنيف المختار غير متاح للبيع حاليًا. اختر تصنيفًا آخر.');
+      return;
+    }
     if (_marketplaceAttributes.isNotEmpty) {
       final marketplaceError = _validateMarketplaceAttributes();
       if (marketplaceError != null) {
@@ -1167,10 +1195,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
         _showMessage('تم تحديث العرض بنجاح', success: true);
 
-        Navigator.pop(context, {
-          'id': widget.offerId,
-          'updated': true,
-        });
+        Navigator.pop(context, {'id': widget.offerId, 'updated': true});
 
         return;
       }
@@ -1307,10 +1332,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (_) => LocationPickerPage(
-          initialLat: _lat,
-          initialLng: _lng,
-        ),
+        builder: (_) => LocationPickerPage(initialLat: _lat, initialLng: _lng),
       ),
     );
 
@@ -1340,14 +1362,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           if (shouldPop && mounted) Navigator.of(context).pop();
         },
         child: Scaffold(
-          backgroundColor:
-              isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
+          backgroundColor: isDark
+              ? const Color(0xFF101318)
+              : const Color(0xFFF7F8FC),
           appBar: AppBar(
-            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة عرض'),
+            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة شيء للبيع'),
             centerTitle: true,
             elevation: 0,
-            backgroundColor:
-                isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
+            backgroundColor: isDark
+                ? const Color(0xFF101318)
+                : const Color(0xFFF7F8FC),
             foregroundColor: colors.onSurface,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
@@ -1395,7 +1419,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   Widget _buildProgressHeader(ColorScheme colors) {
     final hasCategory =
         _marketplaceCategoryId != null && _marketplaceCategoryId!.isNotEmpty;
-    final hasDetails = _titleController.text.trim().isNotEmpty &&
+    final hasDetails =
+        _titleController.text.trim().isNotEmpty &&
         _descriptionController.text.trim().isNotEmpty;
     final hasLocation = _lat != null && _lng != null;
 
@@ -1407,9 +1432,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         border: Border.all(color: colors.outlineVariant.withValues(alpha: .55)),
         boxShadow: [
           BoxShadow(
-              color: colors.shadow.withValues(alpha: .05),
-              blurRadius: 16,
-              offset: const Offset(0, 5)),
+            color: colors.shadow.withValues(alpha: .05),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
       child: Row(
@@ -1427,9 +1453,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               hasCategory ? 'بيانات مناسبة لاختيارك' : 'ابدأ باختيار نوع العرض',
               textAlign: TextAlign.right,
               style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: colors.onSurface),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: colors.onSurface,
+              ),
             ),
           ),
         ],
@@ -1447,17 +1474,22 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         color: active ? colors.primary : colors.surfaceContainerHighest,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon,
-          size: 16, color: active ? colors.onPrimary : colors.onSurfaceVariant),
+      child: Icon(
+        icon,
+        size: 16,
+        color: active ? colors.onPrimary : colors.onSurfaceVariant,
+      ),
     );
   }
 
   Widget _progressLine(ColorScheme colors) {
     return Expanded(
-        child: Container(
-            height: 2,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            color: colors.outlineVariant));
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        color: colors.outlineVariant,
+      ),
+    );
   }
 
   Widget _buildIntro(ColorScheme colors) {
@@ -1492,7 +1524,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           Text(
             _isEditMode
                 ? 'خد بالك: أي تعديل هيتطبق فورًا على العرض الظاهر للمستخدمين.'
-                : 'اعرض الأشياء الزائدة عندك بسعر مميز ليستفيد منها شخص قريب منك.',
+                : 'اعرض شيئًا تملكه للبيع بسعر مناسب ليستفيد منه شخص قريب منك.',
             style: TextStyle(
               color: colors.onPrimary.withValues(alpha: 0.8),
               fontSize: 13,
@@ -1510,10 +1542,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       icon: Icons.photo_library_outlined,
       trailing: Text(
         '$_totalImages/6',
-        style: TextStyle(
-          color: colors.primary,
-          fontWeight: FontWeight.w800,
-        ),
+        style: TextStyle(color: colors.primary, fontWeight: FontWeight.w800),
       ),
       child: Column(
         children: [
@@ -1544,10 +1573,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             alignment: Alignment.centerRight,
             child: Text(
               'الصورة الأولى ستظهر كصورة رئيسية للعرض',
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
             ),
           ),
         ],
@@ -1557,7 +1583,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   Widget _addImageButton(ColorScheme colors) {
     return InkWell(
-      onTap: _totalImages == 6 ? null : _pickImages,
+      onTap: _totalImages == 6 || _isPickingImages ? null : _pickImages,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: 104,
@@ -1569,11 +1595,20 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              color: colors.primary,
-              size: 28,
-            ),
+            _isPickingImages
+                ? SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: colors.primary,
+                    ),
+                  )
+                : Icon(
+                    Icons.add_photo_alternate_outlined,
+                    color: colors.primary,
+                    size: 28,
+                  ),
             const SizedBox(height: 5),
             Text(
               'أضف صورًا',
@@ -1716,18 +1751,25 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 color: colors.primary.withValues(alpha: .10),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text('مخصص حسب الاختيار',
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: colors.primary)),
+              child: Text(
+                'مخصص حسب الاختيار',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: colors.primary,
+                ),
+              ),
             ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _field(_titleController, 'عنوان العرض',
-              _titleHint, Icons.title_rounded,
-              requiredField: true),
+          _field(
+            _titleController,
+            'عنوان العرض',
+            _titleHint,
+            Icons.title_rounded,
+            requiredField: true,
+          ),
           const SizedBox(height: 12),
           _buildCategorySelector(colors),
           if (_categoryId != null) ...[
@@ -1737,28 +1779,38 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           if (_categoryId == null) ...[
             const SizedBox(height: 10),
             _helperBanner(
-                colors,
-                Icons.touch_app_rounded,
-                'اختار نوع المنتج أولًا',
-                'بعد الاختيار ستظهر لك الحقول المناسبة تلقائيًا مثل الماركة، الحالة، المقاس أو المساحة.'),
+              colors,
+              Icons.touch_app_rounded,
+              'اختار نوع المنتج أولًا',
+              'بعد الاختيار ستظهر لك الحقول المناسبة تلقائيًا مثل الماركة، الحالة، المقاس أو المساحة.',
+            ),
           ],
           ..._buildDynamicAttributesSection(colors),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                  child: _field(_quantityController, _isCars ? 'عدد السيارات' : 'الكمية', '1',
-                      Icons.inventory_2_outlined,
-                      requiredField: true, numeric: true, integerOnly: true)),
+                child: _field(
+                  _quantityController,
+                  _isCars ? 'عدد السيارات' : 'الكمية',
+                  '1',
+                  Icons.inventory_2_outlined,
+                  requiredField: true,
+                  numeric: true,
+                  integerOnly: true,
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _field(
-                      _priceController,
-                      _priceLabel,
-                      _priceHint,
-                      Icons.payments_outlined,
-                      requiredField: true,
-                      numeric: true)),
+                child: _field(
+                  _priceController,
+                  _priceLabel,
+                  _priceHint,
+                  Icons.payments_outlined,
+                  requiredField: true,
+                  numeric: true,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1768,69 +1820,87 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             maxLines: 7,
             textInputAction: TextInputAction.newline,
             decoration: _decoration(
-                'الوصف والتفاصيل', Icons.description_outlined,
-                hint: _descriptionHint),
+              'الوصف والتفاصيل',
+              Icons.description_outlined,
+              hint: _descriptionHint,
+            ),
             validator: (value) => value == null || value.trim().length < 10
                 ? 'اكتب وصفًا مختصرًا وواضحًا'
                 : null,
           ),
           const SizedBox(height: 9),
           _helperBanner(
-              colors,
-              Icons.lightbulb_outline_rounded,
-              'نصيحة لعرض أفضل',
-              'البيانات الواضحة والصور الجيدة تساعد الناس على فهم العرض والتواصل معك أسرع.'),
+            colors,
+            Icons.lightbulb_outline_rounded,
+            'نصيحة لعرض أفضل',
+            'البيانات الواضحة والصور الجيدة تساعد الناس على فهم العرض والتواصل معك أسرع.',
+          ),
         ],
       ),
     );
   }
 
   Widget _helperBanner(
-      ColorScheme colors, IconData icon, String title, String subtitle) {
+    ColorScheme colors,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: colors.primary.withValues(alpha: .055),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: colors.primary.withValues(alpha: .14))),
+        color: colors.primary.withValues(alpha: .055),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.primary.withValues(alpha: .14)),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: colors.primary, size: 19),
           const SizedBox(width: 9),
           Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(title,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: colors.onSurface)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: colors.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text(subtitle,
-                    style: TextStyle(
-                        fontSize: 11,
-                        height: 1.45,
-                        color: colors.onSurfaceVariant))
-              ])),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.45,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildCategoryContext(ColorScheme colors) {
-    final name = _currentCategoryName.isEmpty ? 'التصنيف المختار' : _currentCategoryName;
+    final name = _currentCategoryName.isEmpty
+        ? 'التصنيف المختار'
+        : _currentCategoryName;
     final title = _isCars
         ? 'بيانات السيارة المطلوبة'
         : _isRealEstate
-            ? 'بيانات العقار المطلوبة'
-            : 'بيانات $name';
+        ? 'بيانات العقار المطلوبة'
+        : 'بيانات $name';
     final subtitle = _isCars
         ? 'اكتب تفاصيل السيارة بدقة؛ ستظهر حقول الماركة والموديل والسنة والعداد والحالة حسب التصنيف.'
         : _isRealEstate
-            ? 'أدخل تفاصيل العقار المناسبة للتصنيف حتى يصل عرضك للأشخاص المهتمين.'
-            : 'الحقول التالية متخصصة في $name، ولن تظهر لك متطلبات لا تخص اختيارك.';
+        ? 'أدخل تفاصيل العقار المناسبة للتصنيف حتى يصل عرضك للأشخاص المهتمين.'
+        : 'الحقول التالية متخصصة في $name، ولن تظهر لك متطلبات لا تخص اختيارك.';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1864,17 +1934,23 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        color: colors.onSurface,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(subtitle,
-                    style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 11.5,
-                        height: 1.5)),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11.5,
+                    height: 1.5,
+                  ),
+                ),
               ],
             ),
           ),
@@ -2040,11 +2116,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               color: colors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(
-              Icons.tune_rounded,
-              size: 17,
-              color: colors.primary,
-            ),
+            child: Icon(Icons.tune_rounded, size: 17, color: colors.primary),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2086,7 +2158,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   List<Widget> _buildMarketplaceAttributeWidgets() {
     return _marketplaceAttributes.map((attribute) {
-      final options = _marketplaceOptions[attribute.slug] ??
+      final options =
+          _marketplaceOptions[attribute.slug] ??
           const <MarketplaceAttributeOption>[];
 
       final selectedId = _selectedMarketplaceOptionIds[attribute.slug];
@@ -2123,8 +2196,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final safeOptions = uniqueOptions.values.toList();
       final safeSelectedId =
           safeOptions.any((option) => option.id == selectedId)
-              ? selectedId
-              : null;
+          ? selectedId
+          : null;
 
       final isLoadingOptions = _optionsLoading.contains(attribute.slug);
       final hasOptions = safeOptions.isNotEmpty;
@@ -2133,8 +2206,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final hintText = isLoadingOptions
           ? 'جاري تحميل الخيارات...'
           : hasOptions
-              ? 'اختر ${_attributeLabel(attribute)}'
-              : 'لا توجد خيارات متاحة';
+          ? 'اختر ${_attributeLabel(attribute)}'
+          : 'لا توجد خيارات متاحة';
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2145,13 +2218,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             ),
             initialValue: safeSelectedId,
             isExpanded: true,
-            decoration: _decoration(_attributeLabel(attribute), Icons.tune_rounded),
+            decoration: _decoration(
+              _attributeLabel(attribute),
+              Icons.tune_rounded,
+            ),
             hint: Text(
               hintText,
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
             ),
             items: safeOptions.map((option) {
               return DropdownMenuItem<String>(
@@ -2171,8 +2244,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                 ? null
                 : (value) {
                     if (value == null) return;
-                    final selected =
-                        safeOptions.firstWhere((option) => option.id == value);
+                    final selected = safeOptions.firstWhere(
+                      (option) => option.id == value,
+                    );
                     _selectMarketplaceOption(
                       attribute: attribute,
                       option: selected,
@@ -2370,11 +2444,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                       ),
                     ),
             ),
-            Icon(
-              Icons.search_rounded,
-              color: colors.primary,
-              size: 20,
-            ),
+            Icon(Icons.search_rounded, color: colors.primary, size: 20),
           ],
         ),
       ),
@@ -2429,8 +2499,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                               ? 'تم تحديد الموقع ✅'
                               : 'اختار موقعك على الخريطة',
                           style: TextStyle(
-                            color:
-                                hasLocation ? colors.primary : colors.onSurface,
+                            color: hasLocation
+                                ? colors.primary
+                                : colors.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -2465,9 +2536,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           const SizedBox(height: 14),
           _field(
             _locationController,
-            'وصف المكان (اختياري)',
+            'وصف مكان الاستلام *',
             'مثال: شارع البحر، قرب مسجد...',
             Icons.place_outlined,
+            requiredField: true,
           ),
           const SizedBox(height: 14),
           _field(
@@ -2526,39 +2598,34 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return _sectionCard(
       title: 'مدة توفر العرض',
       icon: Icons.schedule_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _expiryOption,
-            decoration: _decoration(
-              'العرض متاح حتى',
-              Icons.event_available_outlined,
-            ),
-            items: const [
-              DropdownMenuItem(value: '7_days', child: Text('لمدة أسبوع')),
-              DropdownMenuItem(value: '14_days', child: Text('لمدة أسبوعين')),
-              DropdownMenuItem(value: '30_days', child: Text('لمدة شهر')),
-              DropdownMenuItem(
-                value: 'never',
-                child: Text('بدون تاريخ انتهاء'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.event_available_rounded, color: colors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _isEditMode
+                    ? 'تاريخ انتهاء العرض الحالي ثابت ولا يتغير من هذه الشاشة.'
+                    : 'مدة العرض أسبوع واحد من تاريخ النشر. بعد انتهاء الأسبوع سيختفي من العروض العامة ويظل ظاهرًا في «عروضي» ضمن العروض المنتهية.',
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 12,
+                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() => _expiryOption = value);
-            },
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'بعد انتهاء المدة لن يظهر العرض ضمن العروض المتاحة للمستخدمين.',
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              fontSize: 11,
-              height: 1.5,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2737,11 +2804,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
-  InputDecoration _decoration(
-    String label,
-    IconData icon, {
-    String? hint,
-  }) {
+  InputDecoration _decoration(String label, IconData icon, {String? hint}) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -2814,9 +2877,7 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
-      keyboardType: TextInputType.numberWithOptions(
-        decimal: widget.isDecimal,
-      ),
+      keyboardType: TextInputType.numberWithOptions(decimal: widget.isDecimal),
       textInputAction: TextInputAction.next,
       inputFormatters: [
         FilteringTextInputFormatter.allow(
@@ -2918,10 +2979,7 @@ class _CategoryPickerSheet extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
   final String? selectedId;
 
-  const _CategoryPickerSheet({
-    required this.categories,
-    this.selectedId,
-  });
+  const _CategoryPickerSheet({required this.categories, this.selectedId});
 
   @override
   State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
@@ -2974,18 +3032,21 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
       final name = c['name_ar']?.toString() ?? '';
       final slug = c['slug']?.toString() ?? '';
       final fullPath = parentPath == null ? name : '$parentPath › $name';
-
-      items.add(_PickerItem(
-        id: id,
-        slug: slug,
-        name: name,
-        parentName: parentName,
-        fullPath: fullPath,
-        isRoot: depth == 0,
-        depth: depth,
-      ));
-
       final children = childrenByParent[id] ?? [];
+
+      items.add(
+        _PickerItem(
+          id: id,
+          slug: slug,
+          name: name,
+          parentName: parentName,
+          fullPath: fullPath,
+          isRoot: depth == 0,
+          hasChildren: children.isNotEmpty,
+          depth: depth,
+        ),
+      );
+
       sortByOrder(children);
       for (final child in children) {
         addItem(
@@ -3011,7 +3072,8 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     final matchingIds = <String>{};
 
     for (final item in all) {
-      final matches = item.name.toLowerCase().contains(q) ||
+      final matches =
+          item.name.toLowerCase().contains(q) ||
           item.slug.toLowerCase().contains(q) ||
           (item.parentName?.toLowerCase().contains(q) ?? false) ||
           item.fullPath.toLowerCase().contains(q);
@@ -3047,9 +3109,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         return Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(28),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             children: [
@@ -3095,7 +3155,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                             ),
                           ),
                           Text(
-                            '${all.length} تصنيف متاح',
+                            'اختار تصنيفًا فرعيًا علشان تظهر المتطلبات (${all.length} متاح)',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: colors.onSurfaceVariant,
@@ -3153,16 +3213,11 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: colors.outlineVariant,
-                      ),
+                      borderSide: BorderSide(color: colors.outlineVariant),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(
-                        color: colors.primary,
-                        width: 1.5,
-                      ),
+                      borderSide: BorderSide(color: colors.primary, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -3187,13 +3242,15 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                           return _CategoryTile(
                             item: item,
                             isSelected: isSelected,
-                            onTap: () {
-                              Navigator.pop(context, {
-                                'id': item.id,
-                                'slug': item.slug,
-                                'name_ar': item.name,
-                              });
-                            },
+                            onTap: item.hasChildren
+                                ? null
+                                : () {
+                                    Navigator.pop(context, {
+                                      'id': item.id,
+                                      'slug': item.slug,
+                                      'name_ar': item.name,
+                                    });
+                                  },
                           );
                         },
                       ),
@@ -3238,10 +3295,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             const SizedBox(height: 6),
             Text(
               'جرب كلمة بحث مختلفة',
-              style: TextStyle(
-                fontSize: 13,
-                color: colors.onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
             ),
           ],
         ),
@@ -3260,6 +3314,7 @@ class _PickerItem {
   final String? parentName;
   final String fullPath;
   final bool isRoot;
+  final bool hasChildren;
   final int depth;
 
   _PickerItem({
@@ -3269,6 +3324,7 @@ class _PickerItem {
     required this.parentName,
     required this.fullPath,
     required this.isRoot,
+    required this.hasChildren,
     required this.depth,
   });
 }
@@ -3276,7 +3332,7 @@ class _PickerItem {
 class _CategoryTile extends StatelessWidget {
   final _PickerItem item;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _CategoryTile({
     required this.item,
@@ -3299,10 +3355,7 @@ class _CategoryTile extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           margin: EdgeInsetsDirectional.only(start: indent),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected
                 ? colors.primary.withValues(alpha: 0.1)
@@ -3357,11 +3410,23 @@ class _CategoryTile extends StatelessWidget {
                       item.name,
                       style: TextStyle(
                         fontSize: 13.5,
-                        fontWeight:
-                            item.isRoot ? FontWeight.w900 : FontWeight.w700,
+                        fontWeight: item.isRoot
+                            ? FontWeight.w900
+                            : FontWeight.w700,
                         color: isSelected ? colors.primary : colors.onSurface,
                       ),
                     ),
+                    if (item.hasChildren) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'تصنيف رئيسي — اختر فرعًا',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -3382,7 +3447,9 @@ class _CategoryTile extends StatelessWidget {
                 )
               else
                 Icon(
-                  Icons.arrow_back_ios_new_rounded,
+                  item.hasChildren
+                      ? Icons.expand_more_rounded
+                      : Icons.arrow_back_ios_new_rounded,
                   size: 14,
                   color: colors.onSurfaceVariant.withValues(alpha: 0.4),
                 ),

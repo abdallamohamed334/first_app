@@ -28,11 +28,11 @@ class _HomeCharitiesAndActionsSectionState
   }
 
   Future<List<Map<String, dynamic>>> _loadCharities() async {
-    final rows = await SupabaseService()
-        .client
+    final rows = await SupabaseService().client
         .from('charities')
         .select(
-            'id, name, address, description, status, is_verified, logo, logo_url, image_url')
+          'id, name, address, description, status, is_verified, logo, logo_url, image_url',
+        )
         .eq('status', 'active')
         .order('name');
 
@@ -51,18 +51,14 @@ class _HomeCharitiesAndActionsSectionState
 
   void _openAllCharities() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AllAvailableCharitiesPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const AllAvailableCharitiesPage()),
     );
   }
 
   void _openDonation() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const AddCharityDonationPage(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddCharityDonationPage()));
   }
 
   void _openSymbolicSale() {
@@ -90,9 +86,7 @@ class _HomeCharitiesAndActionsSectionState
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SizedBox(
                   height: 142,
-                  child: Center(
-                    child: CircularProgressIndicator(color: green),
-                  ),
+                  child: Center(child: CircularProgressIndicator(color: green)),
                 );
               }
 
@@ -126,9 +120,8 @@ class _HomeCharitiesAndActionsSectionState
                         charity: visible[index],
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => CharityDetailsPage(
-                              charity: visible[index],
-                            ),
+                            builder: (_) =>
+                                CharityDetailsPage(charity: visible[index]),
                           ),
                         ),
                       ),
@@ -188,8 +181,11 @@ class _HomeCharitiesAndActionsSectionState
         IconButton(
           onPressed: _openAllCharities,
           tooltip: 'كل الجمعيات',
-          icon: const Icon(Icons.arrow_forward_ios_rounded,
-              size: 17, color: green),
+          icon: const Icon(
+            Icons.arrow_forward_ios_rounded,
+            size: 17,
+            color: green,
+          ),
         ),
       ],
     );
@@ -218,8 +214,8 @@ class _HomeCharitiesAndActionsSectionState
               width: cardWidth,
               child: _ActionCard(
                 icon: Icons.sell_rounded,
-                title: 'بيع بسعر رمزي',
-                subtitle: 'اعرض شيئًا مفيدًا بسعر مناسب',
+                title: 'إضافة شيء للبيع',
+                subtitle: 'اعرض شيئًا تملكه للبيع بسعر مناسب',
                 color: const Color(0xFFD67A18),
                 onTap: _openSymbolicSale,
               ),
@@ -246,7 +242,9 @@ class _HomeCharitiesAndActionsSectionState
         children: [
           Icon(icon, color: green),
           const SizedBox(width: 12),
-          Expanded(child: Text(text, style: const TextStyle(color: darkGreen))),
+          Expanded(
+            child: Text(text, style: const TextStyle(color: darkGreen)),
+          ),
           if (onRetry != null)
             IconButton(
               onPressed: onRetry,
@@ -337,14 +335,15 @@ class _CharityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = charity['name']?.toString().trim();
     final address = charity['address']?.toString().trim();
-    final image = [
-      charity['logo']?.toString(),
-      charity['logo_url']?.toString(),
-      charity['image_url']?.toString(),
-    ].firstWhere(
-      (value) => value != null && value.trim().isNotEmpty,
-      orElse: () => null,
-    );
+    final image =
+        [
+          charity['logo']?.toString(),
+          charity['logo_url']?.toString(),
+          charity['image_url']?.toString(),
+        ].firstWhere(
+          (value) => value != null && value.trim().isNotEmpty,
+          orElse: () => null,
+        );
 
     return SizedBox(
       width: 214,
@@ -379,8 +378,11 @@ class _CharityCard extends StatelessWidget {
                       const SizedBox(height: 7),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 14, color: Color(0xFF0B7650)),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                            color: Color(0xFF0B7650),
+                          ),
                           const SizedBox(width: 3),
                           Expanded(
                             child: Text(
@@ -390,7 +392,9 @@ class _CharityCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  color: Color(0xFF71837C), fontSize: 10),
+                                color: Color(0xFF71837C),
+                                fontSize: 10,
+                              ),
                             ),
                           ),
                         ],
@@ -446,8 +450,11 @@ class _CharityAvatar extends StatelessWidget {
 
   Widget _fallback() {
     return const Center(
-      child: Icon(Icons.volunteer_activism_rounded,
-          color: Color(0xFF0B7650), size: 28),
+      child: Icon(
+        Icons.volunteer_activism_rounded,
+        color: Color(0xFF0B7650),
+        size: 28,
+      ),
     );
   }
 }
@@ -466,21 +473,21 @@ class _AllAvailableCharitiesPageState extends State<AllAvailableCharitiesPage> {
   @override
   void initState() {
     super.initState();
-    _future = SupabaseService()
-        .client
+    _future = SupabaseService().client
         .from('charities')
         .select(
-            'id, name, address, description, status, is_verified, logo, logo_url, image_url')
+          'id, name, address, description, status, is_verified, logo, logo_url, image_url',
+        )
         .eq('status', 'active')
         .order('name');
   }
 
   Future<void> _refreshAllCharities() async {
-    final nextFuture = SupabaseService()
-        .client
+    final nextFuture = SupabaseService().client
         .from('charities')
         .select(
-            'id, name, address, description, status, is_verified, logo, logo_url, image_url')
+          'id, name, address, description, status, is_verified, logo, logo_url, image_url',
+        )
         .eq('status', 'active')
         .order('name');
 
@@ -509,13 +516,15 @@ class _AllAvailableCharitiesPageState extends State<AllAvailableCharitiesPage> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF0B7650)));
+                child: CircularProgressIndicator(color: Color(0xFF0B7650)),
+              );
             }
             if (snapshot.hasError) {
               return const Center(child: Text('تعذر تحميل الجمعيات حاليًا'));
             }
-            final charities =
-                List<Map<String, dynamic>>.from(snapshot.data ?? const []);
+            final charities = List<Map<String, dynamic>>.from(
+              snapshot.data ?? const [],
+            );
             if (charities.isEmpty) {
               return const Center(child: Text('لا توجد جمعيات متاحة حاليًا'));
             }
@@ -559,7 +568,9 @@ class _FullCharityTile extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-              color: Color(0xFF123F31), fontWeight: FontWeight.w900),
+            color: Color(0xFF123F31),
+            fontWeight: FontWeight.w900,
+          ),
         ),
         subtitle: Text(
           charity['address']?.toString().isNotEmpty == true
@@ -568,11 +579,14 @@ class _FullCharityTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing:
-            const Icon(Icons.chevron_left_rounded, color: Color(0xFF0B7650)),
+        trailing: const Icon(
+          Icons.chevron_left_rounded,
+          color: Color(0xFF0B7650),
+        ),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
-              builder: (_) => CharityDetailsPage(charity: charity)),
+            builder: (_) => CharityDetailsPage(charity: charity),
+          ),
         ),
       ),
     );
@@ -636,7 +650,9 @@ class CharityDetailsPage extends StatelessWidget {
                   _buildDescription(description),
                   const SizedBox(height: 20),
                   _buildSectionTitle(
-                      'معلومات الجمعية', Icons.fact_check_outlined),
+                    'معلومات الجمعية',
+                    Icons.fact_check_outlined,
+                  ),
                   const SizedBox(height: 10),
                   _buildInfoCard(address, verified),
                   const SizedBox(height: 20),
@@ -691,8 +707,11 @@ class CharityDetailsPage extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.volunteer_activism_rounded,
-                color: _green, size: 40),
+            child: const Icon(
+              Icons.volunteer_activism_rounded,
+              color: _green,
+              size: 40,
+            ),
           ),
           const SizedBox(height: 20),
           Row(
@@ -713,8 +732,11 @@ class CharityDetailsPage extends StatelessWidget {
               ),
               if (verified) ...[
                 const SizedBox(width: 10),
-                const Icon(Icons.verified_rounded,
-                    color: Color(0xFFF3C66B), size: 27),
+                const Icon(
+                  Icons.verified_rounded,
+                  color: Color(0xFFF3C66B),
+                  size: 27,
+                ),
               ],
             ],
           ),
@@ -735,9 +757,14 @@ class CharityDetailsPage extends StatelessWidget {
       children: [
         Icon(icon, color: _green, size: 20),
         const SizedBox(width: 8),
-        Text(title,
-            style: const TextStyle(
-                color: _darkGreen, fontSize: 17, fontWeight: FontWeight.w900)),
+        Text(
+          title,
+          style: const TextStyle(
+            color: _darkGreen,
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ],
     );
   }
@@ -752,11 +779,12 @@ class CharityDetailsPage extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE0EEE6)),
       ),
       child: Text(
-        description?.isNotEmpty == true
-            ? description!
-            : 'تساهم هذه الجمعية في توصيل الدعم إلى المستحقين. يمكنك المشاركة بتبرع مباشر وآمن.',
+        description?.isNotEmpty == true ? description! : 'تساهم هذه الجمعية في توصيل الدعم إلى المستحقين. يمكنك المشاركة بتبرع مباشر وآمن.',
         style: const TextStyle(
-            color: Color(0xFF536C61), height: 1.65, fontSize: 13),
+          color: Color(0xFF536C61),
+          height: 1.65,
+          fontSize: 13,
+        ),
       ),
     );
   }
@@ -771,11 +799,17 @@ class CharityDetailsPage extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _infoRow(Icons.location_on_outlined, 'العنوان',
-              address?.isNotEmpty == true ? address! : 'العنوان غير مضاف'),
+          _infoRow(
+            Icons.location_on_outlined,
+            'العنوان',
+            address?.isNotEmpty == true ? address! : 'العنوان غير مضاف',
+          ),
           const Divider(height: 24, color: Color(0xFFEAF2ED)),
-          _infoRow(Icons.verified_user_outlined, 'الحالة',
-              verified ? 'موثقة ونشطة' : 'نشطة'),
+          _infoRow(
+            Icons.verified_user_outlined,
+            'الحالة',
+            verified ? 'موثقة ونشطة' : 'نشطة',
+          ),
         ],
       ),
     );
@@ -788,7 +822,9 @@ class CharityDetailsPage extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: const BoxDecoration(
-              color: Color(0xFFE4F4EA), shape: BoxShape.circle),
+            color: Color(0xFFE4F4EA),
+            shape: BoxShape.circle,
+          ),
           child: Icon(icon, color: _green, size: 20),
         ),
         const SizedBox(width: 12),
@@ -796,17 +832,21 @@ class CharityDetailsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style:
-                      const TextStyle(color: Color(0xFF8A9B93), fontSize: 10)),
+              Text(
+                label,
+                style: const TextStyle(color: Color(0xFF8A9B93), fontSize: 10),
+              ),
               const SizedBox(height: 3),
-              Text(value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      color: _darkGreen,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800)),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _darkGreen,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
           ),
         ),
@@ -817,8 +857,7 @@ class CharityDetailsPage extends StatelessWidget {
   Future<List<Map<String, dynamic>>> _loadVolunteers(String charityId) async {
     debugPrint('CHARITY_DETAILS volunteers START charity_id=$charityId');
 
-    final rows = await SupabaseService()
-        .client
+    final rows = await SupabaseService().client
         .from('charity_volunteers')
         // لا نطلب phone أو أي بيانات اتصال؛ الصفحة تحتاج الاسم فقط.
         .select('id, name, status')
@@ -828,7 +867,8 @@ class CharityDetailsPage extends StatelessWidget {
 
     final result = List<Map<String, dynamic>>.from(rows);
     debugPrint(
-        'CHARITY_DETAILS volunteers RESULT count=${result.length} charity_id=$charityId');
+      'CHARITY_DETAILS volunteers RESULT count=${result.length} charity_id=$charityId',
+    );
     return result;
   }
 
@@ -836,7 +876,8 @@ class CharityDetailsPage extends StatelessWidget {
     final charityId = charity['id']?.toString().trim();
 
     debugPrint(
-        'CHARITY_DETAILS selected charity_id=$charityId name=${charity['name']}');
+      'CHARITY_DETAILS selected charity_id=$charityId name=${charity['name']}',
+    );
 
     if (charityId == null || charityId.isEmpty) {
       return _buildVolunteersMessage('بيانات الجمعية غير مكتملة');
@@ -855,9 +896,7 @@ class CharityDetailsPage extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const SizedBox(
                 height: 118,
-                child: Center(
-                  child: CircularProgressIndicator(color: _green),
-                ),
+                child: Center(child: CircularProgressIndicator(color: _green)),
               );
             }
 
@@ -865,8 +904,9 @@ class CharityDetailsPage extends StatelessWidget {
               return _buildVolunteersMessage('تعذر تحميل فريق الجمعية حاليًا');
             }
 
-            final rows =
-                List<Map<String, dynamic>>.from(snapshot.data ?? const []);
+            final rows = List<Map<String, dynamic>>.from(
+              snapshot.data ?? const [],
+            );
             if (rows.isEmpty) {
               return _buildVolunteersMessage('لا يوجد متطوعون مضافون حاليًا');
             }
@@ -926,10 +966,11 @@ class CharityDetailsPage extends StatelessWidget {
             child: Text(
               'تبرعك يصل من خلال إجراءات متابعة واضحة، ونحافظ على بياناتك أثناء العملية.',
               style: TextStyle(
-                  color: _darkGreen,
-                  height: 1.45,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700),
+                color: _darkGreen,
+                height: 1.45,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -950,8 +991,9 @@ class CharityDetailsPage extends StatelessWidget {
           backgroundColor: _green,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
         ),
       ),

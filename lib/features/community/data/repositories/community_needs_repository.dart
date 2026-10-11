@@ -130,7 +130,9 @@ class CommunityNeedsRepository {
         },
       );
 
-      if (response is! List) return [];
+      if (response is! List) {
+        throw StateError('Unexpected community needs response');
+      }
 
       return response
           .whereType<Map>()
@@ -138,7 +140,7 @@ class CommunityNeedsRepository {
           .toList();
     } catch (error) {
       debugPrint('❌ listNeeds error: $error');
-      return [];
+      rethrow;
     }
   }
 

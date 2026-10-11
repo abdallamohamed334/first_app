@@ -189,7 +189,7 @@ class _PersonOfferDetailsPageState extends State<PersonOfferDetailsPage> {
     try {
       final row = await _client
           .from('offer_requests')
-          .select('id, pickup_token_hash, status')
+          .select('id, status')
           .eq('offer_id', _string('id'))
           .eq('user_id', user.id)
           .eq('status', 'ready_for_pickup')
@@ -200,19 +200,13 @@ class _PersonOfferDetailsPageState extends State<PersonOfferDetailsPage> {
         return;
       }
 
-      final restaurantId = await _resolveRestaurantId(_string('id'));
-      if (!mounted || restaurantId == null || restaurantId.isEmpty) {
-        _snack('لا يوجد مطعم مرتبط بالحجز', Colors.red);
-        return;
-      }
+      if (!mounted) return;
 
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => PickupQRPage(
             requestId: row['id'].toString(),
-            businessId: restaurantId,
-            existingToken: row['pickup_token_hash']?.toString(),
           ),
         ),
       );

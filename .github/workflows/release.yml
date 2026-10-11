@@ -22,6 +22,8 @@ jobs:
           cache: true
       - name: Install dependencies
         run: flutter pub get
+      - name: Security regression checks
+        run: python3 tool/security_regression_check.py
       - name: Production static gate
         run: python3 tool/production_gate.py
       - name: Analyze (errors are fatal; legacy warnings are reported)
@@ -93,7 +95,9 @@ jobs:
   # Validate the archive only. App Store distribution stays gated until
   # Apple signing credentials are configured in repository secrets.
   ios-validation:
-    if: ${{ vars.ENABLE_IOS_VALIDATION == 'true' }}
+    # Manual dispatch runs the unsigned macOS validation build; production
+    # distribution still requires Apple signing credentials and App Store Connect.
+    if: ${{ vars.ENABLE_IOS_VALIDATION == 'true' || github.event_name == 'workflow_dispatch' }}
     needs: verify
     runs-on: macos-latest
     steps:

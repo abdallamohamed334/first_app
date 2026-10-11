@@ -1,5 +1,7 @@
 // lib/features/community/presentation/pages/community_needs_page.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
@@ -17,6 +19,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   final _repository = CommunityNeedsRepository();
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
+  Timer? _searchDebounce;
 
   // ─────────────── الألوان ───────────────
   static const _green = Color(0xFF191919);
@@ -62,6 +65,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   String? _errorMessage;
   List<Map<String, dynamic>> _needs = [];
   int _currentPage = 0;
+  int _needsLoadGeneration = 0;
   bool _hasMore = true;
 
   // ─────────────── الفلاتر ───────────────
@@ -81,6 +85,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
@@ -140,9 +145,14 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   }
 
   Future<void> _loadNeeds({bool refresh = false}) async {
+    if (!refresh && (_loading || _loadingMore || !_hasMore)) return;
+    final generation = refresh
+        ? ++_needsLoadGeneration
+        : _needsLoadGeneration;
     if (refresh) {
       setState(() {
         _loading = true;
+        _loadingMore = false;
         _errorMessage = null;
         _currentPage = 0;
         _hasMore = true;
@@ -165,6 +175,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
         offset: offset,
       );
 
+      if (generation != _needsLoadGeneration) return;
       if (!mounted) return;
       setState(() {
         if (refresh) {
@@ -178,6 +189,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
         _loadingMore = false;
       });
     } catch (e) {
+      if (generation != _needsLoadGeneration) return;
       debugPrint('❌ loadNeeds error: $e');
       if (mounted) {
         setState(() {
@@ -195,7 +207,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
 
   void _onSearchChanged() {
     setState(() {});
-    Future.delayed(const Duration(milliseconds: 500), () {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (mounted) _loadNeeds(refresh: true);
     });
   }

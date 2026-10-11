@@ -162,7 +162,7 @@ class CommunityOfferRepository {
       );
     }
 
-    if (price <= 0) {
+    if (!price.isFinite || price <= 0) {
       throw Exception(
         'السعر الرمزي يجب أن يكون أكبر من صفر',
       );
@@ -285,6 +285,7 @@ class CommunityOfferRepository {
     // ==========================================================
 
     final uploadedPaths = <String>[];
+    String? insertedCommunityOfferId;
 
     try {
       for (final image in images) {
@@ -330,7 +331,10 @@ class CommunityOfferRepository {
         'phone': cleanPhone, // ✅ جديد
         'whatsapp': cleanWhatsapp, // ✅ جديد (nullable)
         'status': 'available',
-        'expires_at': expiresAt?.toUtc().toIso8601String(),
+        'expires_at': DateTime.now()
+            .toUtc()
+            .add(const Duration(days: 7))
+            .toIso8601String(),
       };
 
       if (kDebugMode) {
@@ -363,6 +367,7 @@ class CommunityOfferRepository {
           'تم إنشاء العرض ولكن تعذر الحصول على رقم العرض',
         );
       }
+      insertedCommunityOfferId = communityOfferId;
 
       if (kDebugMode) {
         debugPrint(
@@ -458,6 +463,22 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
+      if (insertedCommunityOfferId != null) {
+        try {
+          await _client
+              .from('community_offers')
+              .update({
+                'status': 'cancelled',
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
+              })
+              .eq('id', insertedCommunityOfferId)
+              .eq('owner_id', authUser.id);
+        } catch (rollbackError) {
+          if (kDebugMode) {
+            debugPrint('⚠️ Failed to cancel incomplete offer: $rollbackError');
+          }
+        }
+      }
       if (uploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(uploadedPaths);
       }
@@ -680,6 +701,7 @@ class CommunityOfferRepository {
     // ==========================================================
 
     final newlyUploadedPaths = <String>[];
+    var offerRowUpdated = false;
 
     try {
       for (final image in newImages) {
@@ -764,6 +786,7 @@ class CommunityOfferRepository {
           .single();
 
       final result = Map<String, dynamic>.from(response);
+      offerRowUpdated = true;
 
       if (kDebugMode) {
         debugPrint(
@@ -847,6 +870,14 @@ class CommunityOfferRepository {
         }
       }
 
+      final primaryImage = existing['image']?.toString();
+      if (primaryImage != null && primaryImage.isNotEmpty) {
+        final primaryPath = _storagePath(primaryImage);
+        if (primaryPath.isNotEmpty && !oldStoragePaths.contains(primaryPath)) {
+          oldStoragePaths.add(primaryPath);
+        }
+      }
+
       final removedPaths =
           oldStoragePaths.where((p) => !cleanKeptPaths.contains(p)).toList();
 
@@ -862,7 +893,7 @@ class CommunityOfferRepository {
 
       return normalized;
     } catch (error) {
-      if (newlyUploadedPaths.isNotEmpty) {
+      if (!offerRowUpdated && newlyUploadedPaths.isNotEmpty) {
         await _removeUploadedFiles(newlyUploadedPaths);
       }
 
@@ -1052,10 +1083,9 @@ class CommunityOfferRepository {
       query = query.eq('category_id', categoryId.trim());
     }
 
-    query = query.or(
-      'expires_at.is.null,'
-      'expires_at.gt.'
-      '${DateTime.now().toUtc().toIso8601String()}',
+    query = query.gt(
+      'expires_at',
+      DateTime.now().toUtc().toIso8601String(),
     );
 
     final response = await query.order(
@@ -1467,6 +1497,9 @@ class CommunityOfferRepository {
     if (authUser == null) {
       throw Exception('يجب تسجيل الدخول أولًا');
     }
+    if (days != 7) {
+      throw ArgumentError('يمكن تجديد العرض لمدة أسبوع واحد فقط');
+    }
 
     try {
       final response = await _client.rpc(
@@ -1492,18 +1525,24 @@ class CommunityOfferRepository {
       final text = e.toString().toLowerCase();
 
       if (text.contains('function') && text.contains('does not exist')) {
-        final newExpiry = DateTime.now().add(Duration(days: days));
+        final now = DateTime.now().toUtc();
+        final newExpiry = now.add(const Duration(days: 7));
 
-        await _client
+        final updated = await _client
             .from('community_offers')
             .update({
               'status': 'available',
-              'expires_at': newExpiry.toUtc().toIso8601String(),
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
+              'expires_at': newExpiry.toIso8601String(),
+              'updated_at': now.toIso8601String(),
             })
             .eq('id', offerId)
-            .eq('owner_id', authUser.id);
+            .eq('owner_id', authUser.id)
+            .inFilter('status', ['available', 'active', 'expired'])
+            .lte('expires_at', now.toIso8601String())
+            .select('id')
+            .maybeSingle();
 
+        if (updated == null) return null;
         return newExpiry;
       }
 
@@ -1632,11 +1671,27 @@ class CommunityOfferRepository {
   // ============================================================
 
   String _storagePath(String value) {
-    if (value.startsWith('community-offers/')) {
-      return value.substring('community-offers/'.length);
+    final clean = value.trim();
+    if (clean.isEmpty) return '';
+
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      try {
+        final segments = Uri.parse(clean).pathSegments;
+        final bucketIndex = segments.indexOf('community-offers');
+        if (bucketIndex >= 0 && bucketIndex < segments.length - 1) {
+          return segments.sublist(bucketIndex + 1).join('/');
+        }
+      } catch (_) {
+        return '';
+      }
+      return '';
     }
 
-    return value;
+    if (clean.startsWith('community-offers/')) {
+      return clean.substring('community-offers/'.length);
+    }
+
+    return clean;
   }
 
   // ============================================================

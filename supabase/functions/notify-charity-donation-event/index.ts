@@ -102,7 +102,7 @@ Deno.serve(async (request) => {
           `رقم التبرع داخل التطبيق: ${requestId}`,
           "افتح تطبيق وِصلة لمراجعة التبرع واتخاذ الإجراء.",
         ].join("\n");
-        whatsappSent = await sendWhatsApp(charityPhone, donationMessage, authorization);
+        whatsappSent = await sendWhatsApp(charityPhone, donationMessage);
       }
     }
 
@@ -162,13 +162,13 @@ function messageFor(status: string, title: string) {
   return map[status] ?? { title: "تحديث التبرع", body: `تم تحديث حالة «${title}». افتح التطبيق للتفاصيل.` };
 }
 
-async function sendWhatsApp(phone: string, message: string, authorization: string) {
+async function sendWhatsApp(phone: string, message: string) {
   const cleanPhone = normalizePhone(phone);
-  if (!cleanPhone) return false;
+  if (!cleanPhone || !serviceRoleKey) return false;
   const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
     method: "POST",
     headers: {
-      Authorization: authorization,
+      Authorization: `Bearer ${serviceRoleKey}`,
       apikey: anonKey,
       "Content-Type": "application/json",
     },

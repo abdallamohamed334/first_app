@@ -303,10 +303,11 @@ class _MapPageState extends State<MapPage> {
       print(
           '📍 [MapPage] Saving location: ${location.latitude}, ${location.longitude}');
 
+      // The authenticated role has column-level UPDATE rights for coordinates
+      // only; keep protected profile metadata out of this write payload.
       await supabase.client.from('users').update({
         'latitude': location.latitude,
         'longitude': location.longitude,
-        'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', userId);
 
       print('📍 [MapPage] Update executed successfully');

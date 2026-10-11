@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/charity/presentation/pages/charity_action_feedback.dart';
 import 'package:loqma/features/charity/presentation/pages/charity_person_donation_details_page.dart';
+import 'package:loqma/features/charity/presentation/widgets/donation_items_summary.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
@@ -101,12 +102,14 @@ class _CharityDonationRequestsPageState
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('إلغاء')),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
           FilledButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, controller.text.trim()),
-              child: const Text('تحقق')),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('تحقق'),
+          ),
         ],
       ),
     );
@@ -157,12 +160,14 @@ class _CharityDonationRequestsPageState
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('إلغاء')),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
           FilledButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext, controller.text.trim()),
-              child: const Text('تأكيد الوصول')),
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('تأكيد الوصول'),
+          ),
         ],
       ),
     );
@@ -214,13 +219,14 @@ class _CharityDonationRequestsPageState
         content: const Text('هل أنت متأكد؟ هيتم إعلام المتبرع بالرفض.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('إلغاء')),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
           FilledButton(
-              style:
-                  FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('رفض')),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('رفض'),
+          ),
         ],
       ),
     );
@@ -238,8 +244,11 @@ class _CharityDonationRequestsPageState
     }
   }
 
-  Future<void> _status(String id, String value,
-      {bool isRestaurantDonation = false}) async {
+  Future<void> _status(
+    String id,
+    String value, {
+    bool isRestaurantDonation = false,
+  }) async {
     setState(() => _busyId = id);
     try {
       await _repository.updateStatus(
@@ -265,8 +274,7 @@ class _CharityDonationRequestsPageState
 
     try {
       final charityId = await _currentCharityId();
-      final rawVolunteers = await SupabaseService()
-          .client
+      final rawVolunteers = await SupabaseService().client
           .from('charity_volunteers')
           .select('id, name, phone, status')
           .eq('charity_id', charityId)
@@ -321,8 +329,7 @@ class _CharityDonationRequestsPageState
     if (userId == null || userId.isEmpty) {
       throw const FormatException('يجب تسجيل الدخول أولًا');
     }
-    final row = await SupabaseService()
-        .client
+    final row = await SupabaseService().client
         .from('charities')
         .select('id')
         .eq('user_id', userId)
@@ -401,17 +408,21 @@ class _CharityDonationRequestsPageState
           backgroundColor: _background,
           foregroundColor: _deepGreen,
           elevation: 0,
-          title: const Text('لوحة التبرعات',
-              style: TextStyle(fontWeight: FontWeight.w900)),
+          title: const Text(
+            'لوحة التبرعات',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
           actions: [
             IconButton(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh_rounded),
-                tooltip: 'تحديث'),
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'تحديث',
+            ),
             IconButton(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout_rounded),
-                tooltip: 'تسجيل الخروج'),
+              onPressed: _logout,
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'تسجيل الخروج',
+            ),
           ],
         ),
         body: FutureBuilder<List<Map<String, dynamic>>>(
@@ -419,11 +430,14 @@ class _CharityDonationRequestsPageState
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
-                  child: CircularProgressIndicator(color: _green));
+                child: CircularProgressIndicator(color: _green),
+              );
             }
             if (snapshot.hasError) {
               return _emptyState(
-                  _friendlyError(snapshot.error!), Icons.cloud_off_rounded);
+                _friendlyError(snapshot.error!),
+                Icons.cloud_off_rounded,
+              );
             }
             final all = snapshot.data ?? <Map<String, dynamic>>[];
             final rows = all.where(_matches).toList();
@@ -432,7 +446,8 @@ class _CharityDonationRequestsPageState
               onRefresh: _refresh,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics()),
+                  parent: BouncingScrollPhysics(),
+                ),
                 padding: const EdgeInsets.fromLTRB(18, 6, 18, 32),
                 children: [
                   _hero(all),
@@ -444,8 +459,10 @@ class _CharityDonationRequestsPageState
                   _filters(),
                   const SizedBox(height: 14),
                   if (rows.isEmpty)
-                    _emptyState('لا توجد تبرعات في هذا القسم',
-                        Icons.volunteer_activism_outlined)
+                    _emptyState(
+                      'لا توجد تبرعات في هذا القسم',
+                      Icons.volunteer_activism_outlined,
+                    )
                   else
                     ...rows.map(_card),
                 ],
@@ -458,118 +475,177 @@ class _CharityDonationRequestsPageState
   }
 
   Widget _hero(List<Map<String, dynamic>> rows) => Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [Color(0xFF087A52), Color(0xFF27B47E)],
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-                color: _green.withAlpha(45),
-                blurRadius: 20,
-                offset: const Offset(0, 10))
-          ],
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF087A52), Color(0xFF27B47E)],
+        begin: Alignment.topRight,
+        end: Alignment.bottomLeft,
+      ),
+      borderRadius: BorderRadius.circular(28),
+      boxShadow: [
+        BoxShadow(
+          color: _green.withAlpha(45),
+          blurRadius: 20,
+          offset: const Offset(0, 10),
         ),
-        child: Row(children: [
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                const Text('أثرُك يبدأ من هنا',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 23,
-                        fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                Text('${rows.length} تبرع مباشر يحتاج إلى متابعة',
-                    style:
-                        const TextStyle(color: Colors.white70, fontSize: 13)),
-                const SizedBox(height: 18),
-                Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(35),
-                        borderRadius: BorderRadius.circular(30)),
-                    child: const Text('راجع كل خطوة حتى يصل التبرع بأمان',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12))),
-              ])),
-          const SizedBox(width: 12),
-          Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(35), shape: BoxShape.circle),
-              child: const Icon(Icons.volunteer_activism_rounded,
-                  color: Colors.white, size: 34)),
-        ]),
-      );
+      ],
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'أثرُك يبدأ من هنا',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${rows.length} تبرع مباشر يحتاج إلى متابعة',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(35),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: const Text(
+                  'راجع كل خطوة حتى يصل التبرع بأمان',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white.withAlpha(35),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.volunteer_activism_rounded,
+            color: Colors.white,
+            size: 34,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _stats(List<Map<String, dynamic>> rows) {
     int count(String status) =>
         rows.where((r) => r['status']?.toString() == status).length;
-    return Row(children: [
-      Expanded(
-          child: _statCard('الجديدة', count('pending').toString(),
-              Icons.mark_email_unread_rounded, const Color(0xFFFFA62B))),
-      const SizedBox(width: 10),
-      Expanded(
+    return Row(
+      children: [
+        Expanded(
           child: _statCard(
-              'قيد التنفيذ',
-              (count('accepted') +
-                      count('volunteer_needed') +
-                      count('donor_ready') +
-                      count('volunteer_assigned') +
-                      count('picked_up_from_donor') +
-                      count('in_transit'))
-                  .toString(),
-              Icons.route_rounded,
-              const Color(0xFF3E83C5))),
-      const SizedBox(width: 10),
-      Expanded(
-          child: _statCard('مكتملة', count('completed').toString(),
-              Icons.check_circle_rounded, _green)),
-    ]);
+            'الجديدة',
+            count('pending').toString(),
+            Icons.mark_email_unread_rounded,
+            const Color(0xFFFFA62B),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
+            'قيد التنفيذ',
+            (count('accepted') +
+                    count('volunteer_needed') +
+                    count('donor_ready') +
+                    count('volunteer_assigned') +
+                    count('picked_up_from_donor') +
+                    count('in_transit'))
+                .toString(),
+            Icons.route_rounded,
+            const Color(0xFF3E83C5),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
+            'مكتملة',
+            count('completed').toString(),
+            Icons.check_circle_rounded,
+            _green,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _statCard(String label, String value, IconData icon, Color color) =>
       Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE1ECE6))),
-          child: Column(children: [
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE1ECE6)),
+        ),
+        child: Column(
+          children: [
             Icon(icon, color: color, size: 23),
             const SizedBox(height: 8),
-            Text(value,
-                style: const TextStyle(
-                    color: _deepGreen,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900)),
+            Text(
+              value,
+              style: const TextStyle(
+                color: _deepGreen,
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700))
-          ]));
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
 
-  Widget _sectionTitle(String title, String count) =>
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(title,
-            style: const TextStyle(
-                color: _deepGreen, fontSize: 20, fontWeight: FontWeight.w900)),
-        Text(count,
-            style: const TextStyle(
-                color: _green, fontSize: 12, fontWeight: FontWeight.w800))
-      ]);
+  Widget _sectionTitle(String title, String count) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          color: _deepGreen,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      Text(
+        count,
+        style: const TextStyle(
+          color: _green,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    ],
+  );
 
   Widget _filters() {
     const filters = {
@@ -581,36 +657,43 @@ class _CharityDonationRequestsPageState
       'volunteer_assigned': 'المندوب أُرسل',
       'picked_up_from_donor': 'تم الاستلام',
       'in_transit': 'في الطريق',
-      'completed': 'مكتمل'
+      'completed': 'مكتمل',
     };
     return SizedBox(
-        height: 38,
-        child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: filters.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 7),
-            itemBuilder: (_, i) {
-              final key = filters.keys.elementAt(i);
-              final selected = _filter == key;
-              final activeColor = key == 'volunteer_needed' ? _purple : _green;
+      height: 38,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (_, i) {
+          final key = filters.keys.elementAt(i);
+          final selected = _filter == key;
+          final activeColor = key == 'volunteer_needed' ? _purple : _green;
 
-              return FilterChip(
-                  selected: selected,
-                  onSelected: (_) => setState(() => _filter = key),
-                  label: Text(filters[key]!),
-                  selectedColor:
-                      key == 'volunteer_needed' ? _purple.withAlpha(25) : _mint,
-                  backgroundColor: Colors.white,
-                  checkmarkColor: activeColor,
-                  labelStyle: TextStyle(
-                      color: selected ? activeColor : _deepGreen,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800),
-                  side: BorderSide(
-                      color: selected ? activeColor : const Color(0xFFE1ECE6)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24)));
-            }));
+          return FilterChip(
+            selected: selected,
+            onSelected: (_) => setState(() => _filter = key),
+            label: Text(filters[key]!),
+            selectedColor: key == 'volunteer_needed'
+                ? _purple.withAlpha(25)
+                : _mint,
+            backgroundColor: Colors.white,
+            checkmarkColor: activeColor,
+            labelStyle: TextStyle(
+              color: selected ? activeColor : _deepGreen,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+            side: BorderSide(
+              color: selected ? activeColor : const Color(0xFFE1ECE6),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   bool _matches(Map<String, dynamic> row) =>
@@ -632,6 +715,13 @@ class _CharityDonationRequestsPageState
     final busy = _busyId == id;
     final volunteerName = row['volunteer_name']?.toString().trim() ?? '';
     final volunteerPhone = row['volunteer_phone']?.toString().trim() ?? '';
+    final rawItems = row['items'];
+    final rawCategories = row['categories'];
+    final itemCount = rawItems is List && rawItems.isNotEmpty
+        ? rawItems.length
+        : rawCategories is List && rawCategories.isNotEmpty
+        ? rawCategories.length
+        : 1;
 
     return InkWell(
       onTap: () async {
@@ -646,181 +736,216 @@ class _CharityDonationRequestsPageState
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE0EBE5)),
-            boxShadow: [
-              BoxShadow(
-                  color: _deepGreen.withAlpha(18),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10))
-            ]),
-        clipBehavior: Clip.antiAlias,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            height: 170,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                heroImage == null
-                    ? const ColoredBox(
-                        color: _mint,
-                        child: Icon(Icons.volunteer_activism_rounded,
-                            color: _green, size: 46),
-                      )
-                    : Image.network(
-                        heroImage,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const ColoredBox(
-                            color: _mint,
-                            child: Icon(Icons.image_not_supported_outlined,
-                                color: _green, size: 40)),
-                      ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0.4, 1],
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withAlpha(190),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: _statusPill(status),
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: _deliveryBadge(isIndependent),
-                ),
-                Positioned(
-                  left: 14,
-                  right: 14,
-                  bottom: 12,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        row['title']?.toString() ?? 'تبرع مباشر',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        user['name']?.toString() ?? 'متبرع غير معروف',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withAlpha(215),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFE0EBE5)),
+          boxShadow: [
+            BoxShadow(
+              color: _deepGreen.withAlpha(18),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(15),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (extraImages.isNotEmpty) ...[
-                  _donationImages(extraImages.cast<String>()),
-                  const SizedBox(height: 12),
-                ],
-                Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFF8FBF9),
-                        borderRadius: BorderRadius.circular(16)),
-                    child: Row(children: [
-                      const Icon(Icons.person_outline_rounded,
-                          color: _green, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Text(
-                              '${user['name'] ?? 'متبرع غير معروف'}\n${user['phone'] ?? row['donor_phone'] ?? 'رقم غير متاح'}',
-                              style: const TextStyle(
-                                  color: _deepGreen,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.5))),
-                      Text('الكمية ${row['quantity'] ?? 1}',
-                          style: const TextStyle(
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 170,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  heroImage == null
+                      ? const ColoredBox(
+                          color: _mint,
+                          child: Icon(
+                            Icons.volunteer_activism_rounded,
+                            color: _green,
+                            size: 46,
+                          ),
+                        )
+                      : Image.network(
+                          heroImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const ColoredBox(
+                            color: _mint,
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
                               color: _green,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w900))
-                    ])),
-                if (volunteerName.isNotEmpty || volunteerPhone.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isIndependent
-                          ? _purple.withAlpha(15)
-                          : const Color(0xFFEFF8F3),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: isIndependent
-                              ? _purple.withAlpha(50)
-                              : const Color(0xFFCBE6D5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isIndependent
-                              ? Icons.person_rounded
-                              : Icons.badge_outlined,
-                          color: isIndependent ? _purple : _green,
-                          size: 22,
+                              size: 40,
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            '${isIndependent ? 'متطوع مستقل' : (row['volunteer_type'] == 'app_user' ? 'متطوع' : 'مندوب الجمعية')}\n${volunteerName.isEmpty ? 'الاسم غير مسجل' : volunteerName}${volunteerPhone.isEmpty ? '' : '\n$volunteerPhone'}',
-                            style: TextStyle(
-                                color: isIndependent ? _purple : _deepGreen,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                height: 1.45),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          stops: const [0.4, 1],
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withAlpha(190),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(top: 12, right: 12, child: _statusPill(status)),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: _deliveryBadge(isIndependent),
+                  ),
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 12,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          row['title']?.toString() ?? 'تبرع مباشر',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          user['name']?.toString() ?? 'متبرع غير معروف',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withAlpha(215),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ],
-                const SizedBox(height: 15),
-                _timeline(status),
-                if (busy)
-                  const Padding(
-                      padding: EdgeInsets.only(top: 14),
-                      child: LinearProgressIndicator(color: _green)),
-                if (!busy) ...[
-                  const SizedBox(height: 14),
-                  _buildActions(row, status),
-                ],
-              ],
+              ),
             ),
-          ),
-        ]),
+            Padding(
+              padding: const EdgeInsets.all(15),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (extraImages.isNotEmpty) ...[
+                    _donationImages(extraImages.cast<String>()),
+                    const SizedBox(height: 12),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FBF9),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.person_outline_rounded,
+                          color: _green,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${user['name'] ?? 'متبرع غير معروف'}\n${user['phone'] ?? row['donor_phone'] ?? 'رقم غير متاح'}',
+                            style: const TextStyle(
+                              color: _deepGreen,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '$itemCount ${itemCount == 1 ? 'صنف' : 'أصناف'}',
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  DonationItemsSummary(
+                    compact: true,
+                    showTitle: false,
+                    items: row['items'],
+                    categories: row['categories'],
+                    category: row['category']?.toString(),
+                    quantity: row['quantity'],
+                    condition: row['condition']?.toString(),
+                  ),
+                  if (volunteerName.isNotEmpty ||
+                      volunteerPhone.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isIndependent
+                            ? _purple.withAlpha(15)
+                            : const Color(0xFFEFF8F3),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isIndependent
+                              ? _purple.withAlpha(50)
+                              : const Color(0xFFCBE6D5),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isIndependent
+                                ? Icons.person_rounded
+                                : Icons.badge_outlined,
+                            color: isIndependent ? _purple : _green,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              '${isIndependent ? 'متطوع مستقل' : (row['volunteer_type'] == 'app_user' ? 'متطوع' : 'مندوب الجمعية')}\n${volunteerName.isEmpty ? 'الاسم غير مسجل' : volunteerName}${volunteerPhone.isEmpty ? '' : '\n$volunteerPhone'}',
+                              style: TextStyle(
+                                color: isIndependent ? _purple : _deepGreen,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 15),
+                  _timeline(status),
+                  if (busy)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 14),
+                      child: LinearProgressIndicator(color: _green),
+                    ),
+                  if (!busy) ...[
+                    const SizedBox(height: 14),
+                    _buildActions(row, status),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -846,7 +971,10 @@ class _CharityDonationRequestsPageState
           Text(
             isIndependent ? 'متطوعين' : 'مندوب',
             style: const TextStyle(
-                color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
@@ -860,6 +988,13 @@ class _CharityDonationRequestsPageState
     final deliveryType =
         row['delivery_type']?.toString() ?? 'charity_volunteer';
     final isIndependent = deliveryType == 'independent_volunteer';
+    final hasVolunteer =
+        (row['volunteer_name']?.toString().trim().isNotEmpty ?? false) ||
+        (row['volunteer_phone']?.toString().trim().isNotEmpty ?? false) ||
+        row['volunteer_type'] != null ||
+        row['charity_volunteer_id'] != null ||
+        row['volunteer_id'] != null ||
+        row['assigned_at'] != null;
 
     switch (status) {
       case 'pending':
@@ -878,8 +1013,9 @@ class _CharityDonationRequestsPageState
                 onPressed: () => _rejectDonation(id),
                 icon: const Icon(Icons.close_rounded, size: 18),
                 label: const Text('رفض التبرع'),
-                style:
-                    TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                ),
               ),
             ),
           ],
@@ -889,23 +1025,32 @@ class _CharityDonationRequestsPageState
         return Column(
           children: [
             _notice(
-                'بانتظار أن يضغط المتبرع «أنا جاهز لتسليم الحاجة». تقدر كمان ترسل مندوب من عندك.'),
-            const SizedBox(height: 10),
-            _action(
-              'إرسال مندوب الجمعية',
-              Icons.badge_outlined,
-              () => _assignVolunteer(id),
-              outlined: true,
+              hasVolunteer
+                  ? 'تم تعيين المندوب. بانتظار أن يعلن المتبرع جاهزيته للتسليم.'
+                  : 'بانتظار أن يعلن المتبرع جاهزيته. يمكنك تعيين مندوب الآن أيضًا.',
             ),
+            if (!hasVolunteer) ...[
+              const SizedBox(height: 10),
+              _action(
+                'إرسال مندوب الجمعية',
+                Icons.badge_outlined,
+                () => _assignVolunteer(id),
+                outlined: true,
+              ),
+            ],
           ],
         );
 
       // ⚠️ حالة قديمة (موجودة في تبرعات سابقة فقط)
       case 'volunteer_needed':
         return _notice(
-            'التبرع مفتوح للمتطوعين المستقلين. في انتظار حد يحجزه. (مسار قديم)');
+          'التبرع مفتوح للمتطوعين المستقلين. في انتظار حد يحجزه. (مسار قديم)',
+        );
 
       case 'donor_ready':
+        if (hasVolunteer) {
+          return _notice('تم تعيين المندوب. يتابع التبرع الآن مسار الاستلام.');
+        }
         return _action(
           'إرسال مندوب الجمعية',
           Icons.badge_outlined,
@@ -915,9 +1060,11 @@ class _CharityDonationRequestsPageState
       case 'volunteer_assigned':
         return Column(
           children: [
-            _notice(isIndependent
-                ? 'المتطوع في الطريق. عند وصوله، اطلب منه كود المتبرع وأدخله هنا.'
-                : 'تم إرسال المندوب. عند عودته بالكود، أدخل الكود هنا للتحقق من استلام التبرع.'),
+            _notice(
+              isIndependent
+                  ? 'المتطوع في الطريق. عند وصوله، اطلب منه كود المتبرع وأدخله هنا.'
+                  : 'تم إرسال المندوب. عند عودته بالكود، أدخل الكود هنا للتحقق من استلام التبرع.',
+            ),
             const SizedBox(height: 10),
             _action(
               'إدخال كود المتبرع والتحقق',
@@ -929,14 +1076,16 @@ class _CharityDonationRequestsPageState
 
       case 'picked_up_from_donor':
         return _notice(
-            'استلم المندوب التبرع من المتبرع ✅\nفي الطريق للجمعية. بانتظار أن يؤكد المتطوع انطلاقه.');
+          'استلم المندوب التبرع من المتبرع ✅\nفي الطريق للجمعية. بانتظار أن يؤكد المتطوع انطلاقه.',
+        );
 
       case 'in_transit':
         if (isIndependent) {
           return Column(
             children: [
               _notice(
-                  'المتطوع في الطريق للجمعية. عندما يصل، اطلب منه كود التسليم (6 أرقام) وأدخله هنا.'),
+                'المتطوع في الطريق للجمعية. عندما يصل، اطلب منه كود التسليم (6 أرقام) وأدخله هنا.',
+              ),
               const SizedBox(height: 10),
               _action(
                 'إدخال كود المتطوع والتحقق',
@@ -950,7 +1099,8 @@ class _CharityDonationRequestsPageState
         return Column(
           children: [
             _notice(
-                'المندوب في الطريق للجمعية. عند وصوله، اضغط الزر لتأكيد وصول التبرع.'),
+              'المندوب في الطريق للجمعية. عند وصوله، اضغط الزر لتأكيد وصول التبرع.',
+            ),
             const SizedBox(height: 10),
             _action(
               '✅ تم وصول التبرع للجمعية',
@@ -985,85 +1135,118 @@ class _CharityDonationRequestsPageState
   }
 
   Widget _donationImages(List<String> urls) => SizedBox(
-        height: 90,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: urls.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, index) => ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.network(
-              urls[index],
-              width: 110,
-              height: 90,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                  width: 110,
-                  height: 90,
-                  color: const Color(0xFFE8F1EC),
-                  child:
-                      const Icon(Icons.broken_image_outlined, color: _green)),
+    height: 90,
+    child: ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: urls.length,
+      separatorBuilder: (_, __) => const SizedBox(width: 8),
+      itemBuilder: (_, index) => ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          urls[index],
+          width: 110,
+          height: 90,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            width: 110,
+            height: 90,
+            color: const Color(0xFFE8F1EC),
+            child: const Icon(Icons.broken_image_outlined, color: _green),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _action(
+    String text,
+    IconData icon,
+    VoidCallback onPressed, {
+    bool outlined = false,
+  }) => SizedBox(
+    width: double.infinity,
+    child: outlined
+        ? OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _green,
+              side: const BorderSide(color: _green),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            onPressed: onPressed,
+            icon: Icon(icon, size: 19),
+            label: Text(
+              text,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          )
+        : FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: _green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+            ),
+            onPressed: onPressed,
+            icon: Icon(icon, size: 19),
+            label: Text(
+              text,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+  );
+
+  Widget _notice(String text) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF7E3),
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0xFFFFE1A6)),
+    ),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.info_outline_rounded,
+          color: Color(0xFFB7791F),
+          size: 21,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Color(0xFF805B1B),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
-      );
-
-  Widget _action(String text, IconData icon, VoidCallback onPressed,
-          {bool outlined = false}) =>
-      SizedBox(
-          width: double.infinity,
-          child: outlined
-              ? OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: _green,
-                      side: const BorderSide(color: _green),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  onPressed: onPressed,
-                  icon: Icon(icon, size: 19),
-                  label: Text(text,
-                      style: const TextStyle(fontWeight: FontWeight.w800)))
-              : FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: _green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15))),
-                  onPressed: onPressed,
-                  icon: Icon(icon, size: 19),
-                  label: Text(text,
-                      style: const TextStyle(fontWeight: FontWeight.w800))));
-
-  Widget _notice(String text) => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: const Color(0xFFFFF7E3),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFFFE1A6))),
-      child: Row(children: [
-        const Icon(Icons.info_outline_rounded,
-            color: Color(0xFFB7791F), size: 21),
-        const SizedBox(width: 8),
-        Expanded(
-            child: Text(text,
-                style: const TextStyle(
-                    color: Color(0xFF805B1B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)))
-      ]));
+      ],
+    ),
+  );
 
   Widget _statusPill(String status) {
     final data = _statusData(status);
     return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-            color: data.$2, borderRadius: BorderRadius.circular(20)),
-        child: Text(data.$1,
-            style: TextStyle(
-                color: data.$3, fontSize: 10, fontWeight: FontWeight.w900)));
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: data.$2,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        data.$1,
+        style: TextStyle(
+          color: data.$3,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
   }
 
   (String, Color, Color) _statusData(String status) =>
@@ -1071,46 +1254,46 @@ class _CharityDonationRequestsPageState
         'pending': (
           'في انتظار القبول',
           const Color(0xFFFFF1D8),
-          const Color(0xFF9A6711)
+          const Color(0xFF9A6711),
         ),
         'accepted': (
           'تم القبول — بانتظار جاهزية المتبرع',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'volunteer_needed': (
           'مفتوح للمتطوعين',
           const Color(0xFFECE8FF),
-          const Color(0xFF6651B5)
+          const Color(0xFF6651B5),
         ),
         'donor_ready': (
           'المتبرع جاهز',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'volunteer_assigned': (
           'تم إرسال المندوب',
           const Color(0xFFECE8FF),
-          const Color(0xFF6651B5)
+          const Color(0xFF6651B5),
         ),
         'ready_for_pickup': (
           'جاهز للاستلام',
           const Color(0xFFFFF1D8),
-          const Color(0xFF9A6711)
+          const Color(0xFF9A6711),
         ),
         'picked_up_from_donor': (
           'استلمه المتطوع',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'in_transit': (
           'في الطريق',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'completed': ('اكتمل بنجاح', const Color(0xFFE3F7EC), _green),
         'rejected': ('مرفوض', const Color(0xFFFBE4E4), const Color(0xFFB54747)),
-        'cancelled': ('ملغي', const Color(0xFFF0F1F0), Colors.black54)
+        'cancelled': ('ملغي', const Color(0xFFF0F1F0), Colors.black54),
       }[status] ??
       ('حالة غير معروفة', const Color(0xFFF0F1F0), Colors.black54);
 
@@ -1122,7 +1305,7 @@ class _CharityDonationRequestsPageState
       'volunteer_assigned',
       'picked_up_from_donor',
       'in_transit',
-      'completed'
+      'completed',
     ];
 
     final effectiveStatus = status == 'volunteer_needed' ? 'accepted' : status;
@@ -1196,14 +1379,22 @@ class _CharityDonationRequestsPageState
       '';
 
   Widget _emptyState(String text, IconData icon) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 70),
-      child: Column(children: [
+    padding: const EdgeInsets.symmetric(vertical: 70),
+    child: Column(
+      children: [
         Icon(icon, color: _green, size: 54),
         const SizedBox(height: 15),
-        Text(text,
-            style: const TextStyle(
-                color: _deepGreen, fontSize: 16, fontWeight: FontWeight.w800))
-      ]));
+        Text(
+          text,
+          style: const TextStyle(
+            color: _deepGreen,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1454,9 +1645,7 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0EBE5),
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFE0EBE5)),
                       ),
                     ),
                   ),
@@ -1475,9 +1664,7 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0EBE5),
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFE0EBE5)),
                       ),
                     ),
                   ),

@@ -10,14 +10,10 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 class PickupQRPage extends StatefulWidget {
   final String requestId;
-  final String businessId;
-  final String? existingToken;
 
   const PickupQRPage({
     super.key,
     required this.requestId,
-    required this.businessId,
-    this.existingToken,
   });
 
   @override
@@ -69,23 +65,10 @@ class _PickupQRPageState extends State<PickupQRPage> {
         return;
       }
 
-      // ✅ استخدام businessId من الـ widget
-      final businessId = widget.businessId;
-
-      // ✅ جلب token
-      String? token;
-
-      // 1. استخدم token موجود
-      if (widget.existingToken != null && widget.existingToken!.isNotEmpty) {
-        token = widget.existingToken;
-      } else {
-        // 2. أنشئ token جديد
-        token = await _repository.generatePickupToken(
-          bookingId: widget.requestId,
-          userId: authUser.id,
-          businessId: businessId,
-        );
-      }
+      final token = await _repository.generatePickupToken(
+        bookingId: widget.requestId,
+        userId: authUser.id,
+      );
 
       if (!mounted) return;
 
@@ -100,7 +83,7 @@ class _PickupQRPageState extends State<PickupQRPage> {
       if (!mounted) return;
 
       setState(() {
-        _token = token!.trim();
+        _token = token.trim();
         _expiresAt = expiry;
         _isExpired = expiry == null || !_isBeforeNow(expiry);
         _isLoading = false;

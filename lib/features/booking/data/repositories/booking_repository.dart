@@ -9,7 +9,8 @@ class BookingRepository {
   BookingRepository(this._supabase);
 
   static const String _bookingSelect = '''
-    *,
+    id, offer_id, user_id, restaurant_id, status, requested_at, updated_at,
+    completed_at, notes, pickup_token_expires_at, pickup_token_used_at,
     food_offers:offer_id (
       id, title, image, quantity, description, pickup_location, expiry_time, status
     ),
@@ -191,29 +192,19 @@ class BookingRepository {
   Future<String?> generatePickupToken({
     required String bookingId,
     required String userId,
-    String? restaurantId,
-    String? businessId,
   }) async {
     final cleanBooking = bookingId.trim();
     final cleanUser = userId.trim();
-    final actualRestaurantId = await resolveRestaurantId(
-      restaurantId: restaurantId,
-      businessId: businessId,
-    );
     if (cleanBooking.isEmpty ||
         cleanUser.isEmpty ||
-        actualRestaurantId == null) {
+        _supabase.client.auth.currentUser?.id != cleanUser) {
       return null;
     }
 
     try {
       final response = await _supabase.client.rpc(
-        'generate_pickup_token',
-        params: {
-          'p_request_id': cleanBooking,
-          'p_user_id': cleanUser,
-          'p_restaurant_id': actualRestaurantId,
-        },
+        'generate_food_offer_pickup_token',
+        params: {'p_request_id': cleanBooking},
       );
       return _tokenFromResponse(response);
     } catch (error) {
@@ -237,7 +228,7 @@ class BookingRepository {
 
     try {
       final response = await _supabase.client.rpc(
-        'complete_pickup_by_qr',
+        'verify_pickup_token',
         params: {
           'p_token': token.trim(),
           'p_restaurant_id': actualRestaurantId,
