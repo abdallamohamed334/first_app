@@ -17,7 +17,24 @@ class AddCharityDonationPage extends StatefulWidget {
 class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   static const _green = Color(0xFF0B7650);
   static const _darkGreen = Color(0xFF123F31);
-  static const _background = Color(0xFFF4F8F5);
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  ColorScheme get _colors => Theme.of(context).colorScheme;
+  Color get _background => _colors.surface;
+  Color get _cardSurface => _colors.surfaceContainerLow;
+  Color get _softSurface => _colors.surfaceContainerHighest;
+  Color get _textPrimary => _colors.onSurface;
+  Color get _textSecondary => _colors.onSurfaceVariant;
+  Color get _outline => _colors.outlineVariant;
+  Color get _accent => _isDark ? const Color(0xFF48C98A) : _green;
+  Color get _safetyBackground =>
+      _isDark ? const Color(0xFF302716) : const Color(0xFFFFF7E8);
+  Color get _safetyBorder =>
+      _isDark ? const Color(0xFF665126) : const Color(0xFFF3D8A5);
+  Color get _safetyText =>
+      _isDark ? const Color(0xFFFFD77A) : const Color(0xFF684A17);
+  Color get _safetyIcon =>
+      _isDark ? const Color(0xFFFFC95A) : const Color(0xFF9A5A00);
 
   static const _categories = <_DonationCategory>[
     _DonationCategory('food', 'طعام ومؤن', Icons.restaurant_rounded),
@@ -326,8 +343,9 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
           ),
           centerTitle: true,
           backgroundColor: _background,
-          foregroundColor: _darkGreen,
+          foregroundColor: _textPrimary,
           elevation: 0,
+          scrolledUnderElevation: 0,
         ),
         body: Form(
           key: _formKey,
@@ -359,20 +377,22 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                               avatar: Icon(
                                 category.icon,
                                 size: 17,
-                                color: selected ? _green : Colors.grey.shade600,
+                                color: selected ? _accent : _textSecondary,
                               ),
                               label: Text(category.label),
                               onSelected: (value) =>
                                   _toggleCategory(category.id, value),
-                              selectedColor: const Color(0xFFE2F3E9),
-                              backgroundColor: Colors.white,
+                              selectedColor: _accent.withValues(
+                                alpha: _isDark ? 0.25 : 0.12,
+                              ),
+                              backgroundColor: _cardSurface,
                               side: BorderSide(
                                 color: selected
-                                    ? const Color(0xFF76B994)
-                                    : const Color(0xFFE0E9E4),
+                                    ? _accent.withValues(alpha: 0.65)
+                                    : _outline,
                               ),
                               labelStyle: TextStyle(
-                                color: selected ? _green : _darkGreen,
+                                color: selected ? _accent : _textPrimary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -384,21 +404,15 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                       const SizedBox(height: 6),
                       Text(
                         _categoryError!,
-                        style: const TextStyle(
-                          color: Color(0xFFB54747),
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _colors.error, fontSize: 12),
                       ),
                     ],
                     if (_selectedCategories.isEmpty &&
                         _categoryError == null) ...[
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         'اختر صنفًا أو أكثر من القائمة لإضافة الكمية والتفاصيل.',
-                        style: TextStyle(
-                          color: Color(0xFF71837C),
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -519,11 +533,11 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'بعد الإرسال، ستراجع الجمعية طلبك ويمكنك متابعة كل خطوة من صفحة «تبرعاتي».',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFF71837C),
+                  color: _textSecondary,
                   fontSize: 11,
                   height: 1.45,
                 ),
@@ -600,17 +614,15 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _charity == null
-              ? const Color(0xFFB8DDC8)
-              : const Color(0xFF76B994),
+          color: _charity == null ? _outline : _accent,
           width: 1.3,
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x100B7650),
+            color: Colors.black.withValues(alpha: _isDark ? 0.25 : 0.05),
             blurRadius: 12,
             offset: Offset(0, 4),
           ),
@@ -622,12 +634,12 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: const Color(0xFFE8F5EE),
+              color: _softSurface,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.account_balance_rounded,
-              color: _green,
+              color: _accent,
               size: 24,
             ),
           ),
@@ -638,8 +650,8 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
               children: [
                 Text(
                   _charity?.name ?? 'اختر الجمعية المستفيدة',
-                  style: const TextStyle(
-                    color: _darkGreen,
+                  style: TextStyle(
+                    color: _textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -648,10 +660,7 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                   _charity == null
                       ? 'سيصل طلبك مباشرةً إلى حساب الجمعية'
                       : 'الجمعية التي ستراجع طلب التبرع',
-                  style: const TextStyle(
-                    color: Color(0xFF71837C),
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: _textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -660,7 +669,7 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
             _charity == null
                 ? Icons.add_circle_outline_rounded
                 : Icons.edit_outlined,
-            color: _green,
+            color: _accent,
           ),
         ],
       ),
@@ -675,12 +684,12 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   }) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: _cardSurface,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE1EBE5)),
-      boxShadow: const [
+      border: Border.all(color: _outline),
+      boxShadow: [
         BoxShadow(
-          color: Color(0x080F2E23),
+          color: Colors.black.withValues(alpha: _isDark ? 0.24 : 0.04),
           blurRadius: 12,
           offset: Offset(0, 4),
         ),
@@ -691,13 +700,13 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
       children: [
         Row(
           children: [
-            Icon(icon, color: _green, size: 21),
+            Icon(icon, color: _accent, size: 21),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(
-                  color: _darkGreen,
+                style: TextStyle(
+                  color: _textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
                 ),
@@ -708,11 +717,7 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: const TextStyle(
-            color: Color(0xFF71837C),
-            fontSize: 11,
-            height: 1.45,
-          ),
+          style: TextStyle(color: _textSecondary, fontSize: 11, height: 1.45),
         ),
         const SizedBox(height: 14),
         child,
@@ -728,22 +733,22 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FBF9),
+        color: _softSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE3ECE7)),
+        border: Border.all(color: _outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(model.icon, color: _green, size: 19),
+              Icon(model.icon, color: _accent, size: 19),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
                   model.label,
-                  style: const TextStyle(
-                    color: _darkGreen,
+                  style: TextStyle(
+                    color: _textPrimary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -831,9 +836,9 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
             const SizedBox(height: 5),
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.event_available_outlined,
-                  color: Color(0xFF9A5A00),
+                  color: _safetyIcon,
                   size: 18,
                 ),
                 const SizedBox(width: 6),
@@ -842,8 +847,8 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                     _bestBeforeDates[category] == null
                         ? 'تاريخ الصلاحية غير مضاف'
                         : 'الصلاحية حتى ${_formatDate(_bestBeforeDates[category]!)}',
-                    style: const TextStyle(
-                      color: Color(0xFF79520A),
+                    style: TextStyle(
+                      color: _safetyText,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -918,14 +923,14 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
                           : () => setState(() => _images.removeAt(index)),
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
+                        decoration: BoxDecoration(
+                          color: _cardSurface,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close_rounded,
                           size: 15,
-                          color: Colors.red,
+                          color: _colors.error,
                         ),
                       ),
                     ),
@@ -942,27 +947,19 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   Widget _safetyNote() => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF7E8),
+      color: _safetyBackground,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFF3D8A5)),
+      border: Border.all(color: _safetyBorder),
     ),
-    child: const Row(
+    child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          Icons.health_and_safety_outlined,
-          color: Color(0xFF9A5A00),
-          size: 20,
-        ),
+        Icon(Icons.health_and_safety_outlined, color: _safetyIcon, size: 20),
         SizedBox(width: 9),
         Expanded(
           child: Text(
             'يرجى التأكد من سلامة الطعام وعدم انتهاء صلاحيته، ووصف حالة الأجهزة والأثاث بدقة. ستراجع الجمعية التبرع وتتواصل معك لترتيب الاستلام.',
-            style: TextStyle(
-              color: Color(0xFF684A17),
-              fontSize: 11,
-              height: 1.5,
-            ),
+            style: TextStyle(color: _safetyText, fontSize: 11, height: 1.5),
           ),
         ),
       ],
@@ -972,19 +969,19 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   InputDecoration _decoration(String label) => InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: const Color(0xFFF8FBF9),
+    fillColor: _softSurface,
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(13),
-      borderSide: const BorderSide(color: Color(0xFFE0E9E4)),
+      borderSide: BorderSide(color: _outline),
     ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(13),
-      borderSide: const BorderSide(color: Color(0xFFE0E9E4)),
+      borderSide: BorderSide(color: _outline),
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(13),
-      borderSide: const BorderSide(color: _green, width: 1.5),
+      borderSide: BorderSide(color: _accent, width: 1.5),
     ),
   );
 

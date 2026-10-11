@@ -79,6 +79,9 @@ class DonationItemsSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = colors.brightness == Brightness.dark;
+    final accent = isDark ? const Color(0xFF48C98A) : const Color(0xFF0B7650);
     final rows = _normalizedItems();
     if (rows.isEmpty) return const SizedBox.shrink();
 
@@ -94,13 +97,15 @@ class DonationItemsSummary extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5EF),
+                  color: isDark
+                      ? accent.withValues(alpha: 0.18)
+                      : const Color(0xFFEAF5EF),
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
                   '${_label(slug)} · $amount${unit.isEmpty ? '' : ' $unit'}',
-                  style: const TextStyle(
-                    color: Color(0xFF0B7650),
+                  style: TextStyle(
+                    color: accent,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -115,26 +120,22 @@ class DonationItemsSummary extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FBF8),
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE0ECE5)),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showTitle) ...[
-            const Row(
+            Row(
               children: [
-                Icon(
-                  Icons.category_outlined,
-                  size: 18,
-                  color: Color(0xFF0B7650),
-                ),
+                Icon(Icons.category_outlined, size: 18, color: accent),
                 SizedBox(width: 7),
                 Text(
                   'الأصناف المتبرع بها',
                   style: TextStyle(
-                    color: Color(0xFF123F31),
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -155,12 +156,12 @@ class DonationItemsSummary extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 3),
                     child: Icon(
                       Icons.volunteer_activism_outlined,
                       size: 16,
-                      color: Color(0xFF0B7650),
+                      color: accent,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -170,8 +171,8 @@ class DonationItemsSummary extends StatelessWidget {
                       children: [
                         Text(
                           '${_label(slug)} · $amount${unit.isEmpty ? '' : ' $unit'}',
-                          style: const TextStyle(
-                            color: Color(0xFF123F31),
+                          style: TextStyle(
+                            color: colors.onSurface,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
@@ -179,16 +180,16 @@ class DonationItemsSummary extends StatelessWidget {
                         if (itemCondition != null && itemCondition.isNotEmpty)
                           Text(
                             'الحالة: ${_conditionLabel(itemCondition)}',
-                            style: const TextStyle(
-                              color: Color(0xFF71837C),
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
                               fontSize: 11,
                             ),
                           ),
                         if (details.isNotEmpty)
                           Text(
                             details,
-                            style: const TextStyle(
-                              color: Color(0xFF40574D),
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
                               fontSize: 12,
                               height: 1.35,
                             ),
@@ -196,8 +197,10 @@ class DonationItemsSummary extends StatelessWidget {
                         if (bestBefore.isNotEmpty)
                           Text(
                             'الصلاحية: $bestBefore',
-                            style: const TextStyle(
-                              color: Color(0xFF9A5A00),
+                            style: TextStyle(
+                              color: isDark
+                                  ? const Color(0xFFFFD166)
+                                  : const Color(0xFF9A5A00),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),

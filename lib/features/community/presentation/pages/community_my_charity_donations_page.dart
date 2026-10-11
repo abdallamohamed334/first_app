@@ -9,7 +9,9 @@ import 'package:loqma/features/charity/presentation/widgets/donation_items_summa
 import 'package:loqma/features/community/presentation/pages/community_charity_donation_details_page.dart';
 
 class CommunityMyCharityDonationsPage extends StatefulWidget {
-  const CommunityMyCharityDonationsPage({super.key});
+  const CommunityMyCharityDonationsPage({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<CommunityMyCharityDonationsPage> createState() =>
@@ -31,12 +33,26 @@ class _CommunityMyCharityDonationsPageState
   static const _green = Color(0xFF0B7650);
   static const _greenLight = Color(0xFF2BAA76);
   static const _darkGreen = Color(0xFF0F2E23);
-  static const _background = Color(0xFFF5F9F7);
-  static const _cardBg = Colors.white;
   static const _red = Color(0xFFB54747);
   static const _orange = Color(0xFFE28B00);
   static const _blue = Color(0xFF3679C8);
   static const _purple = Color(0xFF6651B5);
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  ColorScheme get _colors => Theme.of(context).colorScheme;
+  Color get _accent => _isDark ? const Color(0xFF48C98A) : _green;
+  Color get _activeForeground =>
+      _isDark ? const Color(0xFF0B2418) : Colors.white;
+  Color get _danger => _isDark ? const Color(0xFFFF8585) : _red;
+  Color get _warning => _isDark ? const Color(0xFFFFC164) : _orange;
+  Color get _info => _isDark ? const Color(0xFF83B9FF) : _blue;
+  Color get _violet => _isDark ? const Color(0xFFC7B4FF) : _purple;
+  Color get _background => _colors.surface;
+  Color get _cardBg => _colors.surfaceContainerLow;
+  Color get _softSurface => _colors.surfaceContainerHighest;
+  Color get _primaryText => _colors.onSurface;
+  Color get _secondaryText => _colors.onSurfaceVariant;
+  Color get _outline => _colors.outlineVariant;
 
   @override
   void initState() {
@@ -99,9 +115,9 @@ class _CommunityMyCharityDonationsPageState
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.qr_code_2_rounded, color: _green),
+              Icon(Icons.qr_code_2_rounded, color: _accent),
               SizedBox(width: 8),
               Text('كود تسليم التبرع'),
             ],
@@ -121,18 +137,18 @@ class _CommunityMyCharityDonationsPageState
                   vertical: 18,
                 ),
                 decoration: BoxDecoration(
-                  color: _green.withValues(alpha: 0.08),
+                  color: _green.withValues(alpha: _isDark ? 0.18 : 0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _green.withValues(alpha: 0.25),
+                    color: _accent.withValues(alpha: 0.4),
                     width: 1.5,
                   ),
                 ),
                 child: SelectableText(
                   code,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _green,
+                  style: TextStyle(
+                    color: _accent,
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 4,
@@ -146,12 +162,12 @@ class _CommunityMyCharityDonationsPageState
                   Icon(
                     Icons.access_time_rounded,
                     size: 14,
-                    color: Colors.grey.shade600,
+                    color: _secondaryText,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     'الكود صالح لمدة 7 أيام',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: _secondaryText),
                   ),
                 ],
               ),
@@ -217,127 +233,129 @@ class _CommunityMyCharityDonationsPageState
 
   @override
   Widget build(BuildContext context) {
+    final content = _buildContent();
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: _background,
-        body: FutureBuilder<List<Map<String, dynamic>>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: _green),
-              );
-            }
-            if (snapshot.hasError) {
-              return _buildErrorState(_friendlyError(snapshot.error!));
-            }
+      child: widget.embedded
+          ? content
+          : Scaffold(backgroundColor: _background, body: content),
+    );
+  }
 
-            final all = snapshot.data ?? const <Map<String, dynamic>>[];
-            final rows = all.where(_matches).toList();
+  Widget _buildContent() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator(color: _accent));
+        }
+        if (snapshot.hasError) {
+          return _buildErrorState(_friendlyError(snapshot.error!));
+        }
 
-            final pending = all
-                .where((r) => r['status']?.toString() == 'pending')
-                .length;
+        final all = snapshot.data ?? const <Map<String, dynamic>>[];
+        final rows = all.where(_matches).toList();
 
-            // ✅ قيد التنفيذ (بيشمل volunteer_needed)
-            final active = all
-                .where(
-                  (r) => {
-                    'accepted',
-                    'volunteer_needed',
-                    'donor_ready',
-                    'volunteer_assigned',
-                    'picked_up_from_donor',
-                    'in_transit',
-                  }.contains(r['status']?.toString()),
-                )
-                .length;
+        final pending = all
+            .where((r) => r['status']?.toString() == 'pending')
+            .length;
 
-            final assigned = all
-                .where(
-                  (r) => {
-                    'volunteer_assigned',
-                    'picked_up_from_donor',
-                    'in_transit',
-                  }.contains(r['status']?.toString()),
-                )
-                .length;
+        // ✅ قيد التنفيذ (بيشمل volunteer_needed)
+        final active = all
+            .where(
+              (r) => {
+                'accepted',
+                'volunteer_needed',
+                'donor_ready',
+                'volunteer_assigned',
+                'picked_up_from_donor',
+                'in_transit',
+              }.contains(r['status']?.toString()),
+            )
+            .length;
 
-            final completed = all
-                .where((r) => r['status']?.toString() == 'completed')
-                .length;
+        final assigned = all
+            .where(
+              (r) => {
+                'volunteer_assigned',
+                'picked_up_from_donor',
+                'in_transit',
+              }.contains(r['status']?.toString()),
+            )
+            .length;
 
-            // ✅ يظهر "يحتاج إجراء" لو:
-            // 1. accepted → يعلن جاهزيته
-            // 2. volunteer_needed → يعلن جاهزيته
-            // 3. volunteer_assigned → يعرض الكود
-            final actionRows = all
-                .where(
-                  (r) => {
-                    'accepted',
-                    'volunteer_needed',
-                    'volunteer_assigned',
-                  }.contains(r['status']?.toString()),
-                )
-                .take(2)
-                .toList();
+        final completed = all
+            .where((r) => r['status']?.toString() == 'completed')
+            .length;
 
-            return RefreshIndicator(
-              color: _green,
-              onRefresh: _refresh,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                slivers: [
-                  _buildSliverAppBar(),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _buildHeroCard(pending),
-                        const SizedBox(height: 18),
-                        _buildStatsGrid(
-                          pending: pending,
-                          active: active,
-                          assigned: assigned,
-                          completed: completed,
-                        ),
-                        if (actionRows.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          _buildSectionHeader(
-                            'يحتاج إلى إجراء',
-                            '${actionRows.length}',
-                            Icons.flash_on_rounded,
-                            _orange,
-                          ),
-                          const SizedBox(height: 12),
-                          ...actionRows.map(_buildActionCard),
-                        ],
-                        const SizedBox(height: 24),
-                        _buildSectionHeader(
-                          'تصفية التبرعات',
-                          null,
-                          Icons.filter_list_rounded,
-                          _green,
-                        ),
-                        const SizedBox(height: 12),
-                        _buildFilters(),
-                        const SizedBox(height: 16),
-                        if (rows.isEmpty)
-                          _buildEmptyState()
-                        else
-                          ...rows.map(_buildDonationCard),
-                      ]),
+        // ✅ يظهر "يحتاج إجراء" لو:
+        // 1. accepted → يعلن جاهزيته
+        // 2. volunteer_needed → يعلن جاهزيته
+        // 3. volunteer_assigned → يعرض الكود
+        final actionRows = all
+            .where(
+              (r) => {
+                'accepted',
+                'volunteer_needed',
+                'volunteer_assigned',
+              }.contains(r['status']?.toString()),
+            )
+            .take(2)
+            .toList();
+
+        return RefreshIndicator(
+          color: _accent,
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              if (!widget.embedded) _buildSliverAppBar(),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _buildHeroCard(pending),
+                    const SizedBox(height: 18),
+                    _buildStatsGrid(
+                      pending: pending,
+                      active: active,
+                      assigned: assigned,
+                      completed: completed,
                     ),
-                  ),
-                ],
+                    if (actionRows.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      _buildSectionHeader(
+                        'يحتاج إلى إجراء',
+                        '${actionRows.length}',
+                        Icons.flash_on_rounded,
+                        _warning,
+                      ),
+                      const SizedBox(height: 12),
+                      ...actionRows.map(_buildActionCard),
+                    ],
+                    const SizedBox(height: 24),
+                    _buildSectionHeader(
+                      'تصفية التبرعات',
+                      null,
+                      Icons.filter_list_rounded,
+                      _accent,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFilters(),
+                    const SizedBox(height: 16),
+                    if (rows.isEmpty)
+                      _buildEmptyState()
+                    else
+                      ...rows.map(_buildDonationCard),
+                  ]),
+                ),
               ),
-            );
-          },
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -410,7 +428,7 @@ class _CommunityMyCharityDonationsPageState
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: _darkGreen.withValues(alpha: 0.25),
+            color: Colors.black.withValues(alpha: _isDark ? 0.32 : 0.16),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -516,29 +534,29 @@ class _CommunityMyCharityDonationsPageState
         label: 'طلبات جديدة',
         value: pending,
         icon: Icons.new_releases_rounded,
-        color: _red,
-        bg: _red.withValues(alpha: 0.08),
+        color: _danger,
+        bg: _danger.withValues(alpha: _isDark ? 0.18 : 0.08),
       ),
       _StatItem(
         label: 'قيد التنفيذ',
         value: active,
         icon: Icons.hourglass_top_rounded,
-        color: _green,
-        bg: _green.withValues(alpha: 0.08),
+        color: _accent,
+        bg: _green.withValues(alpha: _isDark ? 0.18 : 0.08),
       ),
       _StatItem(
         label: 'في انتظار مندوب',
         value: assigned,
         icon: Icons.local_shipping_rounded,
-        color: _blue,
-        bg: _blue.withValues(alpha: 0.08),
+        color: _info,
+        bg: _info.withValues(alpha: _isDark ? 0.18 : 0.08),
       ),
       _StatItem(
         label: 'مكتملة',
         value: completed,
         icon: Icons.check_circle_rounded,
-        color: const Color(0xFF496B5E),
-        bg: const Color(0xFFE4EDEA),
+        color: _accent,
+        bg: _softSurface,
       ),
     ];
 
@@ -562,10 +580,10 @@ class _CommunityMyCharityDonationsPageState
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8F1EC)),
+        border: Border.all(color: _outline),
         boxShadow: [
           BoxShadow(
-            color: _darkGreen.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: _isDark ? 0.26 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -583,8 +601,8 @@ class _CommunityMyCharityDonationsPageState
                   stat.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF52645C),
+                  style: TextStyle(
+                    color: _secondaryText,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
@@ -642,8 +660,8 @@ class _CommunityMyCharityDonationsPageState
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: _darkGreen,
+            style: TextStyle(
+              color: _primaryText,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
@@ -684,13 +702,13 @@ class _CommunityMyCharityDonationsPageState
     IconData actionIcon;
 
     if (status == 'volunteer_assigned') {
-      accentColor = _orange;
+      accentColor = _warning;
       actionIcon = Icons.qr_code_2_rounded;
     } else if (status == 'volunteer_needed') {
-      accentColor = _purple;
+      accentColor = _violet;
       actionIcon = Icons.people_alt_rounded;
     } else {
-      accentColor = _blue;
+      accentColor = _info;
       actionIcon = Icons.front_hand_rounded;
     }
 
@@ -703,7 +721,7 @@ class _CommunityMyCharityDonationsPageState
         border: Border(right: BorderSide(color: accentColor, width: 4)),
         boxShadow: [
           BoxShadow(
-            color: _darkGreen.withValues(alpha: 0.04),
+            color: Colors.black.withValues(alpha: _isDark ? 0.26 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -716,7 +734,7 @@ class _CommunityMyCharityDonationsPageState
             height: 42,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.1),
+              color: accentColor.withValues(alpha: _isDark ? 0.18 : 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(actionIcon, color: accentColor, size: 22),
@@ -733,8 +751,8 @@ class _CommunityMyCharityDonationsPageState
                         row['title']?.toString() ?? 'تبرع مباشر',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _darkGreen,
+                        style: TextStyle(
+                          color: _primaryText,
                           fontWeight: FontWeight.w900,
                           fontSize: 14,
                         ),
@@ -747,13 +765,15 @@ class _CommunityMyCharityDonationsPageState
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _purple.withValues(alpha: 0.1),
+                          color: _violet.withValues(
+                            alpha: _isDark ? 0.18 : 0.1,
+                          ),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
+                        child: Text(
                           'متطوعين',
                           style: TextStyle(
-                            color: _purple,
+                            color: _violet,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                           ),
@@ -848,7 +868,7 @@ class _CommunityMyCharityDonationsPageState
           final active = _filter == key;
 
           // ✅ لون مخصص للـ volunteer_needed
-          final activeColor = key == 'volunteer_needed' ? _purple : _green;
+          final activeColor = key == 'volunteer_needed' ? _violet : _accent;
 
           return GestureDetector(
             onTap: () => setState(() => _filter = key),
@@ -856,11 +876,9 @@ class _CommunityMyCharityDonationsPageState
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: active ? activeColor : Colors.white,
+                color: active ? activeColor : _cardBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: active ? activeColor : const Color(0xFFE0EBE5),
-                ),
+                border: Border.all(color: active ? activeColor : _outline),
                 boxShadow: active
                     ? [
                         BoxShadow(
@@ -875,7 +893,7 @@ class _CommunityMyCharityDonationsPageState
                 child: Text(
                   filters[key]!,
                   style: TextStyle(
-                    color: active ? Colors.white : _darkGreen,
+                    color: active ? _activeForeground : _primaryText,
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
@@ -959,10 +977,10 @@ class _CommunityMyCharityDonationsPageState
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8F1EC)),
+              border: Border.all(color: _outline),
               boxShadow: [
                 BoxShadow(
-                  color: _darkGreen.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: _isDark ? 0.26 : 0.04),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -980,10 +998,12 @@ class _CommunityMyCharityDonationsPageState
                         height: 72,
                         child: image.isEmpty
                             ? Container(
-                                color: _green.withValues(alpha: 0.08),
-                                child: const Icon(
+                                color: _green.withValues(
+                                  alpha: _isDark ? 0.18 : 0.08,
+                                ),
+                                child: Icon(
                                   Icons.volunteer_activism_rounded,
-                                  color: _green,
+                                  color: _accent,
                                   size: 30,
                                 ),
                               )
@@ -991,10 +1011,12 @@ class _CommunityMyCharityDonationsPageState
                                 image,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => Container(
-                                  color: _green.withValues(alpha: 0.08),
-                                  child: const Icon(
+                                  color: _green.withValues(
+                                    alpha: _isDark ? 0.18 : 0.08,
+                                  ),
+                                  child: Icon(
                                     Icons.volunteer_activism_rounded,
-                                    color: _green,
+                                    color: _accent,
                                     size: 30,
                                   ),
                                 ),
@@ -1010,8 +1032,8 @@ class _CommunityMyCharityDonationsPageState
                             title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _darkGreen,
+                            style: TextStyle(
+                              color: _primaryText,
                               fontWeight: FontWeight.w900,
                               fontSize: 14.5,
                               height: 1.3,
@@ -1020,9 +1042,9 @@ class _CommunityMyCharityDonationsPageState
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.favorite_rounded,
-                                color: _green,
+                                color: _accent,
                                 size: 13,
                               ),
                               const SizedBox(width: 4),
@@ -1031,8 +1053,8 @@ class _CommunityMyCharityDonationsPageState
                                   charityName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: _green,
+                                  style: TextStyle(
+                                    color: _accent,
                                     fontWeight: FontWeight.w700,
                                     fontSize: 11.5,
                                   ),
@@ -1073,8 +1095,8 @@ class _CommunityMyCharityDonationsPageState
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: (isIndependent ? _purple : _blue).withValues(
-                        alpha: 0.06,
+                      color: (isIndependent ? _violet : _info).withValues(
+                        alpha: _isDark ? 0.18 : 0.08,
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -1084,7 +1106,7 @@ class _CommunityMyCharityDonationsPageState
                           isIndependent
                               ? Icons.person_rounded
                               : Icons.badge_outlined,
-                          color: isIndependent ? _purple : _blue,
+                          color: isIndependent ? _violet : _info,
                           size: 14,
                         ),
                         const SizedBox(width: 6),
@@ -1094,7 +1116,7 @@ class _CommunityMyCharityDonationsPageState
                                 ? 'المتطوع: $volunteer'
                                 : 'مندوب الجمعية: $volunteer',
                             style: TextStyle(
-                              color: isIndependent ? _purple : _blue,
+                              color: isIndependent ? _violet : _info,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -1112,13 +1134,13 @@ class _CommunityMyCharityDonationsPageState
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _blue.withValues(alpha: 0.07),
+                      color: _info.withValues(alpha: _isDark ? 0.18 : 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
+                    child: Text(
                       'تم تأكيد جاهزيتك. سيظهر كود التسليم بعد تعيين المندوب.',
                       style: TextStyle(
-                        color: _blue,
+                        color: _info,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1131,13 +1153,13 @@ class _CommunityMyCharityDonationsPageState
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: _purple.withValues(alpha: 0.07),
+                      color: _violet.withValues(alpha: _isDark ? 0.18 : 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
+                    child: Text(
                       'تبرعك جاهز ومتاح للمتطوعين. سيظهر كود التسليم بعد حجز متطوع.',
                       style: TextStyle(
-                        color: _purple,
+                        color: _violet,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1246,19 +1268,19 @@ class _CommunityMyCharityDonationsPageState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _purple.withValues(alpha: 0.1),
+        color: _violet.withValues(alpha: _isDark ? 0.18 : 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _purple.withValues(alpha: 0.2)),
+        border: Border.all(color: _violet.withValues(alpha: 0.35)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.people_alt_rounded, color: _purple, size: 10),
+          Icon(Icons.people_alt_rounded, color: _violet, size: 10),
           SizedBox(width: 4),
           Text(
             'متطوعين',
             style: TextStyle(
-              color: _purple,
+              color: _violet,
               fontSize: 9.5,
               fontWeight: FontWeight.w800,
             ),
@@ -1331,7 +1353,7 @@ class _CommunityMyCharityDonationsPageState
                       height: 30,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: active ? activeColor : const Color(0xFFE5EEE9),
+                        color: active ? activeColor : _softSurface,
                         shape: BoxShape.circle,
                         boxShadow: active
                             ? [
@@ -1345,7 +1367,7 @@ class _CommunityMyCharityDonationsPageState
                       ),
                       child: Icon(
                         steps[index].$3,
-                        color: active ? Colors.white : const Color(0xFF9AACA3),
+                        color: active ? _activeForeground : _secondaryText,
                         size: 14,
                       ),
                     ),
@@ -1356,7 +1378,7 @@ class _CommunityMyCharityDonationsPageState
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: active ? _darkGreen : const Color(0xFF98A9A1),
+                        color: active ? _primaryText : _secondaryText,
                         fontSize: 9,
                         fontWeight: active ? FontWeight.w800 : FontWeight.w500,
                       ),
@@ -1369,9 +1391,7 @@ class _CommunityMyCharityDonationsPageState
                   child: Container(
                     height: 2,
                     margin: const EdgeInsets.only(bottom: 20),
-                    color: index < activeIndex
-                        ? activeColor
-                        : const Color(0xFFE5EEE9),
+                    color: index < activeIndex ? activeColor : _softSurface,
                   ),
                 ),
             ],
@@ -1392,7 +1412,7 @@ class _CommunityMyCharityDonationsPageState
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8F1EC)),
+        border: Border.all(color: _outline),
       ),
       child: Column(
         children: [
@@ -1401,33 +1421,29 @@ class _CommunityMyCharityDonationsPageState
             height: 70,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _green.withValues(alpha: 0.08),
+              color: _green.withValues(alpha: _isDark ? 0.18 : 0.08),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.volunteer_activism_outlined,
-              color: _green,
+              color: _accent,
               size: 34,
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'لا توجد تبرعات',
             style: TextStyle(
-              color: _darkGreen,
+              color: _primaryText,
               fontSize: 16,
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'لم تقم بأي تبرع بهذا الفلتر بعد.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF71837C),
-              fontSize: 13,
-              height: 1.4,
-            ),
+            style: TextStyle(color: _secondaryText, fontSize: 13, height: 1.4),
           ),
         ],
       ),
@@ -1446,16 +1462,16 @@ class _CommunityMyCharityDonationsPageState
               height: 80,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: _red.withValues(alpha: 0.08),
+                color: _danger.withValues(alpha: _isDark ? 0.18 : 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.cloud_off_rounded, color: _red, size: 38),
+              child: Icon(Icons.cloud_off_rounded, color: _danger, size: 38),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'تعذر تحميل التبرعات',
               style: TextStyle(
-                color: _darkGreen,
+                color: _primaryText,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
               ),
@@ -1464,8 +1480,8 @@ class _CommunityMyCharityDonationsPageState
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF71837C),
+              style: TextStyle(
+                color: _secondaryText,
                 fontSize: 13,
                 height: 1.5,
               ),
@@ -1514,17 +1530,17 @@ class _CommunityMyCharityDonationsPageState
 
   Color _statusColor(String status) {
     if (status == 'rejected' || status == 'cancelled' || status == 'expired') {
-      return _red;
+      return _danger;
     }
-    if (status == 'completed') return _green;
-    if (status == 'volunteer_needed') return _purple;
-    if (status == 'volunteer_assigned') return _orange;
-    if (status == 'accepted') return _blue;
-    if (status == 'donor_ready') return _blue;
+    if (status == 'completed') return _accent;
+    if (status == 'volunteer_needed') return _violet;
+    if (status == 'volunteer_assigned') return _warning;
+    if (status == 'accepted') return _info;
+    if (status == 'donor_ready') return _info;
     if (status == 'picked_up_from_donor' || status == 'in_transit') {
-      return _orange;
+      return _warning;
     }
-    return _green;
+    return _accent;
   }
 
   String _friendlyError(Object error) {
@@ -1542,7 +1558,7 @@ class _CommunityMyCharityDonationsPageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(text, textDirection: TextDirection.rtl),
-          backgroundColor: error ? _red : _green,
+          backgroundColor: error ? _danger : _green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

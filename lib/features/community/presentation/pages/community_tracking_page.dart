@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'my_community_needs_page.dart';
 import 'community_my_charity_donations_page.dart';
@@ -7,10 +7,12 @@ import 'community_my_grocery_orders_page.dart';
 
 class CommunityTrackingPage extends StatefulWidget {
   const CommunityTrackingPage({super.key});
-  @override State<CommunityTrackingPage> createState() => _CommunityTrackingPageState();
+  @override
+  State<CommunityTrackingPage> createState() => _CommunityTrackingPageState();
 }
 
-class _CommunityTrackingPageState extends State<CommunityTrackingPage> with SingleTickerProviderStateMixin {
+class _CommunityTrackingPageState extends State<CommunityTrackingPage>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   static const _tabs = [
     (label: 'احتياجاتي', icon: Icons.volunteer_activism_rounded),
@@ -20,9 +22,16 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
   ];
 
   @override
-  void initState() { super.initState(); _tabController = TabController(length: _tabs.length, vsync: this); }
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
+  }
+
   @override
-  void dispose() { _tabController.dispose(); super.dispose(); }
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +40,10 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('طلباتي', style: TextStyle(fontWeight: FontWeight.w900)),
+          title: const Text(
+            'طلباتي',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(58),
             child: Padding(
@@ -53,14 +65,34 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
                           padding: const EdgeInsets.symmetric(horizontal: 14),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: selected ? colors.primary : colors.surfaceContainerHighest,
+                            color: selected
+                                ? colors.primary
+                                : colors.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(100),
                           ),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(_tabs[index].icon, size: 16, color: selected ? colors.onPrimary : colors.onSurfaceVariant),
-                            const SizedBox(width: 6),
-                            Text(_tabs[index].label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: selected ? colors.onPrimary : colors.onSurfaceVariant)),
-                          ]),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _tabs[index].icon,
+                                size: 16,
+                                color: selected
+                                    ? colors.onPrimary
+                                    : colors.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _tabs[index].label,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: selected
+                                      ? colors.onPrimary
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -75,7 +107,7 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage> with Sing
           physics: const BouncingScrollPhysics(),
           children: const [
             MyCommunityNeedsPage(embedded: true),
-            CommunityMyCharityDonationsPage(),
+            CommunityMyCharityDonationsPage(embedded: true),
             CommunityMyGroceryOrdersPage(),
             CommunityMyOffersPage(),
           ],
