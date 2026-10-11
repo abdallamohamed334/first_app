@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 
 class CustomerReviewsPage extends StatefulWidget {
@@ -256,7 +256,7 @@ class _CustomerReviewsPageState extends State<CustomerReviewsPage> {
                     ),
                     if (createdAt != null)
                       Text(
-                        DateFormat('dd/MM/yyyy').format(createdAt),
+                        intl.DateFormat('dd/MM/yyyy').format(createdAt),
                         style: TextStyle(
                           color: colors.onSurfaceVariant,
                           fontSize: 10,
