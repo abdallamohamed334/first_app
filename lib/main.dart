@@ -715,7 +715,7 @@ class _MyAppState extends State<MyApp> {
           builder: (context, isDarkMode, _) {
             return MaterialApp.router(
               // ✅ الاسم الجديد
-              title: 'وِصلة',
+              title: 'Khedma',
               debugShowCheckedModeBanner: false,
               routerConfig: AppRouter.router,
               theme: AppTheme.light(),
@@ -742,7 +742,7 @@ class StartupFailureApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'وِصلة',
+      title: 'Khedma',
       debugShowCheckedModeBanner: false,
       theme: isDarkMode ? AppTheme.dark() : AppTheme.light(),
       home: Scaffold(

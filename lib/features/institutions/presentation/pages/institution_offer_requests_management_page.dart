@@ -1708,7 +1708,7 @@ class _OfferGroupCard extends StatelessWidget {
 
     final name = requester['name']?.toString().trim().isNotEmpty == true
         ? requester['name'].toString().trim()
-        : 'مستخدم وِصلة';
+        : 'مستخدم Khedma';
 
     final avatar = requester['avatar_url']?.toString().trim() ?? '';
 

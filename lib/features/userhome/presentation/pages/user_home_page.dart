@@ -671,7 +671,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
                 SizedBox(height: 32),
                 Text(
-                  'أهلًا بيك في وِصلة 👋',
+                  'أهلًا بيك في Khedma 👋',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _textPrimary,
@@ -681,7 +681,7 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
                 SizedBox(height: 14),
                 Text(
-                  'سجّل دخولك علشان تكتشف العروض القريبة منك وتشارك في مجتمع وِصلة.',
+                  'سجّل دخولك علشان تكتشف العروض القريبة منك وتشارك في مجتمع Khedma.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _textSecondary,
@@ -867,7 +867,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          isServices ? 'خدمات وِصلة' : 'أقسام وِصلة',
+                          isServices ? 'خدمات Khedma' : 'أقسام Khedma',
                           style: TextStyle(
                             color: _textPrimary,
                             fontSize: 21,
@@ -1547,7 +1547,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       TileLayer(
                         urlTemplate:
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.wasla.app',
+                        userAgentPackageName: 'com.khedma.app',
                       ),
                       MarkerLayer(
                         markers: providers.take(30).map((provider) {
@@ -1958,7 +1958,7 @@ class _UserHomePageState extends State<UserHomePage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'وِصلة',
+                  'Khedma',
                   style: TextStyle(
                     color: _textPrimary,
                     fontSize: 22,
@@ -5016,7 +5016,7 @@ class _LoadingHome extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Text(
-              'وِصلة بتحضرلك الخير...',
+              'Khedma بتحضرلك الخير...',
               style: TextStyle(
                 color: _UserHomePageState._textSecondary,
                 fontSize: 14,

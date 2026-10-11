@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage>
   bool _isLoading = false;
   bool _isCheckingAutoLogin = true;
 
-  // ── ألوان (هوية "وِصلة" الخضراء)
+  // ── ألوان (هوية "Khedma" الخضراء)
   static const _bg = Color(0xFFF5FBF8);
   static const _primary = Color(0xFF0B6B64);
   static const _primaryLight = Color(0xFF9AD83D);
@@ -250,7 +250,7 @@ class _LoginPageState extends State<LoginPage>
             border: Border.all(color: _cardBorder),
           ),
           child: const Text(
-            'وِصلة',
+            'Khedma',
             style: TextStyle(
               color: _primary,
               fontSize: 17,
@@ -840,7 +840,7 @@ class _LoginLogo extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.27),
         child: Image.asset(
-          'assets/images/wasla_logo.png',
+          'assets/images/khedma_logo.png',
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => Icon(
             Icons.volunteer_activism_rounded,

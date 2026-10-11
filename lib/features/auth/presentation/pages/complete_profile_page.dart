@@ -309,7 +309,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ تم حفظ بياناتك، أهلًا بيك في وِصلة!'),
+          content: Text('✅ تم حفظ بياناتك، أهلًا بيك في Khedma!'),
           backgroundColor: _primary,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.all(16),
@@ -378,7 +378,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
-                            'وِصلة',
+                            'Khedma',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 14,

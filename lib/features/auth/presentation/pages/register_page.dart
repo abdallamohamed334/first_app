@@ -111,7 +111,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         const Text(
-          'وِصلة',
+          'Khedma',
           style: TextStyle(
             color: _primary,
             fontSize: 22,
@@ -155,7 +155,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 17),
         Text(
-          'انضم إلى وِصلة',
+          'انضم إلى Khedma',
           style: const TextStyle(
             color: _darkGreen,
             fontSize: 29,

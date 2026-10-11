@@ -77,7 +77,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                     children: [
                       TileLayer(
                         urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.wasla.app',
+                        userAgentPackageName: 'com.khedma.app',
                       ),
                       MarkerLayer(
                         markers: widget.providers

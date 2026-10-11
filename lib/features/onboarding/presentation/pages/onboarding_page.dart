@@ -19,7 +19,7 @@ class OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<OnboardingPage>
     with TickerProviderStateMixin {
-  // ─── ألوان وِصلة ───
+  // ─── ألوان Khedma ───
   static const _green = Color(0xFF0B6B64);
   static const _greenLight = Color(0xFF9AD83D);
   static const _greenDark = Color(0xFF063F3A);
@@ -351,14 +351,14 @@ class _OnboardingPageState extends State<OnboardingPage>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.asset(
-                  'assets/images/wasla_logo.png',
+                  'assets/images/khedma_logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
             ),
             const SizedBox(width: 10),
             const Text(
-              'وِصلة',
+              'Khedma',
               style: TextStyle(
                 color: _ink,
                 fontSize: 18,
@@ -403,7 +403,7 @@ class _OnboardingPageState extends State<OnboardingPage>
           _buildIndicators(state),
           const SizedBox(height: 18),
           const Text(
-            'وِصلة • معًا نصنع أثرًا',
+            'Khedma • معًا نصنع أثرًا',
             style: TextStyle(
               color: _green,
               fontSize: 11,
@@ -1120,7 +1120,7 @@ class _LogoMark extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(size * .24),
           child: Image.asset(
-            'assets/images/wasla_logo.png',
+            'assets/images/khedma_logo.png',
             fit: BoxFit.contain,
           ),
         ),

@@ -1,6 +1,6 @@
 // lib/features/splash/presentation/pages/splash_page.dart
 //
-// ✅ سبلاش شاشة تطبيق "وصلة" — المنصة اللي بتوصّل الناس ببعض:
+// ✅ سبلاش شاشة تطبيق "Khedma" — المنصة اللي بتوصّل الناس ببعض:
 // بيع منتجات، استبدالات، البحث عن خدمة، والتبرع للجمعيات.
 // نفس جودة ومستوى الأنيميشن بتاع سبلاش "جُود" (scale/fade/glow + نمط
 // خلفية + progress bar) لكن الشعار واللوجو اتبنوا من الصفر بما إنه
@@ -53,7 +53,7 @@ class _SplashPageState extends State<SplashPage>
 
   // ✅ الألوان الأساسية — نفس هوية "جُود" (كريمي/دهبي/أخضر غامق) لأنها
   // الهوية المعتمدة آخر حاجة. سيبت الثوابت هنا عشان لو حبيت تغيّرها
-  // لاحقًا لهوية "وصلة" المستقلة يبقى سهل تبدّلها فى مكان واحد.
+  // لاحقًا لهوية "Khedma" المستقلة يبقى سهل تبدّلها فى مكان واحد.
   static const _bgTop = Color(0xFFF4EEE5);
   static const _bgBottom = Color(0xFFE6D9C8);
   static const _ink = Color(0xFF244536);
@@ -356,7 +356,7 @@ class _SplashPageState extends State<SplashPage>
                   );
                 },
               ),
-              // ✅ الشعار المركزي: علامة "وصلة" مرسومة بالكود — حلقتين
+              // ✅ الشعار المركزي: علامة "Khedma" مرسومة بالكود — حلقتين
               // متشابكتين (رمز الوصل/الربط بين الناس وبين الاحتياج
               // والحل)، بدل ما نعتمد على صورة أيقونة غير موجودة.
               Container(
@@ -399,7 +399,7 @@ class _SplashPageState extends State<SplashPage>
       child: Column(
         children: [
           const Text(
-            'وصلة',
+            'Khedma',
             style: TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.bold,
@@ -411,7 +411,7 @@ class _SplashPageState extends State<SplashPage>
           ),
           const SizedBox(height: 8),
           Text(
-            'وصلة بين اللي عندك واللي محتاجه',
+            'Share. Connect. Help.',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w500,
@@ -465,7 +465,7 @@ class _SplashPageState extends State<SplashPage>
       child: Column(
         children: [
           Text(
-            'بيع . استبدال . خدمات . تبرّع',
+            'Share . Swap . Services . Help',
             style: TextStyle(
               color: _inkSoft.withValues(alpha: 0.58),
               fontSize: 14,
@@ -505,7 +505,7 @@ class _Pillar {
   const _Pillar({required this.icon, required this.color});
 }
 
-// ============ شعار "وصلة" المرسوم بالكود ============
+// ============ شعار "Khedma" المرسوم بالكود ============
 //
 // حلقتين متشابكتين (زى رمز "link" لكن مرسومة بخط ناعم ومتدرج) ترمز
 // للوصل بين طرفين — البائع والمشترى، صاحب الخدمة والي محتاجها،

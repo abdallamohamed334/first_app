@@ -268,7 +268,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 28),
 
                   Text(
-                    'وِصلة • إنقاذ الطعام يبدأ بخطوة',
+                    'Khedma • إنقاذ الطعام يبدأ بخطوة',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
@@ -366,7 +366,7 @@ class _ProfilePageState extends State<ProfilePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'مجتمع وِصلة',
+            'مجتمع Khedma',
             style: TextStyle(
               color: colors.onPrimaryContainer,
               fontSize: 16,

@@ -147,7 +147,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
   Future<void> _openSupportWhatsApp() async {
     final name = _provider?['display_name']?.toString() ?? 'مزود خدمة';
 
-    final message = 'مرحباً فريق وِصلة 👋\n\n'
+    final message = 'مرحباً فريق Khedma 👋\n\n'
         'أنا مزود خدمة (${name})\n'
         'حسابي $_statusLabel، وعايز أعرف السبب وأحل المشكلة.';
 
@@ -433,13 +433,13 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
     }
     switch (_status) {
       case 'approved':
-        return 'أهلاً بيك في وِصلة! يمكنك الآن استقبال الطلبات.';
+        return 'أهلاً بيك في Khedma! يمكنك الآن استقبال الطلبات.';
       case 'rejected':
         return 'للأسف، لم يتم قبول طلبك. تواصل مع فريق الدعم على الواتساب لمعرفة السبب.';
       case 'suspended':
         return 'حسابك موقوف مؤقتاً. تواصل مع فريق الدعم على الواتساب.';
       default:
-        return 'فريق وِصلة بيراجع بياناتك حالياً.\n'
+        return 'فريق Khedma بيراجع بياناتك حالياً.\n'
             'هيتم إشعارك أول ما يتم القبول.\n'
             'ده بياخد عادة 24-48 ساعة.';
     }
@@ -604,7 +604,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'فريق وِصلة جاهز يساعدك',
+                      'فريق Khedma جاهز يساعدك',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -697,7 +697,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'تواصل مع فريق وِصلة على الرقم $_supportPhoneLocal',
+                  'تواصل مع فريق Khedma على الرقم $_supportPhoneLocal',
                   style: TextStyle(
                     color: _inkSoft.withValues(alpha: 0.8),
                     fontSize: 11.5,

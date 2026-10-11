@@ -112,7 +112,7 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'اكتب كود التحقق الثابت الذي أرسلته لك إدارة وِصلة لإكمال تسجيل الدخول.',
+                'اكتب كود التحقق الثابت الذي أرسلته لك إدارة Khedma لإكمال تسجيل الدخول.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _ink.withValues(alpha: 0.7), height: 1.6),
               ),

@@ -183,7 +183,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
         ? _loginPhone.text.trim()
         : _regPhone.text.trim();
 
-    final msg = 'مرحباً فريق وِصلة 👋\n\n'
+    final msg = 'مرحباً فريق Khedma 👋\n\n'
         'أنا مزود خدمة، رقمي: $phoneInput\n'
         'حسابي موقوف/مرفوض وعايز أعرف السبب وأحل المشكلة.';
 
@@ -871,7 +871,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'هيبعتلك كود على الواتساب. بعد التحقق، طلبك هيتحول لفريق وِصلة للمراجعة.',
+                      'هيبعتلك كود على الواتساب. بعد التحقق، طلبك هيتحول لفريق Khedma للمراجعة.',
                       style: TextStyle(
                         color: _inkSoft.withValues(alpha: 0.9),
                         fontSize: 11,

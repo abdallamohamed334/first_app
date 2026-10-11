@@ -2,7 +2,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized Crashlytics reporting for وِصلة.
+/// Centralized Crashlytics reporting for Khedma.
 ///
 /// The helper accepts only short, non-sensitive context. Do not pass user
 /// names, email addresses, phone numbers, passwords, auth tokens, full

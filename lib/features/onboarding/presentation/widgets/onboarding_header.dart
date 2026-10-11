@@ -30,14 +30,14 @@ class OnboardingHeader extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                'assets/images/wasla_logo.png',
+                'assets/images/khedma_logo.png',
                 fit: BoxFit.contain,
               ),
             ),
           ),
           const SizedBox(width: 10),
           Text(
-            'وِصلة',
+            'Khedma',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w900,

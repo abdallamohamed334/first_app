@@ -96,7 +96,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     return const [
       // ✅ الصفحة 1: الترحيب
       OnboardingPageData(
-        title: 'مرحباً بك في وِصلة',
+        title: 'مرحباً بك في Khedma',
         subtitle:
             'تطبيق يهدف إلى تقليل هدر الطعام وربط المتبرعين بالجمعيات الخيرية',
         imageUrl: 'assets/images/onboarding_1.png',

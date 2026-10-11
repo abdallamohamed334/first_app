@@ -423,7 +423,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
           ),
         ),
         const Text(
-          'وِصلة',
+          'Khedma',
           style: TextStyle(
             color: _primary,
             fontSize: 22,

@@ -1,7 +1,7 @@
 // lib/features/auth/presentation/pages/institution_login_page.dart
 //
 // ✅ صفحة تسجيل دخول مخصصة للمؤسسات/الشركاء فقط.
-// مفيش أي رابط "إنشاء حساب" هنا لأن الحسابات بتتضاف يدويًا من فريق وِصلة.
+// مفيش أي رابط "إنشاء حساب" هنا لأن الحسابات بتتضاف يدويًا من فريق Khedma.
 //
 // القاعدة:
 //   • جمعية (charity)     → /charity-home
@@ -235,7 +235,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     }
 
     if (status == 'rejected') {
-      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة وِصلة.');
+      await _rejectSession('تم رفض طلب الجمعية. برجاء التواصل مع إدارة Khedma.');
       return;
     }
 
@@ -334,7 +334,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
 
     if (status == 'rejected') {
       await _rejectSession(
-        'تم رفض طلب المؤسسة. برجاء التواصل مع إدارة وِصلة.',
+        'تم رفض طلب المؤسسة. برجاء التواصل مع إدارة Khedma.',
       );
       return;
     }
@@ -469,7 +469,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                       Text(
                         _isCharity
                             ? 'ادخل ببريد الجمعية والكود الثابت المخصص لها'
-                            : 'ادخل ببيانات المؤسسة التي أنشأها لك فريق وِصلة',
+                            : 'ادخل ببيانات المؤسسة التي أنشأها لك فريق Khedma',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _inkSoft.withValues(alpha: 0.75),
@@ -636,8 +636,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                             Expanded(
                               child: Text(
                                 _isCharity
-                                    ? 'حسابات الجمعيات بتتراجع وتتعتمد من فريق وِصلة. لا يتم إرسال OTP.'
-                                    : 'حسابات المؤسسات بتتعمل من فريق وِصلة مباشرة. لو لسه معندكش حساب، تواصل معانا.',
+                                    ? 'حسابات الجمعيات بتتراجع وتتعتمد من فريق Khedma. لا يتم إرسال OTP.'
+                                    : 'حسابات المؤسسات بتتعمل من فريق Khedma مباشرة. لو لسه معندكش حساب، تواصل معانا.',
                                 style: TextStyle(
                                   color: _inkSoft.withValues(alpha: 0.65),
                                   fontSize: 11.5,

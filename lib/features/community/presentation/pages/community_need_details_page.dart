@@ -159,7 +159,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
         }
       } else {
         final message = Uri.encodeComponent(
-          'السلام عليكم، شفت احتياجك على وِصلة وحابب أساعد',
+          'السلام عليكم، شفت احتياجك على Khedma وحابب أساعد',
         );
 
         final whatsappAppUri = Uri.parse(

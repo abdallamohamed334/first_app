@@ -60,7 +60,7 @@ class AuthStateNotifier extends ChangeNotifier {
     final longitude = row['longitude'];
 
     return name.length >= 3 &&
-        name != 'مستخدم وِصلة' &&
+        name != 'مستخدم Khedma' &&
         email.isNotEmpty &&
         phone.isNotEmpty &&
         governorate.isNotEmpty &&

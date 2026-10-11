@@ -6,7 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 /// إعلان واحد غير متطفل يظهر داخل صفحة تفاصيل العرض فقط.
 ///
 /// يتم تمرير معرّفات AdMob عبر --dart-define عند الحاجة، مع استخدام معرّف
-/// وصلة الحقيقي لأندرويد كقيمة افتراضية.
+/// Khedma الحقيقي لأندرويد كقيمة افتراضية.
 class AdBannerCard extends StatefulWidget {
   const AdBannerCard({super.key});
 

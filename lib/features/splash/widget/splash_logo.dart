@@ -13,7 +13,7 @@ class SplashLogo extends StatelessWidget {
     final logoSize = MediaQuery.of(context).size.width < 600 ? 100.0 : 128.0;
 
     return Semantics(
-      label: 'شعار وِصلة',
+      label: 'شعار Khedma',
       child: ScaleTransition(
         scale: animation,
         child: Container(
@@ -37,7 +37,7 @@ class SplashLogo extends StatelessWidget {
           ),
           child: ClipOval(
             child: Image.asset(
-              'assets/images/wasla_logo.png',
+              'assets/images/khedma_logo.png',
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Icon(

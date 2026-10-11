@@ -107,7 +107,7 @@ class _BusinessProfilePageState extends State<BusinessProfilePage> {
         Expanded(
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(profile['name']?.toString() ?? 'مؤسسة وِصلة',
+          Text(profile['name']?.toString() ?? 'مؤسسة Khedma',
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 21,

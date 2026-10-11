@@ -67,7 +67,7 @@ class UserModel extends Equatable {
 
     return UserModel(
       id: _string(json['id']),
-      name: _string(json['name'], fallback: 'مستخدم وِصلة'),
+      name: _string(json['name'], fallback: 'مستخدم Khedma'),
       email: _nullableString(json['email']),
       phone: _nullableString(json['phone']),
       avatarUrl: _nullableString(json['avatar_url']),

@@ -2,7 +2,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-/// Centralized Firebase Analytics events for وِصلة.
+/// Centralized Firebase Analytics events for Khedma.
 ///
 /// Only allowlisted, non-sensitive dimensions are accepted. Never pass email,
 /// phone numbers, passwords, auth tokens, full addresses, names, or database
