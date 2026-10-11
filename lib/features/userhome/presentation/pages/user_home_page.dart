@@ -3372,68 +3372,67 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _card,
-        border: Border(
-          top: BorderSide(color: _border, width: 1),
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: _isDark ? 0.28 : 0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 24,
-            offset: const Offset(0, -8),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              _BottomNavItem(
-                index: 0,
-                currentIndex: _currentPage,
-                icon: Icons.home_rounded,
-                outlinedIcon: Icons.home_outlined,
-                label: 'الرئيسية',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 1,
-                currentIndex: _currentPage,
-                icon: Icons.grid_view_rounded,
-                outlinedIcon: Icons.grid_view_rounded,
-                label: 'الأقسام',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 2,
-                currentIndex: _currentPage,
-                icon: Icons.volunteer_activism_rounded,
-                outlinedIcon: Icons.volunteer_activism_outlined,
-                label: 'الاحتياجات',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 3,
-                currentIndex: _currentPage,
-                icon: Icons.receipt_long_rounded,
-                outlinedIcon: Icons.receipt_long_rounded,
-                label: 'الطلبات',
-                onTap: _selectPage,
-              ),
-              _BottomNavItem(
-                index: 4,
-                currentIndex: _currentPage,
-                icon: Icons.person_rounded,
-                outlinedIcon: Icons.person_outline_rounded,
-                label: 'حسابي',
-                onTap: _selectPage,
-              ),
-            ],
-          ),
+        child: Row(
+          children: [
+            _BottomNavItem(
+              index: 0,
+              currentIndex: _currentPage,
+              icon: Icons.home_rounded,
+              outlinedIcon: Icons.home_outlined,
+              label: 'الرئيسية',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 1,
+              currentIndex: _currentPage,
+              icon: Icons.grid_view_rounded,
+              outlinedIcon: Icons.grid_view_rounded,
+              label: 'الأقسام',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 2,
+              currentIndex: _currentPage,
+              icon: Icons.volunteer_activism_rounded,
+              outlinedIcon: Icons.volunteer_activism_outlined,
+              label: 'الاحتياجات',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 3,
+              currentIndex: _currentPage,
+              icon: Icons.receipt_long_rounded,
+              outlinedIcon: Icons.receipt_long_outlined,
+              label: 'الطلبات',
+              onTap: _selectPage,
+            ),
+            _BottomNavItem(
+              index: 4,
+              currentIndex: _currentPage,
+              icon: Icons.person_rounded,
+              outlinedIcon: Icons.person_outline_rounded,
+              label: 'حسابي',
+              onTap: _selectPage,
+            ),
+          ],
         ),
       ),
     );
@@ -4507,6 +4506,9 @@ class _BottomNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = index == currentIndex;
+    final selectedForeground = _UserHomePageState._isDark
+        ? Colors.black
+        : Colors.white;
 
     return Expanded(
       child: GestureDetector(
@@ -4527,38 +4529,21 @@ class _BottomNavItem extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? _UserHomePageState._primaryRed.withValues(alpha: 0.14)
+                      ? _UserHomePageState._primaryRed
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(100),
-                  border: selected
-                      ? Border.all(
-                          color: _UserHomePageState._primaryRed
-                              .withValues(alpha: 0.4),
-                          width: 1,
-                        )
-                      : null,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: _UserHomePageState._primaryRed
-                                .withValues(alpha: 0.28),
-                            blurRadius: 12,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   selected ? icon : outlinedIcon,
                   size: 20,
                   color: selected
-                      ? _UserHomePageState._primaryRed
+                      ? selectedForeground
                       : _UserHomePageState._textSecondary,
                 ),
               ),
-              SizedBox(height: 3),
+              const SizedBox(height: 3),
               AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 260),
+                duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 style: TextStyle(
                   color: selected
@@ -4567,7 +4552,11 @@ class _BottomNavItem extends StatelessWidget {
                   fontSize: 9.5,
                   fontWeight: selected ? FontWeight.w900 : FontWeight.w600,
                 ),
-                child: Text(label),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
