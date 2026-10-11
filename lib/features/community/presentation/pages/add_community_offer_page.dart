@@ -552,6 +552,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
 
+    final hasSubcategories = _categories.any(
+      (candidate) => candidate['parent_id']?.toString() == value,
+    );
+    if (hasSubcategories) {
+      _showMessage(
+        'ده تصنيف رئيسي. اختار تصنيفًا فرعيًا علشان تظهر المتطلبات.',
+      );
+      return;
+    }
+
     final requestId = ++_categoryRequestId;
 
     setState(() {
@@ -3022,6 +3032,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
       final name = c['name_ar']?.toString() ?? '';
       final slug = c['slug']?.toString() ?? '';
       final fullPath = parentPath == null ? name : '$parentPath › $name';
+      final children = childrenByParent[id] ?? [];
 
       items.add(
         _PickerItem(
@@ -3031,11 +3042,11 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
           parentName: parentName,
           fullPath: fullPath,
           isRoot: depth == 0,
+          hasChildren: children.isNotEmpty,
           depth: depth,
         ),
       );
 
-      final children = childrenByParent[id] ?? [];
       sortByOrder(children);
       for (final child in children) {
         addItem(
@@ -3144,7 +3155,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                             ),
                           ),
                           Text(
-                            '${all.length} تصنيف متاح',
+                            'اختار تصنيفًا فرعيًا علشان تظهر المتطلبات (${all.length} متاح)',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: colors.onSurfaceVariant,
@@ -3231,13 +3242,15 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                           return _CategoryTile(
                             item: item,
                             isSelected: isSelected,
-                            onTap: () {
-                              Navigator.pop(context, {
-                                'id': item.id,
-                                'slug': item.slug,
-                                'name_ar': item.name,
-                              });
-                            },
+                            onTap: item.hasChildren
+                                ? null
+                                : () {
+                                    Navigator.pop(context, {
+                                      'id': item.id,
+                                      'slug': item.slug,
+                                      'name_ar': item.name,
+                                    });
+                                  },
                           );
                         },
                       ),
@@ -3301,6 +3314,7 @@ class _PickerItem {
   final String? parentName;
   final String fullPath;
   final bool isRoot;
+  final bool hasChildren;
   final int depth;
 
   _PickerItem({
@@ -3310,6 +3324,7 @@ class _PickerItem {
     required this.parentName,
     required this.fullPath,
     required this.isRoot,
+    required this.hasChildren,
     required this.depth,
   });
 }
@@ -3317,7 +3332,7 @@ class _PickerItem {
 class _CategoryTile extends StatelessWidget {
   final _PickerItem item;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _CategoryTile({
     required this.item,
@@ -3401,6 +3416,17 @@ class _CategoryTile extends StatelessWidget {
                         color: isSelected ? colors.primary : colors.onSurface,
                       ),
                     ),
+                    if (item.hasChildren) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'تصنيف رئيسي — اختر فرعًا',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -3421,7 +3447,9 @@ class _CategoryTile extends StatelessWidget {
                 )
               else
                 Icon(
-                  Icons.arrow_back_ios_new_rounded,
+                  item.hasChildren
+                      ? Icons.expand_more_rounded
+                      : Icons.arrow_back_ios_new_rounded,
                   size: 14,
                   color: colors.onSurfaceVariant.withValues(alpha: 0.4),
                 ),
