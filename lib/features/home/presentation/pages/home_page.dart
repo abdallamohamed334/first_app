@@ -34,6 +34,8 @@ import '../bloc/home_state.dart';
 const _green = Color(0xFF0B7650);
 const _darkGreen = Color(0xFF123F31);
 const _background = Color(0xFFF6FAF8);
+const _offerCardSurface = Color(0xFFF0F4F2);
+const _offerCardBorder = Color(0xFFD9E4DE);
 
 enum _HomeMode { shop, rescue }
 
@@ -1194,9 +1196,16 @@ class _InstitutionOfferCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFDCEBE4)),
+          color: _offerCardSurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _offerCardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: _darkGreen.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1345,9 +1354,17 @@ class _CompactOfferCard extends StatelessWidget {
       child: Container(
         width: 168,
         decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFDCEBE4))),
+          color: _offerCardSurface,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _offerCardBorder),
+          boxShadow: [
+            BoxShadow(
+              color: _darkGreen.withValues(alpha: 0.07),
+              blurRadius: 16,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
         clipBehavior: Clip.antiAlias,
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           SizedBox(

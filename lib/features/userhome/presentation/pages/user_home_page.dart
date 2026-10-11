@@ -3772,14 +3772,16 @@ class _FoodOfferLargeCard extends StatelessWidget {
       child: Container(
         width: 260,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(20),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 16,
-              offset: const Offset(0, 7),
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -3898,13 +3900,15 @@ class _FoodOfferCard extends StatelessWidget {
       child: Container(
         width: 180,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(18),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 12,
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
               offset: const Offset(0, 6),
             ),
           ],
@@ -4065,13 +4069,15 @@ class _CommunityOfferCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: _UserHomePageState._card,
-            borderRadius: BorderRadius.circular(18),
+            color: _UserHomePageState._cardSoft,
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: _UserHomePageState._border, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 12,
+                color: Colors.black.withValues(
+                  alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+                ),
+                blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -4174,13 +4180,15 @@ class _CommunityOfferCard extends StatelessWidget {
       child: Container(
         width: 180,
         decoration: BoxDecoration(
-          color: _UserHomePageState._card,
-          borderRadius: BorderRadius.circular(18),
+          color: _UserHomePageState._cardSoft,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: _UserHomePageState._border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 12,
+              color: Colors.black.withValues(
+                alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+              ),
+              blurRadius: 18,
               offset: const Offset(0, 6),
             ),
           ],
@@ -4836,10 +4844,15 @@ class _HomeCategoryOfferCard extends StatelessWidget {
     return SizedBox(
       width: 214,
       child: Material(
-        color: _UserHomePageState._card,
-        borderRadius: BorderRadius.circular(22),
-        elevation: 0,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
+        color: _UserHomePageState._cardSoft,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: _UserHomePageState._border),
+        ),
+        elevation: 1,
+        shadowColor: Colors.black.withValues(
+          alpha: _UserHomePageState._isDark ? 0.28 : 0.07,
+        ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
