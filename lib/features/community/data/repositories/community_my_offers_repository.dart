@@ -152,8 +152,8 @@ class CommunityMyOffersRepository {
   // ✅ NEW: تجديد العرض (Renew Offer)
   // ============================================================
 
-  /// يجدّد عرض منتهي أو ملغي
-  /// - [days] عدد الأيام الجديدة (افتراضي: 7)
+  /// يجدّد عرض بيع مجتمعي انتهت مدته لمدة أسبوع واحد فقط.
+  /// - [days] يظل للاتساق مع النداءات الحالية ويجب أن يساوي 7.
   /// - يرجع تاريخ الانتهاء الجديد، أو null لو فشل
   Future<DateTime?> renewOffer(
     String offerId, {
@@ -161,6 +161,9 @@ class CommunityMyOffersRepository {
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
+    if (days != 7) {
+      throw ArgumentError('يمكن تجديد العرض لمدة أسبوع واحد فقط');
+    }
 
     try {
       final response = await _client.rpc(
@@ -186,22 +189,48 @@ class CommunityMyOffersRepository {
       final text = e.toString().toLowerCase();
 
       if (text.contains('function') && text.contains('does not exist')) {
-        final newExpiry = DateTime.now().add(Duration(days: days));
+        final now = DateTime.now().toUtc();
+        final newExpiry = now.add(const Duration(days: 7));
 
-        await _client
+        final updated = await _client
             .from('community_offers')
             .update({
               'status': 'available',
-              'expires_at': newExpiry.toUtc().toIso8601String(),
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
+              'expires_at': newExpiry.toIso8601String(),
+              'updated_at': now.toIso8601String(),
             })
             .eq('id', offerId)
-            .eq('owner_id', user.id);
+            .eq('owner_id', user.id)
+            .inFilter('status', ['available', 'active', 'expired'])
+            .lte('expires_at', now.toIso8601String())
+            .select('id')
+            .maybeSingle();
 
+        if (updated == null) return null;
         return newExpiry;
       }
 
       rethrow;
     }
+  }
+
+  /// Updates only the offer title and its current category specifications.
+  /// The category and all commercial/contact fields remain server-side immutable.
+  Future<void> updateOfferNameAndAttributes({
+    required String offerId,
+    required String title,
+    required List<Map<String, dynamic>> attributes,
+  }) async {
+    final user = _client.auth.currentUser;
+    if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
+
+    await _client.rpc(
+      'update_community_offer_display_details',
+      params: {
+        'p_offer_id': offerId,
+        'p_title': title.trim(),
+        'p_attributes': attributes,
+      },
+    );
   }
 }

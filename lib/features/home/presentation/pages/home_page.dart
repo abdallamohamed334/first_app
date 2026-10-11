@@ -1040,7 +1040,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 16),
                 Row(children: [
                   Expanded(
-                    child: _addOption(Icons.sell_rounded, 'بيع بسعر رمزي', () {
+                    child: _addOption(Icons.sell_rounded, 'إضافة شيء للبيع', () {
                       Navigator.pop(context);
                       Navigator.push(
                           context,

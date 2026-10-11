@@ -84,9 +84,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   final List<String> _removedImagePaths = [];
   final List<String> _existingImageUrls = [];
 
-  String _expiryOption = '7_days';
   DateTime? _originalExpiresAt;
-  bool _expirySelectionChanged = false;
   bool _termsAccepted = false;
 
   bool _isSubmitting = false;
@@ -273,7 +271,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     _marketplaceCategoryId = data['marketplace_category_id']?.toString();
 
     _originalExpiresAt = DateTime.tryParse(data['expires_at']?.toString() ?? '');
-    _expiryOption = _deriveExpiryOption(data['expires_at']);
 
     final rawAttrs = data['marketplace_attributes'];
     if (rawAttrs is List) {
@@ -306,19 +303,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     }
 
     _termsAccepted = true;
-  }
-
-  String _deriveExpiryOption(dynamic expiresAt) {
-    if (expiresAt == null) return 'never';
-    final text = expiresAt.toString().trim();
-    if (text.isEmpty || text == 'null') return 'never';
-    final date = DateTime.tryParse(text);
-    if (date == null) return '7_days';
-    final diff = date.difference(DateTime.now());
-    if (diff.inDays <= 7) return '7_days';
-    if (diff.inDays <= 14) return '14_days';
-    if (diff.inDays <= 30) return '30_days';
-    return '30_days';
   }
 
   String _extractStoragePath(String url) {
@@ -373,7 +357,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (_categoryId != data['category_id']?.toString()) return true;
       if (_marketplaceCategoryId !=
           data['marketplace_category_id']?.toString()) return true;
-      if (_expirySelectionChanged) return true;
 
       final origLat = (data['latitude'] as num?)?.toDouble();
       final origLng = (data['longitude'] as num?)?.toDouble();
@@ -399,7 +382,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     if (_categoryId != null && _categoryId!.isNotEmpty) return true;
     if (_selectedMarketplaceOptionIds.isNotEmpty) return true;
     if (_selectedMarketplaceValues.isNotEmpty) return true;
-    if (_expiryOption != '7_days') return true;
     if (_termsAccepted) return true;
     return false;
   }
@@ -1031,22 +1013,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   DateTime? _getExpiresAt() {
-    if (_isEditMode && !_expirySelectionChanged) {
-      return _originalExpiresAt;
+    if (_isEditMode) {
+      return _originalExpiresAt ??
+          DateTime.now().add(const Duration(days: 7));
     }
-    final now = DateTime.now();
-    switch (_expiryOption) {
-      case '7_days':
-        return now.add(const Duration(days: 7));
-      case '14_days':
-        return now.add(const Duration(days: 14));
-      case '30_days':
-        return now.add(const Duration(days: 30));
-      case 'never':
-        return null;
-      default:
-        return now.add(const Duration(days: 7));
-    }
+    return DateTime.now().add(const Duration(days: 7));
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1385,7 +1356,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           backgroundColor:
               isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
           appBar: AppBar(
-            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة عرض'),
+            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة شيء للبيع'),
             centerTitle: true,
             elevation: 0,
             backgroundColor:
@@ -1534,7 +1505,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           Text(
             _isEditMode
                 ? 'خد بالك: أي تعديل هيتطبق فورًا على العرض الظاهر للمستخدمين.'
-                : 'اعرض الأشياء الزائدة عندك بسعر مميز ليستفيد منها شخص قريب منك.',
+                : 'اعرض شيئًا تملكه للبيع بسعر مناسب ليستفيد منه شخص قريب منك.',
             style: TextStyle(
               color: colors.onPrimary.withValues(alpha: 0.8),
               fontSize: 13,
@@ -2578,42 +2549,34 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     return _sectionCard(
       title: 'مدة توفر العرض',
       icon: Icons.schedule_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _expiryOption,
-            decoration: _decoration(
-              'العرض متاح حتى',
-              Icons.event_available_outlined,
-            ),
-            items: const [
-              DropdownMenuItem(value: '7_days', child: Text('لمدة أسبوع')),
-              DropdownMenuItem(value: '14_days', child: Text('لمدة أسبوعين')),
-              DropdownMenuItem(value: '30_days', child: Text('لمدة شهر')),
-              DropdownMenuItem(
-                value: 'never',
-                child: Text('بدون تاريخ انتهاء'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: colors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.event_available_rounded, color: colors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _isEditMode
+                    ? 'تاريخ انتهاء العرض الحالي ثابت ولا يتغير من هذه الشاشة.'
+                    : 'مدة العرض أسبوع واحد من تاريخ النشر. بعد انتهاء الأسبوع سيختفي من العروض العامة ويظل ظاهرًا في «عروضي» ضمن العروض المنتهية.',
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 12,
+                  height: 1.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() {
-                _expiryOption = value;
-                _expirySelectionChanged = true;
-              });
-            },
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'بعد انتهاء المدة لن يظهر العرض ضمن العروض المتاحة للمستخدمين.',
-            style: TextStyle(
-              color: colors.onSurfaceVariant,
-              fontSize: 11,
-              height: 1.5,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

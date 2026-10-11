@@ -218,8 +218,8 @@ class _HomeCharitiesAndActionsSectionState
               width: cardWidth,
               child: _ActionCard(
                 icon: Icons.sell_rounded,
-                title: 'بيع بسعر رمزي',
-                subtitle: 'اعرض شيئًا مفيدًا بسعر مناسب',
+                title: 'إضافة شيء للبيع',
+                subtitle: 'اعرض شيئًا تملكه للبيع بسعر مناسب',
                 color: const Color(0xFFD67A18),
                 onTap: _openSymbolicSale,
               ),

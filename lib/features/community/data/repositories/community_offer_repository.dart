@@ -162,7 +162,7 @@ class CommunityOfferRepository {
       );
     }
 
-    if (price <= 0) {
+    if (!price.isFinite || price <= 0) {
       throw Exception(
         'السعر الرمزي يجب أن يكون أكبر من صفر',
       );
@@ -331,7 +331,10 @@ class CommunityOfferRepository {
         'phone': cleanPhone, // ✅ جديد
         'whatsapp': cleanWhatsapp, // ✅ جديد (nullable)
         'status': 'available',
-        'expires_at': expiresAt?.toUtc().toIso8601String(),
+        'expires_at': DateTime.now()
+            .toUtc()
+            .add(const Duration(days: 7))
+            .toIso8601String(),
       };
 
       if (kDebugMode) {
@@ -1080,10 +1083,9 @@ class CommunityOfferRepository {
       query = query.eq('category_id', categoryId.trim());
     }
 
-    query = query.or(
-      'expires_at.is.null,'
-      'expires_at.gt.'
-      '${DateTime.now().toUtc().toIso8601String()}',
+    query = query.gt(
+      'expires_at',
+      DateTime.now().toUtc().toIso8601String(),
     );
 
     final response = await query.order(
@@ -1495,6 +1497,9 @@ class CommunityOfferRepository {
     if (authUser == null) {
       throw Exception('يجب تسجيل الدخول أولًا');
     }
+    if (days != 7) {
+      throw ArgumentError('يمكن تجديد العرض لمدة أسبوع واحد فقط');
+    }
 
     try {
       final response = await _client.rpc(
@@ -1520,18 +1525,24 @@ class CommunityOfferRepository {
       final text = e.toString().toLowerCase();
 
       if (text.contains('function') && text.contains('does not exist')) {
-        final newExpiry = DateTime.now().add(Duration(days: days));
+        final now = DateTime.now().toUtc();
+        final newExpiry = now.add(const Duration(days: 7));
 
-        await _client
+        final updated = await _client
             .from('community_offers')
             .update({
               'status': 'available',
-              'expires_at': newExpiry.toUtc().toIso8601String(),
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
+              'expires_at': newExpiry.toIso8601String(),
+              'updated_at': now.toIso8601String(),
             })
             .eq('id', offerId)
-            .eq('owner_id', authUser.id);
+            .eq('owner_id', authUser.id)
+            .inFilter('status', ['available', 'active', 'expired'])
+            .lte('expires_at', now.toIso8601String())
+            .select('id')
+            .maybeSingle();
 
+        if (updated == null) return null;
         return newExpiry;
       }
 

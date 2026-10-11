@@ -7,6 +7,14 @@ import 'package:flutter/material.dart';
 ///   - community_my_offers_page.dart (عروضي)
 ///   - user_home_page.dart (الرئيسية - قسم شراء بسعر رمزي)
 class OfferExpiryHelper {
+  /// Uses the stored expiry, or derives the one-week deadline for legacy rows.
+  static DateTime? effectiveExpiry({
+    required DateTime? expiresAt,
+    required DateTime? createdAt,
+  }) {
+    return expiresAt ?? createdAt?.add(const Duration(days: 7));
+  }
+
   // ═══════════════════════════════════════════════════════════
   // الحالة
   // ═══════════════════════════════════════════════════════════

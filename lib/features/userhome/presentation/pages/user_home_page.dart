@@ -3045,7 +3045,7 @@ class _UserHomePageState extends State<UserHomePage> {
           );
         },
         child: Text(
-          'أضف عرض',
+          'أضف شيئًا للبيع',
           style: TextStyle(
             color: _primaryRed,
             fontSize: 13,
@@ -3334,8 +3334,8 @@ class _UserHomePageState extends State<UserHomePage> {
                   SizedBox(height: 12),
                   _AddActionTile(
                     icon: Icons.sell_rounded,
-                    title: 'أبيع حاجة بسعر رمزي',
-                    subtitle: 'عندي حاجة عايز أبيعها بسعر بسيط',
+                    title: 'أضيف حاجة للبيع',
+                    subtitle: 'عندي حاجة عايز أبيعها',
                     color: _orange,
                     onTap: () {
                       Navigator.of(sheetContext).pop();
@@ -4368,7 +4368,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'ابدأ بيع بسعر رمزي',
+                    'أضف شيئًا للبيع',
                     style: TextStyle(
                       color: _UserHomePageState._textPrimary,
                       fontWeight: FontWeight.w800,
@@ -4377,7 +4377,7 @@ class _CommunityEmptyCard extends StatelessWidget {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'عندك حاجة مش محتاجها؟ اعرضها بسعر رمزي.',
+                    'عندك حاجة مش محتاجها؟ اعرضها للبيع بسعر مناسب.',
                     style: TextStyle(
                       color: _UserHomePageState._textSecondary,
                       fontSize: 12,

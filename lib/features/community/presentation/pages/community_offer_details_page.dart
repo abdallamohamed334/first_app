@@ -9,6 +9,7 @@ import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/community/presentation/pages/user_profile_page.dart';
+import 'package:loqma/features/community/presentation/utils/offer_expiry_helper.dart';
 
 class CommunityOfferDetailsPage extends StatefulWidget {
   final Map<String, dynamic> offer;
@@ -39,6 +40,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   List<Map<String, dynamic>> _marketplaceAttributes = [];
   bool _loadingAttributes = false;
   bool _attributesLoaded = false;
+  late Future<List<Map<String, dynamic>>> _reviewsFuture;
 
   Map<String, dynamic> get offer => _offer;
 
@@ -119,6 +121,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     super.initState();
     _offer = Map<String, dynamic>.from(widget.offer);
     _resolvedImages = _extractRawImages();
+    _reviewsFuture = _loadReviews();
 
     _checkIfOwner();
     _ensureContactsLoaded();
@@ -135,6 +138,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       _resolvedImages = _extractRawImages();
       _attributesLoaded = false;
       _marketplaceAttributes = [];
+      _reviewsFuture = _loadReviews();
       _ensureContactsLoaded();
       _refreshImageUrls();
       _loadMarketplaceAttributes();
@@ -145,10 +149,12 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ✅ جلب الأرقام
   // ═══════════════════════════════════════════════════════════
   Future<void> _ensureContactsLoaded() async {
-    final existingPhone = _offer['phone']?.toString().trim() ?? '';
-    final existingWhatsapp = _offer['whatsapp']?.toString().trim() ?? '';
-
-    if (existingPhone.isNotEmpty || existingWhatsapp.isNotEmpty) {
+    var phone = _offer['phone']?.toString().trim() ?? '';
+    var whatsapp = _offer['whatsapp']?.toString().trim() ?? '';
+    final hasOwnerProfile = (_offer['owner_name']?.toString().trim() ?? '')
+            .isNotEmpty &&
+        (_offer['avatar_url']?.toString().trim() ?? '').isNotEmpty;
+    if (phone.isNotEmpty && whatsapp.isNotEmpty && hasOwnerProfile) {
       _contactsFetched = true;
       return;
     }
@@ -163,10 +169,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
     if (mounted) setState(() => _fetchingContacts = true);
 
-    String phone = '';
-    String whatsapp = '';
-
-    if (offerId.isNotEmpty) {
+    if (offerId.isNotEmpty &&
+        (phone.isEmpty || whatsapp.isEmpty || ownerId.isEmpty)) {
       try {
         final data = await Supabase.instance.client
             .from('community_offers')
@@ -192,7 +196,11 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
     final finalOwnerId = _offer['owner_id']?.toString() ?? '';
 
-    if ((phone.isEmpty || whatsapp.isEmpty) && finalOwnerId.isNotEmpty) {
+    if (finalOwnerId.isNotEmpty &&
+        (phone.isEmpty ||
+            whatsapp.isEmpty ||
+            (_offer['owner_name']?.toString().trim() ?? '').isEmpty ||
+            (_offer['avatar_url']?.toString().trim() ?? '').isEmpty)) {
       try {
         final userData = await Supabase.instance.client
             .from('users')
@@ -206,8 +214,12 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
           if (phone.isEmpty) phone = userPhone;
           if (whatsapp.isEmpty) whatsapp = userWhatsapp;
-          _offer['owner_name'] ??= userData['name']?.toString();
-          _offer['avatar_url'] ??= userData['avatar_url']?.toString();
+          if ((_offer['owner_name']?.toString().trim() ?? '').isEmpty) {
+            _offer['owner_name'] = userData['name']?.toString();
+          }
+          if ((_offer['avatar_url']?.toString().trim() ?? '').isEmpty) {
+            _offer['avatar_url'] = userData['avatar_url']?.toString();
+          }
           _offer['owner_created_at'] ??= userData['created_at']?.toString();
         }
       } catch (e) {
@@ -488,7 +500,6 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   }
 
   Future<String> _regenerateSignedUrl(String url) async {
-    if (!url.contains('supabase.co')) return url;
     if (url.contains('/object/public/')) return url;
 
     final match = RegExp(
@@ -517,7 +528,14 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ✅ الوقت
   // ═══════════════════════════════════════════════════════════
   String _timeRemaining() {
-    final expiry = DateTime.tryParse(offer['expiry_time']?.toString() ?? '');
+    final isWeeklySale = offer['charity_id'] == null &&
+        offer['listing_type']?.toString() == 'symbolic_sale';
+    final expiry = OfferExpiryHelper.effectiveExpiry(
+      expiresAt: DateTime.tryParse(offer['expires_at']?.toString() ?? ''),
+      createdAt: isWeeklySale
+          ? DateTime.tryParse(offer['created_at']?.toString() ?? '')
+          : null,
+    );
     if (expiry == null) return 'غير محدد';
     final diff = expiry.difference(DateTime.now());
     if (diff.isNegative) return 'انتهى';
@@ -725,6 +743,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       rating: selectedRating,
                       comment: comment.isEmpty ? null : comment,
                     );
+                    _reviewsFuture = _loadReviews();
                     Navigator.pop(dialogContext);
                     _snack('تم إضافة التقييم بنجاح', Colors.green);
                     setState(() {});
@@ -1116,7 +1135,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
                     // ─── قائمة التقييمات
                     FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _loadReviews(),
+                      future: _reviewsFuture,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {

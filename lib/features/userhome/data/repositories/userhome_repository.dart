@@ -774,8 +774,10 @@ class UserHomeRepository {
             )
           ''')
           .inFilter('marketplace_category_id', categoryIds)
+          .eq('listing_type', 'symbolic_sale')
+          .filter('charity_id', 'is', null)
           .eq('status', 'available')
-          .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
           .order('created_at', ascending: false)
           .limit(200);
 
