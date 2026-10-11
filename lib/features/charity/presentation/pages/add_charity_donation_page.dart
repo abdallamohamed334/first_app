@@ -801,7 +801,7 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
           ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
-            initialValue: conditions.contains(_conditions[category])
+            initialValue: conditions.containsKey(_conditions[category])
                 ? _conditions[category]
                 : conditions.keys.first,
             isExpanded: true,
@@ -1051,7 +1051,7 @@ class _StepPill extends StatelessWidget {
             child: Text(
               number,
               style: const TextStyle(
-                color: _green,
+                color: Color(0xFF0B7650),
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
               ),
