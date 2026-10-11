@@ -566,8 +566,16 @@ class SeparateCharityDonationRepository {
         'mark_donor_ready',
         params: {'p_request_id': requestId.trim()},
       );
-      await _notifyDonationEvent(requestId, 'status');
-      return _mapFromRpc(result);
+      final data = _mapFromRpc(result);
+      if (data['success'] == false) {
+        throw Exception(
+          data['error']?.toString() ?? 'تعذر تأكيد جاهزية التبرع',
+        );
+      }
+      if (data['already_ready'] != true) {
+        await _notifyDonationEvent(requestId, 'status');
+      }
+      return data;
     } catch (e) {
       throw Exception(_friendly(e));
     }

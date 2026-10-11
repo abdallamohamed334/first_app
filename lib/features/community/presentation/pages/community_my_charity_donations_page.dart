@@ -27,6 +27,8 @@ class _CommunityMyCharityDonationsPageState
   bool _loadingCode = false;
   Timer? _donationRefreshTimer;
   bool _refreshInProgress = false;
+  int _refreshGeneration = 0;
+  final Set<String> _markingDonationIds = <String>{};
   final Map<String, String> _knownStatuses = <String, String>{};
 
   // ─────────────── الألوان ───────────────
@@ -71,12 +73,13 @@ class _CommunityMyCharityDonationsPageState
     );
   }
 
-  Future<void> _refreshDonationData() async {
-    if (!mounted || _refreshInProgress) return;
+  Future<void> _refreshDonationData({bool force = false}) async {
+    if (!mounted || (_refreshInProgress && !force)) return;
     _refreshInProgress = true;
+    final generation = ++_refreshGeneration;
     try {
       final rows = await _repository.getMyDonations();
-      if (!mounted) return;
+      if (!mounted || generation != _refreshGeneration) return;
       for (final row in rows) {
         final id = row['id']?.toString();
         final status = row['status']?.toString();
@@ -91,7 +94,7 @@ class _CommunityMyCharityDonationsPageState
     } catch (error) {
       debugPrint('CHARITY DONATION STATUS REFRESH ERROR: $error');
     } finally {
-      _refreshInProgress = false;
+      if (generation == _refreshGeneration) _refreshInProgress = false;
     }
   }
 
@@ -206,18 +209,26 @@ class _CommunityMyCharityDonationsPageState
     String requestId, {
     bool renewingCode = false,
   }) async {
+    if (!_markingDonationIds.add(requestId)) return;
+    if (mounted) setState(() {});
     try {
-      await _repository.markDonorReadyV2(requestId);
+      final result = await _repository.markDonorReadyV2(requestId);
       if (mounted) {
         _message(
-          renewingCode
+          result['already_ready'] == true
+              ? '✅ التبرع مسجل بالفعل كجاهز، ولم نكرر إشعار الجمعية'
+              : renewingCode
               ? '✅ تم تجديد كود الاستلام'
               : '✅ تم تأكيد جاهزيتك للتسليم',
         );
-        await _refresh();
+        await _refreshDonationData(force: true);
       }
     } catch (e) {
       if (mounted) _message('❌ فشل تأكيد الجاهزية: $e', error: true);
+    } finally {
+      if (mounted) {
+        setState(() => _markingDonationIds.remove(requestId));
+      }
     }
   }
 
@@ -918,6 +929,8 @@ class _CommunityMyCharityDonationsPageState
     final deliveryType =
         row['delivery_type']?.toString() ?? 'charity_volunteer';
     final isIndependent = deliveryType == 'independent_volunteer';
+    final requestId = row['id']?.toString() ?? '';
+    final isMarkingReady = _markingDonationIds.contains(requestId);
 
     final images = row['images'] is List
         ? List<dynamic>.from(row['images'] as List)
@@ -1065,7 +1078,10 @@ class _CommunityMyCharityDonationsPageState
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              _buildStatusBadge(status),
+                              _buildStatusBadge(
+                                status,
+                                donorReady: isDonorReady,
+                              ),
                               if (isIndependent) ...[
                                 const SizedBox(width: 6),
                                 _buildDeliveryBadge(),
@@ -1171,16 +1187,24 @@ class _CommunityMyCharityDonationsPageState
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () => _markDonorReady(
-                        row['id'].toString(),
-                        renewingCode: codeExpired,
-                      ),
-                      icon: const Icon(
-                        Icons.check_circle_outline_rounded,
+                      onPressed: isMarkingReady
+                          ? null
+                          : () => _markDonorReady(
+                              requestId,
+                              renewingCode: codeExpired,
+                            ),
+                      icon: Icon(
+                        isMarkingReady
+                            ? Icons.hourglass_top_rounded
+                            : Icons.check_circle_outline_rounded,
                         size: 18,
                       ),
                       label: Text(
-                        codeExpired ? 'تجديد كود الاستلام' : 'أنا جاهز للتسليم',
+                        isMarkingReady
+                            ? 'جارٍ تحديث الحالة...'
+                            : codeExpired
+                            ? 'تجديد كود الاستلام'
+                            : 'أنا جاهز للتسليم',
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       style: FilledButton.styleFrom(
@@ -1228,8 +1252,11 @@ class _CommunityMyCharityDonationsPageState
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, {bool donorReady = false}) {
     final color = _statusColor(status);
+    final label = donorReady && status == 'volunteer_needed'
+        ? 'جاهز للتسليم — في انتظار متطوع'
+        : _statusLabel(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -1248,7 +1275,7 @@ class _CommunityMyCharityDonationsPageState
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              _statusLabel(status),
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
