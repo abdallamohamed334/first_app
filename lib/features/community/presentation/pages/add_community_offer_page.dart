@@ -23,14 +23,12 @@ class AddCommunityOfferPage extends StatefulWidget {
   final Future<void> Function(Map<String, dynamic> draft)? onSubmit;
   final String? offerId;
   final Map<String, dynamic>? initialData;
-  final String? initialCategoryId;
 
   const AddCommunityOfferPage({
     super.key,
     this.onSubmit,
     this.offerId,
     this.initialData,
-    this.initialCategoryId,
   });
 
   bool get isEditMode => offerId != null && offerId!.trim().isNotEmpty;
@@ -473,17 +471,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           _marketplaceCategoryId!,
           requestId: rid,
         );
-      } else if (!_isEditMode && widget.initialCategoryId != null) {
-        final categoryId = widget.initialCategoryId!.trim();
-        final selected = _firstWhereOrNull(
-          rows,
-          (category) => category['id']?.toString() == categoryId,
-        );
-        if (selected != null) {
-          await _onCategorySelected(selected);
-        } else {
-          _showMessage('التصنيف المختار لم يعد متاحًا. اختر تصنيفًا آخر.');
-        }
       }
     } catch (error) {
       debugPrint('❌ Failed to load categories: $error');

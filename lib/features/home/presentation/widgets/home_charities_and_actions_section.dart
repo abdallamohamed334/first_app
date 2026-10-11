@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_category_selection_page.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
 
 class HomeCharitiesAndActionsSection extends StatefulWidget {
   const HomeCharitiesAndActionsSection({super.key});
@@ -64,7 +64,7 @@ class _HomeCharitiesAndActionsSectionState
   void _openSymbolicSale() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const CommunityOfferCategorySelectionPage(),
+        builder: (_) => const AddCommunityOfferPage(),
       ),
     );
   }

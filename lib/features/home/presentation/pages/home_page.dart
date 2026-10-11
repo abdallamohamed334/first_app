@@ -14,7 +14,7 @@ import 'package:loqma/features/institutions/domain/entities/institution_offer.da
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/profile/presentation/pages/profile_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_offer_category_selection_page.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
 import '../widgets/community_home_offers_section.dart';
@@ -1046,7 +1046,7 @@ class _HomePageState extends State<HomePage> {
                           context,
                           MaterialPageRoute(
                               builder: (_) =>
-                                  const CommunityOfferCategorySelectionPage()));
+                                  const AddCommunityOfferPage()));
                     }),
                   ),
                   const SizedBox(width: 10),
