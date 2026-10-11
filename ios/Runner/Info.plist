@@ -34,9 +34,6 @@
 		<string>ar</string>
 		<string>en</string>
 	</array>
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
-
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

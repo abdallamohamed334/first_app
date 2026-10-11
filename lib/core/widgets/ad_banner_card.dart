@@ -51,7 +51,9 @@ class _AdBannerCardState extends State<AdBannerCard> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) return;
+    // لا نعرض إعلانات iOS حتى يتم توفير App ID وAd Unit حقيقيين من AdMob.
+    // نشر Test IDs داخل نسخة App Store غير مسموح، لذلك تظل الميزة اختيارية.
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.iOS) return;
     _loadBanner();
   }
 
