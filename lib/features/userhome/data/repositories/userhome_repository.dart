@@ -15,9 +15,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class UserHomeRepository {
   final SupabaseService _supabaseService;
 
-  UserHomeRepository({
-    required SupabaseService supabaseService,
-  }) : _supabaseService = supabaseService;
+  UserHomeRepository({required SupabaseService supabaseService})
+    : _supabaseService = supabaseService;
 
   SupabaseClient get _client => _supabaseService.client;
 
@@ -33,10 +32,7 @@ class UserHomeRepository {
         return null;
       }
 
-      return {
-        'id': session.user.id,
-        'email': session.user.email,
-      };
+      return {'id': session.user.id, 'email': session.user.email};
     } catch (e) {
       debugPrint('❌ getCurrentUser error: $e');
       return null;
@@ -182,7 +178,8 @@ class UserHomeRepository {
     final dLat = _degToRad(lat2 - lat1);
     final dLon = _degToRad(lon2 - lon1);
 
-    final a = sin(dLat / 2) * sin(dLat / 2) +
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(_degToRad(lat1)) *
             cos(_degToRad(lat2)) *
             sin(dLon / 2) *
@@ -248,8 +245,9 @@ class UserHomeRepository {
 
           final baseOffer = FoodOffer.fromJson(json);
 
-          final source =
-              businessType == 'restaurant' ? 'restaurant' : 'institution';
+          final source = businessType == 'restaurant'
+              ? 'restaurant'
+              : 'institution';
 
           offers.add(baseOffer.copyWith(source: source));
         } catch (e) {
@@ -305,12 +303,15 @@ class UserHomeRepository {
     required double longitude,
   }) async {
     try {
-      final response = await _client.rpc('nearby_rescue_tasks', params: {
-        'p_lat': latitude,
-        'p_lng': longitude,
-        'p_radius_km': 15.0,
-        'p_limit': 10,
-      });
+      final response = await _client.rpc(
+        'nearby_rescue_tasks',
+        params: {
+          'p_lat': latitude,
+          'p_lng': longitude,
+          'p_radius_km': 15.0,
+          'p_limit': 10,
+        },
+      );
       if (response is! List) return [];
       return response.map((raw) {
         final item = Map<String, dynamic>.from(raw as Map);
@@ -361,9 +362,8 @@ class UserHomeRepository {
           }
 
           final image = images.isNotEmpty ? images.first : null;
-          final createdAt = DateTime.tryParse(
-                json['created_at']?.toString() ?? '',
-              ) ??
+          final createdAt =
+              DateTime.tryParse(json['created_at']?.toString() ?? '') ??
               DateTime.now();
           final city = json['pickup_city']?.toString() ?? '';
 
@@ -459,9 +459,7 @@ class UserHomeRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getSubCategories(
-    String parentId,
-  ) async {
+  Future<List<Map<String, dynamic>>> getSubCategories(String parentId) async {
     try {
       final response = await _client
           .from('marketplace_categories')
@@ -520,6 +518,15 @@ class UserHomeRepository {
         final rootId = row['root_category_id']?.toString() ?? '';
         final offerId = row['offer_id']?.toString() ?? '';
         if (rootId.isEmpty || offerId.isEmpty) continue;
+        final latitudeValue = _toDouble(row['latitude']);
+        final longitudeValue = _toDouble(row['longitude']);
+        final distanceMeters = _toDouble(row['distance_meters']);
+        if (latitudeValue == null ||
+            longitudeValue == null ||
+            distanceMeters == null ||
+            distanceMeters > radiusKm * 1000) {
+          continue;
+        }
         final seenIds = seenOfferIdsByRoot.putIfAbsent(
           rootId,
           () => <String>{},
@@ -528,9 +535,9 @@ class UserHomeRepository {
         final imagesRaw = row['images'];
         final images = imagesRaw is List
             ? imagesRaw
-                .map((value) => value.toString().trim())
-                .where((value) => value.isNotEmpty)
-                .toList(growable: false)
+                  .map((value) => value.toString().trim())
+                  .where((value) => value.isNotEmpty)
+                  .toList(growable: false)
             : const <String>[];
         final rawOffer = row['raw'] is Map
             ? Map<String, dynamic>.from(row['raw'] as Map)
@@ -546,13 +553,14 @@ class UserHomeRepository {
           ownerType: row['owner_type']?.toString() ?? 'community',
           ownerName: row['owner_name']?.toString(),
           ownerLogo: row['owner_logo']?.toString(),
-          latitude: _toDouble(row['latitude']),
-          longitude: _toDouble(row['longitude']),
-          distanceMeters: _toDouble(row['distance_meters']),
+          latitude: latitudeValue,
+          longitude: longitudeValue,
+          distanceMeters: distanceMeters,
           categoryId: row['offer_category_id']?.toString(),
           categoryName: row['offer_category_name_ar']?.toString(),
           status: row['status']?.toString() ?? 'available',
-          createdAt: DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          createdAt:
+              DateTime.tryParse(row['created_at']?.toString() ?? '') ??
               DateTime.now(),
           raw: rawOffer,
         );
@@ -630,21 +638,15 @@ class UserHomeRepository {
 
       // عروض المؤسسات لها مسار مستقل ولا تختلط بعروض الأفراد أو الطعام.
       if (!isInstitutionOffers) {
-        results.add(
-          await _getCommunityOffersByCategoryIds(allCategoryIds),
-        );
+        results.add(await _getCommunityOffersByCategoryIds(allCategoryIds));
       }
 
       if (isFood) {
         // ✅ food → عروض المطاعم بس من food_offers
-        results.add(
-          await _getFoodOffersByCategoryIds(allCategoryIds),
-        );
+        results.add(await _getFoodOffersByCategoryIds(allCategoryIds));
       } else if (isGrocery || isInstitutionOffers) {
         // ✅ institution categories → عروض المؤسسات فقط
-        results.add(
-          await _getInstitutionOffersByCategoryIds(allCategoryIds),
-        );
+        results.add(await _getInstitutionOffersByCategoryIds(allCategoryIds));
       } else {
         // باقي التصنيفات → institution_offers + food_offers
         final institution = await _getInstitutionOffersByCategoryIds(
@@ -654,9 +656,7 @@ class UserHomeRepository {
         results.add([...institution, ...food]);
       }
 
-      final allOffers = <CategoryOffer>[
-        for (final list in results) ...list,
-      ];
+      final allOffers = <CategoryOffer>[for (final list in results) ...list];
 
       // ------------------------------------------------------
       // 4) حساب المسافة
@@ -706,11 +706,13 @@ class UserHomeRepository {
 
       final filtered = <CategoryOffer>[];
       for (final offer in allOffers) {
-        if (latitude != null &&
-            longitude != null &&
-            offer.distanceMeters != null &&
-            offer.distanceMeters! > radiusKm * 1000) {
-          continue;
+        if (latitude != null && longitude != null) {
+          // A missing seller location is not evidence that the offer is nearby.
+          if (offer.latitude == null || offer.longitude == null) continue;
+          final distanceMeters = offer.distanceMeters;
+          if (distanceMeters == null || distanceMeters > radiusKm * 1000) {
+            continue;
+          }
         }
         filtered.add(offer);
       }
@@ -812,9 +814,8 @@ class UserHomeRepository {
             images.insert(0, singleImage);
           }
 
-          final createdAt = DateTime.tryParse(
-                json['created_at']?.toString() ?? '',
-              ) ??
+          final createdAt =
+              DateTime.tryParse(json['created_at']?.toString() ?? '') ??
               DateTime.now();
 
           offers.add(
@@ -885,7 +886,9 @@ class UserHomeRepository {
           ''')
           .inFilter('marketplace_category_id', categoryIds)
           .eq('status', 'active')
-          .or('expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}')
+          .or(
+            'expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}',
+          )
           .order('created_at', ascending: false)
           .limit(200);
 
@@ -914,9 +917,8 @@ class UserHomeRepository {
             }
           }
 
-          final createdAt = DateTime.tryParse(
-                json['created_at']?.toString() ?? '',
-              ) ??
+          final createdAt =
+              DateTime.tryParse(json['created_at']?.toString() ?? '') ??
               DateTime.now();
 
           offers.add(
@@ -1035,9 +1037,8 @@ class UserHomeRepository {
             images.insert(0, singleImage);
           }
 
-          final createdAt = DateTime.tryParse(
-                json['created_at']?.toString() ?? '',
-              ) ??
+          final createdAt =
+              DateTime.tryParse(json['created_at']?.toString() ?? '') ??
               DateTime.now();
 
           final bizLat = _toDouble(biz['latitude']);

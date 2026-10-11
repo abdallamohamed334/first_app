@@ -18,7 +18,7 @@ import 'package:loqma/features/booking/presentation/pages/my_bookings_page.dart'
 import 'package:loqma/features/charity/presentation/pages/add_charity_donation_page.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
-import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
+import 'package:loqma/features/community/presentation/pages/community_offer_category_selection_page.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_needs_page.dart';
@@ -186,7 +186,6 @@ class _UserHomePageState extends State<UserHomePage> {
       await _loadUserLocation();
       if (!mounted) return;
 
-      _loadCommunityNeeds();
       _loadNearbySymbolicProviders();
       _loadNearbyCategoryOffers();
     });
@@ -571,7 +570,6 @@ class _UserHomePageState extends State<UserHomePage> {
     await _loadUserLocation();
     await Future.wait([
       _loadInstitutionOffers(),
-      _loadCommunityNeeds(),
       _loadServiceCategories(),
       _loadNearbySymbolicProviders(),
       _loadNearbyCategoryOffers(),
@@ -1141,7 +1139,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
-        SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -3041,7 +3038,9 @@ class _UserHomePageState extends State<UserHomePage> {
       trailing: GestureDetector(
         onTap: () {
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AddCommunityOfferPage()),
+            MaterialPageRoute(
+              builder: (_) => const CommunityOfferCategorySelectionPage(),
+            ),
           );
         },
         child: Text(
@@ -3058,7 +3057,8 @@ class _UserHomePageState extends State<UserHomePage> {
               onAdd: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (_) => const AddCommunityOfferPage()),
+                    builder: (_) => const CommunityOfferCategorySelectionPage(),
+                  ),
                 );
               },
             )
@@ -3341,7 +3341,9 @@ class _UserHomePageState extends State<UserHomePage> {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const AddCommunityOfferPage()),
+                          builder: (_) =>
+                              const CommunityOfferCategorySelectionPage(),
+                        ),
                       );
                     },
                   ),

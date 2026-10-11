@@ -7,7 +7,7 @@ class CommunityMyOffersRepository {
   final SupabaseClient _client;
 
   CommunityMyOffersRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   // ✅ جلب العروض الخاصة بالمستخدم فقط
   // (بدون فلترة في DB — الفلترة بتحصل في الـ UI)
@@ -26,68 +26,105 @@ class CommunityMyOffersRepository {
         .toList();
   }
 
-  // ✅ جلب صورة العرض كـ Signed URL
+  // ✅ جلب أول صورة متاحة للعرض مع تجاوز المسارات القديمة أو المفقودة.
   Future<String?> getOfferImage(String offerId) async {
-    try {
-      final row = await _client
-          .from('community_offers')
-          .select('image')
-          .eq('id', offerId)
-          .maybeSingle();
+    final row = await _client
+        .from('community_offers')
+        .select('image, images')
+        .eq('id', offerId)
+        .maybeSingle();
+    if (row == null) return null;
 
-      if (row == null) return null;
-      final imagePath = row['image']?.toString();
-      if (imagePath == null || imagePath.isEmpty) return null;
-
-      // لو الصورة رابط مباشر، هتستخدمه زي ما هو
-      if (imagePath.startsWith('http')) return imagePath;
-
-      // لو الصورة مسار في الـ Storage، هجيب Signed URL
-      return await _client.storage
-          .from('community-offers')
-          .createSignedUrl(imagePath, 3600);
-    } catch (e) {
-      debugPrint('❌ Error getting offer image: $e');
-      return null;
+    final candidates = <String>[];
+    final images = row['images'];
+    if (images is List) {
+      candidates.addAll(images.map((image) => image?.toString() ?? ''));
     }
+    candidates.add(row['image']?.toString() ?? '');
+
+    final seen = <String>{};
+    for (final candidate in candidates) {
+      final clean = candidate.trim();
+      if (clean.isEmpty || clean == 'null' || !seen.add(clean)) continue;
+      final resolved = await _resolveOfferImage(clean);
+      if (resolved != null) return resolved;
+    }
+    return null;
   }
 
   // ✅ جلب كل الصور كـ Signed URLs
   Future<List<String>> getOfferImages(String offerId) async {
-    try {
-      final row = await _client
-          .from('community_offers')
-          .select('images')
-          .eq('id', offerId)
-          .maybeSingle();
+    final row = await _client
+        .from('community_offers')
+        .select('image, images')
+        .eq('id', offerId)
+        .maybeSingle();
+    if (row == null) return [];
 
-      if (row == null) return [];
-      final images = row['images'] as List? ?? [];
-      final result = <String>[];
-
-      for (final imagePath in images) {
-        final path = imagePath?.toString() ?? '';
-        if (path.isEmpty) continue;
-
-        if (path.startsWith('http')) {
-          result.add(path);
-        } else {
-          try {
-            final signedUrl = await _client.storage
-                .from('community-offers')
-                .createSignedUrl(path, 3600);
-            result.add(signedUrl);
-          } catch (e) {
-            debugPrint('❌ Error getting signed URL for $path: $e');
-          }
-        }
-      }
-
-      return result;
-    } catch (e) {
-      debugPrint('❌ Error getting offer images: $e');
-      return [];
+    final candidates = <String>[];
+    final images = row['images'];
+    if (images is List) {
+      candidates.addAll(images.map((image) => image?.toString() ?? ''));
     }
+    candidates.add(row['image']?.toString() ?? '');
+
+    final result = <String>[];
+    final seen = <String>{};
+    for (final candidate in candidates) {
+      final clean = candidate.trim();
+      if (clean.isEmpty || clean == 'null' || !seen.add(clean)) continue;
+      final resolved = await _resolveOfferImage(clean);
+      if (resolved != null) result.add(resolved);
+    }
+    return result;
+  }
+
+  Future<String?> _resolveOfferImage(String value) async {
+    final clean = value.trim();
+    final path = _offerStoragePath(clean);
+    if (path == null) {
+      return clean.startsWith('http://') || clean.startsWith('https://')
+          ? clean
+          : null;
+    }
+
+    try {
+      return await _client.storage
+          .from('community-offers')
+          .createSignedUrl(path, 3600);
+    } catch (error) {
+      final message = error.toString().toLowerCase();
+      final isMissingObject =
+          message.contains('404') ||
+          message.contains('not_found') ||
+          message.contains('object not found');
+      if (!isMissingObject) {
+        debugPrint('⚠️ تعذر تحميل صورة العرض: $error');
+      }
+      return null;
+    }
+  }
+
+  String? _offerStoragePath(String value) {
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      try {
+        final segments = Uri.parse(value).pathSegments;
+        final bucketIndex = segments.indexOf('community-offers');
+        if (bucketIndex >= 0 && bucketIndex < segments.length - 1) {
+          return segments.sublist(bucketIndex + 1).join('/');
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    var path = value;
+    while (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    if (path.startsWith('community-offers/')) {
+      path = path.substring('community-offers/'.length);
+    }
+    return path.isEmpty ? null : path;
   }
 
   // ✅ إلغاء العرض (حذف ناعم — بغيّر status بس)
@@ -97,9 +134,7 @@ class CommunityMyOffersRepository {
 
     await _client
         .from('community_offers')
-        .update({
-          'status': 'cancelled',
-        })
+        .update({'status': 'cancelled'})
         .eq('id', offerId)
         .eq('owner_id', user.id);
   }
@@ -118,10 +153,7 @@ class CommunityMyOffersRepository {
     try {
       await _client.rpc(
         'mark_community_offer_completed',
-        params: {
-          'p_offer_id': offerId,
-          'p_user_id': user.id,
-        },
+        params: {'p_offer_id': offerId, 'p_user_id': user.id},
       );
 
       return true;
@@ -155,10 +187,7 @@ class CommunityMyOffersRepository {
   /// يجدّد عرض بيع مجتمعي انتهت مدته لمدة أسبوع واحد فقط.
   /// - [days] يظل للاتساق مع النداءات الحالية ويجب أن يساوي 7.
   /// - يرجع تاريخ الانتهاء الجديد، أو null لو فشل
-  Future<DateTime?> renewOffer(
-    String offerId, {
-    int days = 7,
-  }) async {
+  Future<DateTime?> renewOffer(String offerId, {int days = 7}) async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
     if (days != 7) {
@@ -168,11 +197,7 @@ class CommunityMyOffersRepository {
     try {
       final response = await _client.rpc(
         'renew_community_offer',
-        params: {
-          'p_offer_id': offerId,
-          'p_user_id': user.id,
-          'p_days': days,
-        },
+        params: {'p_offer_id': offerId, 'p_user_id': user.id, 'p_days': days},
       );
 
       // ✅ الـ RPC بيرجع timestamptz

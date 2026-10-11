@@ -12,7 +12,7 @@ class SeparateCharityDonationRepository {
   final SupabaseClient _client;
 
   SeparateCharityDonationRepository({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   String _friendly(Object error) {
     final text = error.toString().replaceFirst('Exception: ', '');
@@ -52,8 +52,9 @@ class SeparateCharityDonationRepository {
     }
 
     final raw = await _client.rpc('get_my_charity_context');
-    final row =
-        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final row = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final id = row['charity_id']?.toString().trim() ?? '';
     final rpcUserId = row['user_id']?.toString().trim() ?? '';
 
@@ -91,6 +92,24 @@ class SeparateCharityDonationRepository {
     return trimmed;
   }
 
+  Future<void> _removeUploadedDonationImages(
+    List<String> images, {
+    required String donorId,
+    required String charityId,
+  }) async {
+    final prefix = 'direct/$donorId/$charityId/';
+    final paths = images
+        .map(_storagePathFromValue)
+        .where((path) => path.startsWith(prefix))
+        .toList(growable: false);
+    if (paths.isEmpty) return;
+    try {
+      await _client.storage.from('community-offers').remove(paths);
+    } catch (error) {
+      debugPrint('Donation image cleanup failed: $error');
+    }
+  }
+
   Future<List<String>> _signedDonationImages(dynamic raw) async {
     if (raw is! List) return const [];
     final paths = raw
@@ -103,9 +122,11 @@ class SeparateCharityDonationRepository {
     final signed = <String>[];
     for (final path in paths) {
       try {
-        signed.add(await _client.storage
-            .from('community-offers')
-            .createSignedUrl(path, 3600));
+        signed.add(
+          await _client.storage
+              .from('community-offers')
+              .createSignedUrl(path, 3600),
+        );
       } catch (_) {
         // الصورة قديمة أو محذوفة من Storage؛ نتجاهلها ونستخدم صورة بديلة في الواجهة.
       }
@@ -134,10 +155,11 @@ class SeparateCharityDonationRepository {
         final bytes = await ImageUploadCodec.fromXFile(image);
         if (bytes.isEmpty) throw Exception('إحدى الصور فارغة أو تالفة');
 
-        final path =
-            '$folder/${DateTime.now().microsecondsSinceEpoch}.webp';
+        final path = '$folder/${DateTime.now().microsecondsSinceEpoch}.webp';
 
-        await _client.storage.from('community-offers').uploadBinary(
+        await _client.storage
+            .from('community-offers')
+            .uploadBinary(
               path,
               Uint8List.fromList(bytes),
               fileOptions: FileOptions(
@@ -151,62 +173,98 @@ class SeparateCharityDonationRepository {
       }
       return paths;
     } catch (_) {
+      await _removeUploadedDonationImages(
+        paths,
+        donorId: userId,
+        charityId: cleanCharityId,
+      );
       rethrow;
     }
   }
-
 
   Future<Map<String, dynamic>> createDonation({
     required String charityId,
     required String title,
     required String description,
     required String category,
+    List<String> categories = const [],
+    List<Map<String, dynamic>> items = const [],
     required int quantity,
     required String condition,
     required String pickupAddress,
+    String? pickupCity,
     required String donorPhone,
     String? donorNotes,
     List<String> images = const [],
   }) async {
     final donorId = await _currentUserId();
     if (title.trim().length < 3) throw Exception('اكتب عنوانًا واضحًا للتبرع');
-    final row = await _client
-        .from('charity_donation_requests')
-        .insert({
-          'donor_id': donorId,
-          'charity_id': charityId,
-          'title': title.trim(),
-          'description': description.trim(),
-          'category': category,
-          'quantity': quantity,
-          'condition': condition,
-          'pickup_address': pickupAddress.trim(),
-          'donor_phone': donorPhone.trim(),
-          'donor_notes': donorNotes?.trim(),
-          'images': images,
-        })
-        .select('''
-          id, donor_id, charity_id, title, description, category, quantity,
-          condition, pickup_address, donor_phone, donor_notes, images, status,
-          created_at
+    if (quantity <= 0) throw Exception('الكمية يجب أن تكون أكبر من صفر');
+    final selectedCategories = categories
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    final selectedItems = items
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+    try {
+      final row = await _client
+          .from('charity_donation_requests')
+          .insert({
+            'donor_id': donorId,
+            'charity_id': charityId.trim(),
+            'title': title.trim(),
+            'description': description.trim(),
+            'category': category.trim(),
+            'categories': selectedCategories.isEmpty
+                ? <String>[category.trim()]
+                : selectedCategories,
+            'items': selectedItems,
+            'quantity': quantity,
+            'condition': condition,
+            'pickup_address': pickupAddress.trim(),
+            'pickup_city': pickupCity?.trim(),
+            'donor_phone': donorPhone.trim(),
+            'donor_notes': donorNotes?.trim(),
+            'images': images,
+          })
+          .select('''
+            id, donor_id, charity_id, title, description, category, categories,
+            items, quantity, condition, pickup_address, pickup_city,
+            donor_phone, donor_notes, images, status, created_at
         ''')
-        .single();
-    final donation = Map<String, dynamic>.from(row);
-    await _notifyDonationEvent(donation['id']?.toString() ?? '', 'created');
-    return donation;
+          .single();
+      final donation = Map<String, dynamic>.from(row);
+      await _notifyDonationEvent(donation['id']?.toString() ?? '', 'created');
+      return donation;
+    } catch (_) {
+      await _removeUploadedDonationImages(
+        images,
+        donorId: donorId,
+        charityId: charityId.trim(),
+      );
+      rethrow;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getMyDonations() async {
     final userId = await _currentUserId();
-    final rows = await _client.from('charity_donation_requests').select('''
-      id, title, description, category, quantity, condition, images,
-      pickup_address, donor_phone, donor_notes, charity_notes, status,
+    final rows = await _client
+        .from('charity_donation_requests')
+        .select('''
+      id, title, description, category, categories, items, quantity, condition,
+      images, pickup_address, pickup_city, donor_phone, donor_notes,
+      charity_notes, status,
       pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
       completed_at, created_at, updated_at,
       volunteer_type, volunteer_name, volunteer_phone,
       delivery_type, open_to_independent_volunteers,
       charities:charity_id (id, name, logo, address, phone, email, is_verified)
-    ''').eq('donor_id', userId).order('created_at', ascending: false);
+    ''')
+        .eq('donor_id', userId)
+        .filter('deleted_at', 'is', null)
+        .order('created_at', ascending: false);
     final result = <Map<String, dynamic>>[];
     for (final rawRow in (rows as List)) {
       final row = Map<String, dynamic>.from(rawRow as Map);
@@ -222,8 +280,9 @@ class SeparateCharityDonationRepository {
     // RPC يعمل بـ security definer ويستخدم auth.uid(),
     // لذلك لا يعتمد على قراءة جدول charities عبر RLS.
     final raw = await _client.rpc('get_my_charity_context');
-    final row =
-        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final row = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
     final id = row['charity_id']?.toString().trim() ?? '';
     final rpcUserId = row['user_id']?.toString().trim() ?? '';
 
@@ -248,9 +307,10 @@ class SeparateCharityDonationRepository {
 
   Future<List<Map<String, dynamic>>> getMyCharityVolunteers() async {
     final charityId = await _myCharityId();
-    final rows = await _client.rpc('list_my_charity_volunteers', params: {
-      'p_charity_id': charityId,
-    });
+    final rows = await _client.rpc(
+      'list_my_charity_volunteers',
+      params: {'p_charity_id': charityId},
+    );
     return (rows as List)
         .map((row) => Map<String, dynamic>.from(row as Map))
         .toList();
@@ -266,46 +326,62 @@ class SeparateCharityDonationRepository {
     throw Exception('استجابة غير متوقعة من الخادم');
   }
 
-  Future<List<Map<String, dynamic>>> getCharityVolunteers(
-      {bool includeInactive = true}) async {
+  Future<List<Map<String, dynamic>>> getCharityVolunteers({
+    bool includeInactive = true,
+  }) async {
     final charityId = await _myCharityId();
-    final rows = await _client.rpc('list_my_charity_volunteers_manage',
-        params: {'p_charity_id': charityId});
+    final rows = await _client.rpc(
+      'list_my_charity_volunteers_manage',
+      params: {'p_charity_id': charityId},
+    );
     return (rows as List)
         .map((row) => Map<String, dynamic>.from(row as Map))
         .toList();
   }
 
-  Future<Map<String, dynamic>> createCharityVolunteer(
-      {required String name, required String phone}) async {
-    final result = await _client.rpc('create_my_charity_volunteer',
-        params: {'p_name': name.trim(), 'p_phone': phone.trim()});
+  Future<Map<String, dynamic>> createCharityVolunteer({
+    required String name,
+    required String phone,
+  }) async {
+    final result = await _client.rpc(
+      'create_my_charity_volunteer',
+      params: {'p_name': name.trim(), 'p_phone': phone.trim()},
+    );
     return _mapFromRpc(result);
   }
 
-  Future<Map<String, dynamic>> updateCharityVolunteer(
-      {required String id,
-      required String name,
-      required String phone,
-      required String status}) async {
-    final result = await _client.rpc('update_my_charity_volunteer', params: {
-      'p_volunteer_id': id,
-      'p_name': name.trim(),
-      'p_phone': phone.trim(),
-      'p_status': status
-    });
+  Future<Map<String, dynamic>> updateCharityVolunteer({
+    required String id,
+    required String name,
+    required String phone,
+    required String status,
+  }) async {
+    final result = await _client.rpc(
+      'update_my_charity_volunteer',
+      params: {
+        'p_volunteer_id': id,
+        'p_name': name.trim(),
+        'p_phone': phone.trim(),
+        'p_status': status,
+      },
+    );
     return _mapFromRpc(result);
   }
 
   Future<void> deleteCharityVolunteer(String id) async {
-    await _client
-        .rpc('delete_my_charity_volunteer', params: {'p_volunteer_id': id});
+    await _client.rpc(
+      'delete_my_charity_volunteer',
+      params: {'p_volunteer_id': id},
+    );
   }
 
   Future<List<Map<String, dynamic>>> getCharityDonations() async {
     final charityId = await _charityIdForCurrentUser();
-    final rows = await _client.from('charity_donation_requests').select('''
-      id, donor_id, charity_id, title, description, category, quantity, condition,
+    final rows = await _client
+        .from('charity_donation_requests')
+        .select('''
+      id, donor_id, charity_id, title, description, category, categories, items,
+      quantity, condition,
       images, pickup_address, pickup_city, donor_phone, donor_notes, charity_notes, status,
       volunteer_type, volunteer_id, volunteer_name, volunteer_phone,
       pickup_token_expires_at, donor_pickup_confirmed_at, accepted_at,
@@ -313,7 +389,10 @@ class SeparateCharityDonationRepository {
       open_to_independent_volunteers, charity_accepted_at, volunteer_accepted_at,
       delivery_type, rejection_reason,
       users:donor_id (id, name, phone, email, avatar_url)
-    ''').eq('charity_id', charityId).order('created_at', ascending: false);
+    ''')
+        .eq('charity_id', charityId)
+        .filter('deleted_at', 'is', null)
+        .order('created_at', ascending: false);
 
     final result = <Map<String, dynamic>>[];
     for (final rawRow in (rows as List)) {
@@ -345,10 +424,12 @@ class SeparateCharityDonationRepository {
         'created_at': source['created_at'] ?? source['donated_at'],
         'users': <String, dynamic>{
           'id': source['restaurant_id'] ?? source['business_id'],
-          'name': source['restaurant_name'] ??
+          'name':
+              source['restaurant_name'] ??
               source['business_name'] ??
               'مؤسسة متبرعة',
-          'phone': source['restaurant_phone'] ??
+          'phone':
+              source['restaurant_phone'] ??
               source['business_phone'] ??
               source['donor_phone'],
           'email': source['restaurant_email'] ?? source['business_email'],
@@ -359,9 +440,11 @@ class SeparateCharityDonationRepository {
     }
 
     result.sort((a, b) {
-      final aDate = DateTime.tryParse(a['created_at']?.toString() ?? '') ??
+      final aDate =
+          DateTime.tryParse(a['created_at']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = DateTime.tryParse(b['created_at']?.toString() ?? '') ??
+      final bDate =
+          DateTime.tryParse(b['created_at']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0);
       return bDate.compareTo(aDate);
     });
@@ -373,12 +456,18 @@ class SeparateCharityDonationRepository {
 
   Future<List<Map<String, dynamic>>> getVolunteerDonations() async {
     final userId = await _currentUserId();
-    final rows = await _client.from('charity_donation_requests').select('''
-      id, title, description, category, quantity, images, pickup_address, pickup_city,
+    final rows = await _client
+        .from('charity_donation_requests')
+        .select('''
+      id, title, description, category, categories, items, quantity, images,
+      pickup_address, pickup_city,
       donor_phone, status, volunteer_name, volunteer_phone, donor_pickup_confirmed_at,
       charity_received_at, delivery_type, open_to_independent_volunteers,
       charities:charity_id (id, name, address, phone)
-    ''').eq('volunteer_id', userId).order('created_at', ascending: false);
+    ''')
+        .eq('volunteer_id', userId)
+        .filter('deleted_at', 'is', null)
+        .order('created_at', ascending: false);
     final result = <Map<String, dynamic>>[];
     for (final rawRow in (rows as List)) {
       final row = Map<String, dynamic>.from(rawRow as Map);
@@ -429,10 +518,7 @@ class SeparateCharityDonationRepository {
     try {
       final result = await _client.rpc(
         'charity_reject_donation',
-        params: {
-          'p_request_id': requestId.trim(),
-          'p_reason': reason?.trim(),
-        },
+        params: {'p_request_id': requestId.trim(), 'p_reason': reason?.trim()},
       );
       await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
@@ -498,10 +584,7 @@ class SeparateCharityDonationRepository {
     try {
       final result = await _client.rpc(
         'confirm_pickup_from_donor',
-        params: {
-          'p_request_id': requestId.trim(),
-          'p_code': code.trim(),
-        },
+        params: {'p_request_id': requestId.trim(), 'p_code': code.trim()},
       );
       await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
@@ -541,9 +624,7 @@ class SeparateCharityDonationRepository {
       final data = Map<String, dynamic>.from(result as Map);
 
       if (data['success'] != true) {
-        throw Exception(
-          data['error']?.toString() ?? 'تعذر تحديث حالة التبرع',
-        );
+        throw Exception(data['error']?.toString() ?? 'تعذر تحديث حالة التبرع');
       }
 
       await _notifyDonationEvent(requestId, 'status');
@@ -558,7 +639,8 @@ class SeparateCharityDonationRepository {
   // ─────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> volunteerDeliverToCharity(
-      String requestId) async {
+    String requestId,
+  ) async {
     try {
       final result = await _client.rpc(
         'volunteer_deliver_to_charity',
@@ -637,9 +719,7 @@ class SeparateCharityDonationRepository {
 
   Future<String> markDonorReady(String requestId) async {
     try {
-      final result = await _client.rpc('mark_direct_donation_donor_ready_v2',
-          params: {'p_request_id': requestId});
-      final data = Map<String, dynamic>.from(result as Map);
+      final data = await markDonorReadyV2(requestId);
       return data['pickup_code']?.toString() ?? '';
     } catch (e) {
       throw Exception(_friendly(e));
@@ -665,45 +745,57 @@ class SeparateCharityDonationRepository {
     }
   }
 
-  Future<void> confirmPickup(
-      {required String requestId, required String token}) async {
+  Future<void> confirmPickup({
+    required String requestId,
+    required String token,
+  }) async {
     try {
-      await _client.rpc('confirm_direct_donation_pickup',
-          params: {'p_request_id': requestId, 'p_token': token.trim()});
+      await _client.rpc(
+        'confirm_direct_donation_pickup',
+        params: {'p_request_id': requestId, 'p_token': token.trim()},
+      );
     } catch (e) {
       throw Exception(_friendly(e));
     }
   }
 
-  Future<void> assignExternalRepresentative(
-      {required String requestId,
-      required String name,
-      required String phone}) async {
+  Future<void> assignExternalRepresentative({
+    required String requestId,
+    required String name,
+    required String phone,
+  }) async {
     try {
-      await _client.rpc('assign_direct_external_representative_v2', params: {
-        'p_request_id': requestId,
-        'p_name': name.trim(),
-        'p_phone': phone.trim(),
-      });
+      await _client.rpc(
+        'assign_direct_external_representative_v2',
+        params: {
+          'p_request_id': requestId,
+          'p_name': name.trim(),
+          'p_phone': phone.trim(),
+        },
+      );
     } catch (e) {
       throw Exception(_friendly(e));
     }
   }
 
-  Future<void> assignVolunteer(
-      {required String requestId,
-      required String volunteerType,
-      String? volunteerId,
-      String? volunteerName,
-      String? volunteerPhone}) async {
+  Future<void> assignVolunteer({
+    required String requestId,
+    required String volunteerType,
+    String? volunteerId,
+    String? volunteerName,
+    String? volunteerPhone,
+  }) async {
     try {
-      await _client.rpc('assign_direct_donation_volunteer', params: {
-        'p_request_id': requestId,
-        'p_volunteer_type': volunteerType,
-        'p_volunteer_id': volunteerId,
-        'p_volunteer_name': volunteerName,
-        'p_volunteer_phone': volunteerPhone,
-      });
+      await _client.rpc(
+        'assign_direct_donation_volunteer',
+        params: {
+          'p_request_id': requestId,
+          'p_volunteer_type': volunteerType,
+          'p_volunteer_id': volunteerId,
+          'p_volunteer_name': volunteerName,
+          'p_volunteer_phone': volunteerPhone,
+        },
+      );
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -716,10 +808,7 @@ class SeparateCharityDonationRepository {
     try {
       await _client.rpc(
         'charity_assign_restaurant_donation_volunteer',
-        params: {
-          'p_donation_id': donationId,
-          'p_volunteer_id': volunteerId,
-        },
+        params: {'p_donation_id': donationId, 'p_volunteer_id': volunteerId},
       );
     } catch (e) {
       throw Exception(_friendly(e));
@@ -762,10 +851,7 @@ class SeparateCharityDonationRepository {
     try {
       await _client.rpc(
         'charity_confirm_restaurant_donation_pickup',
-        params: {
-          'p_donation_id': donationId,
-          'p_token': normalized,
-        },
+        params: {'p_donation_id': donationId, 'p_token': normalized},
       );
     } catch (e) {
       throw Exception(_friendly(e));
@@ -797,17 +883,11 @@ class SeparateCharityDonationRepository {
       final result = isRestaurantDonation
           ? await _client.rpc(
               'charity_update_restaurant_donation_status',
-              params: {
-                'p_donation_id': requestId,
-                'p_next_status': status,
-              },
+              params: {'p_donation_id': requestId, 'p_next_status': status},
             )
           : await _client.rpc(
               'advance_direct_donation_status',
-              params: {
-                'p_request_id': requestId,
-                'p_next_status': status,
-              },
+              params: {'p_request_id': requestId, 'p_next_status': status},
             );
       if (!isRestaurantDonation) {
         await _notifyDonationEvent(requestId, 'status');
@@ -815,7 +895,8 @@ class SeparateCharityDonationRepository {
       if (!isRestaurantDonation && notes != null && notes.trim().isNotEmpty) {
         await _client
             .from('charity_donation_requests')
-            .update({'charity_notes': notes.trim()}).eq('id', requestId);
+            .update({'charity_notes': notes.trim()})
+            .eq('id', requestId);
       }
     } catch (e) {
       throw Exception(_friendly(e));
@@ -892,7 +973,9 @@ class SeparateCharityDonationRepository {
   }
 
   Future<void> confirmVolunteerPickupWithCode(
-      String requestId, String code) async {
+    String requestId,
+    String code,
+  ) async {
     try {
       final result = await _client.rpc(
         'volunteer_confirm_pickup_with_code',
@@ -958,11 +1041,14 @@ class SeparateCharityDonationRepository {
     String? charityId,
   }) async {
     try {
-      await _client.rpc('confirm_charity_delivery_with_code', params: {
-        'p_request_id': requestId,
-        'p_code': code.trim(),
-        'p_charity_id': charityId,
-      });
+      await _client.rpc(
+        'confirm_charity_delivery_with_code',
+        params: {
+          'p_request_id': requestId,
+          'p_code': code.trim(),
+          'p_charity_id': charityId,
+        },
+      );
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // ✅ أضفنا الاستيراد عشان Clipboard
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/features/charity/presentation/widgets/donation_items_summary.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class VolunteerDonationDetailPage extends StatefulWidget {
@@ -60,8 +61,7 @@ class _VolunteerDonationDetailPageState
       final user = SupabaseService().client.auth.currentUser;
       if (user == null || _donationId.isEmpty) return;
 
-      final response = await SupabaseService()
-          .client
+      final response = await SupabaseService().client
           .from('charity_donation_requests')
           .select('volunteer_id, status')
           .eq('id', _donationId)
@@ -148,10 +148,7 @@ class _VolunteerDonationDetailPageState
             SizedBox(width: 10),
             Text(
               'تأكيد استلام التبرع',
-              style: TextStyle(
-                color: _darkGreen,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
             ),
           ],
         ),
@@ -186,12 +183,16 @@ class _VolunteerDonationDetailPageState
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: _green, width: 2),
                 ),
-                prefixIcon:
-                    const Icon(Icons.lock_outline_rounded, color: _green),
+                prefixIcon: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: _green,
+                ),
                 counterText: '',
                 helperText: 'اسأل المتبرع عن الكود',
-                helperStyle:
-                    const TextStyle(color: Color(0xFF71837C), fontSize: 11),
+                helperStyle: const TextStyle(
+                  color: Color(0xFF71837C),
+                  fontSize: 11,
+                ),
               ),
               onSubmitted: (_) => _confirmDonorPickup(),
             ),
@@ -200,8 +201,10 @@ class _VolunteerDonationDetailPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                const Text('إلغاء', style: TextStyle(color: Color(0xFF71837C))),
+            child: const Text(
+              'إلغاء',
+              style: TextStyle(color: Color(0xFF71837C)),
+            ),
           ),
           FilledButton.icon(
             onPressed: _isLoading ? null : _confirmDonorPickup,
@@ -317,10 +320,7 @@ class _VolunteerDonationDetailPageState
             SizedBox(width: 10),
             Text(
               'كود تسليم الجمعية',
-              style: TextStyle(
-                color: _darkGreen,
-                fontWeight: FontWeight.w900,
-              ),
+              style: TextStyle(color: _darkGreen, fontWeight: FontWeight.w900),
             ),
           ],
         ),
@@ -398,11 +398,18 @@ class _VolunteerDonationDetailPageState
     final title = donation['title']?.toString().trim().isNotEmpty == true
         ? donation['title'].toString()
         : 'تبرع';
-    final quantity = donation['quantity']?.toString() ?? '1';
+    final rawItems = donation['items'];
+    final rawCategories = donation['categories'];
+    final itemCount = rawItems is List && rawItems.isNotEmpty
+        ? rawItems.length
+        : rawCategories is List && rawCategories.isNotEmpty
+        ? rawCategories.length
+        : 1;
     final charity = donation['charities'] is Map
         ? Map<String, dynamic>.from(donation['charities'] as Map)
         : const {};
-    final charityName = charity['name']?.toString() ??
+    final charityName =
+        charity['name']?.toString() ??
         donation['charity_name']?.toString() ??
         'جمعية خيرية';
     final city = donation['pickup_city']?.toString() ?? '';
@@ -411,7 +418,8 @@ class _VolunteerDonationDetailPageState
     final donor = donation['users'] is Map
         ? Map<String, dynamic>.from(donation['users'] as Map)
         : const {};
-    final donorName = donor['name']?.toString() ??
+    final donorName =
+        donor['name']?.toString() ??
         donation['donor_name']?.toString() ??
         'متبرع';
     final donorPhone =
@@ -424,8 +432,10 @@ class _VolunteerDonationDetailPageState
         child: Scaffold(
           backgroundColor: _background,
           appBar: AppBar(
-            title: const Text('تفاصيل التبرع',
-                style: TextStyle(fontWeight: FontWeight.w900)),
+            title: const Text(
+              'تفاصيل التبرع',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
             backgroundColor: _background,
             foregroundColor: _darkGreen,
             elevation: 0,
@@ -447,130 +457,190 @@ class _VolunteerDonationDetailPageState
             children: [
               _hero(title, charityName),
               const SizedBox(height: 16),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                _infoChip(Icons.inventory_2_outlined, '$quantity وحدة', _green),
-                _infoChip(Icons.volunteer_activism_rounded, charityName,
-                    const Color(0xFF3679C8)),
-                if (city.isNotEmpty)
-                  _infoChip(Icons.location_on_outlined, city,
-                      const Color(0xFFB77700)),
-                _infoChip(Icons.person_outline, 'المتبرع: $donorName',
-                    const Color(0xFF71837C)),
-                if (donorPhone.isNotEmpty && _isClaimed)
-                  GestureDetector(
-                    onTap: () => _callDonor(donorPhone),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _green.withAlpha(15),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _green.withAlpha(40)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.phone_rounded,
-                              size: 14, color: _green),
-                          const SizedBox(width: 4),
-                          Text(donorPhone,
-                              style: const TextStyle(
-                                  color: _green,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700)),
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                                color: _green,
-                                borderRadius: BorderRadius.circular(4)),
-                            child: const Icon(Icons.call_rounded,
-                                size: 10, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _infoChip(
+                    Icons.inventory_2_outlined,
+                    '$itemCount ${itemCount == 1 ? 'صنف' : 'أصناف'}',
+                    _green,
                   ),
-              ]),
-              const SizedBox(height: 16),
-              _card(
-                title: 'معلومات التبرع',
-                icon: Icons.info_outline_rounded,
-                child: Column(children: [
-                  if (description.isNotEmpty) _row('الوصف', description),
-                  if (address.isNotEmpty) _row('العنوان', address),
-                  if (donorPhone.isNotEmpty && _isClaimed)
-                    _row(
-                      'هاتف المتبرع',
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(donorPhone,
-                              style: const TextStyle(
-                                  color: _darkGreen,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13)),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _callDonor(donorPhone),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                  color: _green,
-                                  borderRadius: BorderRadius.circular(8)),
-                              child: const Icon(Icons.phone_rounded,
-                                  size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ),
+                  _infoChip(
+                    Icons.volunteer_activism_rounded,
+                    charityName,
+                    const Color(0xFF3679C8),
+                  ),
+                  if (city.isNotEmpty)
+                    _infoChip(
+                      Icons.location_on_outlined,
+                      city,
+                      const Color(0xFFB77700),
                     ),
-                  _row('الحالة', _statusLabel(_status)),
-                  if (_status == 'in_transit' && _charityCode.isNotEmpty)
-                    _row(
-                      'كود الجمعية',
-                      Container(
+                  _infoChip(
+                    Icons.person_outline,
+                    'المتبرع: $donorName',
+                    const Color(0xFF71837C),
+                  ),
+                  if (donorPhone.isNotEmpty && _isClaimed)
+                    GestureDetector(
+                      onTap: () => _callDonor(donorPhone),
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE3F7EC),
-                          borderRadius: BorderRadius.circular(8),
-                          border:
-                              Border.all(color: _green.withAlpha(50), width: 1),
+                          color: _green.withAlpha(15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _green.withAlpha(40)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.business_center_rounded,
-                                size: 14, color: _green),
-                            const SizedBox(width: 6),
-                            Text(_charityCode,
-                                style: const TextStyle(
-                                    color: _green,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                    letterSpacing: 2)),
-                            const SizedBox(width: 6),
-                            InkWell(
-                              onTap: () {
-                                Clipboard.setData(
-                                    ClipboardData(text: _charityCode));
-                                _toast('تم نسخ الكود 📋');
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                    color: _green.withAlpha(30),
-                                    borderRadius: BorderRadius.circular(4)),
-                                child: const Icon(Icons.copy_rounded,
-                                    size: 12, color: _green),
+                            const Icon(
+                              Icons.phone_rounded,
+                              size: 14,
+                              color: _green,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              donorPhone,
+                              style: const TextStyle(
+                                color: _green,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: _green,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.call_rounded,
+                                size: 10,
+                                color: Colors.white,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                ]),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _card(
+                title: 'معلومات التبرع',
+                icon: Icons.info_outline_rounded,
+                child: Column(
+                  children: [
+                    DonationItemsSummary(
+                      items: donation['items'],
+                      categories: donation['categories'],
+                      category: donation['category']?.toString(),
+                      quantity: donation['quantity'],
+                      condition: donation['condition']?.toString(),
+                    ),
+                    if (description.isNotEmpty) _row('الوصف', description),
+                    if (address.isNotEmpty) _row('العنوان', address),
+                    if (donorPhone.isNotEmpty && _isClaimed)
+                      _row(
+                        'هاتف المتبرع',
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              donorPhone,
+                              style: const TextStyle(
+                                color: _darkGreen,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => _callDonor(donorPhone),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: _green,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.phone_rounded,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    _row('الحالة', _statusLabel(_status)),
+                    if (_status == 'in_transit' && _charityCode.isNotEmpty)
+                      _row(
+                        'كود الجمعية',
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F7EC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _green.withAlpha(50),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.business_center_rounded,
+                                size: 14,
+                                color: _green,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _charityCode,
+                                style: const TextStyle(
+                                  color: _green,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () {
+                                  Clipboard.setData(
+                                    ClipboardData(text: _charityCode),
+                                  );
+                                  _toast('تم نسخ الكود 📋');
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: _green.withAlpha(30),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 12,
+                                    color: _green,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               _timeline(),
@@ -599,9 +669,10 @@ class _VolunteerDonationDetailPageState
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-              color: _green.withAlpha(40),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
+            color: _green.withAlpha(40),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Stack(
@@ -611,13 +682,18 @@ class _VolunteerDonationDetailPageState
               ? const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                        colors: [_darkGreen, _green],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft),
+                      colors: [_darkGreen, _green],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    ),
                   ),
                   child: Center(
-                      child: Icon(Icons.volunteer_activism_rounded,
-                          color: Colors.white, size: 52)),
+                    child: Icon(
+                      Icons.volunteer_activism_rounded,
+                      color: Colors.white,
+                      size: 52,
+                    ),
+                  ),
                 )
               : Image.network(
                   heroImage,
@@ -625,13 +701,18 @@ class _VolunteerDonationDetailPageState
                   errorBuilder: (_, __, ___) => const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                          colors: [_darkGreen, _green],
-                          begin: Alignment.topRight,
-                          end: Alignment.bottomLeft),
+                        colors: [_darkGreen, _green],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
                     ),
                     child: Center(
-                        child: Icon(Icons.image_not_supported_outlined,
-                            color: Colors.white, size: 42)),
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.white,
+                        size: 42,
+                      ),
+                    ),
                   ),
                 ),
           Positioned.fill(
@@ -654,21 +735,27 @@ class _VolunteerDonationDetailPageState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 const SizedBox(height: 3),
-                Text(charityName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: Colors.white.withAlpha(220),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12)),
+                Text(
+                  charityName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(220),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
           ),
@@ -681,8 +768,11 @@ class _VolunteerDonationDetailPageState
     // 1. التبرع متاح للحجز
     if (_status == 'accepted' && !_isClaimed) {
       return _actionButton(
-          '🚀 قادر أوصله', Icons.volunteer_activism_rounded, _claimDonation,
-          color: _green);
+        '🚀 قادر أوصله',
+        Icons.volunteer_activism_rounded,
+        _claimDonation,
+        color: _green,
+      );
     }
 
     // 2. تم الحجز - إدخال كود المتبرع
@@ -696,9 +786,12 @@ class _VolunteerDonationDetailPageState
             const Color(0xFF3679C8),
           ),
           const SizedBox(height: 12),
-          _actionButton('🔑 إدخال كود المتبرع', Icons.qr_code_scanner_rounded,
-              _showDonorCodeDialog,
-              color: const Color(0xFFE28B00)),
+          _actionButton(
+            '🔑 إدخال كود المتبرع',
+            Icons.qr_code_scanner_rounded,
+            _showDonorCodeDialog,
+            color: const Color(0xFFE28B00),
+          ),
         ],
       );
     }
@@ -717,12 +810,18 @@ class _VolunteerDonationDetailPageState
           // ✅ لو الكود موجود بالفعل، اعرضه بدل ما تعمل كود جديد
           if (_isCodeGenerated && _charityCode.isNotEmpty)
             _actionButton(
-                '📋 عرض كود الجمعية', Icons.qr_code_rounded, _showCharityCode,
-                color: _orange)
+              '📋 عرض كود الجمعية',
+              Icons.qr_code_rounded,
+              _showCharityCode,
+              color: _orange,
+            )
           else
-            _actionButton('🏢 إنشاء كود الجمعية', Icons.business_center_rounded,
-                _generateCharityCode,
-                color: const Color(0xFF3679C8)),
+            _actionButton(
+              '🏢 إنشاء كود الجمعية',
+              Icons.business_center_rounded,
+              _generateCharityCode,
+              color: const Color(0xFF3679C8),
+            ),
         ],
       );
     }
@@ -742,8 +841,11 @@ class _VolunteerDonationDetailPageState
           if (_charityCode.isNotEmpty) ...[
             const SizedBox(height: 12),
             _actionButton(
-                '📋 عرض كود الجمعية', Icons.qr_code_rounded, _showCharityCode,
-                color: _orange),
+              '📋 عرض كود الجمعية',
+              Icons.qr_code_rounded,
+              _showCharityCode,
+              color: _orange,
+            ),
           ],
         ],
       );
@@ -758,61 +860,84 @@ class _VolunteerDonationDetailPageState
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFBFE7CE)),
         ),
-        child: const Row(children: [
-          Icon(Icons.celebration_rounded, color: _green, size: 30),
-          SizedBox(width: 12),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('🎉 تم التوصيل بنجاح!',
-                  style: TextStyle(
+        child: const Row(
+          children: [
+            Icon(Icons.celebration_rounded, color: _green, size: 30),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '🎉 تم التوصيل بنجاح!',
+                    style: TextStyle(
                       color: _green,
                       fontWeight: FontWeight.w900,
-                      fontSize: 15)),
-              SizedBox(height: 2),
-              Text('شكرًا لمجهودك في إيصال هذا التبرع',
-                  style: TextStyle(color: Color(0xFF396653), fontSize: 12)),
-            ]),
-          ),
-        ]),
+                      fontSize: 15,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'شكرًا لمجهودك في إيصال هذا التبرع',
+                    style: TextStyle(color: Color(0xFF396653), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     // محجوز من متطوع آخر
     if (_isClaimed == false && _status != 'accepted') {
-      return _notice(Icons.lock_outline_rounded, '🔒 تم حجز التبرع',
-          'تم حجزه من متطوع آخر قبلك', Colors.grey.shade600);
+      return _notice(
+        Icons.lock_outline_rounded,
+        '🔒 تم حجز التبرع',
+        'تم حجزه من متطوع آخر قبلك',
+        Colors.grey.shade600,
+      );
     }
 
-    return _notice(Icons.info_outline_rounded, _statusLabel(_status),
-        'في انتظار تحديث الحالة', Colors.grey.shade600);
+    return _notice(
+      Icons.info_outline_rounded,
+      _statusLabel(_status),
+      'في انتظار تحديث الحالة',
+      Colors.grey.shade600,
+    );
   }
 
-  Widget _actionButton(String label, IconData icon, VoidCallback action,
-          {Color color = _green}) =>
-      SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: _isLoading ? null : action,
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : Icon(icon),
-          label: Text(label,
-              style:
-                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-          style: FilledButton.styleFrom(
-            backgroundColor: color,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-        ),
-      );
+  Widget _actionButton(
+    String label,
+    IconData icon,
+    VoidCallback action, {
+    Color color = _green,
+  }) => SizedBox(
+    width: double.infinity,
+    child: FilledButton.icon(
+      onPressed: _isLoading ? null : action,
+      icon: _isLoading
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : Icon(icon),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+      ),
+      style: FilledButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    ),
+  );
 
   Widget _notice(IconData icon, String title, String subtitle, Color color) =>
       Container(
@@ -823,105 +948,151 @@ class _VolunteerDonationDetailPageState
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: color.withAlpha(60)),
         ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-                color: color.withAlpha(30), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title,
-                  style: TextStyle(
-                      color: color, fontSize: 13, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 2),
-              Text(subtitle,
-                  style: TextStyle(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withAlpha(30),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
                       color: color.withAlpha(210),
                       fontSize: 11.5,
-                      fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ]),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
 
-  Widget _card(
-          {required String title,
-          required IconData icon,
-          required Widget child}) =>
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2EEE8)),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
+  Widget _card({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE2EEE8)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
             Icon(icon, color: _green, size: 19),
             const SizedBox(width: 8),
-            Text(title,
-                style: const TextStyle(
-                    color: _darkGreen,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900)),
-          ]),
-          const SizedBox(height: 12),
-          child,
-        ]),
-      );
+            Text(
+              title,
+              style: const TextStyle(
+                color: _darkGreen,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    ),
+  );
 
   Widget _row(String label, dynamic value) => Padding(
-        padding: const EdgeInsets.only(bottom: 9),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            width: 85,
-            child: Text(label,
-                style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700)),
+    padding: const EdgeInsets.only(bottom: 9),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 85,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          Expanded(
-            child: value is Widget
-                ? value
-                : Text(value.toString(),
-                    style: const TextStyle(
-                        color: _darkGreen,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13)),
-          ),
-        ]),
-      );
+        ),
+        Expanded(
+          child: value is Widget
+              ? value
+              : Text(
+                  value.toString(),
+                  style: const TextStyle(
+                    color: _darkGreen,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+        ),
+      ],
+    ),
+  );
 
   Widget _infoChip(IconData icon, String label, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withAlpha(20),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withAlpha(50)),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withAlpha(20),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color.withAlpha(50)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(label,
-              style: TextStyle(
-                  color: color, fontSize: 12, fontWeight: FontWeight.w700)),
-        ]),
-      );
+      ],
+    ),
+  );
 
   Widget _statusPill(String status) {
     final data = _statusData(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-          color: data.$2, borderRadius: BorderRadius.circular(20)),
-      child: Text(data.$1,
-          style: TextStyle(
-              color: data.$3, fontSize: 10, fontWeight: FontWeight.w900)),
+        color: data.$2,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        data.$1,
+        style: TextStyle(
+          color: data.$3,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
     );
   }
 
@@ -930,22 +1101,22 @@ class _VolunteerDonationDetailPageState
         'accepted': (
           'بانتظار متطوع',
           const Color(0xFFFFF1D8),
-          const Color(0xFF9A6711)
+          const Color(0xFF9A6711),
         ),
         'volunteer_assigned': (
           'معك أنت',
           const Color(0xFFECE8FF),
-          const Color(0xFF6651B5)
+          const Color(0xFF6651B5),
         ),
         'picked_up_from_donor': (
           'استلمت من المتبرع',
           const Color(0xFFE5F2FF),
-          const Color(0xFF2F6DA5)
+          const Color(0xFF2F6DA5),
         ),
         'in_transit': (
           'في الطريق للجمعية',
           const Color(0xFFFFF3E0),
-          const Color(0xFFE28B00)
+          const Color(0xFFE28B00),
         ),
         'completed': ('تم التوصيل', const Color(0xFFE3F7EC), _green),
       }[status] ??
@@ -959,7 +1130,7 @@ class _VolunteerDonationDetailPageState
       'volunteer_assigned',
       'picked_up_from_donor',
       'in_transit',
-      'completed'
+      'completed',
     ];
     final current = stages.indexOf(_status);
     // ✅ إذا كانت الحالة غير موجودة في القائمة، استخدم 0
@@ -973,60 +1144,67 @@ class _VolunteerDonationDetailPageState
           final isPast = index < activeIndex;
           final isCurrent = index == activeIndex;
 
-          return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-              width: 30,
-              child: Column(children: [
-                Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: isPast
-                        ? _green
-                        : (isCurrent ? _mint : Colors.grey.shade200),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isCurrent
-                          ? _green
-                          : (isPast ? _green : Colors.transparent),
-                      width: isCurrent ? 3 : 1,
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 30,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: isPast
+                            ? _green
+                            : (isCurrent ? _mint : Colors.grey.shade200),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isCurrent
+                              ? _green
+                              : (isPast ? _green : Colors.transparent),
+                          width: isCurrent ? 3 : 1,
+                        ),
+                      ),
+                      child: Icon(
+                        isPast
+                            ? Icons.check_rounded
+                            : (isCurrent ? Icons.circle : Icons.circle),
+                        size: isPast ? 14 : (isCurrent ? 10 : 8),
+                        color: isPast
+                            ? Colors.white
+                            : (isCurrent ? _green : Colors.grey.shade400),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    isPast
-                        ? Icons.check_rounded
-                        : (isCurrent ? Icons.circle : Icons.circle),
-                    size: isPast ? 14 : (isCurrent ? 10 : 8),
-                    color: isPast
-                        ? Colors.white
-                        : (isCurrent ? _green : Colors.grey.shade400),
-                  ),
+                    if (index < stages.length - 1)
+                      Container(
+                        width: 2,
+                        height: 28,
+                        color: isPast ? _green : Colors.grey.shade200,
+                      ),
+                  ],
                 ),
-                if (index < stages.length - 1)
-                  Container(
-                    width: 2,
-                    height: 28,
-                    color: isPast ? _green : Colors.grey.shade200,
-                  ),
-              ]),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 2, bottom: 12),
-                child: Text(
-                  _stageLabel(stages[index]),
-                  style: TextStyle(
-                    color:
-                        isPast || isCurrent ? _darkGreen : Colors.grey.shade400,
-                    fontWeight:
-                        isPast || isCurrent ? FontWeight.w800 : FontWeight.w500,
-                    fontSize: 13,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 12),
+                  child: Text(
+                    _stageLabel(stages[index]),
+                    style: TextStyle(
+                      color: isPast || isCurrent
+                          ? _darkGreen
+                          : Colors.grey.shade400,
+                      fontWeight: isPast || isCurrent
+                          ? FontWeight.w800
+                          : FontWeight.w500,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ]);
+            ],
+          );
         }),
       ),
     );

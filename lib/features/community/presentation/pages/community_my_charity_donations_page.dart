@@ -1,10 +1,11 @@
-﻿// lib/features/community/presentation/pages/community_my_charity_donations_page.dart
+// lib/features/community/presentation/pages/community_my_charity_donations_page.dart
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
+import 'package:loqma/features/charity/presentation/widgets/donation_items_summary.dart';
 import 'package:loqma/features/community/presentation/pages/community_charity_donation_details_page.dart';
 
 class CommunityMyCharityDonationsPage extends StatefulWidget {
@@ -150,10 +151,7 @@ class _CommunityMyCharityDonationsPageState
                   const SizedBox(width: 4),
                   Text(
                     'الكود صالح لمدة 7 أيام',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   ),
                 ],
               ),
@@ -188,11 +186,18 @@ class _CommunityMyCharityDonationsPageState
   }
 
   /// ✅ استخدام RPC الجديدة
-  Future<void> _markDonorReady(String requestId) async {
+  Future<void> _markDonorReady(
+    String requestId, {
+    bool renewingCode = false,
+  }) async {
     try {
       await _repository.markDonorReadyV2(requestId);
       if (mounted) {
-        _message('✅ تم تأكيد جاهزيتك للتسليم');
+        _message(
+          renewingCode
+              ? '✅ تم تجديد كود الاستلام'
+              : '✅ تم تأكيد جاهزيتك للتسليم',
+        );
         await _refresh();
       }
     } catch (e) {
@@ -231,42 +236,50 @@ class _CommunityMyCharityDonationsPageState
             final all = snapshot.data ?? const <Map<String, dynamic>>[];
             final rows = all.where(_matches).toList();
 
-            final pending =
-                all.where((r) => r['status']?.toString() == 'pending').length;
+            final pending = all
+                .where((r) => r['status']?.toString() == 'pending')
+                .length;
 
             // ✅ قيد التنفيذ (بيشمل volunteer_needed)
             final active = all
-                .where((r) => {
-                      'accepted',
-                      'volunteer_needed',
-                      'donor_ready',
-                      'volunteer_assigned',
-                      'picked_up_from_donor',
-                      'in_transit'
-                    }.contains(r['status']?.toString()))
+                .where(
+                  (r) => {
+                    'accepted',
+                    'volunteer_needed',
+                    'donor_ready',
+                    'volunteer_assigned',
+                    'picked_up_from_donor',
+                    'in_transit',
+                  }.contains(r['status']?.toString()),
+                )
                 .length;
 
             final assigned = all
-                .where((r) => {
-                      'volunteer_assigned',
-                      'picked_up_from_donor',
-                      'in_transit'
-                    }.contains(r['status']?.toString()))
+                .where(
+                  (r) => {
+                    'volunteer_assigned',
+                    'picked_up_from_donor',
+                    'in_transit',
+                  }.contains(r['status']?.toString()),
+                )
                 .length;
 
-            final completed =
-                all.where((r) => r['status']?.toString() == 'completed').length;
+            final completed = all
+                .where((r) => r['status']?.toString() == 'completed')
+                .length;
 
             // ✅ يظهر "يحتاج إجراء" لو:
             // 1. accepted → يعلن جاهزيته
             // 2. volunteer_needed → يعلن جاهزيته
             // 3. volunteer_assigned → يعرض الكود
             final actionRows = all
-                .where((r) => {
-                      'accepted',
-                      'volunteer_needed',
-                      'volunteer_assigned'
-                    }.contains(r['status']?.toString()))
+                .where(
+                  (r) => {
+                    'accepted',
+                    'volunteer_needed',
+                    'volunteer_assigned',
+                  }.contains(r['status']?.toString()),
+                )
                 .take(2)
                 .toList();
 
@@ -451,16 +464,11 @@ class _CommunityMyCharityDonationsPageState
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
@@ -692,9 +700,7 @@ class _CommunityMyCharityDonationsPageState
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: BorderRadius.circular(18),
-        border: Border(
-          right: BorderSide(color: accentColor, width: 4),
-        ),
+        border: Border(right: BorderSide(color: accentColor, width: 4)),
         boxShadow: [
           BoxShadow(
             color: _darkGreen.withValues(alpha: 0.04),
@@ -848,10 +854,7 @@ class _CommunityMyCharityDonationsPageState
             onTap: () => setState(() => _filter = key),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: active ? activeColor : Colors.white,
                 borderRadius: BorderRadius.circular(12),
@@ -905,14 +908,38 @@ class _CommunityMyCharityDonationsPageState
     final title = row['title']?.toString() ?? 'تبرع مباشر';
     final charityName = charity['name']?.toString() ?? 'جمعية موثقة';
     final volunteer = row['volunteer_name']?.toString();
-    final isCurrentUserVolunteer = row['volunteer_id']?.toString() ==
-        Supabase.instance.client.auth.currentUser?.id;
+    final hasVolunteer =
+        (volunteer?.trim().isNotEmpty ?? false) ||
+        (row['volunteer_phone']?.toString().trim().isNotEmpty ?? false);
+    final isDonorReady = row['donor_pickup_confirmed_at'] != null;
+    final pickupExpiry = DateTime.tryParse(
+      row['pickup_token_expires_at']?.toString() ?? '',
+    );
+    final codeExpired =
+        isDonorReady &&
+        pickupExpiry != null &&
+        !pickupExpiry.toUtc().isAfter(DateTime.now().toUtc());
 
     // ✅ إظهار الأزرار حسب الحالة
     final showCode =
-        (status == 'volunteer_assigned' || status == 'donor_ready') &&
-            isCurrentUserVolunteer;
-    final showDonorReady = status == 'accepted' || status == 'volunteer_needed';
+        isDonorReady &&
+        !codeExpired &&
+        (status == 'volunteer_assigned' ||
+            (status == 'donor_ready' && hasVolunteer));
+    final waitingForAssignment =
+        isDonorReady &&
+        status == 'donor_ready' &&
+        !hasVolunteer &&
+        !codeExpired;
+    final waitingForVolunteer =
+        isDonorReady && status == 'volunteer_needed' && !codeExpired;
+    final showDonorReady =
+        codeExpired ||
+        (!isDonorReady &&
+            (status == 'accepted' ||
+                status == 'volunteer_needed' ||
+                status == 'volunteer_assigned' ||
+                status == 'donor_ready'));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1028,6 +1055,16 @@ class _CommunityMyCharityDonationsPageState
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                DonationItemsSummary(
+                  compact: true,
+                  showTitle: false,
+                  items: row['items'],
+                  categories: row['categories'],
+                  category: row['category']?.toString(),
+                  quantity: row['quantity'],
+                  condition: row['condition']?.toString(),
+                ),
                 if (volunteer != null && volunteer.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -1036,8 +1073,9 @@ class _CommunityMyCharityDonationsPageState
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: (isIndependent ? _purple : _blue)
-                          .withValues(alpha: 0.06),
+                      color: (isIndependent ? _purple : _blue).withValues(
+                        alpha: 0.06,
+                      ),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -1068,19 +1106,60 @@ class _CommunityMyCharityDonationsPageState
                 ],
                 const SizedBox(height: 14),
                 _buildTimeline(status, isIndependent: isIndependent),
+                if (waitingForAssignment) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _blue.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'تم تأكيد جاهزيتك. سيظهر كود التسليم بعد تعيين المندوب.',
+                      style: TextStyle(
+                        color: _blue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                if (waitingForVolunteer) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _purple.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'تبرعك جاهز ومتاح للمتطوعين. سيظهر كود التسليم بعد حجز متطوع.',
+                      style: TextStyle(
+                        color: _purple,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
                 if (showDonorReady) ...[
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
-                      onPressed: () => _markDonorReady(row['id'].toString()),
+                      onPressed: () => _markDonorReady(
+                        row['id'].toString(),
+                        renewingCode: codeExpired,
+                      ),
                       icon: const Icon(
                         Icons.check_circle_outline_rounded,
                         size: 18,
                       ),
-                      label: const Text(
-                        'أنا جاهز للتسليم',
-                        style: TextStyle(fontWeight: FontWeight.w800),
+                      label: Text(
+                        codeExpired ? 'تجديد كود الاستلام' : 'أنا جاهز للتسليم',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       style: FilledButton.styleFrom(
                         backgroundColor: _green,
@@ -1142,10 +1221,7 @@ class _CommunityMyCharityDonationsPageState
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Flexible(
@@ -1373,11 +1449,7 @@ class _CommunityMyCharityDonationsPageState
                 color: _red.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                color: _red,
-                size: 38,
-              ),
+              child: const Icon(Icons.cloud_off_rounded, color: _red, size: 38),
             ),
             const SizedBox(height: 20),
             const Text(

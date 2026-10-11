@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/charity/presentation/pages/charity_action_feedback.dart';
+import 'package:loqma/features/charity/presentation/widgets/donation_items_summary.dart';
 
 class CharityPersonDonationDetailsPage extends StatefulWidget {
   final Map<String, dynamic> donation;
 
-  const CharityPersonDonationDetailsPage({
-    super.key,
-    required this.donation,
-  });
+  const CharityPersonDonationDetailsPage({super.key, required this.donation});
 
   @override
   State<CharityPersonDonationDetailsPage> createState() =>
@@ -34,6 +32,8 @@ class _CharityPersonDonationDetailsPageState
   final _repository = SeparateCharityDonationRepository();
   bool _loading = false;
   bool _assignmentDialogOpen = false;
+  String? _assignedVolunteerName;
+  String? _assignedVolunteerPhone;
   late String _status;
   late AnimationController _animationController;
 
@@ -47,6 +47,17 @@ class _CharityPersonDonationDetailsPageState
       donation['user_name']?.toString() ??
       _nestedName(donation['users']) ??
       'متبرع';
+  String get _volunteerName =>
+      _assignedVolunteerName ?? donation['volunteer_name']?.toString() ?? '';
+  String get _volunteerPhone =>
+      _assignedVolunteerPhone ?? donation['volunteer_phone']?.toString() ?? '';
+  bool get _hasVolunteer =>
+      _volunteerName.trim().isNotEmpty ||
+      _volunteerPhone.trim().isNotEmpty ||
+      donation['assigned_at'] != null ||
+      donation['volunteer_type'] != null ||
+      donation['charity_volunteer_id'] != null ||
+      donation['volunteer_id'] != null;
 
   String get deliveryType =>
       donation['delivery_type']?.toString() ?? 'charity_volunteer';
@@ -109,9 +120,7 @@ class _CharityPersonDonationDetailsPageState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: _red),
@@ -174,9 +183,8 @@ class _CharityPersonDonationDetailsPageState
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (dialogContext) => _VolunteerBottomSheet(
-          volunteers: activeVolunteers,
-        ),
+        builder: (dialogContext) =>
+            _VolunteerBottomSheet(volunteers: activeVolunteers),
       );
 
       if (assignment == null || !mounted) {
@@ -188,7 +196,7 @@ class _CharityPersonDonationDetailsPageState
 
       final isExternal = assignment.id == null;
 
-      await _repository.charityAssignVolunteer(
+      final result = await _repository.charityAssignVolunteer(
         requestId: donationId,
         volunteerId: assignment.id,
         externalName: isExternal ? assignment.name : null,
@@ -196,7 +204,11 @@ class _CharityPersonDonationDetailsPageState
       );
 
       if (!mounted) return;
-      setState(() => _status = 'volunteer_assigned');
+      setState(() {
+        _status = result['status']?.toString() ?? 'accepted';
+        _assignedVolunteerName = result['volunteer_name']?.toString();
+        _assignedVolunteerPhone = result['volunteer_phone']?.toString();
+      });
       CharityActionFeedback.showSuccess(context, '✅ تم تعيين المندوب بنجاح');
     } catch (error) {
       if (mounted) {
@@ -214,9 +226,7 @@ class _CharityPersonDonationDetailsPageState
     final token = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.verified_user_outlined, color: _green),
@@ -291,9 +301,7 @@ class _CharityPersonDonationDetailsPageState
     final code = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.person_pin_rounded, color: _green),
@@ -542,16 +550,8 @@ class _CharityPersonDonationDetailsPageState
               ),
             ),
           ),
-          Positioned(
-            top: 14,
-            right: 14,
-            child: _buildStatusBadge(),
-          ),
-          Positioned(
-            top: 14,
-            left: 14,
-            child: _buildDeliveryBadge(),
-          ),
+          Positioned(top: 14, right: 14, child: _buildStatusBadge()),
+          Positioned(top: 14, left: 14, child: _buildDeliveryBadge()),
           Positioned(
             left: 18,
             right: 18,
@@ -742,6 +742,13 @@ class _CharityPersonDonationDetailsPageState
   }
 
   Widget _buildDetailsCard() {
+    final rawItems = donation['items'];
+    final rawCategories = donation['categories'];
+    final itemCount = rawItems is List && rawItems.isNotEmpty
+        ? rawItems.length
+        : rawCategories is List && rawCategories.isNotEmpty
+        ? rawCategories.length
+        : 1;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -788,21 +795,41 @@ class _CharityPersonDonationDetailsPageState
           ),
           const SizedBox(height: 16),
           _buildDetailRow(Icons.person_outline_rounded, 'المتبرع', donorName),
-          _buildDetailRow(Icons.inventory_2_outlined, 'الكمية',
-              '${donation['quantity'] ?? 1}'),
+          _buildDetailRow(
+            Icons.inventory_2_outlined,
+            'عدد الأصناف',
+            itemCount.toString(),
+          ),
+          DonationItemsSummary(
+            items: donation['items'],
+            categories: donation['categories'],
+            category: donation['category']?.toString(),
+            quantity: donation['quantity'],
+            condition: donation['condition']?.toString(),
+          ),
           if (donation['description']?.toString().isNotEmpty == true)
-            _buildDetailRow(Icons.description_outlined, 'الوصف',
-                donation['description'].toString()),
-          _buildDetailRow(Icons.location_on_outlined, 'العنوان',
-              donation['pickup_address']?.toString() ?? 'غير محدد'),
+            _buildDetailRow(
+              Icons.description_outlined,
+              'الوصف',
+              donation['description'].toString(),
+            ),
+          _buildDetailRow(
+            Icons.location_on_outlined,
+            'العنوان',
+            donation['pickup_address']?.toString() ?? 'غير محدد',
+          ),
           if (donation['pickup_city']?.toString().isNotEmpty == true)
-            _buildDetailRow(Icons.location_city_outlined, 'المدينة',
-                donation['pickup_city'].toString()),
-          if (donation['volunteer_name']?.toString().isNotEmpty == true)
+            _buildDetailRow(
+              Icons.location_city_outlined,
+              'المدينة',
+              donation['pickup_city'].toString(),
+            ),
+          if (_volunteerName.trim().isNotEmpty ||
+              _volunteerPhone.trim().isNotEmpty)
             _buildDetailRow(
               isIndependent ? Icons.person_rounded : Icons.badge_outlined,
               isIndependent ? 'المتطوع' : 'المندوب',
-              '${donation['volunteer_name']}${donation['volunteer_phone']?.toString().isNotEmpty == true ? ' - ${donation['volunteer_phone']}' : ''}',
+              '${_volunteerName.isNotEmpty ? _volunteerName : 'مندوب الجمعية'}${_volunteerPhone.isNotEmpty ? ' - $_volunteerPhone' : ''}',
             ),
         ],
       ),
@@ -1001,11 +1028,7 @@ class _CharityPersonDonationDetailsPageState
                   color: _green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
-                  Icons.route_rounded,
-                  color: _green,
-                  size: 17,
-                ),
+                child: const Icon(Icons.route_rounded, color: _green, size: 17),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -1146,18 +1169,26 @@ class _CharityPersonDonationDetailsPageState
       return Column(
         children: [
           _buildInfoBanner(
-            icon: Icons.hourglass_top_rounded,
-            color: _orange,
-            title: 'بانتظار جاهزية المتبرع',
-            subtitle: 'هيتم إشعارك عند إعلان المتبرع جاهزيته.',
+            icon: _hasVolunteer
+                ? Icons.badge_outlined
+                : Icons.hourglass_top_rounded,
+            color: _hasVolunteer ? _blue : _orange,
+            title: _hasVolunteer
+                ? 'تم تعيين المندوب، بانتظار جاهزية المتبرع'
+                : 'بانتظار جاهزية المتبرع',
+            subtitle: _hasVolunteer
+                ? 'المندوب: ${_volunteerName.isEmpty ? _volunteerPhone : _volunteerName}. لن يظهر له كود التسليم إلا بعد جاهزية المتبرع.'
+                : 'هيتم إشعارك عند إعلان المتبرع جاهزيته.',
           ),
-          const SizedBox(height: 12),
-          _buildActionButton(
-            label: 'إرسال مندوب الجمعية',
-            icon: Icons.badge_outlined,
-            onTap: _assignVolunteer,
-            outlined: true,
-          ),
+          if (!_hasVolunteer) ...[
+            const SizedBox(height: 12),
+            _buildActionButton(
+              label: 'إرسال مندوب الجمعية',
+              icon: Icons.badge_outlined,
+              onTap: _assignVolunteer,
+              outlined: true,
+            ),
+          ],
         ],
       );
     }
@@ -1173,6 +1204,16 @@ class _CharityPersonDonationDetailsPageState
     }
 
     if (_status == 'donor_ready') {
+      if (_hasVolunteer) {
+        return _buildInfoBanner(
+          icon: Icons.badge_outlined,
+          color: _blue,
+          title: 'المندوب جاهز لاستلام التبرع',
+          subtitle: _volunteerName.isEmpty
+              ? 'تم تعيين مندوب للجمعية.'
+              : 'المندوب: $_volunteerName',
+        );
+      }
       return _buildActionButton(
         label: 'إرسال مندوب الجمعية',
         icon: Icons.badge_outlined,
@@ -1206,8 +1247,7 @@ class _CharityPersonDonationDetailsPageState
             icon: Icons.local_shipping_rounded,
             color: _orange,
             title: 'المندوب استلم التبرع',
-            subtitle:
-                'التبرع في الطريق للجمعية. لو المتطوع مش قادر يعلّمها من عنده، تقدر تعلّمها هنا.',
+            subtitle: 'التبرع في الطريق للجمعية. لو المتطوع مش قادر يعلّمها من عنده، تقدر تعلّمها هنا.',
           ),
           const SizedBox(height: 12),
           _buildActionButton(
@@ -1229,8 +1269,7 @@ class _CharityPersonDonationDetailsPageState
               icon: Icons.delivery_dining_rounded,
               color: _blue,
               title: 'التبرع في الطريق إليك',
-              subtitle:
-                  'عند وصول المتطوع، اطلب منه كود التسليم (6 أرقام) وأدخله هنا.',
+              subtitle: 'عند وصول المتطوع، اطلب منه كود التسليم (6 أرقام) وأدخله هنا.',
             ),
             const SizedBox(height: 12),
             _buildActionButton(
@@ -1677,9 +1716,7 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0EBE5),
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFE0EBE5)),
                       ),
                     ),
                   ),
@@ -1698,9 +1735,7 @@ class _VolunteerBottomSheetState extends State<_VolunteerBottomSheet> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
-                          color: Color(0xFFE0EBE5),
-                        ),
+                        borderSide: const BorderSide(color: Color(0xFFE0EBE5)),
                       ),
                     ),
                   ),
