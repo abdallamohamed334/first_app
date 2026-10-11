@@ -135,35 +135,24 @@ class _UserHomePageState extends State<UserHomePage> {
   String _userCity = AppConfig.defaultCity;
 
   final PageController _bannerController = PageController(viewportFraction: 1);
+  final TextEditingController _homeSearchController = TextEditingController();
   int _bannerIndex = 0;
   Timer? _bannerTimer;
 
   // ───────── ألوان الديزاين ─────────
   static bool get _isDark => ThemeNotifier.isDarkMode.value;
-  static Color get _bg =>
-      _isDark ? const Color(0xFF000000) : const Color(0xFFFFFFFF);
-  static Color get _card =>
-      _isDark ? const Color(0xFF121212) : const Color(0xFFFFFFFF);
-  static Color get _cardSoft =>
-      _isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF2F2F2);
-  static Color get _primaryRed =>
-      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
-  static Color get _primaryRedDark =>
-      _isDark ? const Color(0xFFCCCCCC) : const Color(0xFF000000);
-  static Color get _textPrimary =>
-      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
-  static Color get _textSecondary =>
-      _isDark ? const Color(0xFFB8B8B8) : const Color(0xFF555555);
-  static Color get _border =>
-      _isDark ? const Color(0x33FFFFFF) : const Color(0x22000000);
-  static Color get _orange =>
-      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
-  static Color get _green =>
-      _isDark ? const Color(0xFFE0E0E0) : const Color(0xFF222222);
-  static Color get _blue =>
-      _isDark ? const Color(0xFFFFFFFF) : const Color(0xFF333333);
-  static Color get _purple =>
-      _isDark ? const Color(0xFFDDDDDD) : const Color(0xFF444444);
+  static Color get _bg => const Color(0xFF202124);
+  static Color get _card => const Color(0xFF2A2C30);
+  static Color get _cardSoft => const Color(0xFF303238);
+  static Color get _primaryRed => const Color(0xFFFF2E3B);
+  static Color get _primaryRedDark => const Color(0xFFD8202C);
+  static Color get _textPrimary => const Color(0xFFF7F7F8);
+  static Color get _textSecondary => const Color(0xFFB8B9BE);
+  static Color get _border => const Color(0x22FFFFFF);
+  static Color get _orange => const Color(0xFFFF9B45);
+  static Color get _green => const Color(0xFF18B7A0);
+  static Color get _blue => const Color(0xFF4C8DFF);
+  static Color get _purple => const Color(0xFF7B61FF);
 
   static const Set<String> _hiddenCategoryKeys = {};
   bool _openingCategory = false;
@@ -195,6 +184,7 @@ class _UserHomePageState extends State<UserHomePage> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerController.dispose();
+    _homeSearchController.dispose();
     super.dispose();
   }
 
@@ -1134,11 +1124,13 @@ class _UserHomePageState extends State<UserHomePage> {
       ),
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildLocationRow(state)),
-        SliverToBoxAdapter(child: _buildCategoriesGrid(state)),
+        SliverToBoxAdapter(child: _buildSearchBar()),
+        SliverToBoxAdapter(child: _buildCompanySectionTitle()),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
+        SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
+        SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
+        SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1429,7 +1421,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1716,42 +1708,55 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildHeader() {
+    final metadata = SupabaseService().client.auth.currentUser?.userMetadata ?? const <String, dynamic>{};
+    final displayName = (metadata['full_name'] ?? metadata['name'] ?? 'Abdalla Mohamed').toString();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: Row(
         children: [
+          _headerIconButton(Icons.bookmark_border_rounded, () {}),
+          const SizedBox(width: 10),
+          _buildHeaderNotificationButton(),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Khedma',
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  'كل ما تحتاجه… في مكان واحد',
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text('أهلاً بيك في Khedma', style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          _buildHeaderNotificationButton(),
+          const SizedBox(width: 10),
+          Container(
+            width: 42,
+            height: 42,
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(color: _cardSoft, shape: BoxShape.circle, border: Border.all(color: _border)),
+            child: Image.asset('assets/images/khedma_logo.png', fit: BoxFit.contain),
+          ),
         ],
       ),
     );
   }
 
+  Widget _headerIconButton(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: SizedBox(width: 48, height: 48, child: Icon(icon, color: _textPrimary, size: 24)),
+      ),
+    );
+  }
   Widget _buildHeaderNotificationButton() {
     return Material(
       color: _card,
@@ -1787,6 +1792,103 @@ class _UserHomePageState extends State<UserHomePage> {
             size: 23,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 8, 18, 18),
+      child: Row(
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF8D62FF), Color(0xFF6240D8)]),
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: const Color(0xFF7650F0).withValues(alpha: .35), blurRadius: 18)],
+            ),
+            child: const Center(child: Text('AI', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _homeSearchController,
+              style: TextStyle(color: _textPrimary, fontSize: 14),
+              textDirection: TextDirection.rtl,
+              decoration: InputDecoration(
+                hintText: 'ما الذي تبحث عنه؟',
+                hintStyle: TextStyle(color: _textSecondary, fontSize: 14),
+                filled: true,
+                fillColor: _card,
+                prefixIcon: Icon(Icons.search_rounded, color: _textPrimary, size: 25),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _border)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _primaryRed, width: 1.2)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanySectionTitle() => _referenceSectionTitle('عروض المؤسسات', 'عرض الكل');
+  Widget _buildStoreCategoriesTitle() => _referenceSectionTitle('متجرنا', null);
+  Widget _buildOffersTitle() => _referenceSectionTitle('العروض', 'عرض الكل');
+
+  Widget _referenceSectionTitle(String title, String? action) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
+      child: Row(
+        children: [
+          if (action != null) Text(action, style: TextStyle(color: _primaryRed, fontSize: 13, fontWeight: FontWeight.w800)),
+          const Spacer(),
+          Text(title, style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMarketplaceCategoriesStrip(UserHomeLoaded state) {
+    final categories = state.categories.where((c) {
+      if (_isHiddenCategory(c)) return false;
+      if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) return false;
+      return true;
+    }).take(10).toList(growable: false);
+    if (categories.isEmpty) return const SizedBox(height: 16);
+    return SizedBox(
+      height: 112,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          final color = [ _orange, _primaryRed, _purple, _green, _blue ][index % 5];
+          return GestureDetector(
+            onTap: () => _openCategory(category),
+            child: SizedBox(
+              width: 74,
+              child: Column(
+                children: [
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(color: color.withValues(alpha: .18), borderRadius: BorderRadius.circular(19)),
+                    child: Icon(_iconFromName(category['icon']?.toString() ?? ''), color: color, size: 30),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(category['name_ar']?.toString() ?? 'قسم', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(color: _textPrimary, fontSize: 11, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1880,7 +1982,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: Column(
         children: [
           SizedBox(
-            height: 238,
+            height: 252,
             child: PageView.builder(
               controller: _bannerController,
               itemCount: offers.length,
@@ -4842,7 +4944,7 @@ class _HomeCategoryOfferCard extends StatelessWidget {
     final typeLabel = offer.isInstitution ? 'مؤسسة' : 'من المجتمع';
 
     return SizedBox(
-      width: 214,
+      width: 210,
       child: Material(
         color: _UserHomePageState._cardSoft,
         shape: RoundedRectangleBorder(
@@ -4933,6 +5035,36 @@ class _HomeCategoryOfferCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.42),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+                        ),
+                        child: const Icon(Icons.bookmark_border_rounded, color: Colors.white, size: 19),
+                      ),
+                    ),
+                    if (offer.hasPrice)
+                      Positioned(
+                        left: 10,
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _UserHomePageState._primaryRed,
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Text(
+                            offer.priceDisplay,
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ),
                     if (offer.distanceDisplay != null)
                       Positioned(
                         bottom: 9,
