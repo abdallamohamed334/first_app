@@ -12,6 +12,7 @@ import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
+import 'package:loqma/features/community/presentation/pages/customer_reviews_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../bloc/profile_bloc.dart';
@@ -191,6 +192,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     memberSince: state.user.createdAt.year.toString(),
                   ),
 
+                  if (state.user.isUser) ...[
+                    const SizedBox(height: 18),
+                    _buildCustomerReviewsAction(context, state.user),
+                  ],
+
                   const SizedBox(height: 22),
 
                   ProfileInfoCard(
@@ -296,6 +302,52 @@ class _ProfilePageState extends State<ProfilePage> {
   // ═══════════════════════════════════════════════════════════
   // Community Actions (احتياجاتي بس)
   // ═══════════════════════════════════════════════════════════
+
+  Widget _buildCustomerReviewsAction(BuildContext context, UserModel user) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      color: colors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: colors.outlineVariant),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 8,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: colors.primary.withValues(alpha: 0.12),
+          child: Icon(Icons.star_rounded, color: colors.primary),
+        ),
+        title: Text(
+          'تقييمات العملاء',
+          style: TextStyle(
+            color: colors.onSurface,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        subtitle: Text(
+          'آراء الزوار الذين قيّموا عروضك',
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+        ),
+        trailing: Icon(
+          Icons.chevron_left_rounded,
+          color: colors.onSurfaceVariant,
+        ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CustomerReviewsPage(
+              userId: user.id,
+              userName: user.name,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildCommunityActions(
     BuildContext context,
