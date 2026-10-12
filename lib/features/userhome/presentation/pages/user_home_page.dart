@@ -1097,9 +1097,27 @@ class _UserHomePageState extends State<UserHomePage> {
         color: _primaryRed,
         backgroundColor: _card,
         onRefresh: _refresh,
-        child: _homeMode == _HomeMode.buy
-            ? _buildBuyContent(state)
-            : _buildServicesContent(),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.025),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          ),
+          child: KeyedSubtree(
+            key: ValueKey<_HomeMode>(_homeMode),
+            child: _homeMode == _HomeMode.buy
+                ? _buildBuyContent(state)
+                : _buildServicesContent(),
+          ),
+        ),
       ),
     );
   }
@@ -1189,13 +1207,6 @@ class _UserHomePageState extends State<UserHomePage> {
 
     return GestureDetector(
       onTap: () {
-        if (mode == _HomeMode.buy && _currentPage == 0) {
-          setState(() {
-            _homeMode = _HomeMode.buy;
-            _currentPage = 1;
-          });
-          return;
-        }
         if (_homeMode != mode) {
           setState(() => _homeMode = mode);
         }
