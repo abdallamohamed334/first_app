@@ -237,7 +237,8 @@ class _UserHomePageState extends State<UserHomePage> {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null || lng == null) return false;
-        return true;
+        return _distanceKm(_userLat!, _userLng!, lat, lng) <=
+            _AppFeatures.nearbyRadiusKm;
       }).toList();
 
       nearby.sort((a, b) => _distanceKm(
@@ -474,11 +475,12 @@ class _UserHomePageState extends State<UserHomePage> {
           : (await _userHomeRepository.getSubCategories(
                 institutionRoot['id']?.toString() ?? '',
               ))
-              .where(
-                (category) => _institutionCatalogSlugs.contains(
-                  category['slug']?.toString().trim().toLowerCase(),
-                ),
-              )
+              .where((category) {
+                final slug = category['slug']?.toString().trim().toLowerCase();
+                return slug != 'grocery' &&
+                    slug != 'supermarket' &&
+                    _institutionCatalogSlugs.contains(slug);
+              })
               .toList(growable: false);
       if (institutionRoot != null && _userLat != null && _userLng != null) {
         final institutionOffers = await _userHomeRepository.getOffersByCategory(
@@ -959,6 +961,9 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                     ),
                   ),
+          if (isServices)
+            SliverToBoxAdapter(child: _buildNearbyServiceProvidersSection()),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
@@ -1106,6 +1111,7 @@ class _UserHomePageState extends State<UserHomePage> {
       ),
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
@@ -1114,7 +1120,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
-        SliverToBoxAdapter(child: _buildHomeServicesSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -1128,8 +1133,9 @@ class _UserHomePageState extends State<UserHomePage> {
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildServiceCategoriesGrid()),
+        SliverToBoxAdapter(child: _buildNearbyServiceProvidersSection()),
+        SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -1151,8 +1157,8 @@ class _UserHomePageState extends State<UserHomePage> {
               child: _buildModeTile(
                 mode: _HomeMode.buy,
                 icon: Icons.shopping_bag_rounded,
-                label: 'شراء',
-                subtitle: 'أكل وعروض',
+                label: 'أقسام الشراء',
+                subtitle: 'تصفح المنتجات والعروض',
                 color: _primaryRed,
               ),
             ),
@@ -1161,8 +1167,8 @@ class _UserHomePageState extends State<UserHomePage> {
               child: _buildModeTile(
                 mode: _HomeMode.services,
                 icon: Icons.handyman_rounded,
-                label: 'خدمات',
-                subtitle: 'سباكة، كهرباء',
+                label: 'الخدمات',
+                subtitle: 'الأقسام ومقدمو الخدمة',
                 color: _blue,
               ),
             ),
@@ -1183,6 +1189,13 @@ class _UserHomePageState extends State<UserHomePage> {
 
     return GestureDetector(
       onTap: () {
+        if (mode == _HomeMode.buy && _currentPage == 0) {
+          setState(() {
+            _homeMode = _HomeMode.buy;
+            _currentPage = 1;
+          });
+          return;
+        }
         if (_homeMode != mode) {
           setState(() => _homeMode = mode);
         }
@@ -2058,16 +2071,6 @@ class _UserHomePageState extends State<UserHomePage> {
                       _offerPricePill(offer),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: _primaryRed, borderRadius: BorderRadius.circular(12)),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text('تفاصيل العرض', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
-                      SizedBox(width: 5),
-                      Icon(Icons.arrow_back_rounded, color: Colors.white, size: 14),
-                    ]),
-                  ),
                 ],
               ),
             ),
@@ -2689,25 +2692,85 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildHomeServicesSection() {
-    if (_serviceCategories.isEmpty && !_loadingServiceCategories) return const SizedBox.shrink();
-    final categories = _serviceCategories.take(8).toList(growable: false);
+  Widget _buildNearbyServiceProvidersSection() {
+    final providers = _nearbyServiceProviders
+        .where((provider) => provider.latitude != null && provider.longitude != null)
+        .take(20)
+        .toList(growable: false);
+
     return _section(
-      title: 'الخدمات',
-      trailing: GestureDetector(
-        onTap: () => setState(() => _homeMode = _HomeMode.services),
-        child: Text('كل الخدمات', style: TextStyle(color: _primaryRed, fontSize: 13, fontWeight: FontWeight.w900)),
-      ),
-      child: _loadingServiceCategories && categories.isEmpty
-          ? const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
+      title: 'مقدمو الخدمات القريبون منك',
+      trailing: _loadingNearbySymbolicProviders
+          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : Text('${providers.length} مقدم', style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
+      child: providers.isEmpty
+          ? _emptyMini(Icons.handyman_rounded, 'لا يوجد مقدمو خدمات قريبون متاحون حاليًا')
           : SizedBox(
-              height: 118,
+              height: 158,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
+                itemCount: providers.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (_, index) => SizedBox(width: 104, child: _buildServiceCategoryTile(categories[index])),
+                itemBuilder: (context, index) {
+                  final provider = providers[index];
+                  return SizedBox(
+                    width: 230,
+                    child: Material(
+                      color: _card,
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => ServiceProviderDetailsPage(provider: provider),
+                        )),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 27,
+                                backgroundColor: _blue.withValues(alpha: 0.16),
+                                backgroundImage: provider.profileImageUrl?.isNotEmpty == true
+                                    ? CachedNetworkImageProvider(provider.profileImageUrl!)
+                                    : null,
+                                child: provider.profileImageUrl?.isNotEmpty == true
+                                    ? null
+                                    : Icon(provider.isCompany ? Icons.business_rounded : Icons.handyman_rounded, color: _blue),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(provider.displayName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: _textPrimary, fontSize: 13, fontWeight: FontWeight.w900)),
+                                    const SizedBox(height: 5),
+                                    Text(provider.categoryName ?? provider.categorySlug ?? 'خدمات', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: _textSecondary, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 6),
+                                    Row(children: [
+                                      Icon(Icons.star_rounded, color: _orange, size: 15),
+                                      const SizedBox(width: 3),
+                                      Text(provider.ratingAvg.toStringAsFixed(1), style: TextStyle(color: _textPrimary, fontSize: 10, fontWeight: FontWeight.w800)),
+                                      const SizedBox(width: 7),
+                                      Expanded(child: Text(provider.pricingLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w800))),
+                                    ]),
+                                    const SizedBox(height: 4),
+                                    Text(provider.city ?? _userCity, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: _textSecondary, fontSize: 10)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
     );
@@ -5153,24 +5216,9 @@ class _HomeCategoryOfferCard extends StatelessWidget {
                           height: 1.25,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const Spacer(),
                       Row(
                         children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            color: _UserHomePageState._primaryRed,
-                            size: 14,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'تفاصيل العرض',
-                            style: TextStyle(
-                              color: _UserHomePageState._primaryRed,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const Spacer(),
                           Expanded(
                             child: Text(
                               ownerLabel,
