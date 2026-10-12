@@ -157,7 +157,7 @@ class InstitutionOffersRepository {
               address,
               phone
             )
-          ''').eq('id', cleanOfferId).maybeSingle();
+          ''').eq('id', cleanOfferId).filter('deleted_at', 'is', 'null').maybeSingle();
 
       if (row == null) {
         return null;
@@ -192,7 +192,8 @@ class InstitutionOffersRepository {
           .select('id')
           .eq('requester_id', userId)
           .gte('created_at', startOfDay.toIso8601String())
-          .not('status', 'in', '(cancelled,rejected,expired)');
+          .not('status', 'in', '(cancelled,rejected,expired)')
+          .limit(dailyInstitutionRequestLimit + 1);
 
       return (response as List).length;
     } catch (e) {
@@ -947,7 +948,7 @@ class InstitutionOffersRepository {
           ''').eq('requester_id', userId).order(
             'created_at',
             ascending: false,
-          );
+          ).limit(200);
 
       return rows
           .whereType<Map>()
