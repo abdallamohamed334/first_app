@@ -264,7 +264,8 @@ class SeparateCharityDonationRepository {
     ''')
         .eq('donor_id', userId)
         .filter('deleted_at', 'is', null)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(100);
     final result = <Map<String, dynamic>>[];
     for (final rawRow in (rows as List)) {
       final row = Map<String, dynamic>.from(rawRow as Map);
@@ -591,11 +592,15 @@ class SeparateCharityDonationRepository {
   }) async {
     try {
       final result = await _client.rpc(
-        'confirm_pickup_from_donor',
+        'volunteer_confirm_pickup_with_code',
         params: {'p_request_id': requestId.trim(), 'p_code': code.trim()},
       );
+      final data = _mapFromRpc(result);
+      if (data['success'] == false) {
+        throw Exception(data['error']?.toString() ?? 'تعذر تأكيد الاستلام');
+      }
       await _notifyDonationEvent(requestId, 'status');
-      return _mapFromRpc(result);
+      return data;
     } catch (e) {
       throw Exception(_friendly(e));
     }

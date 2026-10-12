@@ -43,6 +43,7 @@ SEND_OTP_FUNCTION = ROOT / "supabase/functions/send-otp/index.ts"
 VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.ts"
 PUBLIC_PROVIDER_PROJECTION_MIGRATION = ROOT / "supabase/migrations/20261012180000_public_provider_projection_and_rpc_hardening.sql"
 POSTGIS_RPC_MIGRATION = ROOT / "supabase/migrations/20261012181000_revoke_unused_postgis_rpc_execution.sql"
+DONATION_PICKUP_MIGRATION = ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -86,6 +87,7 @@ def main() -> None:
     verify_and_create_function = VERIFY_AND_CREATE_FUNCTION.read_text()
     public_provider_projection_migration = PUBLIC_PROVIDER_PROJECTION_MIGRATION.read_text()
     postgis_rpc_migration = POSTGIS_RPC_MIGRATION.read_text()
+    donation_pickup_migration = DONATION_PICKUP_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -157,6 +159,10 @@ def main() -> None:
     if ".stream(primaryKey: ['id'])" in donor_tracking_page:
         raise AssertionError("donor tracking still streams all donation columns")
     require(donor_tracking_page, "Timer.periodic(", "safe donor status refresh")
+    require(donation_pickup_migration, "AND volunteer_id = v_user_id", "assigned-volunteer pickup authorization")
+    require(donation_pickup_migration, "volunteer_type = 'app_user'", "app-volunteer pickup authorization")
+    require(donation_pickup_migration, "pickup_token_expires_at", "pickup-code expiry validation")
+    require(charity_repository, "volunteer_confirm_pickup_with_code", "safe pickup RPC client")
 
     require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
     require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")
