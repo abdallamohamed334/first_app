@@ -476,10 +476,10 @@ class _UserHomePageState extends State<UserHomePage> {
                 institutionRoot['id']?.toString() ?? '',
               ))
               .where((category) {
-                final slug = category['slug']?.toString().trim().toLowerCase();
-                return slug != 'grocery' &&
-                    slug != 'supermarket' &&
-                    _institutionCatalogSlugs.contains(slug);
+                return !_isGroceryOrSupermarketCategory(category) &&
+                    _institutionCatalogSlugs.contains(
+                      category['slug']?.toString().trim().toLowerCase(),
+                    );
               })
               .toList(growable: false);
       if (institutionRoot != null && _userLat != null && _userLng != null) {
@@ -555,6 +555,26 @@ class _UserHomePageState extends State<UserHomePage> {
     final name = (category['name_ar'] ?? '').toString().trim().toLowerCase();
     return _hiddenCategoryKeys.contains(slug) ||
         _hiddenCategoryKeys.contains(name);
+  }
+
+  bool _isGroceryOrSupermarketCategory(Map<String, dynamic> category) {
+    final slug = (category['slug'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('_', '-')
+        .replaceAll(' ', '-');
+    final name = (category['name_ar'] ?? '').toString().trim().toLowerCase();
+    const excludedSlugs = {
+      'grocery',
+      'supermarket',
+      'groceries',
+      'grocery-supermarket',
+      'grocery-and-supermarket',
+    };
+    return excludedSlugs.contains(slug) ||
+        name.contains('بقال') ||
+        (name.contains('سوبر') && name.contains('ماركت'));
   }
 
   bool _isRestaurantCategory(Map<String, dynamic> category) {
@@ -793,7 +813,7 @@ class _UserHomePageState extends State<UserHomePage> {
     final bool isServices = _homeMode == _HomeMode.services;
 
     final buyCategories = state.categories.where((c) {
-      if (_isHiddenCategory(c)) return false;
+      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c)) return false;
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
         return false;
       }
@@ -1822,7 +1842,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildMarketplaceCategoriesStrip(UserHomeLoaded state) {
     final categories = state.categories.where((c) {
-      if (_isHiddenCategory(c)) return false;
+      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c)) return false;
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) return false;
       return true;
     }).take(10).toList(growable: false);
@@ -2971,11 +2991,12 @@ class _UserHomePageState extends State<UserHomePage> {
     final sourceCategories =
         state.categories.isNotEmpty ? state.categories : _nearbyMainCategories;
     final categories = sourceCategories.where((category) {
-      if (_isHiddenCategory(category)) return false;
-      final slug = category['slug']?.toString().toLowerCase() ?? '';
-      if (slug == 'institution-offers' || slug == 'grocery' || slug == 'supermarket') {
+      if (_isHiddenCategory(category) ||
+          _isGroceryOrSupermarketCategory(category)) {
         return false;
       }
+      final slug = category['slug']?.toString().toLowerCase() ?? '';
+      if (slug == 'institution-offers') return false;
       return _AppFeatures.showRestaurants || !_isRestaurantCategory(category);
     }).toList(growable: false);
     if (_loadingNearbyCategoryOffers && _nearbyCategoryOffers.isEmpty) {
