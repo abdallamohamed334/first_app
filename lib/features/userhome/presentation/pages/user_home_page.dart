@@ -64,29 +64,18 @@ class _AppFeatures {
   static const double nearbyRadiusKm = 70.0;
 }
 
-/// التصنيفات الوحيدة المسموح بها داخل كتالوج عروض المؤسسات.
-const Set<String> _institutionCatalogSlugs = {
-  'grocery',
-  'bakery',
-  'butcher',
-  'meat_shop',
-  'poultry_shop',
-  'wedding_hall',
-  'game_store',
-  'hotel',
-  'home-restaurants',
-  'household-items',
-  'home_restaurant',
-  'household_goods',
-  'home-sweets',
-  'home-food',
-};
-
 const Set<String> _homeRestaurantInstitutionTypes = {
   'home_restaurant',
   'home-restaurant',
   'home_restaurants',
   'home-restaurants',
+};
+
+/// Slugs used by the institution category browser; nearby offers search all types.
+const Set<String> _institutionCatalogSlugs = {
+  'grocery', 'bakery', 'butcher', 'meat_shop', 'poultry_shop',
+  'wedding_hall', 'game_store', 'hotel', 'home-restaurants',
+  'household-items', 'home_restaurant', 'household_goods', 'home-sweets', 'home-food',
 };
 
 enum _HomeMode { buy, services }
@@ -383,8 +372,7 @@ class _UserHomePageState extends State<UserHomePage> {
         final id = offer.id.trim();
         if (id.isEmpty ||
             !offer.isActive ||
-            offer.remainingQuantity <= 0 ||
-            !_isAllowedInstitutionOffer(offer)) {
+            offer.remainingQuantity <= 0) {
           continue;
         }
         offersById.putIfAbsent(id, () => offer);
@@ -409,13 +397,6 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
-  bool _isAllowedInstitutionOffer(InstitutionOffer offer) {
-    final type = offer.institutionType?.trim().toLowerCase();
-    if (type == 'supermarket') {
-      return _institutionCatalogSlugs.contains('grocery');
-    }
-    return _institutionCatalogSlugs.contains(type);
-  }
 
   bool _isHomeRestaurantOffer(InstitutionOffer offer) {
     final type = offer.institutionType?.trim().toLowerCase();
@@ -1127,7 +1108,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
         SliverToBoxAdapter(child: _buildCompanySectionTitle()),
         SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers()),
-        SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: _buildHomeServicesSection()),
@@ -2646,7 +2626,7 @@ class _UserHomePageState extends State<UserHomePage> {
   Widget _buildNearbyInstitutionsOffers() {
     final near = _sortByDistance(_institutionOffers);
     final offers = (_userLat == null || _userLng == null)
-        ? _institutionOffers.take(12).toList(growable: false)
+        ? const <InstitutionOffer>[]
         : near.take(12).toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
       return const Padding(
@@ -2657,7 +2637,12 @@ class _UserHomePageState extends State<UserHomePage> {
     if (offers.isEmpty) {
       return _section(
         title: 'عروض مؤسسات قريبة منك',
-        child: _emptyMini(Icons.storefront_rounded, 'مفيش عروض مؤسسات قريبة متاحة دلوقتي'),
+        child: _emptyMini(
+          Icons.storefront_rounded,
+          _userLat == null || _userLng == null
+              ? 'حدد موقعك عشان نعرض عروض المؤسسات القريبة منك'
+              : 'مفيش عروض مؤسسات قريبة متاحة دلوقتي',
+        ),
       );
     }
     return Padding(
@@ -2929,7 +2914,10 @@ class _UserHomePageState extends State<UserHomePage> {
         state.categories.isNotEmpty ? state.categories : _nearbyMainCategories;
     final categories = sourceCategories.where((category) {
       if (_isHiddenCategory(category)) return false;
-      if (category['slug']?.toString() == 'institution-offers') return false;
+      final slug = category['slug']?.toString().toLowerCase() ?? '';
+      if (slug == 'institution-offers' || slug == 'grocery' || slug == 'supermarket') {
+        return false;
+      }
       return _AppFeatures.showRestaurants || !_isRestaurantCategory(category);
     }).toList(growable: false);
     if (_loadingNearbyCategoryOffers && _nearbyCategoryOffers.isEmpty) {
