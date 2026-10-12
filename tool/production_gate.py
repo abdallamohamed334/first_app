@@ -24,6 +24,7 @@ required = [
     ROOT / "supabase/migrations/20261012260000_harden_community_needs_lifecycle.sql",
     ROOT / "supabase/migrations/20261012261000_harden_community_need_insert.sql",
     ROOT / "supabase/migrations/20261012270000_harden_food_offer_requests.sql",
+    ROOT / "supabase/migrations/20261012280000_harden_my_community_offers_actions.sql",
     ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql",
     ROOT / "tool/performance_regression_check.py",
     ROOT / ".github/workflows/flutter-ci.yml",

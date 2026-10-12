@@ -44,6 +44,8 @@ VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.
 PUBLIC_PROVIDER_PROJECTION_MIGRATION = ROOT / "supabase/migrations/20261012180000_public_provider_projection_and_rpc_hardening.sql"
 POSTGIS_RPC_MIGRATION = ROOT / "supabase/migrations/20261012181000_revoke_unused_postgis_rpc_execution.sql"
 DONATION_PICKUP_MIGRATION = ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql"
+MY_OFFERS_ACTIONS_MIGRATION = ROOT / "supabase/migrations/20261012280000_harden_my_community_offers_actions.sql"
+MY_OFFERS_REPOSITORY = ROOT / "lib/features/community/data/repositories/community_my_offers_repository.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -88,6 +90,8 @@ def main() -> None:
     public_provider_projection_migration = PUBLIC_PROVIDER_PROJECTION_MIGRATION.read_text()
     postgis_rpc_migration = POSTGIS_RPC_MIGRATION.read_text()
     donation_pickup_migration = DONATION_PICKUP_MIGRATION.read_text()
+    my_offers_actions_migration = MY_OFFERS_ACTIONS_MIGRATION.read_text()
+    my_offers_repository = MY_OFFERS_REPOSITORY.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -163,6 +167,11 @@ def main() -> None:
     require(donation_pickup_migration, "volunteer_type = 'app_user'", "app-volunteer pickup authorization")
     require(donation_pickup_migration, "pickup_token_expires_at", "pickup-code expiry validation")
     require(charity_repository, "volunteer_confirm_pickup_with_code", "safe pickup RPC client")
+    require(my_offers_actions_migration, "p_user_id IS DISTINCT FROM v_user_id", "session-bound my-offers actions")
+    require(my_offers_actions_migration, "GRANT EXECUTE ON FUNCTION public.mark_community_offer_completed", "completed-offer RPC grant")
+    require(my_offers_actions_migration, "GRANT EXECUTE ON FUNCTION public.renew_community_offer", "renew-offer RPC grant")
+    if "fallback update" in my_offers_repository.lower():
+        raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 
     require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
     require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")

@@ -17,9 +17,15 @@ class CommunityMyOffersRepository {
 
     final rows = await _client
         .from('community_offers')
-        .select('*')
+        .select(
+          'id, owner_id, charity_id, title, description, category, listing_type, '
+          'item_condition, quantity, price, image, images, pickup_location, '
+          'latitude, longitude, status, created_at, updated_at, expires_at, '
+          'phone, whatsapp, category_id, marketplace_category_id, edit_count',
+        )
         .eq('owner_id', user.id)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .limit(100);
 
     return (rows as List)
         .map((row) => Map<String, dynamic>.from(row as Map))
@@ -150,34 +156,11 @@ class CommunityMyOffersRepository {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
 
-    try {
-      await _client.rpc(
-        'mark_community_offer_completed',
-        params: {'p_offer_id': offerId, 'p_user_id': user.id},
-      );
-
-      return true;
-    } catch (e) {
-      debugPrint('❌ markOfferAsCompleted error: $e');
-
-      // ✅ لو الـ RPC مش موجود → fallback update مباشر
-      final text = e.toString().toLowerCase();
-
-      if (text.contains('function') && text.contains('does not exist')) {
-        await _client
-            .from('community_offers')
-            .update({
-              'status': 'completed',
-              'updated_at': DateTime.now().toUtc().toIso8601String(),
-            })
-            .eq('id', offerId)
-            .eq('owner_id', user.id);
-
-        return true;
-      }
-
-      rethrow;
-    }
+    await _client.rpc(
+      'mark_community_offer_completed',
+      params: {'p_offer_id': offerId, 'p_user_id': user.id},
+    );
+    return true;
   }
 
   // ============================================================
@@ -194,49 +177,15 @@ class CommunityMyOffersRepository {
       throw ArgumentError('يمكن تجديد العرض لمدة أسبوع واحد فقط');
     }
 
-    try {
-      final response = await _client.rpc(
-        'renew_community_offer',
-        params: {'p_offer_id': offerId, 'p_user_id': user.id, 'p_days': days},
-      );
+    final response = await _client.rpc(
+      'renew_community_offer',
+      params: {'p_offer_id': offerId, 'p_user_id': user.id, 'p_days': days},
+    );
 
-      // ✅ الـ RPC بيرجع timestamptz
-      if (response == null) return null;
-
-      final text = response.toString().trim();
-      if (text.isEmpty) return null;
-
-      return DateTime.tryParse(text);
-    } catch (e) {
-      debugPrint('❌ renewOffer error: $e');
-
-      // ✅ Fallback: تحديث مباشر
-      final text = e.toString().toLowerCase();
-
-      if (text.contains('function') && text.contains('does not exist')) {
-        final now = DateTime.now().toUtc();
-        final newExpiry = now.add(const Duration(days: 7));
-
-        final updated = await _client
-            .from('community_offers')
-            .update({
-              'status': 'available',
-              'expires_at': newExpiry.toIso8601String(),
-              'updated_at': now.toIso8601String(),
-            })
-            .eq('id', offerId)
-            .eq('owner_id', user.id)
-            .inFilter('status', ['available', 'active', 'expired'])
-            .lte('expires_at', now.toIso8601String())
-            .select('id')
-            .maybeSingle();
-
-        if (updated == null) return null;
-        return newExpiry;
-      }
-
-      rethrow;
-    }
+    if (response == null) return null;
+    final text = response.toString().trim();
+    if (text.isEmpty) return null;
+    return DateTime.tryParse(text);
   }
 
   /// Updates only the offer title and its current category specifications.
