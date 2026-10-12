@@ -962,8 +962,7 @@ class InstitutionOffersRepository {
       debugPrint(
         '❌ listMyRequests error: $e',
       );
-
-      return [];
+      rethrow;
     }
   }
 

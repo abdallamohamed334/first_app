@@ -46,6 +46,7 @@ POSTGIS_RPC_MIGRATION = ROOT / "supabase/migrations/20261012181000_revoke_unused
 DONATION_PICKUP_MIGRATION = ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql"
 MY_OFFERS_ACTIONS_MIGRATION = ROOT / "supabase/migrations/20261012280000_harden_my_community_offers_actions.sql"
 MY_OFFERS_REPOSITORY = ROOT / "lib/features/community/data/repositories/community_my_offers_repository.dart"
+INSTITUTION_REQUESTER_VIEW_MIGRATION = ROOT / "supabase/migrations/20261012283000_allow_requester_view_institution_offer.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -92,6 +93,7 @@ def main() -> None:
     donation_pickup_migration = DONATION_PICKUP_MIGRATION.read_text()
     my_offers_actions_migration = MY_OFFERS_ACTIONS_MIGRATION.read_text()
     my_offers_repository = MY_OFFERS_REPOSITORY.read_text()
+    institution_requester_view_migration = INSTITUTION_REQUESTER_VIEW_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -170,6 +172,9 @@ def main() -> None:
     require(my_offers_actions_migration, "p_user_id IS DISTINCT FROM v_user_id", "session-bound my-offers actions")
     require(my_offers_actions_migration, "GRANT EXECUTE ON FUNCTION public.mark_community_offer_completed", "completed-offer RPC grant")
     require(my_offers_actions_migration, "GRANT EXECUTE ON FUNCTION public.renew_community_offer", "renew-offer RPC grant")
+    require(institution_requester_view_migration, "CREATE POLICY institution_offers_requester_select", "requester offer detail policy")
+    require(institution_requester_view_migration, "r.requester_id = auth.uid()", "requester policy session binding")
+    require(institution_requester_view_migration, "institution_offer_requests_requester_offer_idx", "requester offer index")
     if "fallback update" in my_offers_repository.lower():
         raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 

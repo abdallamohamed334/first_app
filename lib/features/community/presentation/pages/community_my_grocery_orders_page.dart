@@ -49,7 +49,7 @@ class _CommunityMyGroceryOrdersPageState
       return await _repository.listMyRequests();
     } catch (e) {
       debugPrint('⚠️ listMyRequests failed: $e');
-      return const <InstitutionOfferRequest>[];
+      rethrow;
     }
   }
 
@@ -100,11 +100,11 @@ class _CommunityMyGroceryOrdersPageState
             );
           }
 
-          // ✅ حتى لو حصل error، بنتعامل معاه كأنه فاضي
-          // (مش بنعرض شاشة خطأ مقلقة)
-          final requests = snapshot.hasError
-              ? const <InstitutionOfferRequest>[]
-              : (snapshot.data ?? const <InstitutionOfferRequest>[]);
+          if (snapshot.hasError) {
+            return _LoadErrorState(onRetry: _refresh);
+          }
+
+          final requests = snapshot.data ?? const <InstitutionOfferRequest>[];
 
           if (requests.isEmpty) {
             return _EmptyState(onRefresh: _refresh);
@@ -1430,8 +1430,67 @@ class _PickupCodeDialog extends StatelessWidget {
 }
 
 // ============================================================
-// حالة فارغة (بتُستخدم للحالتين: لا توجد بيانات / خطأ)
+// حالة فارغة
 // ============================================================
+
+class _LoadErrorState extends StatelessWidget {
+  final Future<void> Function() onRetry;
+
+  const _LoadErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return RefreshIndicator(
+      color: colors.primary,
+      onRefresh: onRetry,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        children: [
+          SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.55,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_off_outlined,
+                        color: colors.error, size: 48),
+                    const SizedBox(height: 14),
+                    Text(
+                      'تعذر تحميل طلبات المؤسسات',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.onSurface,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'تحقق من الاتصال وحاول مرة أخرى',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: colors.onSurfaceVariant),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('إعادة المحاولة'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   final Future<void> Function() onRefresh;
