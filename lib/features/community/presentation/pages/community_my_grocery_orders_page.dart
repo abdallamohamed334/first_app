@@ -9,7 +9,7 @@ import 'package:loqma/features/institutions/presentation/pages/institution_offer
 
 enum _OrderFilter { active, finished }
 
-enum _InstitutionFilter { all, grocery, shop, charity, other }
+enum _InstitutionFilter { all, grocery, hotel, shop, charity, other }
 
 String _institutionTypeLabel(InstitutionOfferRequest request) {
   final institution = request.offer?['institutions'];
@@ -81,7 +81,7 @@ class _CommunityMyGroceryOrdersPageState
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          ' طلبات البقاله والمحلات ',
+          'طلبات المؤسسات',
           style: TextStyle(
             color: colors.onSurface,
             fontWeight: FontWeight.w900,
@@ -185,9 +185,10 @@ class _CommunityMyGroceryOrdersPageState
     final type = _institutionTypeLabel(request).toLowerCase();
     return switch (_institutionFilter) {
       _InstitutionFilter.grocery => type.contains('بقال') || type.contains('grocery'),
+      _InstitutionFilter.hotel => type.contains('فندق') || type.contains('hotel'),
       _InstitutionFilter.shop => type.contains('محل') || type.contains('متجر') || type.contains('shop'),
       _InstitutionFilter.charity => type.contains('جمع') || type.contains('خيري') || type.contains('charity'),
-      _InstitutionFilter.other => !type.contains('بقال') && !type.contains('grocery') && !type.contains('محل') && !type.contains('متجر') && !type.contains('shop') && !type.contains('جمع') && !type.contains('خيري') && !type.contains('charity'),
+      _InstitutionFilter.other => !type.contains('بقال') && !type.contains('grocery') && !type.contains('فندق') && !type.contains('hotel') && !type.contains('محل') && !type.contains('متجر') && !type.contains('shop') && !type.contains('جمع') && !type.contains('خيري') && !type.contains('charity'),
       _InstitutionFilter.all => true,
     };
   }
@@ -430,7 +431,7 @@ class _InstitutionFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final items = <_InstitutionFilter, String>{_InstitutionFilter.all: 'الكل', _InstitutionFilter.grocery: 'بقالة', _InstitutionFilter.shop: 'محلات', _InstitutionFilter.charity: 'مؤسسات خيرية', _InstitutionFilter.other: 'أخرى'};
+    final items = <_InstitutionFilter, String>{_InstitutionFilter.all: 'الكل', _InstitutionFilter.grocery: 'بقالة', _InstitutionFilter.hotel: 'فنادق', _InstitutionFilter.shop: 'محلات', _InstitutionFilter.charity: 'مؤسسات خيرية', _InstitutionFilter.other: 'أخرى'};
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text('نوع المؤسسة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: colors.onSurface)),
       const SizedBox(height: 7),
@@ -645,7 +646,7 @@ class _GroceryOrderTrackingCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            institutionName.isNotEmpty ? institutionName : 'بقالة',
+                            institutionName.isNotEmpty ? institutionName : 'مؤسسة',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -693,7 +694,7 @@ class _GroceryOrderTrackingCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            title.isNotEmpty ? title : 'عنصر بقالة',
+                            title.isNotEmpty ? title : 'عرض مؤسسة',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -1191,7 +1192,7 @@ class _ActionArea extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: onShowRoute,
               icon: const Icon(Icons.directions_outlined),
-              label: const Text('عرض الطريق للبقالة'),
+              label: const Text('عرض طريق المؤسسة'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: colors.primary,
                 side: BorderSide(color: colors.primary),
@@ -1439,9 +1440,9 @@ class _EmptyState extends StatelessWidget {
 
   const _EmptyState({
     required this.onRefresh,
-    this.title = 'لا توجد طلبات بقالة',
+    this.title = 'لا توجد طلبات مؤسسات',
     this.subtitle =
-        'عندما تطلب من البقالة، ستظهر طلباتك هنا\nويمكنك متابعة حالتها خطوة بخطوة',
+        'عندما تطلب من إحدى المؤسسات، ستظهر طلباتك هنا\nويمكنك متابعة حالتها خطوة بخطوة',
   });
 
   @override

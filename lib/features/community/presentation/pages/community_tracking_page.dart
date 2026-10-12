@@ -17,7 +17,7 @@ class _CommunityTrackingPageState extends State<CommunityTrackingPage>
   static const _tabs = [
     (label: 'احتياجاتي', icon: Icons.volunteer_activism_rounded),
     (label: 'تبرعاتي', icon: Icons.favorite_rounded),
-    (label: 'طلبات البقالة والفنادق', icon: Icons.storefront_rounded),
+    (label: 'طلبات المؤسسات', icon: Icons.business_rounded),
     (label: 'عروضي', icon: Icons.campaign_rounded),
   ];
 
