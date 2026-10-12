@@ -556,7 +556,7 @@ class _CommunityMyCharityDonationsPageState
         bg: _green.withValues(alpha: _isDark ? 0.18 : 0.08),
       ),
       _StatItem(
-        label: 'في انتظار مندوب',
+        label: 'تم تعيين مندوب',
         value: assigned,
         icon: Icons.local_shipping_rounded,
         color: _info,
