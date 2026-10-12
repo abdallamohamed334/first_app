@@ -13,11 +13,10 @@ class ServiceProvidersRepository {
     portfolio_images, governorate, city, address, service_areas, available_days, latitude, longitude,
     max_distance_km, pricing_type, price_from, price_currency,
     accepts_installments, phone, whatsapp, email, website,
-    branches,
     verification_status, is_active, is_available, availability_note,
     total_jobs, completed_jobs, cancelled_jobs, volunteer_jobs,
     rating_avg, total_reviews, response_time_minutes, created_at, updated_at,
-    category_name, category_icon, category_slug, owner_name, owner_avatar
+    category_name, category_icon, category_slug
   ''';
 
   // ═══════════════════════════════════════════════════════════
