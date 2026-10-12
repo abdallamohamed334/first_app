@@ -242,34 +242,48 @@ class _UserHomePageState extends State<UserHomePage> {
       );
       if (!mounted) return;
 
-      final nearby = providers.where((provider) {
+      final sameGovernorate = providers
+          .where((provider) =>
+              _userGovernorate != null &&
+              provider.governorate?.trim() == _userGovernorate)
+          .toList();
+
+      sameGovernorate.sort((a, b) {
+        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+        if (byRating != 0) return byRating;
+        return b.totalReviews.compareTo(a.totalReviews);
+      });
+
+      final nearbyForMap = sameGovernorate.where((provider) {
         final lat = provider.latitude;
         final lng = provider.longitude;
-        if (lat == null || lng == null) return false;
-        if (_userGovernorate == null ||
-            provider.governorate?.trim() != _userGovernorate) {
+        if (lat == null ||
+            lng == null ||
+            _userLat == null ||
+            _userLng == null) {
           return false;
         }
         return _distanceKm(_userLat!, _userLng!, lat, lng) <=
             _AppFeatures.nearbyRadiusKm;
-      }).toList();
-
-      nearby.sort((a, b) => _distanceKm(
-            _userLat!,
-            _userLng!,
-            a.latitude!,
-            a.longitude!,
-          ).compareTo(_distanceKm(
-            _userLat!,
-            _userLng!,
-            b.latitude!,
-            b.longitude!,
-          )));
+      }).toList()
+        ..sort((a, b) => _distanceKm(
+              _userLat!,
+              _userLng!,
+              a.latitude!,
+              a.longitude!,
+            ).compareTo(_distanceKm(
+              _userLat!,
+              _userLng!,
+              b.latitude!,
+              b.longitude!,
+            )));
 
       setState(() {
-        _nearbyServiceProviders = nearby.take(100).toList();
-        _nearbySymbolicProviders =
-            nearby.where((p) => p.isSymbolic).take(10).toList();
+        _nearbyServiceProviders = sameGovernorate;
+        _nearbySymbolicProviders = nearbyForMap
+            .where((provider) => provider.isSymbolic)
+            .take(10)
+            .toList();
       });
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
@@ -1558,6 +1572,15 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       );
     }
+    if (_loadingServiceCategories && _serviceCategories.isEmpty) {
+      return _section(
+        title: 'مقدمو الخدمات في $_userGovernorate',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
 
     final providersByCategory = <String, List<ServiceProvider>>{};
     for (final provider in _nearbyServiceProviders) {
@@ -1566,7 +1589,6 @@ class _UserHomePageState extends State<UserHomePage> {
           .putIfAbsent(provider.categoryId, () => <ServiceProvider>[])
           .add(provider);
     }
-
     for (final providers in providersByCategory.values) {
       providers.sort((a, b) {
         final byRating = b.ratingAvg.compareTo(a.ratingAvg);
@@ -1575,40 +1597,48 @@ class _UserHomePageState extends State<UserHomePage> {
       });
     }
 
-    final selectedCategories = _serviceCategories
-        .where((category) => providersByCategory[category.id]?.isNotEmpty == true)
-        .toList()
-      ..sort((a, b) {
-        final aTop = providersByCategory[a.id]!.first;
-        final bTop = providersByCategory[b.id]!.first;
-        final byRating = bTop.ratingAvg.compareTo(aTop.ratingAvg);
-        if (byRating != 0) return byRating;
-        return bTop.totalReviews.compareTo(aTop.totalReviews);
-      });
+    // Keep the home service sections focused on the requested trades.
+    const requestedOrder = [
+      'plumbing',
+      'satellite',
+      'electrical',
+      'painting',
+      'cooling',
+      'tiles',
+    ];
+    final requestedCategories = <ServiceCategory>[];
+    for (final key in requestedOrder) {
+      for (final category in _serviceCategories) {
+        if (_homeServiceCategoryGroup(category) == key) {
+          requestedCategories.add(category);
+          break;
+        }
+      }
+    }
 
-    final displayedCategories = selectedCategories.take(6).toList();
-    if (_loadingNearbySymbolicProviders && displayedCategories.isEmpty) {
+    if (requestedCategories.isEmpty) {
       return _section(
-        title: 'أعلى مقدمي الخدمة في $_userGovernorate',
+        title: 'مقدمو الخدمات في $_userGovernorate',
+        child: _emptyMini(
+          Icons.handyman_rounded,
+          'الأقسام المطلوبة مش متاحة حاليًا',
+        ),
+      );
+    }
+    if (_loadingNearbySymbolicProviders && _nearbyServiceProviders.isEmpty) {
+      return _section(
+        title: 'أفضل مقدمي الخدمة في $_userGovernorate',
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ),
       );
     }
-    if (displayedCategories.isEmpty) {
-      return _section(
-        title: 'أعلى مقدمي الخدمة في $_userGovernorate',
-        child: _emptyMini(
-          Icons.handyman_rounded,
-          'لا يوجد مقدمو خدمة متاحون في محافظتك حاليًا',
-        ),
-      );
-    }
 
     return Column(
-      children: displayedCategories.map((category) {
-        final providers = providersByCategory[category.id]!;
+      children: requestedCategories.map((category) {
+        final providers = providersByCategory[category.id] ??
+            const <ServiceProvider>[];
         return _section(
           title: 'الأعلى تقييمًا في ${category.nameAr}',
           trailing: Text(
@@ -1619,10 +1649,61 @@ class _UserHomePageState extends State<UserHomePage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          child: _buildServiceProviderCards(providers.take(10).toList()),
+          child: providers.isEmpty
+              ? _emptyMini(
+                  Icons.handyman_rounded,
+                  'لا يوجد مقدمو خدمة في المحافظة دي حاليًا',
+                )
+              : _buildServiceProviderCards(providers.take(10).toList()),
         );
       }).toList(growable: false),
     );
+  }
+
+  String? _homeServiceCategoryGroup(ServiceCategory category) {
+    final slug = category.slug.trim().toLowerCase().replaceAll('_', '-');
+    final name = category.nameAr.trim().toLowerCase();
+
+    if (slug.contains('plumb') ||
+        name.contains('سباك') ||
+        name.contains('أدوات صحية')) {
+      return 'plumbing';
+    }
+    if (slug.contains('satellite') ||
+        slug.contains('receiver') ||
+        slug.contains('dish') ||
+        name.contains('دش') ||
+        name.contains('رسيفر') ||
+        name.contains('ريسيفر')) {
+      return 'satellite';
+    }
+    if (slug.contains('electric') ||
+        name.contains('كهربا') ||
+        name.contains('كهرباء')) {
+      return 'electrical';
+    }
+    if (slug.contains('paint') ||
+        name.contains('دهان') ||
+        name.contains('نقاش')) {
+      return 'painting';
+    }
+    if (slug.contains('air-condition') ||
+        slug.contains('aircondition') ||
+        slug.contains('cooling') ||
+        slug.contains('refrigerat') ||
+        slug.contains('hvac') ||
+        name.contains('تكييف') ||
+        name.contains('تبريد')) {
+      return 'cooling';
+    }
+    if (slug.contains('ceramic') ||
+        slug.contains('tile') ||
+        slug.contains('flooring') ||
+        name.contains('سيراميك') ||
+        name.contains('بلاط')) {
+      return 'tiles';
+    }
+    return null;
   }
 
   Widget _buildServiceCategoryTile(ServiceCategory cat) {

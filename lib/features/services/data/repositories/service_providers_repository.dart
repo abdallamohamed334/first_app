@@ -91,21 +91,19 @@ class ServiceProvidersRepository {
     }
   }
 
-  /// مقدمو الخدمات ذوو الإحداثيات في محافظة المستخدم، لاستخدامهم على
-  /// الخريطة وقوائم الأقسام القريبة. عند غياب المحافظة نستخدم المدينة فقط.
+  /// مقدمو الخدمات في محافظة المستخدم، مرتبين بالأعلى تقييمًا.
+  /// تُفلتر الإحداثيات لاحقًا فقط عند بناء الخريطة.
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     String? governorate,
-    int limit = 100,
+    int limit = 500,
   }) async {
     try {
       final cleanCity = city.trim();
       final cleanGovernorate = governorate?.trim() ?? '';
       var query = _client
           .from('published_service_providers')
-          .select(_publicProviderColumns)
-          .not('latitude', 'is', null)
-          .not('longitude', 'is', null);
+          .select(_publicProviderColumns);
       if (cleanGovernorate.isNotEmpty) {
         query = query.eq('governorate', cleanGovernorate);
       } else if (cleanCity.isNotEmpty) {
@@ -118,7 +116,6 @@ class ServiceProvidersRepository {
 
       return (rows as List)
           .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
-          .where((provider) => provider.latitude != null && provider.longitude != null)
           .toList(growable: false);
     } catch (e) {
       debugPrint('❌ listNearbyProviders error: $e');
