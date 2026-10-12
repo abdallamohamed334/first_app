@@ -23,6 +23,7 @@ required = [
     ROOT / "supabase/migrations/20261012250000_harden_institution_offer_inventory_lifecycle.sql",
     ROOT / "supabase/migrations/20261012283000_allow_requester_view_institution_offer.sql",
     ROOT / "supabase/migrations/20261012290000_lock_user_account_fields.sql",
+    ROOT / "supabase/migrations/20261012291000_fix_institution_offer_policy_recursion.sql",
     ROOT / "supabase/migrations/20261012260000_harden_community_needs_lifecycle.sql",
     ROOT / "supabase/migrations/20261012261000_harden_community_need_insert.sql",
     ROOT / "supabase/migrations/20261012270000_harden_food_offer_requests.sql",

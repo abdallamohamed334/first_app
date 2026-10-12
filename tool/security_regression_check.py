@@ -50,6 +50,7 @@ INSTITUTION_REQUESTER_VIEW_MIGRATION = ROOT / "supabase/migrations/2026101228300
 COMMUNITY_NEEDS_REPOSITORY = ROOT / "lib/features/community/data/repositories/community_needs_repository.dart"
 USER_ACCOUNT_FIELDS_MIGRATION = ROOT / "supabase/migrations/20261012290000_lock_user_account_fields.sql"
 PROFILE_EDIT_DIALOG = ROOT / "lib/features/profile/presentation/widgets/profile_edit_dialog.dart"
+INSTITUTION_OFFER_POLICY_MIGRATION = ROOT / "supabase/migrations/20261012291000_fix_institution_offer_policy_recursion.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -100,6 +101,7 @@ def main() -> None:
     community_needs_repository = COMMUNITY_NEEDS_REPOSITORY.read_text()
     user_account_fields_migration = USER_ACCOUNT_FIELDS_MIGRATION.read_text()
     profile_edit_dialog = PROFILE_EDIT_DIALOG.read_text()
+    institution_offer_policy_migration = INSTITUTION_OFFER_POLICY_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -189,6 +191,9 @@ def main() -> None:
     for protected in ("points", "role", "account_status", "suspension_reason", "password"):
         require(user_account_fields_migration, f"NEW.{protected} IS DISTINCT FROM OLD.{protected}", f"protected account field: {protected}")
     require(profile_edit_dialog, "غير قابل للتعديل", "phone immutable profile UI")
+    require(institution_offer_policy_migration, "is_requester_for_institution_offer", "recursion-safe institution offer helper")
+    require(institution_offer_policy_migration, "SECURITY DEFINER", "protected institution offer policy helper")
+    require(institution_offer_policy_migration, "DROP POLICY IF EXISTS institution_offers_requester_select", "requester policy replacement")
     if "fallback update" in my_offers_repository.lower():
         raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 
