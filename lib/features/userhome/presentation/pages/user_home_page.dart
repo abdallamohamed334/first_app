@@ -2963,12 +2963,12 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildServiceProviderCards(List<ServiceProvider> providers) {
     return SizedBox(
-      height: 158,
+      height: 184,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: providers.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) =>
             _buildServiceProviderCard(providers[index]),
       ),
@@ -2976,106 +2976,222 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildServiceProviderCard(ServiceProvider provider) {
+    final profileImage = provider.profileImageUrl?.trim();
+    final location = [
+      provider.city?.trim(),
+      provider.governorate?.trim() ?? _userGovernorate,
+    ].whereType<String>().where((part) => part.isNotEmpty).toSet().join('، ');
+
     return SizedBox(
-      width: 230,
+      width: 276,
       child: Material(
         color: _card,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => ServiceProviderDetailsPage(provider: provider),
           )),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 27,
-                  backgroundColor: _blue.withValues(alpha: 0.16),
-                  backgroundImage: provider.profileImageUrl?.isNotEmpty == true
-                      ? CachedNetworkImageProvider(provider.profileImageUrl!)
-                      : null,
-                  child: provider.profileImageUrl?.isNotEmpty == true
-                      ? null
-                      : Icon(
-                          provider.isCompany
-                              ? Icons.business_rounded
-                              : Icons.handyman_rounded,
-                          color: _blue,
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_blue.withValues(alpha: 0.10), _card, _card],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                stops: const [0, 0.45, 1],
+              ),
+              border: Border.all(color: _border),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        provider.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        provider.categoryName ??
-                            provider.categorySlug ??
-                            'خدمات',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.star_rounded, color: _orange, size: 15),
-                          const SizedBox(width: 3),
-                          Text(
-                            provider.ratingAvg.toStringAsFixed(1),
-                            style: TextStyle(
-                              color: _textPrimary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: _blue.withValues(alpha: 0.55),
+                            width: 1.5,
                           ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              provider.pricingLabel,
+                        ),
+                        child: CircleAvatar(
+                          radius: 25,
+                          backgroundColor: _blue.withValues(alpha: 0.16),
+                          backgroundImage: profileImage?.isNotEmpty == true
+                              ? CachedNetworkImageProvider(profileImage!)
+                              : null,
+                          child: profileImage?.isNotEmpty == true
+                              ? null
+                              : Icon(
+                                  provider.isCompany
+                                      ? Icons.business_rounded
+                                      : Icons.handyman_rounded,
+                                  color: _blue,
+                                  size: 23,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              provider.displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: _green,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                color: _textPrimary,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.handyman_rounded,
+                                  color: _blue.withValues(alpha: 0.9),
+                                  size: 13,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    provider.categoryName ??
+                                        provider.categorySlug ??
+                                        'خدمات',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: _textSecondary,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        provider.city ?? _userCity,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textSecondary,
-                          fontSize: 10,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _orange.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _orange.withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star_rounded, color: _orange, size: 15),
+                            const SizedBox(width: 3),
+                            Text(
+                              provider.ratingAvg.toStringAsFixed(1),
+                              style: TextStyle(
+                                color: _textPrimary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Divider(height: 1, color: _border),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: _blue,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          location.isEmpty ? _userGovernorate ?? _userCity : location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _textSecondary,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 106),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _green.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Text(
+                          provider.pricingLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _green,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Icon(
+                        provider.isCompany
+                            ? Icons.business_rounded
+                            : Icons.verified_user_rounded,
+                        color: _blue.withValues(alpha: 0.9),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        provider.isCompany ? 'مؤسسة خدمات' : 'مقدم خدمة',
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'عرض الملف',
+                        style: TextStyle(
+                          color: _blue,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          color: _blue, size: 11),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
