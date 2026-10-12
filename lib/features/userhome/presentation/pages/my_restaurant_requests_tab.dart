@@ -354,6 +354,8 @@ class _MyRestaurantRequestsTabState extends State<MyRestaurantRequestsTab> {
       'ready_for_pickup': 'جاهز للاستلام',
       'completed': 'مكتمل',
       'cancelled': 'ملغي',
+      'rejected': 'مرفوض',
+      'expired': 'منتهي',
     };
 
     return SizedBox(
