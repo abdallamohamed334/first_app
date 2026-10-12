@@ -118,9 +118,11 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
                 const SizedBox(height: 12),
                 _field(
                   controller: _phoneController,
-                  label: 'رقم الهاتف',
+                  label: 'رقم الهاتف (غير قابل للتعديل)',
                   icon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
+                  readOnly: true,
+                  helperText: 'رقم الهاتف مرتبط بهوية تسجيل الدخول',
                 ),
                 const SizedBox(height: 12),
                 _dropdown(
@@ -287,15 +289,19 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
     TextInputType keyboardType = TextInputType.text,
     bool requiredField = false,
     int maxLines = 1,
+    bool readOnly = false,
+    String? helperText,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       maxLines: maxLines,
       textDirection: TextDirection.rtl,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
+        helperText: helperText,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
       validator: requiredField

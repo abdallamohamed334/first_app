@@ -48,6 +48,8 @@ MY_OFFERS_ACTIONS_MIGRATION = ROOT / "supabase/migrations/20261012280000_harden_
 MY_OFFERS_REPOSITORY = ROOT / "lib/features/community/data/repositories/community_my_offers_repository.dart"
 INSTITUTION_REQUESTER_VIEW_MIGRATION = ROOT / "supabase/migrations/20261012283000_allow_requester_view_institution_offer.sql"
 COMMUNITY_NEEDS_REPOSITORY = ROOT / "lib/features/community/data/repositories/community_needs_repository.dart"
+USER_ACCOUNT_FIELDS_MIGRATION = ROOT / "supabase/migrations/20261012290000_lock_user_account_fields.sql"
+PROFILE_EDIT_DIALOG = ROOT / "lib/features/profile/presentation/widgets/profile_edit_dialog.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -96,6 +98,8 @@ def main() -> None:
     my_offers_repository = MY_OFFERS_REPOSITORY.read_text()
     institution_requester_view_migration = INSTITUTION_REQUESTER_VIEW_MIGRATION.read_text()
     community_needs_repository = COMMUNITY_NEEDS_REPOSITORY.read_text()
+    user_account_fields_migration = USER_ACCOUNT_FIELDS_MIGRATION.read_text()
+    profile_edit_dialog = PROFILE_EDIT_DIALOG.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -181,6 +185,10 @@ def main() -> None:
     require(community_needs_repository, "update_community_need", "safe needs update RPC")
     require(community_needs_repository, "cancel_community_need", "safe needs cancel RPC")
     require(community_needs_repository, "fulfill_community_need", "safe needs fulfill RPC")
+    require(user_account_fields_migration, "prevent_user_account_field_escalation", "protected user account fields trigger")
+    for protected in ("points", "role", "account_status", "suspension_reason", "password"):
+        require(user_account_fields_migration, f"NEW.{protected} IS DISTINCT FROM OLD.{protected}", f"protected account field: {protected}")
+    require(profile_edit_dialog, "غير قابل للتعديل", "phone immutable profile UI")
     if "fallback update" in my_offers_repository.lower():
         raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 
