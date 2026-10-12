@@ -302,13 +302,11 @@ class CommunityNeedsRepository {
 
       if (payload.isEmpty) return true;
 
-      await _client
-          .from('community_needs')
-          .update(payload)
-          .eq('id', needId)
-          .eq('requester_id', _client.auth.currentUser!.id);
-
-      return true;
+      final result = await _client.rpc(
+        'update_community_need',
+        params: {'p_need_id': needId, 'p_patch': payload},
+      );
+      return result == true;
     } catch (error) {
       debugPrint('❌ updateNeed error: $error');
       return false;
@@ -321,13 +319,11 @@ class CommunityNeedsRepository {
 
   Future<bool> cancelNeed(String needId) async {
     try {
-      await _client
-          .from('community_needs')
-          .update({'status': 'cancelled'})
-          .eq('id', needId)
-          .eq('requester_id', _client.auth.currentUser!.id);
-
-      return true;
+      final result = await _client.rpc(
+        'cancel_community_need',
+        params: {'p_need_id': needId},
+      );
+      return result == true;
     } catch (error) {
       debugPrint('❌ cancelNeed error: $error');
       return false;
@@ -340,17 +336,11 @@ class CommunityNeedsRepository {
 
   Future<bool> markAsFulfilled(String needId, {String? fulfilledBy}) async {
     try {
-      await _client
-          .from('community_needs')
-          .update({
-            'status': 'fulfilled',
-            'fulfilled_by': fulfilledBy,
-            'fulfilled_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', needId)
-          .eq('requester_id', _client.auth.currentUser!.id);
-
-      return true;
+      final result = await _client.rpc(
+        'fulfill_community_need',
+        params: {'p_need_id': needId},
+      );
+      return result == true;
     } catch (error) {
       debugPrint('❌ markAsFulfilled error: $error');
       return false;

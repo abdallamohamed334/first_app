@@ -110,7 +110,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
           .client
           .from('community_needs')
           .select('city')
-          .not('city', 'is', null);
+          .not('city', 'is', null)
+          .limit(500);
 
       final citiesSet = <String>{};
       for (final row in rows) {
