@@ -163,7 +163,9 @@ class MapRepositoryImpl implements MapRepository {
           .gt('expires_at', now.toIso8601String())
           .filter('deleted_at', 'is', 'null')
           .order('created_at', ascending: false)
-          .limit(1000);
+          // Keep the client-side Haversine fallback bounded. The PostGIS RPC
+          // remains the primary path for accurate, server-side filtering.
+          .limit(500);
 
       final candidates = <FoodOffer>[];
       for (final raw in rows) {

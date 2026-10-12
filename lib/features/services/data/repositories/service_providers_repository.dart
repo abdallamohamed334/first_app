@@ -95,7 +95,7 @@ class ServiceProvidersRepository {
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     String? governorate,
-    int limit = 500,
+    int limit = 100,
   }) async {
     try {
       final cleanCity = city.trim();
@@ -132,7 +132,8 @@ class ServiceProvidersRepository {
       final rows = await _client
           .from('published_service_providers')
           .select('service_areas')
-          .eq('category_id', categoryId);
+          .eq('category_id', categoryId)
+          .limit(500);
 
       final Set<String> areas = {};
       for (final row in rows) {
@@ -162,7 +163,8 @@ class ServiceProvidersRepository {
           .from('published_service_providers')
           .select('governorate')
           .eq('category_id', categoryId)
-          .not('governorate', 'is', null);
+          .not('governorate', 'is', null)
+          .limit(500);
       final values = rows
           .map((row) => row['governorate']?.toString().trim() ?? '')
           .where((value) => value.isNotEmpty)
@@ -186,7 +188,8 @@ class ServiceProvidersRepository {
           .select('city')
           .eq('category_id', categoryId)
           .eq('governorate', governorate)
-          .not('city', 'is', null);
+          .not('city', 'is', null)
+          .limit(500);
       final values = rows
           .map((row) => row['city']?.toString().trim() ?? '')
           .where((value) => value.isNotEmpty)

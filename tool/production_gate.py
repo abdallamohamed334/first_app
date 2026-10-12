@@ -15,6 +15,12 @@ required = [
     ROOT / "supabase/migrations/20261002110000_add_otp_rate_limit.sql",
     ROOT / "supabase/migrations/20261002120000_lock_public_provider_surface.sql",
     ROOT / "supabase/migrations/20261003190000_nearby_marketplace_category_offers.sql",
+    ROOT / "supabase/migrations/20261012230000_capacity_hot_path_indexes.sql",
+    ROOT / "supabase/migrations/20261012231000_aggregate_community_stats_rpc.sql",
+    ROOT / "supabase/migrations/20261012232000_bound_nearby_institution_offers.sql",
+    ROOT / "supabase/migrations/20261012233000_aggregate_user_stats_rpc.sql",
+    ROOT / "supabase/migrations/20261012234000_user_stats_indexes.sql",
+    ROOT / "tool/performance_regression_check.py",
     ROOT / ".github/workflows/flutter-ci.yml",
     ROOT / ".github/workflows/release.yml",
 ]
