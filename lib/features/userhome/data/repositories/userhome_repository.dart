@@ -877,7 +877,9 @@ class UserHomeRepository {
             institutions:institution_id (
               id,
               name,
-              logo_url
+              logo_url,
+              latitude,
+              longitude
             ),
             marketplace_categories!institution_offers_marketplace_category_fkey (
               id,
@@ -933,8 +935,10 @@ class UserHomeRepository {
               ownerType: 'institution',
               ownerName: inst['name']?.toString(),
               ownerLogo: inst['logo_url']?.toString(),
-              latitude: _toDouble(json['latitude']),
-              longitude: _toDouble(json['longitude']),
+              // Institution coordinates are the source of truth; offer-level
+              // coordinates are optional in older rows.
+              latitude: _toDouble(json['latitude']) ?? _toDouble(inst['latitude']),
+              longitude: _toDouble(json['longitude']) ?? _toDouble(inst['longitude']),
               categoryId: json['marketplace_category_id']?.toString(),
               categoryName: category['name_ar']?.toString(),
               status: json['status']?.toString() ?? 'active',

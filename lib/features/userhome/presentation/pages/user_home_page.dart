@@ -480,9 +480,12 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               )
               .toList(growable: false);
-      if (institutionRoot != null) {
+      if (institutionRoot != null && _userLat != null && _userLng != null) {
         final institutionOffers = await _userHomeRepository.getOffersByCategory(
           categoryId: institutionRoot['id']?.toString() ?? '',
+          latitude: _userLat,
+          longitude: _userLng,
+          radiusKm: _AppFeatures.nearbyRadiusKm,
         );
         final institutionOnly = institutionOffers
             .where((offer) => offer.ownerType == 'institution')
@@ -1106,8 +1109,9 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
+        SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildCompanySectionTitle()),
-        SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers()),
+        SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: _buildHomeServicesSection()),
@@ -2623,15 +2627,28 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildNearbyInstitutionsOffers() {
-    final near = _sortByDistance(_institutionOffers);
-    final offers = (_userLat == null || _userLng == null)
-        ? const <InstitutionOffer>[]
-        : near.take(12).toList(growable: false);
-    if (_loadingInstitutionOffers && offers.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+  Widget _buildNearbyInstitutionsOffers(UserHomeLoaded state) {
+    final sourceCategories = _nearbyMainCategories.isNotEmpty
+        ? _nearbyMainCategories
+        : state.categories;
+    final root = sourceCategories.cast<Map<String, dynamic>?>().firstWhere(
+          (category) => category?['slug']?.toString() == 'institution-offers',
+          orElse: () => null,
+        );
+    final rootId = root?['id']?.toString() ?? '';
+    final offers = rootId.isEmpty
+        ? const <CategoryOffer>[]
+        : (_nearbyCategoryOffers[rootId] ?? const <CategoryOffer>[])
+            .where((offer) => offer.ownerType == 'institution')
+            .toList(growable: false);
+
+    if (_loadingNearbyCategoryOffers && offers.isEmpty) {
+      return _section(
+        title: 'عروض مؤسسات قريبة منك',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+        ),
       );
     }
     if (offers.isEmpty) {
@@ -2645,61 +2662,28 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+
+    return _section(
+      title: 'عروض مؤسسات قريبة منك',
+      trailing: Text(
+        _userCity,
+        style: TextStyle(
+          color: _textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
       child: SizedBox(
-        height: 226,
+        height: 290,
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
           itemCount: offers.length,
           separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final offer = offers[index];
-            return SizedBox(
-              width: 250,
-              child: Material(
-                color: _card,
-                borderRadius: BorderRadius.circular(20),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => InstitutionOfferDetailsPage(offer: offer),
-                  )),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    Expanded(
-                      child: Stack(fit: StackFit.expand, children: [
-                        if (offer.firstImage != null)
-                          CachedNetworkImage(imageUrl: offer.firstImage!, fit: BoxFit.cover,
-                              errorWidget: (_, __, ___) => _buildCompanyOfferBackdrop())
-                        else
-                          _buildCompanyOfferBackdrop(),
-                        Positioned(top: 9, right: 9, child: _offerGlassPill(Icons.schedule_rounded, offer.timeRemaining)),
-                      ]),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(offer.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: _textPrimary, fontSize: 14, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 4),
-                        Text(offer.institutionName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 8),
-                        Row(children: [
-                          Icon(Icons.info_outline_rounded, color: _primaryRed, size: 16),
-                          const SizedBox(width: 5),
-                          Text('عرض تفاصيل العرض', style: TextStyle(color: _primaryRed, fontSize: 11, fontWeight: FontWeight.w900)),
-                          const Spacer(),
-                          _offerPricePill(offer),
-                        ]),
-                      ]),
-                    ),
-                  ]),
-                ),
-              ),
-            );
-          },
+          itemBuilder: (context, index) => _HomeCategoryOfferCard(
+            offer: offers[index],
+            onTap: () => _openHomeCategoryOffer(offers[index]),
+          ),
         ),
       ),
     );
@@ -2768,7 +2752,7 @@ class _UserHomePageState extends State<UserHomePage> {
     return Column(
       children: [
         _section(
-          title: 'تسوق حسب القسم',
+          title: 'عروض المؤسسات',
           trailing: Text(
             _userCity,
             style: TextStyle(
@@ -5169,9 +5153,24 @@ class _HomeCategoryOfferCard extends StatelessWidget {
                           height: 1.25,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            color: _UserHomePageState._primaryRed,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'تفاصيل العرض',
+                            style: TextStyle(
+                              color: _UserHomePageState._primaryRed,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const Spacer(),
                           Expanded(
                             child: Text(
                               ownerLabel,
