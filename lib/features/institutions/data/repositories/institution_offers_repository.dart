@@ -62,7 +62,6 @@ class InstitutionOffersRepository {
               institution_type,
               logo_url,
               address,
-              governorate,
               city,
               phone
             )

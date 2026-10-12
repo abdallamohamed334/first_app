@@ -114,7 +114,6 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
   List<ServiceProvider> _nearbyServiceProviders = [];
-  final Set<String> _selectedHomeServiceCategoryIds = {};
   bool _loadingNearbySymbolicProviders = false;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
@@ -125,6 +124,7 @@ class _UserHomePageState extends State<UserHomePage> {
   double? _userLat;
   double? _userLng;
   String _userCity = AppConfig.defaultCity;
+  String? _userGovernorate;
 
   final PageController _bannerController = PageController(viewportFraction: 1);
   int _bannerIndex = 0;
@@ -192,7 +192,7 @@ class _UserHomePageState extends State<UserHomePage> {
       final data = await SupabaseService()
           .client
           .from('users')
-          .select('latitude, longitude, city')
+          .select('latitude, longitude, city, governorate')
           .eq('id', authUser.id)
           .maybeSingle();
 
@@ -201,6 +201,7 @@ class _UserHomePageState extends State<UserHomePage> {
       final lat = (data['latitude'] as num?)?.toDouble();
       final lng = (data['longitude'] as num?)?.toDouble();
       final city = (data['city'] as String?)?.trim();
+      final governorate = (data['governorate'] as String?)?.trim();
 
       if (lat == null || lng == null) {
         if (mounted) {
@@ -214,6 +215,10 @@ class _UserHomePageState extends State<UserHomePage> {
         _userLng = lng;
         _userCity =
             (city != null && city.isNotEmpty) ? city : AppConfig.defaultCity;
+        _userGovernorate =
+            (governorate != null && governorate.isNotEmpty)
+                ? governorate
+                : null;
       });
 
       debugPrint('✅ [Location] Loaded: city=$_userCity, lat=$lat, lng=$lng');
@@ -233,6 +238,7 @@ class _UserHomePageState extends State<UserHomePage> {
     try {
       final providers = await _serviceProvidersRepository.listNearbyProviders(
         city: _userCity,
+        governorate: _userGovernorate,
       );
       if (!mounted) return;
 
@@ -240,6 +246,10 @@ class _UserHomePageState extends State<UserHomePage> {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null || lng == null) return false;
+        if (_userGovernorate == null ||
+            provider.governorate?.trim() != _userGovernorate) {
+          return false;
+        }
         return _distanceKm(_userLat!, _userLng!, lat, lng) <=
             _AppFeatures.nearbyRadiusKm;
       }).toList();
@@ -1174,8 +1184,8 @@ class _UserHomePageState extends State<UserHomePage> {
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildHomeServiceCategoriesGrid()),
-        SliverToBoxAdapter(child: _buildSelectedTopRatedProviderSections()),
+        SliverToBoxAdapter(child: _buildHomeServiceCategoriesCarousel()),
+        SliverToBoxAdapter(child: _buildAutoTopRatedServiceCategorySections()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1436,7 +1446,7 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildHomeServiceCategoriesGrid() {
+  Widget _buildHomeServiceCategoriesCarousel() {
     if (_loadingServiceCategories && _serviceCategories.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
@@ -1446,173 +1456,170 @@ class _UserHomePageState extends State<UserHomePage> {
     if (_serviceCategories.isEmpty) return _buildServiceCategoriesEmpty();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'اختار أقسام الخدمات اللي تهمك',
-            style: TextStyle(
-              color: _textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Text(
+              'أقسام الخدمات',
+              style: TextStyle(
+                color: _textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'اختار قسم أو أكتر عشان نعرضلك الأعلى تقييمًا بالقرب منك',
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 122,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: _serviceCategories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) =>
+                  _buildHomeServiceCategoryCarouselTile(
+                _serviceCategories[index],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.42,
-            ),
-            itemCount: _serviceCategories.length,
-            itemBuilder: (context, index) {
-              final category = _serviceCategories[index];
-              final selected =
-                  _selectedHomeServiceCategoryIds.contains(category.id);
-              return _buildHomeServiceCategoryTile(category, selected);
-            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHomeServiceCategoryTile(
-    ServiceCategory category,
-    bool selected,
-  ) {
-    return Material(
-      color: selected ? _blue.withValues(alpha: 0.10) : _card,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
+  Widget _buildHomeServiceCategoryCarouselTile(ServiceCategory category) {
+    return SizedBox(
+      width: 155,
+      child: Material(
+        color: _card,
         borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          setState(() {
-            if (selected) {
-              _selectedHomeServiceCategoryIds.remove(category.id);
-            } else {
-              _selectedHomeServiceCategoryIds.add(category.id);
-            }
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: selected ? _blue : _border,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _blue.withValues(alpha: 0.18),
-                      _blue.withValues(alpha: 0.06),
-                    ],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _serviceIconFromSlug(category.slug),
-                  color: _blue,
-                  size: 21,
-                ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => _openServiceCategory(category),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border),
+              gradient: LinearGradient(
+                colors: [_blue.withValues(alpha: 0.12), _card],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _serviceIconFromSlug(category.slug),
+                    color: _blue,
+                    size: 23,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   category.nameAr,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: _textPrimary,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                     height: 1.2,
                   ),
                 ),
-              ),
-              const SizedBox(width: 5),
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.add_circle_outline_rounded,
-                color: selected ? _blue : _textSecondary,
-                size: 20,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSelectedTopRatedProviderSections() {
-    final selectedCategories = _serviceCategories
-        .where((category) =>
-            _selectedHomeServiceCategoryIds.contains(category.id))
-        .toList(growable: false);
-
-    if (selectedCategories.isEmpty) {
+  Widget _buildAutoTopRatedServiceCategorySections() {
+    if (_userGovernorate == null) {
       return _section(
-        title: 'مقدمو الخدمات حسب القسم',
+        title: 'مقدمو الخدمات الأعلى تقييمًا',
         child: _emptyMini(
-          Icons.touch_app_rounded,
-          'اختار قسم أو أكتر من الأقسام اللي فوق عشان نعرضلك أفضل مقدمي الخدمة',
+          Icons.location_city_rounded,
+          'أضف محافظتك في الملف الشخصي لعرض مقدمي الخدمة منها',
+        ),
+      );
+    }
+
+    final providersByCategory = <String, List<ServiceProvider>>{};
+    for (final provider in _nearbyServiceProviders) {
+      if (provider.governorate?.trim() != _userGovernorate) continue;
+      providersByCategory
+          .putIfAbsent(provider.categoryId, () => <ServiceProvider>[])
+          .add(provider);
+    }
+
+    for (final providers in providersByCategory.values) {
+      providers.sort((a, b) {
+        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+        if (byRating != 0) return byRating;
+        return b.totalReviews.compareTo(a.totalReviews);
+      });
+    }
+
+    final selectedCategories = _serviceCategories
+        .where((category) => providersByCategory[category.id]?.isNotEmpty == true)
+        .toList()
+      ..sort((a, b) {
+        final aTop = providersByCategory[a.id]!.first;
+        final bTop = providersByCategory[b.id]!.first;
+        final byRating = bTop.ratingAvg.compareTo(aTop.ratingAvg);
+        if (byRating != 0) return byRating;
+        return bTop.totalReviews.compareTo(aTop.totalReviews);
+      });
+
+    final displayedCategories = selectedCategories.take(6).toList();
+    if (_loadingNearbySymbolicProviders && displayedCategories.isEmpty) {
+      return _section(
+        title: 'أعلى مقدمي الخدمة في $_userGovernorate',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+    if (displayedCategories.isEmpty) {
+      return _section(
+        title: 'أعلى مقدمي الخدمة في $_userGovernorate',
+        child: _emptyMini(
+          Icons.handyman_rounded,
+          'لا يوجد مقدمو خدمة متاحون في محافظتك حاليًا',
         ),
       );
     }
 
     return Column(
-      children: selectedCategories.map((category) {
-        final providers = _nearbyServiceProviders
-            .where((provider) => provider.categoryId == category.id)
-            .toList()
-          ..sort((a, b) {
-            final byRating = b.ratingAvg.compareTo(a.ratingAvg);
-            if (byRating != 0) return byRating;
-            return b.totalReviews.compareTo(a.totalReviews);
-          });
-
+      children: displayedCategories.map((category) {
+        final providers = providersByCategory[category.id]!;
         return _section(
           title: 'الأعلى تقييمًا في ${category.nameAr}',
-          trailing: providers.isEmpty
-              ? null
-              : Text(
-                  '${providers.length} مقدم',
-                  style: TextStyle(
-                    color: _textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-          child: providers.isEmpty
-              ? _emptyMini(
-                  Icons.handyman_rounded,
-                  'مفيش مقدمو خدمات قريبون في القسم ده حاليًا',
-                )
-              : _buildServiceProviderCards(providers.take(20).toList()),
+          trailing: Text(
+            _userGovernorate!,
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: _buildServiceProviderCards(providers.take(10).toList()),
         );
       }).toList(growable: false),
     );

@@ -91,39 +91,30 @@ class ServiceProvidersRepository {
     }
   }
 
-  /// مقدمو الخدمات ذوو الإحداثيات لاستخدامهم على الخريطة.
-  /// نبدأ بمدينة المستخدم، ثم نستخدم كل المزودين كخطة بديلة حتى لا تختفي
-  /// العلامة بسبب اختلاف كتابة اسم المدينة بين ملف المستخدم وملف المزود.
+  /// مقدمو الخدمات ذوو الإحداثيات في محافظة المستخدم، لاستخدامهم على
+  /// الخريطة وقوائم الأقسام القريبة. عند غياب المحافظة نستخدم المدينة فقط.
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
+    String? governorate,
     int limit = 100,
   }) async {
     try {
       final cleanCity = city.trim();
+      final cleanGovernorate = governorate?.trim() ?? '';
       var query = _client
           .from('published_service_providers')
           .select(_publicProviderColumns)
           .not('latitude', 'is', null)
           .not('longitude', 'is', null);
-      if (cleanCity.isNotEmpty) {
+      if (cleanGovernorate.isNotEmpty) {
+        query = query.eq('governorate', cleanGovernorate);
+      } else if (cleanCity.isNotEmpty) {
         query = query.eq('city', cleanCity);
       }
-      var rows = await query
+      final rows = await query
           .order('rating_avg', ascending: false)
           .order('total_reviews', ascending: false)
           .limit(limit);
-
-      // Some records use a different city spelling or leave city empty.
-      if ((rows as List).isEmpty && cleanCity.isNotEmpty) {
-        rows = await _client
-            .from('published_service_providers')
-            .select(_publicProviderColumns)
-            .not('latitude', 'is', null)
-            .not('longitude', 'is', null)
-            .order('rating_avg', ascending: false)
-            .order('total_reviews', ascending: false)
-            .limit(limit);
-      }
 
       return (rows as List)
           .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
