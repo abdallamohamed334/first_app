@@ -912,11 +912,19 @@ class CommunityOfferRepository {
   // ============================================================
   String _normalizeCondition(String value) {
     final normalized = value.trim().toLowerCase();
+    // Marketplace options use a richer vocabulary than the legacy
+    // community_offers schema. Keep one canonical set in storage so the
+    // condition selected in the add-offer page can always be published.
     const aliases = {
       'new_item': 'new',
       'brand_new': 'new',
+      'like-new': 'very_good',
+      'like_new': 'very_good',
       'excellent': 'very_good',
       'very-good': 'very_good',
+      'fair': 'good',
+      'for-parts': 'needs_repair',
+      'for_parts': 'needs_repair',
       'needs-repair': 'needs_repair',
       'repair': 'needs_repair',
     };
