@@ -500,14 +500,13 @@ class _UserHomePageState extends State<UserHomePage> {
               );
       final institutionSubcategories = institutionRoot == null
           ? <Map<String, dynamic>>[]
-          : (await _userHomeRepository.getSubCategories(
+              : (await _userHomeRepository.getSubCategories(
                 institutionRoot['id']?.toString() ?? '',
               ))
               .where((category) {
-                return !_isGroceryOrSupermarketCategory(category) &&
-                    _institutionCatalogSlugs.contains(
-                      category['slug']?.toString().trim().toLowerCase(),
-                    );
+                return _institutionCatalogSlugs.contains(
+                  category['slug']?.toString().trim().toLowerCase(),
+                );
               })
               .toList(growable: false);
       if (institutionRoot != null && _userLat != null && _userLng != null) {
