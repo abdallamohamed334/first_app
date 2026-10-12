@@ -41,6 +41,8 @@ LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/login_page.dart"
 PROVIDER_AUTH_PAGE = ROOT / "lib/features/provider/presentation/pages/provider_auth_page.dart"
 SEND_OTP_FUNCTION = ROOT / "supabase/functions/send-otp/index.ts"
 VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.ts"
+PUBLIC_PROVIDER_PROJECTION_MIGRATION = ROOT / "supabase/migrations/20261012180000_public_provider_projection_and_rpc_hardening.sql"
+POSTGIS_RPC_MIGRATION = ROOT / "supabase/migrations/20261012181000_revoke_unused_postgis_rpc_execution.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -82,6 +84,8 @@ def main() -> None:
     provider_auth_page = PROVIDER_AUTH_PAGE.read_text()
     send_otp_function = SEND_OTP_FUNCTION.read_text()
     verify_and_create_function = VERIFY_AND_CREATE_FUNCTION.read_text()
+    public_provider_projection_migration = PUBLIC_PROVIDER_PROJECTION_MIGRATION.read_text()
+    postgis_rpc_migration = POSTGIS_RPC_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -217,6 +221,15 @@ def main() -> None:
     require(verify_and_create_function, '"phone_normalized"', "normalized phone account lookup")
     if ".isNotEmpty" in verify_and_create_function:
         raise AssertionError("Edge Function contains a Dart-only string API")
+    require(public_provider_projection_migration, "CREATE TABLE IF NOT EXISTS public.published_service_provider_cards", "sanitized provider projection")
+    require(public_provider_projection_migration, "WITH (security_invoker = true)", "security-invoker provider view")
+    for sensitive in ("company_legal_name", "employees_count", "founded_year", "branches", "id_card_front_url", "id_card_back_url"):
+        if sensitive in public_provider_projection_migration:
+            raise AssertionError(f"sensitive provider field leaked by public projection migration: {sensitive}")
+    require(public_provider_projection_migration, "REVOKE ALL ON FUNCTION public.guard_community_offer_single_edit()", "trigger helper revoke")
+    require(public_provider_projection_migration, "REVOKE ALL ON FUNCTION public.sync_institution_offer_catalog_category()", "catalog trigger helper revoke")
+    for signature in ("text, text", "text, text, text", "text, text, text, boolean"):
+        require(postgis_rpc_migration, f"st_estimatedextent({signature})", f"unused PostGIS RPC revoke: {signature}")
     for shared_file in (supabase_service, error_mapper):
         if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")
