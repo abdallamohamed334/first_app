@@ -403,7 +403,7 @@ class UserHomeRepository {
   // ---------------------------------------------------------------------------
 
   Future<CommunityStats> getCommunityStats() async {
-    return const CommunityStats();
+    return _supabaseService.getCommunityStats();
   }
 
   // ---------------------------------------------------------------------------
@@ -420,16 +420,27 @@ class UserHomeRepository {
 
   Future<List<HomeBanner>> getHomeBanners() async {
     try {
+      final now = DateTime.now().toUtc();
       final response = await _client
           .from('home_banners')
-          .select('id, image_url, offer_id, sort_order')
+          .select('id, image_url, offer_id, sort_order, starts_at, ends_at')
           .eq('is_active', true)
-          .filter('starts_at', 'is', 'null')
-          .filter('ends_at', 'is', 'null')
           .order('sort_order', ascending: true)
-          .limit(20);
+          .limit(50);
 
-      return response.map((json) => HomeBanner.fromJson(json)).toList();
+      return response
+          .where((json) {
+            final startsAt = DateTime.tryParse(
+              json['starts_at']?.toString() ?? '',
+            );
+            final endsAt = DateTime.tryParse(
+              json['ends_at']?.toString() ?? '',
+            );
+            return (startsAt == null || !now.isBefore(startsAt.toUtc())) &&
+                (endsAt == null || !now.isAfter(endsAt.toUtc()));
+          })
+          .map((json) => HomeBanner.fromJson(json))
+          .toList(growable: false);
     } catch (e, stack) {
       debugPrint('❌ getHomeBanners error: $e');
       debugPrintStack(stackTrace: stack);

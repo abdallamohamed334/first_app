@@ -51,6 +51,7 @@ import 'package:loqma/features/userhome/presentation/pages/user_institution_offe
 import 'package:loqma/features/userhome/presentation/widgets/home_auxiliary_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_need_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_offer_widgets.dart';
+import 'package:loqma/routes/app_router.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS — تحكم في إظهار الميزات
@@ -724,7 +725,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () => context.go(AppRouter.login),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _primaryRed,
                       foregroundColor: Colors.white,
