@@ -20,6 +20,7 @@ required = [
     ROOT / "supabase/migrations/20261012232000_bound_nearby_institution_offers.sql",
     ROOT / "supabase/migrations/20261012233000_aggregate_user_stats_rpc.sql",
     ROOT / "supabase/migrations/20261012234000_user_stats_indexes.sql",
+    ROOT / "supabase/migrations/20261012250000_harden_institution_offer_inventory_lifecycle.sql",
     ROOT / "tool/performance_regression_check.py",
     ROOT / ".github/workflows/flutter-ci.yml",
     ROOT / ".github/workflows/release.yml",

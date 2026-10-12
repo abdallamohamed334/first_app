@@ -52,7 +52,9 @@ class InstitutionsRepository {
             )
           ''')
           .eq('institution_id', institutionId)
-          .order('created_at', ascending: false);
+          .filter('deleted_at', 'is', 'null')
+          .order('created_at', ascending: false)
+          .limit(200);
 
       final offers = _maps(response);
 
@@ -129,21 +131,17 @@ class InstitutionsRepository {
       // 🏪 موقع العرض الحقيقي موجود في institutions
       // وليس institution_offers.latitude/longitude
       // ------------------------------------------------------------
-      final rows = await _client.from('institution_offers').select('''
+      final boundedRows = await _client.from('institution_offers').select('''
             *,
             institutions:institution_id (
-              id,
-              name,
-              institution_type,
-              logo_url,
-              address,
-              phone,
-              latitude,
-              longitude
+              id, name, institution_type, logo_url, address, phone, latitude, longitude
             )
-          ''').eq('status', 'active').gt('expires_at', now);
+          ''').eq('status', 'active').gt('expires_at', now)
+          .filter('deleted_at', 'is', 'null')
+          .order('created_at', ascending: false)
+          .limit(200);
 
-      final offers = _maps(rows);
+      final offers = _maps(boundedRows);
 
       // ------------------------------------------------------------
       // 📏 عرض المؤسسات الموجودة داخل 10 كم فقط
@@ -276,6 +274,8 @@ class InstitutionsRepository {
             'institution_id',
             cleanInstitutionId,
           )
+          .filter('deleted_at', 'is', 'null')
+          .limit(200)
           .order(
             'created_at',
             ascending: false,

@@ -83,7 +83,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           ''')
           .eq('status', 'active')
           .gt('expires_at', now)
-          .order('created_at', ascending: false);
+          .filter('deleted_at', 'is', 'null')
+          .order('created_at', ascending: false)
+          .limit(200);
 
       final offers = <FoodOffer>[];
 
