@@ -172,7 +172,9 @@ class CommunityNeedsRepository {
     try {
       final response = await _client.rpc('list_my_community_needs');
 
-      if (response is! List) return [];
+      if (response is! List) {
+        throw StateError('Unexpected my community needs response');
+      }
 
       return response
           .whereType<Map>()
@@ -180,7 +182,7 @@ class CommunityNeedsRepository {
           .toList();
     } catch (error) {
       debugPrint('❌ getMyNeeds error: $error');
-      return [];
+      rethrow;
     }
   }
 
@@ -222,7 +224,7 @@ class CommunityNeedsRepository {
       return need;
     } catch (error) {
       debugPrint('❌ getNeedById error: $error');
-      return null;
+      rethrow;
     }
   }
 
@@ -306,10 +308,13 @@ class CommunityNeedsRepository {
         'update_community_need',
         params: {'p_need_id': needId, 'p_patch': payload},
       );
-      return result == true;
+      if (result != true) {
+        throw Exception('تعذر تحديث الاحتياج');
+      }
+      return true;
     } catch (error) {
       debugPrint('❌ updateNeed error: $error');
-      return false;
+      rethrow;
     }
   }
 
@@ -323,10 +328,13 @@ class CommunityNeedsRepository {
         'cancel_community_need',
         params: {'p_need_id': needId},
       );
-      return result == true;
+      if (result != true) {
+        throw Exception('تعذر إلغاء الاحتياج');
+      }
+      return true;
     } catch (error) {
       debugPrint('❌ cancelNeed error: $error');
-      return false;
+      rethrow;
     }
   }
 
@@ -340,10 +348,13 @@ class CommunityNeedsRepository {
         'fulfill_community_need',
         params: {'p_need_id': needId},
       );
-      return result == true;
+      if (result != true) {
+        throw Exception('تعذر إكمال الاحتياج');
+      }
+      return true;
     } catch (error) {
       debugPrint('❌ markAsFulfilled error: $error');
-      return false;
+      rethrow;
     }
   }
 
