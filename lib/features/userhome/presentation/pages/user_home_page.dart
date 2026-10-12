@@ -1175,7 +1175,7 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildHomeServiceCategoriesGrid()),
-        SliverToBoxAdapter(child: _buildSelectedTopRatedProvidersSection()),
+        SliverToBoxAdapter(child: _buildSelectedTopRatedProviderSections()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1568,10 +1568,15 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildSelectedTopRatedProvidersSection() {
-    if (_selectedHomeServiceCategoryIds.isEmpty) {
+  Widget _buildSelectedTopRatedProviderSections() {
+    final selectedCategories = _serviceCategories
+        .where((category) =>
+            _selectedHomeServiceCategoryIds.contains(category.id))
+        .toList(growable: false);
+
+    if (selectedCategories.isEmpty) {
       return _section(
-        title: 'الأعلى تقييمًا في الأقسام المختارة',
+        title: 'مقدمو الخدمات حسب القسم',
         child: _emptyMini(
           Icons.touch_app_rounded,
           'اختار قسم أو أكتر من الأقسام اللي فوق عشان نعرضلك أفضل مقدمي الخدمة',
@@ -1579,46 +1584,37 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
-    final providers = _nearbyServiceProviders
-        .where((provider) =>
-            _selectedHomeServiceCategoryIds.contains(provider.categoryId))
-        .toList()
-      ..sort((a, b) {
-        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
-        if (byRating != 0) return byRating;
-        return b.totalReviews.compareTo(a.totalReviews);
-      });
+    return Column(
+      children: selectedCategories.map((category) {
+        final providers = _nearbyServiceProviders
+            .where((provider) => provider.categoryId == category.id)
+            .toList()
+          ..sort((a, b) {
+            final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+            if (byRating != 0) return byRating;
+            return b.totalReviews.compareTo(a.totalReviews);
+          });
 
-    if (_loadingNearbySymbolicProviders && providers.isEmpty) {
-      return _section(
-        title: 'الأعلى تقييمًا في الأقسام المختارة',
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-      );
-    }
-    if (providers.isEmpty) {
-      return _section(
-        title: 'الأعلى تقييمًا في الأقسام المختارة',
-        child: _emptyMini(
-          Icons.handyman_rounded,
-          'مفيش مقدمي خدمة قريبين في الأقسام المختارة حاليًا',
-        ),
-      );
-    }
-
-    return _section(
-      title: 'الأعلى تقييمًا في الأقسام المختارة',
-      trailing: Text(
-        '${providers.length} مقدم',
-        style: TextStyle(
-          color: _textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      child: _buildServiceProviderCards(providers.take(20).toList()),
+        return _section(
+          title: 'الأعلى تقييمًا في ${category.nameAr}',
+          trailing: providers.isEmpty
+              ? null
+              : Text(
+                  '${providers.length} مقدم',
+                  style: TextStyle(
+                    color: _textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+          child: providers.isEmpty
+              ? _emptyMini(
+                  Icons.handyman_rounded,
+                  'مفيش مقدمو خدمات قريبون في القسم ده حاليًا',
+                )
+              : _buildServiceProviderCards(providers.take(20).toList()),
+        );
+      }).toList(growable: false),
     );
   }
 
