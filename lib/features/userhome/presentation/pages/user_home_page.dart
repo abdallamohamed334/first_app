@@ -114,6 +114,7 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
   List<ServiceProvider> _nearbyServiceProviders = [];
+  final Set<String> _selectedHomeServiceCategoryIds = {};
   bool _loadingNearbySymbolicProviders = false;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
@@ -1173,8 +1174,8 @@ class _UserHomePageState extends State<UserHomePage> {
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildServiceCategoriesGrid()),
-        SliverToBoxAdapter(child: _buildNearbyServiceProvidersSection()),
+        SliverToBoxAdapter(child: _buildHomeServiceCategoriesGrid()),
+        SliverToBoxAdapter(child: _buildSelectedTopRatedProvidersSection()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1435,69 +1436,189 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildServiceCategoriesGrid() {
+  Widget _buildHomeServiceCategoriesGrid() {
     if (_loadingServiceCategories && _serviceCategories.isEmpty) {
-      return Padding(
+      return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
-        child: Center(
-          child: CircularProgressIndicator(color: _primaryRed),
-        ),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
-
-    if (_serviceCategories.isEmpty) {
-      return _buildServiceCategoriesEmpty();
-    }
+    if (_serviceCategories.isEmpty) return _buildServiceCategoriesEmpty();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 22,
-                margin: const EdgeInsets.only(left: 10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [_primaryRed, _primaryRedDark],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  'كل الخدمات',
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 17.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            'اختار أقسام الخدمات اللي تهمك',
+            style: TextStyle(
+              color: _textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
           ),
-          SizedBox(height: 14),
+          const SizedBox(height: 4),
+          Text(
+            'اختار قسم أو أكتر عشان نعرضلك الأعلى تقييمًا بالقرب منك',
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: 0.92,
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.42,
             ),
             itemCount: _serviceCategories.length,
             itemBuilder: (context, index) {
-              return _buildServiceCategoryTile(_serviceCategories[index]);
+              final category = _serviceCategories[index];
+              final selected =
+                  _selectedHomeServiceCategoryIds.contains(category.id);
+              return _buildHomeServiceCategoryTile(category, selected);
             },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHomeServiceCategoryTile(
+    ServiceCategory category,
+    bool selected,
+  ) {
+    return Material(
+      color: selected ? _blue.withValues(alpha: 0.10) : _card,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          setState(() {
+            if (selected) {
+              _selectedHomeServiceCategoryIds.remove(category.id);
+            } else {
+              _selectedHomeServiceCategoryIds.add(category.id);
+            }
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: selected ? _blue : _border,
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      _blue.withValues(alpha: 0.18),
+                      _blue.withValues(alpha: 0.06),
+                    ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _serviceIconFromSlug(category.slug),
+                  color: _blue,
+                  size: 21,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  category.nameAr,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.add_circle_outline_rounded,
+                color: selected ? _blue : _textSecondary,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedTopRatedProvidersSection() {
+    if (_selectedHomeServiceCategoryIds.isEmpty) {
+      return _section(
+        title: 'الأعلى تقييمًا في الأقسام المختارة',
+        child: _emptyMini(
+          Icons.touch_app_rounded,
+          'اختار قسم أو أكتر من الأقسام اللي فوق عشان نعرضلك أفضل مقدمي الخدمة',
+        ),
+      );
+    }
+
+    final providers = _nearbyServiceProviders
+        .where((provider) =>
+            _selectedHomeServiceCategoryIds.contains(provider.categoryId))
+        .toList()
+      ..sort((a, b) {
+        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+        if (byRating != 0) return byRating;
+        return b.totalReviews.compareTo(a.totalReviews);
+      });
+
+    if (_loadingNearbySymbolicProviders && providers.isEmpty) {
+      return _section(
+        title: 'الأعلى تقييمًا في الأقسام المختارة',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+    if (providers.isEmpty) {
+      return _section(
+        title: 'الأعلى تقييمًا في الأقسام المختارة',
+        child: _emptyMini(
+          Icons.handyman_rounded,
+          'مفيش مقدمي خدمة قريبين في الأقسام المختارة حاليًا',
+        ),
+      );
+    }
+
+    return _section(
+      title: 'الأعلى تقييمًا في الأقسام المختارة',
+      trailing: Text(
+        '${providers.length} مقدم',
+        style: TextStyle(
+          color: _textSecondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      child: _buildServiceProviderCards(providers.take(20).toList()),
     );
   }
 
@@ -2734,78 +2855,147 @@ class _UserHomePageState extends State<UserHomePage> {
     return _section(
       title: 'مقدمو الخدمات القريبون منك',
       trailing: _loadingNearbySymbolicProviders
-          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-          : Text('${providers.length} مقدم', style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
-      child: providers.isEmpty
-          ? _emptyMini(Icons.handyman_rounded, 'لا يوجد مقدمو خدمات قريبون متاحون حاليًا')
-          : SizedBox(
-              height: 158,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                scrollDirection: Axis.horizontal,
-                itemCount: providers.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final provider = providers[index];
-                  return SizedBox(
-                    width: 230,
-                    child: Material(
-                      color: _card,
-                      borderRadius: BorderRadius.circular(18),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => ServiceProviderDetailsPage(provider: provider),
-                        )),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 27,
-                                backgroundColor: _blue.withValues(alpha: 0.16),
-                                backgroundImage: provider.profileImageUrl?.isNotEmpty == true
-                                    ? CachedNetworkImageProvider(provider.profileImageUrl!)
-                                    : null,
-                                child: provider.profileImageUrl?.isNotEmpty == true
-                                    ? null
-                                    : Icon(provider.isCompany ? Icons.business_rounded : Icons.handyman_rounded, color: _blue),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(provider.displayName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: _textPrimary, fontSize: 13, fontWeight: FontWeight.w900)),
-                                    const SizedBox(height: 5),
-                                    Text(provider.categoryName ?? provider.categorySlug ?? 'خدمات', maxLines: 1, overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: _textSecondary, fontSize: 10.5, fontWeight: FontWeight.w700)),
-                                    const SizedBox(height: 6),
-                                    Row(children: [
-                                      Icon(Icons.star_rounded, color: _orange, size: 15),
-                                      const SizedBox(width: 3),
-                                      Text(provider.ratingAvg.toStringAsFixed(1), style: TextStyle(color: _textPrimary, fontSize: 10, fontWeight: FontWeight.w800)),
-                                      const SizedBox(width: 7),
-                                      Expanded(child: Text(provider.pricingLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(color: _green, fontSize: 10, fontWeight: FontWeight.w800))),
-                                    ]),
-                                    const SizedBox(height: 4),
-                                    Text(provider.city ?? _userCity, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: _textSecondary, fontSize: 10)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(
+              '${providers.length} مقدم',
+              style: TextStyle(
+                color: _textSecondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
+      child: providers.isEmpty
+          ? _emptyMini(
+              Icons.handyman_rounded,
+              'لا يوجد مقدمو خدمات قريبون متاحون حاليًا',
+            )
+          : _buildServiceProviderCards(providers),
+    );
+  }
+
+  Widget _buildServiceProviderCards(List<ServiceProvider> providers) {
+    return SizedBox(
+      height: 158,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        itemCount: providers.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) =>
+            _buildServiceProviderCard(providers[index]),
+      ),
+    );
+  }
+
+  Widget _buildServiceProviderCard(ServiceProvider provider) {
+    return SizedBox(
+      width: 230,
+      child: Material(
+        color: _card,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ServiceProviderDetailsPage(provider: provider),
+          )),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 27,
+                  backgroundColor: _blue.withValues(alpha: 0.16),
+                  backgroundImage: provider.profileImageUrl?.isNotEmpty == true
+                      ? CachedNetworkImageProvider(provider.profileImageUrl!)
+                      : null,
+                  child: provider.profileImageUrl?.isNotEmpty == true
+                      ? null
+                      : Icon(
+                          provider.isCompany
+                              ? Icons.business_rounded
+                              : Icons.handyman_rounded,
+                          color: _blue,
+                        ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        provider.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        provider.categoryName ??
+                            provider.categorySlug ??
+                            'خدمات',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(Icons.star_rounded, color: _orange, size: 15),
+                          const SizedBox(width: 3),
+                          Text(
+                            provider.ratingAvg.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: _textPrimary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              provider.pricingLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _green,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        provider.city ?? _userCity,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
