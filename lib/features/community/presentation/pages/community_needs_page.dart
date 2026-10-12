@@ -22,31 +22,31 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   Timer? _searchDebounce;
 
   // ─────────────── الألوان ───────────────
-  static const _green = Color(0xFF191919);
-  static const _greenSoft = Color(0xFFF0ECF7);
-  static const _greenLight = Color(0xFF4A4A4A);
-  static const _darkGreen = Color(0xFF050505);
-  static const _background = Color(0xFFF8F7FA);
+  static const _green = Color(0xFFFF2E3B);
+  static const _greenSoft = Color(0x1FFF2E3B);
+  static const _greenLight = Color(0xFFFF6470);
+  static const _darkGreen = Color(0xFFD8202C);
+  static const _background = Color(0xFF202124);
   static const _orange = Color(0xFFC27A15);
   static const _red = Color(0xFFD94B55);
-  static const _purple = Color(0xFF6C4DB3);
-  static const _blue = Color(0xFF6C4DB3);
+  static const _purple = Color(0xFF7B61FF);
+  static const _blue = Color(0xFF4C8DFF);
   static const _muted = Color(0xFF77727D);
 
   Color _pageBackground(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF101010)
-          : _background;
+          ? const Color(0xFF202124)
+          : const Color(0xFFF7F7F8);
 
   Color _surface(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF181818)
+          ? const Color(0xFF2A2C30)
           : Colors.white;
 
   Color _surfaceSoft(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF28212F)
-          : _greenSoft;
+          ? const Color(0xFF303238)
+          : const Color(0xFFFFF0F1);
 
   Color _primaryText(BuildContext context) =>
       Theme.of(context).colorScheme.onSurface;

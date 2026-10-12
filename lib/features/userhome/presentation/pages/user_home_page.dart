@@ -135,7 +135,6 @@ class _UserHomePageState extends State<UserHomePage> {
   String _userCity = AppConfig.defaultCity;
 
   final PageController _bannerController = PageController(viewportFraction: 1);
-  final TextEditingController _homeSearchController = TextEditingController();
   int _bannerIndex = 0;
   Timer? _bannerTimer;
 
@@ -184,7 +183,6 @@ class _UserHomePageState extends State<UserHomePage> {
   void dispose() {
     _bannerTimer?.cancel();
     _bannerController.dispose();
-    _homeSearchController.dispose();
     super.dispose();
   }
 
@@ -1124,14 +1122,15 @@ class _UserHomePageState extends State<UserHomePage> {
       ),
       slivers: [
         SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildSearchBar()),
-        SliverToBoxAdapter(child: _buildCompanySectionTitle()),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
+        SliverToBoxAdapter(child: _buildCompanySectionTitle()),
+        SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers()),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
+        SliverToBoxAdapter(child: _buildHomeServicesSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -1796,47 +1795,8 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 8, 18, 18),
-      child: Row(
-        children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF8D62FF), Color(0xFF6240D8)]),
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: const Color(0xFF7650F0).withValues(alpha: .35), blurRadius: 18)],
-            ),
-            child: const Center(child: Text('AI', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextField(
-              controller: _homeSearchController,
-              style: TextStyle(color: _textPrimary, fontSize: 14),
-              textDirection: TextDirection.rtl,
-              decoration: InputDecoration(
-                hintText: 'ما الذي تبحث عنه؟',
-                hintStyle: TextStyle(color: _textSecondary, fontSize: 14),
-                filled: true,
-                fillColor: _card,
-                prefixIcon: Icon(Icons.search_rounded, color: _textPrimary, size: 25),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(34), borderSide: BorderSide(color: _primaryRed, width: 1.2)),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompanySectionTitle() => _referenceSectionTitle('عروض المؤسسات', 'عرض الكل');
-  Widget _buildStoreCategoriesTitle() => _referenceSectionTitle('متجرنا', null);
+  Widget _buildCompanySectionTitle() => _referenceSectionTitle('عروض مؤسسات قريبة منك', 'عرض الكل');
+  Widget _buildStoreCategoriesTitle() => _referenceSectionTitle('أقسام الشراء', null);
   Widget _buildOffersTitle() => _referenceSectionTitle('العروض', 'عرض الكل');
 
   Widget _referenceSectionTitle(String title, String? action) {
@@ -1982,7 +1942,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: Column(
         children: [
           SizedBox(
-            height: 252,
+            height: 270,
             child: PageView.builder(
               controller: _bannerController,
               itemCount: offers.length,
@@ -2068,7 +2028,7 @@ class _UserHomePageState extends State<UserHomePage> {
             Positioned(
               left: 18,
               right: 18,
-              bottom: 16,
+              bottom: 14,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -2113,6 +2073,16 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                       _offerPricePill(offer),
                     ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(color: _primaryRed, borderRadius: BorderRadius.circular(12)),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('تفاصيل العرض', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900)),
+                      SizedBox(width: 5),
+                      Icon(Icons.arrow_back_rounded, color: Colors.white, size: 14),
+                    ]),
                   ),
                 ],
               ),
@@ -2673,6 +2643,107 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  Widget _buildNearbyInstitutionsOffers() {
+    final near = _sortByDistance(_institutionOffers);
+    final offers = (_userLat == null || _userLng == null)
+        ? _institutionOffers.take(12).toList(growable: false)
+        : near.take(12).toList(growable: false);
+    if (_loadingInstitutionOffers && offers.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+      );
+    }
+    if (offers.isEmpty) {
+      return _section(
+        title: 'عروض مؤسسات قريبة منك',
+        child: _emptyMini(Icons.storefront_rounded, 'مفيش عروض مؤسسات قريبة متاحة دلوقتي'),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 226,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: offers.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final offer = offers[index];
+            return SizedBox(
+              width: 250,
+              child: Material(
+                color: _card,
+                borderRadius: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => InstitutionOfferDetailsPage(offer: offer),
+                  )),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Expanded(
+                      child: Stack(fit: StackFit.expand, children: [
+                        if (offer.firstImage != null)
+                          CachedNetworkImage(imageUrl: offer.firstImage!, fit: BoxFit.cover,
+                              errorWidget: (_, __, ___) => _buildCompanyOfferBackdrop())
+                        else
+                          _buildCompanyOfferBackdrop(),
+                        Positioned(top: 9, right: 9, child: _offerGlassPill(Icons.schedule_rounded, offer.timeRemaining)),
+                      ]),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(offer.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _textPrimary, fontSize: 14, fontWeight: FontWeight.w900)),
+                        const SizedBox(height: 4),
+                        Text(offer.institutionName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Icon(Icons.info_outline_rounded, color: _primaryRed, size: 16),
+                          const SizedBox(width: 5),
+                          Text('عرض تفاصيل العرض', style: TextStyle(color: _primaryRed, fontSize: 11, fontWeight: FontWeight.w900)),
+                          const Spacer(),
+                          _offerPricePill(offer),
+                        ]),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeServicesSection() {
+    if (_serviceCategories.isEmpty && !_loadingServiceCategories) return const SizedBox.shrink();
+    final categories = _serviceCategories.take(8).toList(growable: false);
+    return _section(
+      title: 'الخدمات',
+      trailing: GestureDetector(
+        onTap: () => setState(() => _homeMode = _HomeMode.services),
+        child: Text('كل الخدمات', style: TextStyle(color: _primaryRed, fontSize: 13, fontWeight: FontWeight.w900)),
+      ),
+      child: _loadingServiceCategories && categories.isEmpty
+          ? const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator()))
+          : SizedBox(
+              height: 118,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: categories.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (_, index) => SizedBox(width: 104, child: _buildServiceCategoryTile(categories[index])),
+              ),
+            ),
+    );
+  }
+
   Widget _buildInstitutionsHomeSection(UserHomeLoaded state) {
     final sourceCategories = _nearbyMainCategories.isNotEmpty
         ? _nearbyMainCategories
@@ -2712,7 +2783,7 @@ class _UserHomePageState extends State<UserHomePage> {
     return Column(
       children: [
         _section(
-          title: 'عروض المؤسسات',
+          title: 'تسوق حسب القسم',
           trailing: Text(
             _userCity,
             style: TextStyle(
@@ -2725,7 +2796,7 @@ class _UserHomePageState extends State<UserHomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'اختار القسم المناسب وشوف عدد العروض المتاحة من المؤسسات',
+                'اختار القسم المناسب وشوف عروض المؤسسات المتاحة',
                 style: TextStyle(
                   color: _textSecondary,
                   fontSize: 12.5,
@@ -2783,6 +2854,7 @@ class _UserHomePageState extends State<UserHomePage> {
           final name = category['name_ar']?.toString() ?? 'قسم';
           final slug = category['slug']?.toString() ?? '';
           final offerCount = offersByCategory[id]?.length ?? 0;
+          final accent = [_primaryRed, _orange, _green, _blue, _purple][index % 5];
 
           return Material(
             color: _card,
@@ -2797,7 +2869,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   border: Border.all(color: _border),
                   gradient: LinearGradient(
                     colors: [
-                      _primaryRed.withValues(alpha: 0.12),
+                      accent.withValues(alpha: 0.18),
                       _card,
                     ],
                     begin: Alignment.topRight,
@@ -2812,13 +2884,13 @@ class _UserHomePageState extends State<UserHomePage> {
                       height: 38,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: _primaryRed.withValues(alpha: 0.14),
+                        color: accent.withValues(alpha: 0.16),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         _iconFromName(category['icon']?.toString() ?? ''),
-                        color: _primaryRed,
-                        size: 19,
+                        color: accent,
+                        size: 21,
                       ),
                     ),
                     const SizedBox(height: 7),
