@@ -426,7 +426,8 @@ class UserHomeRepository {
           .eq('is_active', true)
           .filter('starts_at', 'is', 'null')
           .filter('ends_at', 'is', 'null')
-          .order('sort_order', ascending: true);
+          .order('sort_order', ascending: true)
+          .limit(20);
 
       return response.map((json) => HomeBanner.fromJson(json)).toList();
     } catch (e, stack) {
@@ -449,7 +450,8 @@ class UserHomeRepository {
           .select('id, slug, name_ar, name_en, icon, sort_order')
           .filter('parent_id', 'is', null)
           .eq('is_active', true)
-          .order('sort_order', ascending: true);
+          .order('sort_order', ascending: true)
+          .limit(200);
 
       return response.map((item) => Map<String, dynamic>.from(item)).toList();
     } catch (e, stack) {
@@ -466,7 +468,8 @@ class UserHomeRepository {
           .select('id, slug, name_ar, name_en, icon, sort_order')
           .eq('parent_id', parentId)
           .eq('is_active', true)
-          .order('sort_order', ascending: true);
+          .order('sort_order', ascending: true)
+          .limit(200);
 
       return response.map((item) => Map<String, dynamic>.from(item)).toList();
     } catch (e) {
@@ -478,21 +481,38 @@ class UserHomeRepository {
   /// Returns a category plus every nested descendant, not only its first-level
   /// children. This keeps parent institution sections inclusive of all offers.
   Future<List<String>> getCategoryTreeIds(String categoryId) async {
-    final result = <String>{categoryId};
-    final pending = <String>[categoryId];
+    try {
+      // Load the small category dimension once instead of issuing one request
+      // per tree level. This avoids an N+1 burst when a category has many
+      // descendants.
+      final rows = await _client
+          .from('marketplace_categories')
+          .select('id, parent_id')
+          .eq('is_active', true)
+          .limit(5000);
+      final childrenByParent = <String, List<String>>{};
+      for (final raw in rows) {
+        final row = Map<String, dynamic>.from(raw);
+        final id = row['id']?.toString() ?? '';
+        final parentId = row['parent_id']?.toString() ?? '';
+        if (id.isEmpty || parentId.isEmpty) continue;
+        childrenByParent.putIfAbsent(parentId, () => <String>[]).add(id);
+      }
 
-    while (pending.isNotEmpty) {
-      final parentId = pending.removeLast();
-      final children = await getSubCategories(parentId);
-      for (final child in children) {
-        final childId = child['id']?.toString() ?? '';
-        if (childId.isNotEmpty && result.add(childId)) {
-          pending.add(childId);
+      final result = <String>{categoryId};
+      final pending = <String>[categoryId];
+      while (pending.isNotEmpty) {
+        final parentId = pending.removeLast();
+        for (final childId in childrenByParent[parentId] ?? const <String>[]) {
+          if (result.add(childId)) pending.add(childId);
         }
       }
+      return result.toList(growable: false);
+    } catch (e, stack) {
+      debugPrint('❌ getCategoryTreeIds error: $e');
+      debugPrintStack(stackTrace: stack);
+      return <String>[categoryId];
     }
-
-    return result.toList(growable: false);
   }
 
   Future<Map<String, List<CategoryOffer>>> getNearbyMainCategoryOffers({

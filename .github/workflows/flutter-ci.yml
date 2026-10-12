@@ -27,6 +27,9 @@ jobs:
       - name: Run security regression checks
         run: python3 tool/security_regression_check.py
 
+      - name: Run performance regression checks
+        run: python3 tool/performance_regression_check.py
+
       - name: Production static gate
         run: python3 tool/production_gate.py
 

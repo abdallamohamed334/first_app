@@ -605,36 +605,8 @@ class SupabaseService {
 
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
-      final userResponse = await adminClient
-          .from('users')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (userResponse == null) {
-        return {
-          'points': 0,
-          'level': 1,
-          'deliveriesCount': 0,
-          'mealsSaved': 0,
-          'tasksCompleted': 0,
-        };
-      }
-
-      final points = userResponse['points'] as int? ?? 0;
-      final level = userResponse['level'] as int? ?? 1;
-
-      final deliveries = await getUserDeliveriesCount(userId);
-      final mealsSaved = await getUserMealsSaved(userId);
-      final tasksCompleted = await getUserCompletedTasks(userId);
-
-      return {
-        'points': points,
-        'level': level,
-        'deliveriesCount': deliveries,
-        'mealsSaved': mealsSaved,
-        'tasksCompleted': tasksCompleted,
-      };
+      final raw = await client.rpc('get_user_stats', params: {'p_user_id': userId});
+      return Map<String, dynamic>.from(raw as Map);
     } catch (e) {
       debugPrint('❌ Error getting user stats: $e');
       return {
@@ -732,7 +704,7 @@ class SupabaseService {
           businesses:business_id (
             id, name, logo, address, phone, rating, latitude, longitude
           )
-        ''').eq('status', 'available').order('created_at', ascending: false);
+        ''').eq('status', 'available').order('created_at', ascending: false).limit(50);
 
       return List<Map<String, dynamic>>.from(response ?? []);
     } catch (e) {
@@ -887,34 +859,42 @@ class SupabaseService {
           .order('created_at', ascending: false)
           .limit(50);
 
-      final List<Map<String, dynamic>> offers = [];
+      final offers = List<Map<String, dynamic>>.from(response);
+      final offerIds = offers
+          .map((offer) => offer['id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false);
+      if (offerIds.isEmpty) return offers;
 
-      for (var offer in response) {
-        final offerId = offer['id'] as String;
+      // One batched request replaces two network calls per offer (N+1).
+      final requestRows = await client
+          .from('offer_requests')
+          .select('id, offer_id, user_id, status')
+          .inFilter('offer_id', offerIds)
+          .filter('status', 'in', '("pending","accepted","ready_for_pickup")');
 
-        final requestCountResponse = await client
-            .from('offer_requests')
-            .select('id')
-            .eq('offer_id', offerId)
-            .filter(
-                'status', 'in', '("pending","accepted","ready_for_pickup")');
+      final requestCounts = <String, int>{};
+      final userRequests = <String, Map<String, dynamic>>{};
+      for (final raw in requestRows) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final offerId = row['offer_id']?.toString();
+        if (offerId == null || offerId.isEmpty) continue;
+        requestCounts[offerId] = (requestCounts[offerId] ?? 0) + 1;
+        if (row['user_id']?.toString() == userId) {
+          userRequests[offerId] = row;
+        }
+      }
 
-        offer['request_count'] = requestCountResponse.length;
-        offer['interested_count'] = requestCountResponse.length;
-
-        final userRequest = await client
-            .from('offer_requests')
-            .select('id, status')
-            .eq('offer_id', offerId)
-            .eq('user_id', userId)
-            .maybeSingle();
-
+      for (final offer in offers) {
+        final offerId = offer['id']?.toString() ?? '';
+        final count = requestCounts[offerId] ?? 0;
+        final userRequest = userRequests[offerId];
+        offer['request_count'] = count;
+        offer['interested_count'] = count;
         offer['is_requested_by_user'] = userRequest != null;
-        offer['is_accepted'] =
-            userRequest != null && userRequest['status'] == 'accepted';
+        offer['is_accepted'] = userRequest?['status'] == 'accepted';
         offer['user_request_status'] = userRequest?['status'];
-
-        offers.add(offer);
       }
 
       return offers;
@@ -1030,7 +1010,8 @@ class SupabaseService {
           ''')
           .eq('offer_id', offerId)
           .eq('food_offers.business_id', businessId)
-          .order('requested_at', ascending: false);
+          .order('requested_at', ascending: false)
+          .limit(100);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -1070,7 +1051,8 @@ class SupabaseService {
             )
           ''')
           .eq('food_offers.business_id', businessId)
-          .order('requested_at', ascending: false);
+          .order('requested_at', ascending: false)
+          .limit(200);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
@@ -1084,59 +1066,18 @@ class SupabaseService {
   // ═══════════════════════════════════════════════════════════
   Future<CommunityStats> getCommunityStats() async {
     try {
-      int mealsSaved = 0;
-      try {
-        final donationsResponse = await client
-            .from('donations')
-            .select('quantity')
-            .eq('status', 'completed');
-        for (var donation in donationsResponse) {
-          mealsSaved += donation['quantity'] as int? ?? 1;
-        }
-      } catch (_) {
-        mealsSaved = 0;
-      }
-
-      int activeVolunteers = 0;
-      try {
-        final volunteersResponse = await client
-            .from('users')
-            .select('id')
-            .eq('role', 'user')
-            .eq('is_active', true);
-        activeVolunteers = volunteersResponse.length;
-      } catch (_) {
-        activeVolunteers = 0;
-      }
-
-      int participatingRestaurants = 0;
-      try {
-        final restaurantsResponse = await client
-            .from('restaurants')
-            .select('id')
-            .eq('status', 'active');
-        participatingRestaurants = restaurantsResponse.length;
-      } catch (_) {
-        participatingRestaurants = 0;
-      }
-
-      int beneficiaryCharities = 0;
-      try {
-        final charitiesResponse =
-            await client.from('charities').select('id').eq('status', 'active');
-        beneficiaryCharities = charitiesResponse.length;
-      } catch (_) {
-        beneficiaryCharities = 0;
-      }
+      final raw = await client.rpc('get_community_stats');
+      final stats = Map<String, dynamic>.from(raw as Map);
+      int asInt(String key) => int.tryParse(stats[key]?.toString() ?? '') ?? 0;
 
       return CommunityStats(
-        mealsSaved: mealsSaved,
-        activeVolunteers: activeVolunteers,
-        participatingRestaurants: participatingRestaurants,
-        beneficiaryCharities: beneficiaryCharities,
+        mealsSaved: asInt('meals_saved'),
+        activeVolunteers: asInt('active_volunteers'),
+        participatingRestaurants: asInt('participating_restaurants'),
+        beneficiaryCharities: asInt('beneficiary_charities'),
       );
     } catch (e) {
-      debugPrint('❌ Error getting community stats: $e');
+      debugPrint('❌ getCommunityStats error: $e');
       return const CommunityStats();
     }
   }
