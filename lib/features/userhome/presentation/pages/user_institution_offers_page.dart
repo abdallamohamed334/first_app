@@ -122,14 +122,14 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           .from('institution_offers')
           .select('''
             *,
-            institutions:institution_id (
+            institutions:institution_id!inner (
               id,
               name,
               institution_type,
               logo_url,
               address,
               phone,
-              governorate,
+              city,
               latitude,
               longitude
             )
@@ -137,7 +137,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           .eq('status', 'active')
           .gt('expires_at', now)
           .filter('deleted_at', 'is', 'null')
-          .eq('institutions.governorate', _selectedGovernorate ?? '')
+          .inFilter(
+            'institutions.city',
+            EgyptLocations.citiesFor(_selectedGovernorate),
+          )
           .order('created_at', ascending: false)
           .range(_offset, _offset + _pageSize - 1);
 
@@ -149,7 +152,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             *,
             institutions:institution_id (
               id, name, institution_type, logo_url, address, phone,
-              governorate, latitude, longitude
+              city, latitude, longitude
             )
           ''')
             .eq('status', 'active')
@@ -175,7 +178,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           'logo_url': institutionData['logo_url']?.toString(),
           'address': institutionData['address']?.toString(),
           'phone': institutionData['phone']?.toString(),
-          'governorate': institutionData['governorate']?.toString(),
+          'city': institutionData['city']?.toString(),
           'latitude': institutionData['latitude'] as double?,
           'longitude': institutionData['longitude'] as double?,
           'business_type':
@@ -628,12 +631,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   List<FoodOffer> get _filteredOffers {
     final sectionOffers = _allOffers.where((offer) {
       final type = offer.businessType.trim().toLowerCase();
-      final offerGovernorate =
-          offer.business?['governorate']?.toString().trim();
+      final offerCity = offer.business?['city']?.toString().trim();
+      final cities = EgyptLocations.citiesFor(_selectedGovernorate);
       if (_selectedGovernorate != null &&
-          offerGovernorate != null &&
-          offerGovernorate.isNotEmpty &&
-          offerGovernorate != _selectedGovernorate) {
+          (offerCity == null || offerCity.isEmpty || !cities.contains(offerCity))) {
         return false;
       }
       if (widget.institutionSection == 'commercial') {
@@ -664,7 +665,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     final selected = _selectedGovernorate;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
-      child: DropdownButtonFormField<String?>(
+      child: DropdownButtonFormField<String>(
         value: selected,
         isExpanded: true,
         dropdownColor: _card,
@@ -688,9 +689,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
         ),
         style: const TextStyle(color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
         items: [
-          const DropdownMenuItem<String?>(value: null, child: Text('كل المحافظات')),
+          const DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')),
           ...EgyptLocations.names.map(
-            (name) => DropdownMenuItem<String?>(value: name, child: Text(name)),
+            (name) => DropdownMenuItem<String>(value: name, child: Text(name)),
           ),
         ],
         onChanged: (value) async {
