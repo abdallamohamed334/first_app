@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class SplashPage extends StatefulWidget {
@@ -39,17 +40,8 @@ class _SplashPageState extends State<SplashPage>
   late final Animation<double> _glowAnimation;
 
   Timer? _progressTimer;
+  Timer? _retryTimer;
   bool _isNavigating = false;
-
-  // ✅ نفس أنواع الحسابات التجارية المستخدمة فى باقى التطبيق
-  static const _businessUserTypes = {
-    'restaurant',
-    'business',
-    'hotel',
-    'supermarket',
-    'bakery',
-    'cafe',
-  };
 
   // ✅ الألوان الأساسية — نفس هوية "جُود" (كريمي/دهبي/أخضر غامق) لأنها
   // الهوية المعتمدة آخر حاجة. سيبت الثوابت هنا عشان لو حبيت تغيّرها
@@ -142,46 +134,41 @@ class _SplashPageState extends State<SplashPage>
     if (_isNavigating || !mounted) return;
     _isNavigating = true;
 
-    String nextLocation = AppRouter.login;
     final client = Supabase.instance.client;
-
-    // ✅ انتظر استعادة الجلسة
     Session? session = client.auth.currentSession;
     if (session == null) {
       try {
         final restored = await client.auth.onAuthStateChange.first
-            .timeout(const Duration(seconds: 2));
-        session = restored.session;
+            .timeout(const Duration(seconds: 8));
+        session = restored.session ?? client.auth.currentSession;
       } catch (_) {
         session = client.auth.currentSession;
       }
     }
 
     if (session != null) {
-      try {
-        final userData = await client
-            .from('users')
-            .select('user_type')
-            .eq('id', session.user.id)
-            .maybeSingle();
-
-        final type = userData?['user_type']?.toString().toLowerCase() ?? '';
-
-        if (type == 'user') {
-          nextLocation = AppRouter.map;
-        } else if (type == 'charity') {
-          nextLocation = AppRouter.charityHome;
-        } else if (type == 'institution') {
-          nextLocation = AppRouter.institutionsHome;
-        } else if (_businessUserTypes.contains(type)) {
-          nextLocation = AppRouter.restaurantHome;
-        } else {
-          nextLocation = AppRouter.login;
-        }
-      } catch (error) {
-        debugPrint('⚠️ Could not resolve user type: $error');
-        nextLocation = AppRouter.login;
+      // AuthStateNotifier هو المصدر الوحيد للتوجيه بعد اكتمال مزامنة
+      // users وservice_providers والمؤسسات. لا نعرض Login أثناء الانتظار.
+      final auth = AuthStateNotifier.instance;
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (mounted &&
+          (!auth.isLoggedIn || auth.isSyncing || !auth.isResolved) &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
       }
+      if (!mounted) return;
+      if (auth.isLoggedIn && auth.isResolved && !auth.isSyncing) {
+        _isNavigating = false;
+        context.go(auth.homeRoute ?? AppRouter.userTypeSelection);
+        return;
+      }
+
+      // جلسة موجودة لكن بيانات الحساب لم تصل بعد: ابقَ على Splash وأعد
+      // المحاولة بدل فتح Login أو Home بحالة غير مؤكدة.
+      debugPrint('⚠️ Auth session exists but state is not resolved; retrying');
+      _isNavigating = false;
+      _retryTimer = Timer(const Duration(seconds: 2), _navigateToNext);
+      return;
     } else {
       final prefs = await SharedPreferences.getInstance();
       final onboardingSeen = prefs.getBool('onboarding_seen') ??
@@ -189,12 +176,14 @@ class _SplashPageState extends State<SplashPage>
           prefs.getBool('has_seen_onboarding') ??
           false;
 
-      nextLocation =
-          onboardingSeen ? AppRouter.userTypeSelection : AppRouter.onboarding;
+      final nextLocation = onboardingSeen
+          ? AppRouter.userTypeSelection
+          : AppRouter.onboarding;
+      if (!mounted) return;
+      _isNavigating = false;
+      context.go(nextLocation);
+      return;
     }
-
-    if (!mounted) return;
-    context.go(nextLocation);
   }
 
   @override
@@ -205,6 +194,7 @@ class _SplashPageState extends State<SplashPage>
     _glowController.dispose();
     _orbitController.dispose();
     _progressTimer?.cancel();
+    _retryTimer?.cancel();
     super.dispose();
   }
 

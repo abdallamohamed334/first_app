@@ -562,11 +562,6 @@ class _LoginPageState extends State<LoginPage>
         },
         (data) async {
           final user = data['user'] as UserModel;
-          // Render the login page before the optional provider lookup. A
-          // stale session or a slow database must never leave the user on a
-          // blank/loading screen.
-          if (mounted) setState(() => _isCheckingAutoLogin = false);
-
           Map<String, dynamic>? provider;
           try {
             provider = await _findProviderByUserId(user.id);
