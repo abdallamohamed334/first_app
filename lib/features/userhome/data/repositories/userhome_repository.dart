@@ -932,6 +932,8 @@ class UserHomeRepository {
           .or(
             'expires_at.is.null,expires_at.gt.${DateTime.now().toUtc().toIso8601String()}',
           )
+          .filter('deleted_at', 'is', 'null')
+          .gt('remaining_quantity', 0)
           .order('created_at', ascending: false)
           .limit(200);
 

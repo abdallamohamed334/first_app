@@ -521,9 +521,21 @@ class _UserHomePageState extends State<UserHomePage> {
         // previous getOffersByCategory call duplicated the same institution
         // rows and made Home opening noticeably slower.
         final rootId = institutionRoot['id']?.toString() ?? '';
-        final institutionOnly = (grouped[rootId] ?? const <CategoryOffer>[])
+        var institutionOnly = (grouped[rootId] ?? const <CategoryOffer>[])
             .where((offer) => offer.ownerType == 'institution')
             .toList(growable: false);
+
+        if (institutionOnly.isEmpty) {
+          final fallback = await _userHomeRepository.getOffersByCategory(
+            categoryId: rootId,
+            latitude: _userLat,
+            longitude: _userLng,
+            radiusKm: _AppFeatures.nearbyRadiusKm,
+          );
+          institutionOnly = fallback
+              .where((offer) => offer.ownerType == 'institution')
+              .toList(growable: false);
+        }
 
         if (institutionOnly.isNotEmpty) {
           grouped[rootId] = institutionOnly;
