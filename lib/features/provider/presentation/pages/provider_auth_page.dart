@@ -374,7 +374,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'سجّل حسابك وابدأ استقبال طلبات الشغل',
+                        'سجّل حسابك وخلي المستخدمين يتواصلوا معاك مباشرة',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _inkSoft.withValues(alpha: 0.75),

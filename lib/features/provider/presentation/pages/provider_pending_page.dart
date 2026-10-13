@@ -433,15 +433,15 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
     }
     switch (_status) {
       case 'approved':
-        return 'أهلاً بيك في Khedma! يمكنك الآن استقبال الطلبات.';
+        return 'أهلاً بيك في Khedma! المستخدمين يقدروا يتواصلوا معاك مباشرة عبر الهاتف أو واتساب.';
       case 'rejected':
         return 'للأسف، لم يتم قبول طلبك. تواصل مع فريق الدعم على الواتساب لمعرفة السبب.';
       case 'suspended':
         return 'حسابك موقوف مؤقتاً. تواصل مع فريق الدعم على الواتساب.';
       default:
         return 'فريق Khedma بيراجع بياناتك حالياً.\n'
-            'هيتم إشعارك أول ما يتم القبول.\n'
-            'ده بياخد عادة 24-48 ساعة.';
+            'ارجع حدّث الحالة من وقت للتاني بعد المراجعة.\n'
+            'المراجعة بتاخد عادة 24-48 ساعة.';
     }
   }
 
@@ -519,8 +519,8 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
     } else if (_status == 'suspended') {
       text = 'حسابك موقوف مؤقتاً. تواصل مع الدعم لمعرفة السبب.';
     } else {
-      text = 'مش هتقدر تستقبل طلبات لحد ما يتم القبول. '
-          'هيتم إشعارك بمجرد الموافقة.';
+      text = 'مش هتقدر تظهر للمستخدمين لحد ما يتم القبول. '
+          'بعد الموافقة يقدروا يتواصلوا معاك عبر الهاتف أو واتساب.';
     }
 
     return Container(

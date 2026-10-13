@@ -792,13 +792,8 @@ class ServiceProviderRepository {
   ) async {
     try {
       final row = await _client.from('service_providers').select('''
-            total_jobs,
-            completed_jobs,
-            cancelled_jobs,
-            volunteer_jobs,
             rating_avg,
-            total_reviews,
-            response_time_minutes
+            total_reviews
           ''').eq('id', providerId).maybeSingle();
 
       if (row == null) return const Left('مفيش بيانات');

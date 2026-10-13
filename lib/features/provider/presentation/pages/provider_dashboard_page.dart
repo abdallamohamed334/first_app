@@ -463,18 +463,6 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(
-              Icons.notifications_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              padding: const EdgeInsets.all(10),
-            ),
-          ),
         ],
       ),
     );
@@ -685,8 +673,6 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   // Stats
   // ══════════════════════════════════════════════════════════
   Widget _buildStatsGrid() {
-    final total = _stats?['total_jobs'] ?? 0;
-    final completed = _stats?['completed_jobs'] ?? 0;
     final reviews = _stats?['total_reviews'] ?? 0;
     final rating = _dashboardDouble(_stats?['rating_avg']) ?? 0;
 
@@ -710,20 +696,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.6,
+          childAspectRatio: 1.8,
           children: [
-            _statCard(
-              icon: Icons.assignment_rounded,
-              label: 'إجمالي الخدمات',
-              value: '$total',
-              color: _blue,
-            ),
-            _statCard(
-              icon: Icons.check_circle_rounded,
-              label: 'منجزة',
-              value: '$completed',
-              color: _primary,
-            ),
             _statCard(
               icon: Icons.rate_review_rounded,
               label: 'عدد التقييمات',
