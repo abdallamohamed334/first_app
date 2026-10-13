@@ -70,7 +70,8 @@ class InstitutionOffersRepository {
           .gt('expires_at', now)
           .filter('deleted_at', 'is', 'null')
           .order('expires_at', ascending: true)
-          .limit(200);
+          // Home renders only the five earliest-expiring cards.
+          .limit(50);
 
       return rows
           .whereType<Map>()

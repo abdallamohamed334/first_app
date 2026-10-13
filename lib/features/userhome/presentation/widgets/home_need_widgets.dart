@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 
 class HomeNeedsActionPill extends StatelessWidget {
@@ -115,10 +116,11 @@ class HomeNeedCard extends StatelessWidget {
                 children: [
                   if (imageUrl != null && imageUrl.isNotEmpty)
                     Positioned.fill(
-                      child: Image.network(
+                      child: CachedNetworkImage(
                         imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => SizedBox.shrink(),
+                        memCacheHeight: 240,
+                        errorWidget: (_, __, ___) => const SizedBox.shrink(),
                       ),
                     ),
                   if (imageUrl != null && imageUrl.isNotEmpty)

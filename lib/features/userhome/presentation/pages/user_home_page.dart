@@ -74,11 +74,25 @@ const Set<String> _homeRestaurantInstitutionTypes = {
   'home-restaurants',
 };
 
+const Set<String> _homeVisibleInstitutionTypes = {
+  'grocery',
+  'supermarket',
+  'bakery',
+  'butcher',
+  'meat_shop',
+  'hotel',
+  'wedding_hall',
+};
+
 /// Slugs used by the institution category browser; nearby offers search all types.
 const Set<String> _institutionCatalogSlugs = {
-  'grocery', 'bakery', 'butcher', 'meat_shop', 'poultry_shop',
-  'wedding_hall', 'game_store', 'hotel', 'home-restaurants',
-  'household-items', 'home_restaurant', 'household_goods', 'home-sweets', 'home-food',
+  'grocery',
+  'supermarket',
+  'bakery',
+  'butcher',
+  'meat_shop',
+  'hotel',
+  'wedding_hall',
 };
 
 enum _HomeMode { buy, services }
@@ -126,6 +140,8 @@ class _UserHomePageState extends State<UserHomePage> {
   double? _userLng;
   String _userCity = AppConfig.defaultCity;
   String? _userGovernorate;
+  bool _locationUnavailable = false;
+  final Set<int> _visitedPages = {0};
 
   final PageController _bannerController = PageController(viewportFraction: 1);
   int _bannerIndex = 0;
@@ -161,12 +177,12 @@ class _UserHomePageState extends State<UserHomePage> {
       // ابدأ تحميل الـHome المستقل فورًا؛ قراءة الموقع لا يجب أن تحجب أول
       // إطار أو تجعل المستخدم ينتظر قبل ظهور المحتوى الأساسي.
       context.read<UserHomeBloc>().add(const UserHomeStarted());
-      _loadInstitutionOffers();
       _loadServiceCategories();
 
       await _loadUserLocation();
       if (!mounted) return;
 
+      _loadInstitutionOffers();
       _loadNearbySymbolicProviders();
       _loadNearbyCategoryOffers();
     });
@@ -195,9 +211,13 @@ class _UserHomePageState extends State<UserHomePage> {
           .from('users')
           .select('latitude, longitude, city, governorate')
           .eq('id', authUser.id)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 6));
 
-      if (data == null || !mounted) return;
+      if (data == null || !mounted) {
+        if (mounted) setState(() => _locationUnavailable = true);
+        return;
+      }
 
       final lat = (data['latitude'] as num?)?.toDouble();
       final lng = (data['longitude'] as num?)?.toDouble();
@@ -205,9 +225,7 @@ class _UserHomePageState extends State<UserHomePage> {
       final governorate = (data['governorate'] as String?)?.trim();
 
       if (lat == null || lng == null) {
-        if (mounted) {
-          context.go('/map');
-        }
+        setState(() => _locationUnavailable = true);
         return;
       }
 
@@ -220,11 +238,13 @@ class _UserHomePageState extends State<UserHomePage> {
             (governorate != null && governorate.isNotEmpty)
                 ? governorate
                 : null;
+        _locationUnavailable = false;
       });
 
       debugPrint('✅ [Location] Loaded: city=$_userCity, lat=$lat, lng=$lng');
     } catch (e) {
       debugPrint('❌ [Location] error: $e');
+      if (mounted) setState(() => _locationUnavailable = true);
     }
   }
 
@@ -428,6 +448,11 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _isHomeRestaurantOffer(InstitutionOffer offer) {
     final type = offer.institutionType?.trim().toLowerCase();
     return _homeRestaurantInstitutionTypes.contains(type);
+  }
+
+  bool _isVisibleInstitutionOffer(InstitutionOffer offer) {
+    final type = offer.institutionType?.trim().toLowerCase();
+    return type != null && _homeVisibleInstitutionTypes.contains(type);
   }
 
   Future<void> _loadCommunityNeeds() async {
@@ -815,13 +840,25 @@ class _UserHomePageState extends State<UserHomePage> {
       backgroundColor: _bg,
       body: IndexedStack(
         index: _currentPage,
-        children: [
-          _buildHomeContent(state),
-          _buildCategoriesContent(state),
-          const CommunityNeedsPage(),
-          const CommunityTrackingPage(),
-          const ProfilePage(),
-        ],
+        children: List<Widget>.generate(5, (index) {
+          if (!_visitedPages.contains(index)) {
+            return const SizedBox.shrink();
+          }
+          switch (index) {
+            case 0:
+              return _buildHomeContent(state);
+            case 1:
+              return _buildCategoriesContent(state);
+            case 2:
+              return const CommunityNeedsPage();
+            case 3:
+              return const CommunityTrackingPage();
+            case 4:
+              return const ProfilePage();
+            default:
+              return const SizedBox.shrink();
+          }
+        }),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
       floatingActionButton: _currentPage == 0
@@ -1173,6 +1210,8 @@ class _UserHomePageState extends State<UserHomePage> {
         parent: BouncingScrollPhysics(),
       ),
       slivers: [
+        if (_locationUnavailable)
+          SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
@@ -1188,12 +1227,54 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+  Widget _buildLocationUnavailableNotice() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Material(
+        color: _card,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Icons.location_off_rounded, color: _orange, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'حدّد موقعك علشان نعرض العروض والخدمات القريبة منك.',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go('/map'),
+                child: Text(
+                  'تحديد',
+                  style: TextStyle(
+                    color: _primaryRed,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildServicesContent() {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
       slivers: [
+        if (_locationUnavailable)
+          SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
@@ -2328,7 +2409,8 @@ class _UserHomePageState extends State<UserHomePage> {
     // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
     // عروض مطاعم البيت لها قسمها المخصص؛ لا تعرضها مرة ثانية هنا.
     final offers = _institutionOffers
-        .where((offer) => !_isHomeRestaurantOffer(offer))
+        .where((offer) =>
+            !_isHomeRestaurantOffer(offer) && _isVisibleInstitutionOffer(offer))
         .take(5)
         .toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
@@ -3109,7 +3191,7 @@ class _UserHomePageState extends State<UserHomePage> {
         .toList(growable: false);
 
     return _section(
-      title: 'مقدمو الخدمات القريبون منك',
+      title: 'مقدمو الخدمات في محافظتك',
       trailing: _loadingNearbySymbolicProviders
           ? const SizedBox(
               width: 16,
@@ -3127,7 +3209,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: providers.isEmpty
           ? _emptyMini(
               Icons.handyman_rounded,
-              'لا يوجد مقدمو خدمات قريبون متاحون حاليًا',
+              'لا يوجد مقدمو خدمات متاحون في محافظتك حاليًا',
             )
           : _buildServiceProviderCards(providers),
     );
@@ -3407,6 +3489,19 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
+    final visibleSubcategories = _loadingNearbyCategoryOffers
+        ? subcategories
+        : subcategories
+            .where((category) {
+              final id = category['id']?.toString() ?? '';
+              return (offersByCategory[id] ?? const <CategoryOffer>[])
+                  .isNotEmpty;
+            })
+            .toList(growable: false);
+    if (!_loadingNearbyCategoryOffers && visibleSubcategories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       children: [
         _section(
@@ -3432,11 +3527,11 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
               const SizedBox(height: 14),
               _buildInstitutionSubcategoryStrip(
-                  subcategories, offersByCategory),
+                  visibleSubcategories, offersByCategory),
             ],
           ),
         ),
-        ...subcategories.map((category) {
+        ...visibleSubcategories.map((category) {
           final id = category['id']?.toString() ?? '';
           final offers = offersByCategory[id] ?? const <CategoryOffer>[];
           if (offers.isEmpty) return const SizedBox.shrink();
@@ -3573,8 +3668,18 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
     if (categories.isEmpty) return const SizedBox.shrink();
+    final visibleCategories = _loadingNearbyCategoryOffers
+        ? categories
+        : categories.where((category) {
+            final id = category['id']?.toString() ?? '';
+            return (_nearbyCategoryOffers[id] ?? const <CategoryOffer>[])
+                .isNotEmpty;
+          }).toList(growable: false);
+    if (!_loadingNearbyCategoryOffers && visibleCategories.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Column(
-      children: categories.map((category) {
+      children: visibleCategories.map((category) {
         final id = category['id']?.toString() ?? '';
         final name = category['name_ar']?.toString() ?? 'عروض قريبة';
         final slug = category['slug']?.toString() ?? '';
@@ -4153,7 +4258,6 @@ class _UserHomePageState extends State<UserHomePage> {
                     },
                   ),
                   SizedBox(height: 12),
-                  SizedBox(height: 12),
                   HomeAddActionTile(
                     icon: Icons.volunteer_activism_outlined,
                     title: 'أنا محتاج حاجة',
@@ -4245,7 +4349,10 @@ class _UserHomePageState extends State<UserHomePage> {
 
   void _selectPage(int index) {
     if (!mounted) return;
-    setState(() => _currentPage = index);
+    setState(() {
+      _visitedPages.add(index);
+      _currentPage = index;
+    });
   }
 }
 

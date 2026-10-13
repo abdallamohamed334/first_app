@@ -1,6 +1,7 @@
 // lib/features/userhome/presentation/widgets/home_delivery_donations.dart
 
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class DeliveryDonation {
   final String id;
@@ -209,23 +210,21 @@ class _LargeDeliveryDonationCard extends StatelessWidget {
                   width: double.infinity,
                   color: const Color(0xFFE8F5EE),
                   child: donation.image != null && donation.image!.isNotEmpty
-                      ? Image.network(
-                          donation.image!,
+                      ? CachedNetworkImage(
+                          imageUrl: donation.image!,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: SizedBox(
-                                width: 32,
-                                height: 32,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF0B7650),
-                                ),
+                          memCacheHeight: 480,
+                          placeholder: (_, __) => const Center(
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Color(0xFF0B7650),
                               ),
-                            );
-                          },
-                          errorBuilder: (_, __, ___) =>
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) =>
                               _buildImagePlaceholder(),
                         )
                       : _buildImagePlaceholder(),

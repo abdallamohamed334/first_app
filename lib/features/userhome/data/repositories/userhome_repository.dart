@@ -14,11 +14,44 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserHomeRepository {
   final SupabaseService _supabaseService;
+  Future<Map<String, List<String>>>? _categoryChildrenFuture;
 
   UserHomeRepository({required SupabaseService supabaseService})
     : _supabaseService = supabaseService;
 
   SupabaseClient get _client => _supabaseService.client;
+
+  Future<Map<String, List<String>>> _getCategoryChildren() {
+    final cached = _categoryChildrenFuture;
+    if (cached != null) return cached;
+    final future = _loadCategoryChildren();
+    _categoryChildrenFuture = future;
+    return future;
+  }
+
+  Future<Map<String, List<String>>> _loadCategoryChildren() async {
+    try {
+      final rows = await _client
+          .from('marketplace_categories')
+          .select('id, parent_id')
+          .eq('is_active', true)
+          .limit(5000);
+      final childrenByParent = <String, List<String>>{};
+      for (final raw in rows) {
+        final row = Map<String, dynamic>.from(raw);
+        final id = row['id']?.toString() ?? '';
+        final parentId = row['parent_id']?.toString() ?? '';
+        if (id.isEmpty || parentId.isEmpty) continue;
+        childrenByParent.putIfAbsent(parentId, () => <String>[]).add(id);
+      }
+      return childrenByParent;
+    } catch (e, stack) {
+      debugPrint('❌ _loadCategoryChildren error: $e');
+      debugPrintStack(stackTrace: stack);
+      _categoryChildrenFuture = null;
+      return <String, List<String>>{};
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // Current User
@@ -493,22 +526,10 @@ class UserHomeRepository {
   /// children. This keeps parent institution sections inclusive of all offers.
   Future<List<String>> getCategoryTreeIds(String categoryId) async {
     try {
-      // Load the small category dimension once instead of issuing one request
-      // per tree level. This avoids an N+1 burst when a category has many
-      // descendants.
-      final rows = await _client
-          .from('marketplace_categories')
-          .select('id, parent_id')
-          .eq('is_active', true)
-          .limit(5000);
-      final childrenByParent = <String, List<String>>{};
-      for (final raw in rows) {
-        final row = Map<String, dynamic>.from(raw);
-        final id = row['id']?.toString() ?? '';
-        final parentId = row['parent_id']?.toString() ?? '';
-        if (id.isEmpty || parentId.isEmpty) continue;
-        childrenByParent.putIfAbsent(parentId, () => <String>[]).add(id);
-      }
+      // All callers share one in-flight/completed read of the category
+      // dimension, so several institution sections do not create one
+      // database request per category.
+      final childrenByParent = await _getCategoryChildren();
 
       final result = <String>{categoryId};
       final pending = <String>[categoryId];
@@ -632,17 +653,12 @@ class UserHomeRepository {
       const institutionCategorySlugs = {
         'institution-offers',
         'grocery',
+        'supermarket',
         'bakery',
         'butcher',
         'meat_shop',
-        'poultry_shop',
         'hotel',
         'wedding_hall',
-        'game_store',
-        'home-restaurants',
-        'household-items',
-        'home-sweets',
-        'home-food',
       };
       final isInstitutionOffers = institutionCategorySlugs.contains(slug);
 

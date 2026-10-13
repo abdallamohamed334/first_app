@@ -24,17 +24,12 @@ class SubCategoriesPage extends StatefulWidget {
 class _SubCategoriesPageState extends State<SubCategoriesPage> {
   static const Set<String> _institutionCatalogSlugs = {
     'grocery',
+    'supermarket',
     'bakery',
     'butcher',
     'meat_shop',
-    'poultry_shop',
     'wedding_hall',
-    'game_store',
     'hotel',
-    'home-restaurants',
-    'household-items',
-    'home-sweets',
-    'home-food',
   };
   static const Color _bg = Color(0xFF0F0F0F);
   static const Color _card = Color(0xFF1C1C1E);
