@@ -115,10 +115,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          FIREBASE_IOS_API_KEY: ${{ secrets.FIREBASE_IOS_API_KEY }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
-          test -n "$FIREBASE_IOS_API_KEY"
       - name: Build unsigned iOS archive validation
         run: >-
           flutter build ipa --release --no-codesign

@@ -59,6 +59,12 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<!-- Keep native Firebase Messaging available when the optional Dart API
+	     key override is not supplied during an Xcode/App Store build. -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<key>FirebaseMessagingAutoInitEnabled</key>
+	<true/>
 
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -121,8 +127,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
