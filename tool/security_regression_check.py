@@ -18,6 +18,7 @@ MAP_PAGE = ROOT / "lib/features/auth/presentation/pages/location_picker_page.dar
 LOAD_TEST = ROOT / "load_test.py"
 FIREBASE_OPTIONS = ROOT / "lib/firebase_options.dart"
 CHARITY_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261008234500_harden_charity_donation_access.sql"
+CHARITY_TABLE_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261013102000_harden_charity_table_column_access.sql"
 CHARITY_REPOSITORY = ROOT / "lib/features/charity/data/repositories/charity_donation_repository_separate.dart"
 FEED_RLS_MIGRATION = ROOT / "supabase/migrations/20261008235000_harden_user_feed_rls.sql"
 USER_HOME_REPOSITORY = ROOT / "lib/features/userhome/data/repositories/userhome_repository.dart"
@@ -69,6 +70,7 @@ def main() -> None:
     load_test = LOAD_TEST.read_text()
     firebase_options = FIREBASE_OPTIONS.read_text()
     charity_access_migration = CHARITY_ACCESS_MIGRATION.read_text()
+    charity_table_access_migration = CHARITY_TABLE_ACCESS_MIGRATION.read_text()
     charity_repository = CHARITY_REPOSITORY.read_text()
     feed_rls_migration = FEED_RLS_MIGRATION.read_text()
     user_home_repository = USER_HOME_REPOSITORY.read_text()
@@ -151,6 +153,9 @@ def main() -> None:
     require(charity_access_migration, "get_donor_donation_pickup_token", "donor-owned pickup token RPC")
     require(charity_access_migration, "get_assigned_donation_pickup_token", "assigned-volunteer pickup token RPC")
     require(charity_access_migration, "confirm_charity_delivery_with_code", "atomic charity delivery confirmation RPC")
+    require(charity_table_access_migration, "REVOKE ALL PRIVILEGES ON TABLE public.charities FROM anon, authenticated", "charity table privilege reset")
+    require(charity_table_access_migration, "GRANT SELECT (", "charity public-column allowlist")
+    require(charity_table_access_migration, "REVOKE INSERT, UPDATE, DELETE ON TABLE public.charities", "charity direct mutation lock")
     if re.search(r"\.select\([^)]*(?<![A-Za-z0-9_])(pickup_token|charity_pickup_code)(?![A-Za-z0-9_])", charity_repository, re.DOTALL):
         raise AssertionError("charity repository still selects pickup secrets directly")
     if "'status': 'completed'" in charity_repository or "'charity_pickup_code'" in charity_repository:
