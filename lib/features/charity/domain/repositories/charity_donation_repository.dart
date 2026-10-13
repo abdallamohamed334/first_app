@@ -76,16 +76,23 @@ class SeparateCharityDonationRepository {
 
   Future<String> _charityIdForCurrentUser() async {
     final userId = await _currentUserId();
-    final row = await _client
-        .from('charities')
-        .select('id, status')
-        .eq('user_id', userId)
-        .maybeSingle();
-    if (row == null) throw Exception('لا توجد جمعية مرتبطة بالحساب');
-    if (row['status']?.toString() != 'active') {
-      throw Exception('حساب الجمعية ما زال قيد المراجعة');
+    // charities.user_id is not readable by browser roles. The RPC performs
+    // the owner check with auth.uid() and returns only the safe context.
+    final rawContext = await _client.rpc('get_my_charity_context');
+    final context = rawContext is Map
+        ? Map<String, dynamic>.from(rawContext)
+        : <String, dynamic>{};
+    final charityId = context['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = context['user_id']?.toString().trim() ?? '';
+    if (context['allowed'] != true || charityId.isEmpty) {
+      throw Exception(
+        context['message']?.toString() ?? 'لا توجد جمعية مرتبطة بالحساب',
+      );
     }
-    return row['id'].toString();
+    if (rpcUserId != userId) {
+      throw Exception('بيانات الجمعية لا تتطابق مع حساب الدخول');
+    }
+    return charityId;
   }
 
   Future<List<Map<String, dynamic>>> getCharityDonations() async {

@@ -30,16 +30,25 @@ class _CharityHomePageState extends State<CharityHomePage> {
       throw StateError('انتهت جلسة الجمعية، يرجى تسجيل الدخول مرة أخرى');
     }
 
-    final charity = await _client
-        .from('charities')
-        .select('id, name, image_url, logo_url, status')
-        .eq('user_id', uid)
-        .maybeSingle();
-    if (charity == null) {
-      throw StateError('لم يتم العثور على بيانات الجمعية المرتبطة بهذا الحساب');
+    // user_id is intentionally hidden from browser roles after the partner
+    // table hardening migration. Resolve the owner-scoped context through the
+    // SECURITY DEFINER RPC instead of querying charities.user_id directly.
+    final rawContext = await _client.rpc('get_my_charity_context');
+    final context = rawContext is Map
+        ? Map<String, dynamic>.from(rawContext)
+        : <String, dynamic>{};
+    if (context['allowed'] != true) {
+      throw StateError(
+        context['message']?.toString() ??
+            'لم يتم العثور على بيانات الجمعية المرتبطة بهذا الحساب',
+      );
     }
 
-    final charityId = charity['id'] as String;
+    final charityId = context['charity_id']?.toString().trim() ?? '';
+    if (charityId.isEmpty || context['user_id']?.toString() != uid) {
+      throw StateError('بيانات الجمعية لا تتطابق مع حساب الدخول');
+    }
+
     final requests = await _client
         .from('charity_donation_requests')
         .select('id, status')
@@ -51,11 +60,11 @@ class _CharityHomePageState extends State<CharityHomePage> {
         .eq('status', 'active');
 
     return _CharitySummary(
-      name: (charity['name'] as String?)?.trim().isNotEmpty == true
-          ? charity['name'] as String
+      name: (context['name'] as String?)?.trim().isNotEmpty == true
+          ? context['name'] as String
           : 'الجمعية',
-      imageUrl:
-          (charity['image_url'] as String?) ?? (charity['logo_url'] as String?),
+      imageUrl: (context['image_url'] as String?) ??
+          (context['logo_url'] as String?),
       requestsCount: (requests as List).length,
       activeRequests: (requests as List)
           .where((row) => !{'completed', 'rejected', 'cancelled', 'expired'}

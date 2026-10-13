@@ -325,19 +325,27 @@ class _CharityDonationRequestsPageState
   }
 
   Future<String> _currentCharityId() async {
-    final userId = SupabaseService().client.auth.currentUser?.id;
+    final client = SupabaseService().client;
+    final userId = client.auth.currentUser?.id;
     if (userId == null || userId.isEmpty) {
       throw const FormatException('يجب تسجيل الدخول أولًا');
     }
-    final row = await SupabaseService().client
-        .from('charities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
-    final id = row?['id']?.toString().trim() ?? '';
-    if (id.isEmpty) {
-      throw const FormatException('لا توجد جمعية نشطة مرتبطة بالحساب');
+
+    // Resolve the charity through the owner-scoped RPC. The direct
+    // charities.user_id column is intentionally hidden from browser roles.
+    final rawContext = await client.rpc('get_my_charity_context');
+    final context = rawContext is Map
+        ? Map<String, dynamic>.from(rawContext)
+        : <String, dynamic>{};
+    final id = context['charity_id']?.toString().trim() ?? '';
+    final rpcUserId = context['user_id']?.toString().trim() ?? '';
+    if (context['allowed'] != true || id.isEmpty) {
+      throw FormatException(
+        context['message']?.toString() ?? 'لا توجد جمعية نشطة مرتبطة بالحساب',
+      );
+    }
+    if (rpcUserId != userId) {
+      throw const FormatException('بيانات الجمعية لا تتطابق مع حساب الدخول');
     }
     return id;
   }
