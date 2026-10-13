@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
+import 'package:loqma/features/userhome/domain/user_home_policy.dart';
 
 class SubCategoriesPage extends StatefulWidget {
   final String parentId;
@@ -22,15 +23,6 @@ class SubCategoriesPage extends StatefulWidget {
 }
 
 class _SubCategoriesPageState extends State<SubCategoriesPage> {
-  static const Set<String> _institutionCatalogSlugs = {
-    'grocery',
-    'supermarket',
-    'bakery',
-    'butcher',
-    'meat_shop',
-    'wedding_hall',
-    'hotel',
-  };
   static const Color _bg = Color(0xFF0F0F0F);
   static const Color _card = Color(0xFF1C1C1E);
   static const Color _primaryRed = Color(0xFFE31C25);
@@ -73,9 +65,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
           .map((e) => Map<String, dynamic>.from(e))
           .where(
             (row) => widget.parentSlug != 'institution-offers' ||
-                _institutionCatalogSlugs.contains(
-                  row['slug']?.toString().trim().toLowerCase(),
-                ),
+                UserHomePolicy.isAllowedCatalogSlug(row['slug']?.toString()),
           )
           .toList();
 

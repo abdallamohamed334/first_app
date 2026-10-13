@@ -44,6 +44,7 @@ import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
 import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
+import 'package:loqma/features/userhome/domain/user_home_policy.dart';
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.dart'; // ✅ جديد
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
@@ -51,6 +52,7 @@ import 'package:loqma/features/userhome/presentation/pages/user_institution_offe
 import 'package:loqma/features/userhome/presentation/widgets/home_auxiliary_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_need_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_offer_widgets.dart';
+import 'package:loqma/features/userhome/presentation/widgets/user_home_navigation_widgets.dart';
 import 'package:loqma/routes/app_router.dart';
 
 // ═══════════════════════════════════════════════════════════
@@ -74,26 +76,8 @@ const Set<String> _homeRestaurantInstitutionTypes = {
   'home-restaurants',
 };
 
-const Set<String> _homeVisibleInstitutionTypes = {
-  'grocery',
-  'supermarket',
-  'bakery',
-  'butcher',
-  'meat_shop',
-  'hotel',
-  'wedding_hall',
-};
-
 /// Slugs used by the institution category browser; nearby offers search all types.
-const Set<String> _institutionCatalogSlugs = {
-  'grocery',
-  'supermarket',
-  'bakery',
-  'butcher',
-  'meat_shop',
-  'hotel',
-  'wedding_hall',
-};
+const Set<String> _institutionCatalogSlugs = UserHomePolicy.institutionCatalogSlugs;
 
 enum _HomeMode { buy, services }
 
@@ -451,8 +435,7 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   bool _isVisibleInstitutionOffer(InstitutionOffer offer) {
-    final type = offer.institutionType?.trim().toLowerCase();
-    return type != null && _homeVisibleInstitutionTypes.contains(type);
+    return UserHomePolicy.isVisibleInstitutionType(offer.institutionType);
   }
 
   Future<void> _loadCommunityNeeds() async {
@@ -532,43 +515,29 @@ class _UserHomePageState extends State<UserHomePage> {
                 );
               })
               .toList(growable: false);
-      if (institutionRoot != null && _userLat != null && _userLng != null) {
-        final institutionOffers = await _userHomeRepository.getOffersByCategory(
-          categoryId: institutionRoot['id']?.toString() ?? '',
-          latitude: _userLat,
-          longitude: _userLng,
-          radiusKm: _AppFeatures.nearbyRadiusKm,
-        );
-        final institutionOnly = institutionOffers
+      if (institutionRoot != null) {
+        // The category RPC is now the single source of truth for nearby
+        // marketplace offers. Do not issue a second category query here: the
+        // previous getOffersByCategory call duplicated the same institution
+        // rows and made Home opening noticeably slower.
+        final rootId = institutionRoot['id']?.toString() ?? '';
+        final institutionOnly = (grouped[rootId] ?? const <CategoryOffer>[])
             .where((offer) => offer.ownerType == 'institution')
             .toList(growable: false);
-        if (institutionOnly.isNotEmpty) {
-          grouped[institutionRoot['id']?.toString() ?? ''] = institutionOnly;
 
-          // Each visible child section includes its own offers plus every
-          // nested descendant (for example grocery -> bakery -> pastries).
-          final childOffers = await Future.wait(
-            institutionSubcategories.map((category) async {
-              final childId = category['id']?.toString() ?? '';
-              if (childId.isEmpty) {
-                return const <CategoryOffer>[];
-              }
-              final treeIds = await _userHomeRepository.getCategoryTreeIds(
-                childId,
-              );
-              final tree = treeIds.toSet();
-              return institutionOnly
-                  .where((offer) => tree.contains(offer.categoryId))
-                  .toList(growable: false);
-            }),
-          );
-          for (var index = 0;
-              index < institutionSubcategories.length;
-              index++) {
-            final childId = institutionSubcategories[index]['id']?.toString();
-            if (childId != null && childId.isNotEmpty) {
-              grouped[childId] = childOffers[index];
-            }
+        if (institutionOnly.isNotEmpty) {
+          grouped[rootId] = institutionOnly;
+
+          // Reuse the one RPC result for child sections. The category tree is
+          // cached in the repository, so this performs no extra offer reads.
+          for (final category in institutionSubcategories) {
+            final childId = category['id']?.toString() ?? '';
+            if (childId.isEmpty) continue;
+            final treeIds = await _userHomeRepository.getCategoryTreeIds(childId);
+            final tree = treeIds.toSet();
+            grouped[childId] = institutionOnly
+                .where((offer) => tree.contains(offer.categoryId))
+                .toList(growable: false);
           }
         }
       }
@@ -1228,42 +1197,12 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildLocationUnavailableNotice() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
-      child: Material(
-        color: _card,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Icon(Icons.location_off_rounded, color: _orange, size: 24),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'حدّد موقعك علشان نعرض العروض والخدمات القريبة منك.',
-                  style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: () => context.go('/map'),
-                child: Text(
-                  'تحديد',
-                  style: TextStyle(
-                    color: _primaryRed,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return UserHomeLocationNotice(
+      cardColor: _card,
+      orangeColor: _orange,
+      textPrimaryColor: _textPrimary,
+      primaryColor: _primaryRed,
+      onChooseLocation: () => context.go('/map'),
     );
   }
 
@@ -4281,69 +4220,12 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return SafeArea(
-      top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-        decoration: BoxDecoration(
-          color: _card,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: _border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: _isDark ? 0.28 : 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            HomeBottomNavItem(
-              index: 0,
-              currentIndex: _currentPage,
-              icon: Icons.home_rounded,
-              outlinedIcon: Icons.home_outlined,
-              label: 'الرئيسية',
-              onTap: _selectPage,
-            ),
-            HomeBottomNavItem(
-              index: 1,
-              currentIndex: _currentPage,
-              icon: Icons.grid_view_rounded,
-              outlinedIcon: Icons.grid_view_rounded,
-              label: 'الأقسام',
-              onTap: _selectPage,
-            ),
-            HomeBottomNavItem(
-              index: 2,
-              currentIndex: _currentPage,
-              icon: Icons.volunteer_activism_rounded,
-              outlinedIcon: Icons.volunteer_activism_outlined,
-              label: 'الاحتياجات',
-              onTap: _selectPage,
-            ),
-            HomeBottomNavItem(
-              index: 3,
-              currentIndex: _currentPage,
-              icon: Icons.receipt_long_rounded,
-              outlinedIcon: Icons.receipt_long_outlined,
-              label: 'الطلبات',
-              onTap: _selectPage,
-            ),
-            HomeBottomNavItem(
-              index: 4,
-              currentIndex: _currentPage,
-              icon: Icons.person_rounded,
-              outlinedIcon: Icons.person_outline_rounded,
-              label: 'حسابي',
-              onTap: _selectPage,
-            ),
-          ],
-        ),
-      ),
+    return UserHomeBottomNavigationBar(
+      currentIndex: _currentPage,
+      cardColor: _card,
+      borderColor: _border,
+      isDark: _isDark,
+      onTap: _selectPage,
     );
   }
 

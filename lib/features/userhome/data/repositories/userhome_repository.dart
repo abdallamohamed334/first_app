@@ -8,6 +8,7 @@ import 'package:loqma/core/models/nearby_place.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/offers/domain/entities/food_offer.dart';
 import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
+import 'package:loqma/features/userhome/domain/user_home_policy.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_banner_carousel.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_delivery_donations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -650,17 +651,10 @@ class UserHomeRepository {
       final slug = categoryInfo?['slug']?.toString() ?? '';
       final isFood = slug == 'food';
       final isGrocery = slug == 'grocery';
-      const institutionCategorySlugs = {
-        'institution-offers',
-        'grocery',
-        'supermarket',
-        'bakery',
-        'butcher',
-        'meat_shop',
-        'hotel',
-        'wedding_hall',
-      };
+      const institutionCategorySlugs = {'institution-offers'};
       final isInstitutionOffers = institutionCategorySlugs.contains(slug);
+      final isInstitutionCatalogCategory =
+          UserHomePolicy.isAllowedCatalogSlug(slug);
 
       debugPrint(
         '📌 getOffersByCategory: categoryId=$categoryId '
@@ -691,7 +685,7 @@ class UserHomeRepository {
       if (isFood) {
         // ✅ food → عروض المطاعم بس من food_offers
         results.add(await _getFoodOffersByCategoryIds(allCategoryIds));
-      } else if (isGrocery || isInstitutionOffers) {
+      } else if (isGrocery || isInstitutionOffers || isInstitutionCatalogCategory) {
         // ✅ institution categories → عروض المؤسسات فقط
         results.add(await _getInstitutionOffersByCategoryIds(allCategoryIds));
       } else {
