@@ -300,10 +300,10 @@ serve(async (req) => {
             pricing_type: profile.pricingType || "market",
             price_from: profile.priceFrom,
             verification_status: "pending",
-            // Pending providers may reach the review screen; features remain
-            // guarded by verification_status.
+            // Pending providers may reach the review screen, but must never
+            // be marked available before moderation approval.
             is_active: true,
-            is_available: true,
+            is_available: false,
           });
 
         if (providerError) {
