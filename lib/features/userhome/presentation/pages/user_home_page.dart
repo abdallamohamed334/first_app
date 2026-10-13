@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/supabase_service.dart';
@@ -3170,7 +3171,7 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildServiceProviderCards(List<ServiceProvider> providers) {
     return SizedBox(
-      height: 184,
+      height: 232,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -3364,6 +3365,32 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      if (provider.phone?.trim().isNotEmpty == true)
+                        Expanded(
+                          child: _providerContactButton(
+                            icon: Icons.phone_rounded,
+                            label: 'اتصل',
+                            color: _green,
+                            onTap: () => _callProvider(provider.phone!),
+                          ),
+                        ),
+                      if (provider.phone?.trim().isNotEmpty == true &&
+                          provider.whatsapp?.trim().isNotEmpty == true)
+                        const SizedBox(width: 8),
+                      if (provider.whatsapp?.trim().isNotEmpty == true)
+                        Expanded(
+                          child: _providerContactButton(
+                            icon: Icons.chat_rounded,
+                            label: 'واتساب',
+                            color: const Color(0xFF25D366),
+                            onTap: () => _whatsappProvider(provider.whatsapp!),
+                          ),
+                        ),
+                    ],
+                  ),
                   const Spacer(),
                   Row(
                     children: [
@@ -3404,6 +3431,68 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       ),
     );
+  }
+
+  Widget _providerContactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _callProvider(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    } catch (error) {
+      debugPrint('❌ provider call error: $error');
+    }
+  }
+
+  Future<void> _whatsappProvider(String phone) async {
+    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '20${cleaned.substring(1)}';
+    } else if (!cleaned.startsWith('20') && cleaned.length == 10) {
+      cleaned = '20$cleaned';
+    }
+    final uri = Uri.parse('https://wa.me/$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (error) {
+      debugPrint('❌ provider whatsapp error: $error');
+    }
   }
 
   Widget _buildInstitutionsHomeSection(UserHomeLoaded state) {
