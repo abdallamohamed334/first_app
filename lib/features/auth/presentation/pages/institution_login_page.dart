@@ -106,11 +106,15 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         throw const AuthException('تعذر تسجيل الدخول');
       }
 
-      final institution = await temporaryClient
-          .from('institutions')
-          .select('id')
-          .eq('user_id', authUser.id)
-          .maybeSingle();
+      // user_id is intentionally not readable by the browser role after the
+      // partner-table hardening migration. Use the owner-scoped RPC instead
+      // of querying the protected column directly.
+      final contextResult = await temporaryClient.rpc(
+        'get_my_institution_context',
+      );
+      final institution = contextResult is Map
+          ? Map<String, dynamic>.from(contextResult)
+          : null;
       final refreshToken = response.session?.refreshToken;
       if (institution == null || refreshToken == null || refreshToken.isEmpty) {
         await temporaryClient.auth.signOut(scope: SignOutScope.local);
@@ -145,7 +149,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
               try {
                 await client.auth.setSession(refreshToken);
                 await temporaryClient.auth.signOut(scope: SignOutScope.local);
-                await _loginAsInstitution(client, authUser.id);
+                await _loginAsInstitution(client);
                 if (client.auth.currentSession == null && mounted) {
                   Navigator.of(context).pop();
                 }
@@ -350,15 +354,19 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
     );
   }
 
-  Future<void> _loginAsInstitution(
-    SupabaseClient client,
-    String authUserId,
-  ) async {
-    final institution = await client
-        .from('institutions')
-        .select('id, user_id, name, institution_type, status')
-        .eq('user_id', authUserId)
-        .maybeSingle();
+  Future<void> _loginAsInstitution(SupabaseClient client) async {
+    final authUserId = client.auth.currentUser?.id;
+    if (authUserId == null || authUserId.isEmpty) {
+      await client.auth.signOut();
+      if (mounted) {
+        setState(() => _errorMessage = 'تعذر تجهيز جلسة المؤسسة، حاول مرة أخرى.');
+      }
+      return;
+    }
+    final contextResult = await client.rpc('get_my_institution_context');
+    final institution = contextResult is Map
+        ? Map<String, dynamic>.from(contextResult)
+        : null;
 
     if (institution == null) {
       await client.auth.signOut();
