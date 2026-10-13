@@ -820,7 +820,8 @@ class ServiceProviderRepository {
       debugPrint('📥 [Provider] Fetching reviews for: $providerId');
 
       final rows = await _client
-          .from('service_reviews')
+          // This projection intentionally omits internal request/user IDs.
+          .from('published_service_reviews')
           .select('''
             id,
             rating,
@@ -829,52 +830,23 @@ class ServiceProviderRepository {
             tags,
             is_anonymous,
             created_at,
-            from_user_id
+            user_name,
+            user_avatar
           ''')
           .eq('to_provider_id', providerId)
           .order('created_at', ascending: false);
 
-      final reviews = <Map<String, dynamic>>[];
-
-      for (final row in rows) {
+      final reviews = rows.map((row) {
         final review = Map<String, dynamic>.from(row);
-        final userId = review['from_user_id']?.toString();
         final isAnonymous = review['is_anonymous'] as bool? ?? false;
-
-        if (isAnonymous) {
-          review['users'] = {
-            'name': 'مستخدم مجهول',
-            'avatar_url': null,
-          };
-        } else if (userId != null && userId.isNotEmpty) {
-          try {
-            final userRow = await _client
-                .from('users')
-                .select('name, avatar_url')
-                .eq('id', userId)
-                .maybeSingle();
-
-            if (userRow != null) {
-              review['users'] = {
-                'name': userRow['name']?.toString() ?? 'مستخدم',
-                'avatar_url': userRow['avatar_url']?.toString(),
-              };
-            } else {
-              review['users'] = {
-                'name': 'مستخدم',
-                'avatar_url': null,
-              };
-            }
-          } catch (_) {
-            review['users'] = {
-              'name': 'مستخدم',
-              'avatar_url': null,
-            };
-          }
-        }
-
-        reviews.add(review);
-      }
+        review['user_name'] = isAnonymous
+            ? 'مستخدم مجهول'
+            : (review['user_name']?.toString().trim().isNotEmpty == true
+                ? review['user_name']
+                : 'مستخدم');
+        review['user_avatar'] = isAnonymous ? null : review['user_avatar'];
+        return review;
+      }).toList();
 
       debugPrint('✅ [Provider] Got ${reviews.length} reviews');
 

@@ -299,7 +299,9 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
             ? user['name']?.toString()
             : review['user_name']?.toString()) ??
         'عميل';
-    final avatarUrl = user is Map ? user['avatar_url']?.toString() : null;
+    final avatarUrl = user is Map
+        ? user['avatar_url']?.toString()
+        : review['user_avatar']?.toString();
     final isAnonymous = review['is_anonymous'] as bool? ?? false;
     final rating = _providerInt(review['rating']) ?? 0;
     final comment = review['comment']?.toString() ?? '';
