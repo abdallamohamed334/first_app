@@ -16,8 +16,15 @@ import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
 
 class UserInstitutionOffersPage extends StatefulWidget {
   final List<FoodOffer>? offers;
+  /// `commercial` = grocery/supermarket/bakery/butcher,
+  /// `surplus` = hotels/wedding halls.
+  final String? institutionSection;
 
-  const UserInstitutionOffersPage({super.key, this.offers});
+  const UserInstitutionOffersPage({
+    super.key,
+    this.offers,
+    this.institutionSection,
+  });
 
   @override
   State<UserInstitutionOffersPage> createState() =>
@@ -520,8 +527,25 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   }
 
   List<FoodOffer> get _filteredOffers {
-    if (_selectedInstitutionType == 'all') return _allOffers;
-    return _allOffers
+    final sectionOffers = _allOffers.where((offer) {
+      final type = offer.businessType.trim().toLowerCase();
+      if (widget.institutionSection == 'commercial') {
+        return {
+          'grocery',
+          'supermarket',
+          'bakery',
+          'butcher',
+          'meat_shop',
+        }.contains(type);
+      }
+      if (widget.institutionSection == 'surplus') {
+        return type == 'hotel' || type == 'wedding_hall';
+      }
+      return true;
+    });
+
+    if (_selectedInstitutionType == 'all') return sectionOffers.toList(growable: false);
+    return sectionOffers
         .where((offer) => _matchesInstitutionType(
               offer.businessType,
               _selectedInstitutionType,

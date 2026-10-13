@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
+import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
 
 class SymbolicPurchasePage extends StatefulWidget {
   const SymbolicPurchasePage({super.key});
@@ -590,6 +591,10 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
                     const SizedBox(
                       height: 14,
                     ),
+                    _institutionSections(colors, isDark),
+                    const SizedBox(
+                      height: 18,
+                    ),
                     _searchBox(
                       colors,
                       isDark,
@@ -729,6 +734,133 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
   // ============================================================
   // Search
   // ============================================================
+
+  Widget _institutionSections(ColorScheme colors, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'عروض المؤسسات',
+          style: TextStyle(
+            color: colors.onSurface,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 9),
+        _institutionSectionCard(
+          colors: colors,
+          isDark: isDark,
+          icon: Icons.shopping_basket_rounded,
+          title: 'عروض المؤسسات',
+          subtitle: 'بقالة • سوبر ماركت • جزارة • مخبز',
+          description: 'منتجات متاحة للشراء بسعر رمزي',
+          color: const Color(0xFF0B7650),
+          section: 'commercial',
+        ),
+        const SizedBox(height: 10),
+        _institutionSectionCard(
+          colors: colors,
+          isDark: isDark,
+          icon: Icons.volunteer_activism_rounded,
+          title: 'فائض المؤسسات',
+          subtitle: 'فنادق • قاعات أفراح',
+          description: 'فائض طعام صالح للاستفادة وإعادة التوزيع',
+          color: const Color(0xFFC27A16),
+          section: 'surplus',
+        ),
+      ],
+    );
+  }
+
+  Widget _institutionSectionCard({
+    required ColorScheme colors,
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String description,
+    required Color color,
+    required String section,
+  }) {
+    return Material(
+      color: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => UserInstitutionOffersPage(
+              institutionSection: section,
+            ),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withValues(alpha: 0.22)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D000000),
+                blurRadius: 12,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(icon, color: color, size: 25),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_back_ios_new_rounded, color: color, size: 17),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _searchBox(
     ColorScheme colors,
