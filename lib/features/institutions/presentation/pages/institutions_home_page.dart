@@ -64,9 +64,28 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
     }
     try {
       final institution = await _repository.getMine();
-      final offers = await _repository.listMyOffers(institution.id);
-      final donations =
-          await _repository.listMyCharityDonations(institution.id);
+      // تحميل المؤسسة هو الجزء الأساسي. لا نحجب الصفحة إذا فشل استعلام
+      // ثانوي خاص بالعروض أو التبرعات؛ كل قسم يعرض حالته الفارغة بدلًا من
+      // تحويل نجاح تسجيل الدخول إلى رسالة عامة مضللة.
+      List<Map<String, dynamic>> offers = const [];
+      try {
+        offers = await _repository.listMyOffers(institution.id);
+        debugPrint(
+          '[InstitutionDebug] home offers loaded=${offers.length}',
+        );
+      } catch (error) {
+        debugPrint('[InstitutionDebug] home offers failed=$error');
+      }
+
+      List<Map<String, dynamic>> donations = const [];
+      try {
+        donations = await _repository.listMyCharityDonations(institution.id);
+        debugPrint(
+          '[InstitutionDebug] home donations loaded=${donations.length}',
+        );
+      } catch (error) {
+        debugPrint('[InstitutionDebug] home donations failed=$error');
+      }
 
       if (!mounted) return;
       setState(() {
@@ -76,6 +95,7 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
         _loading = false;
       });
     } catch (error) {
+      debugPrint('[InstitutionDebug] home institution load failed=$error');
       if (!mounted) return;
       setState(() {
         _loading = false;
