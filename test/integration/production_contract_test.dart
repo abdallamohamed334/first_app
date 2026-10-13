@@ -35,6 +35,10 @@ Future<HttpResponse> _request(
   }
 }
 
+Map<String, String> _bearer(String token) => {
+      'Authorization': 'Bearer $token',
+    };
+
 class HttpResponse {
   const HttpResponse(this.statusCode, this.body);
   final int statusCode;
@@ -126,5 +130,37 @@ void main() {
     }, skip: (userToken.isNotEmpty && providerToken.isNotEmpty && institutionToken.isNotEmpty)
         ? null
         : 'Set TEST_USER_ACCESS_TOKEN, TEST_PROVIDER_ACCESS_TOKEN and TEST_INSTITUTION_ACCESS_TOKEN');
+
+    test('authenticated provider can read the provider card contract', () async {
+      final response = await _request(
+        'GET',
+        '/rest/v1/published_service_providers?select=id,display_name,phone,whatsapp,email,address&limit=5',
+        headers: _bearer(providerToken),
+      );
+      expect(response.statusCode, 200);
+      expect(response.body, isA<List>());
+    }, skip: providerToken.isEmpty ? 'Set TEST_PROVIDER_ACCESS_TOKEN' : null);
+
+    test('ordinary authenticated users cannot read service-role-only tables', () async {
+      for (final table in <String>['otp_codes', 'points_transactions', 'services']) {
+        final response = await _request(
+          'GET',
+          '/rest/v1/$table?select=*&limit=1',
+          headers: _bearer(userToken),
+        );
+        expect(response.statusCode, anyOf(401, 403), reason: table);
+      }
+    }, skip: userToken.isEmpty ? 'Set TEST_USER_ACCESS_TOKEN' : null);
+
+    test('institution token can read only its own institution context', () async {
+      final response = await _request(
+        'POST',
+        '/rest/v1/rpc/get_my_institution_context',
+        headers: _bearer(institutionToken),
+      );
+      expect(response.statusCode, 200);
+      expect(response.body, isA<Map>());
+      expect(response.body['user_id'], isNotEmpty);
+    }, skip: institutionToken.isEmpty ? 'Set TEST_INSTITUTION_ACCESS_TOKEN' : null);
   });
 }
