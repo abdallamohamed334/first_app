@@ -486,9 +486,7 @@ class SeparateCharityDonationRepository {
   // 1) الجمعية تقبل التبرع (مسارين)
   // ─────────────────────────────────────────────────────────────
 
-  /// الجمعية تقبل التبرع
-  /// - [openToVolunteers] = true → تفتحه للمتطوعين (status = 'volunteer_needed')
-  /// - [openToVolunteers] = false → تحتفظ بيه لنفسها (status = 'accepted')
+  /// الجمعية تقبل التبرع. مسار التطوع المستقل متوقف؛ يجب تمرير false.
   Future<Map<String, dynamic>> charityAcceptDonation({
     required String requestId,
     required bool openToVolunteers,
@@ -575,6 +573,29 @@ class SeparateCharityDonationRepository {
       }
       if (data['already_ready'] != true) {
         await _notifyDonationEvent(requestId, 'status');
+      }
+      return data;
+    } catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// إلغاء التبرع بواسطة صاحبه من أي حالة نشطة قبل الإكمال.
+  Future<Map<String, dynamic>> cancelDirectCharityDonation(
+    String requestId, {
+    String? reason,
+  }) async {
+    try {
+      final result = await _client.rpc(
+        'cancel_direct_charity_donation',
+        params: {
+          'p_request_id': requestId.trim(),
+          'p_reason': reason?.trim(),
+        },
+      );
+      final data = _mapFromRpc(result);
+      if (data['success'] != true) {
+        throw Exception(data['error']?.toString() ?? 'تعذر إلغاء التبرع');
       }
       return data;
     } catch (e) {

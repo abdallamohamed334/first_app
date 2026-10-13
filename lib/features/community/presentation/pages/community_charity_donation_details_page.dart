@@ -64,10 +64,70 @@ class _CommunityCharityDonationDetailsPageState
       donation['volunteer_phone']?.toString().trim() ?? '';
   bool get _hasVolunteer =>
       _volunteerName.isNotEmpty || _volunteerPhone.isNotEmpty;
+  bool get _canCancel =>
+      !{'completed', 'rejected', 'cancelled', 'expired'}.contains(status);
 
   // ═══════════════════════════════════════════════════════════
   // ACTIONS
   // ═══════════════════════════════════════════════════════════
+
+  Future<void> _cancelDonation() async {
+    if (!_canCancel || _updatingStatus) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('إلغاء التبرع'),
+        content: const Text(
+          'هل تريد إلغاء التبرع؟ سيتم إشعار الجمعية والمتبرع وتسجيل الإلغاء نهائيًا.',
+          style: TextStyle(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('رجوع'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('تأكيد الإلغاء'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _updatingStatus = true);
+    try {
+      await _repository.cancelDirectCharityDonation(donation['id'].toString());
+      if (!mounted) return;
+      setState(() => _localStatus = 'cancelled');
+      _message('تم إلغاء التبرع وإشعار الجمعية.', success: true);
+    } catch (error) {
+      if (mounted) _message('تعذر إلغاء التبرع: $error');
+    } finally {
+      if (mounted) setState(() => _updatingStatus = false);
+    }
+  }
+
+  Widget _buildCancelButton() => SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _updatingStatus ? null : _cancelDonation,
+          icon: const Icon(Icons.block_rounded, size: 18),
+          label: const Text(
+            'إلغاء التبرع',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _red,
+            side: BorderSide(color: _red.withValues(alpha: 0.55)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      );
 
   /// ✅ المتبرع يعلن جاهزيته (ويعتبر موافقة على المسار)
   Future<void> _markReady() async {
@@ -382,6 +442,10 @@ class _CommunityCharityDonationDetailsPageState
 
             // Actions
             _buildActions(),
+            if (_canCancel) ...[
+              const SizedBox(height: 12),
+              _buildCancelButton(),
+            ],
 
             // Completed Box
             if (status == 'completed') ...[
@@ -393,6 +457,15 @@ class _CommunityCharityDonationDetailsPageState
             if (status == 'rejected') ...[
               const SizedBox(height: 16),
               _buildRejectedBox(),
+            ],
+            if (status == 'cancelled') ...[
+              const SizedBox(height: 16),
+              _buildInfoBanner(
+                icon: Icons.block_rounded,
+                color: _red,
+                title: 'تم إلغاء التبرع',
+                subtitle: 'تم إشعار الجمعية بتغيير الحالة.',
+              ),
             ],
           ],
         ),
