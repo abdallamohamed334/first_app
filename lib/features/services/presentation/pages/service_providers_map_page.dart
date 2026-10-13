@@ -34,7 +34,11 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final center = LatLng(widget.latitude, widget.longitude);
+    final points = widget.providers
+        .where((provider) => provider.latitude != null && provider.longitude != null)
+        .toList(growable: false);
+    final center = _providersMapCenter(points, LatLng(widget.latitude, widget.longitude));
+    final initialZoom = _providersMapZoom(points);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -71,7 +75,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                     mapController: _mapController,
                     options: MapOptions(
                       initialCenter: center,
-                      initialZoom: 12.5,
+                      initialZoom: initialZoom,
                       onTap: (_, __) => setState(() => _selected = null),
                     ),
                     children: [
@@ -87,7 +91,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                           return Marker(
                             point: LatLng(provider.latitude!, provider.longitude!),
                             width: selected ? 58 : 48,
-                            height: selected ? 66 : 56,
+                            height: selected ? 70 : 62,
                             child: GestureDetector(
                               onTap: () => setState(() => _selected = provider),
                               child: Column(
@@ -148,7 +152,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                       heroTag: 'service-map-center',
                       backgroundColor: _surface,
                       foregroundColor: const Color(0xFF3679C8),
-                      onPressed: () => _mapController.move(center, 12.5),
+                      onPressed: () => _mapController.move(center, initialZoom),
                       child: const Icon(Icons.my_location_rounded),
                     ),
                   ),
@@ -171,6 +175,48 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         ),
       ),
     );
+  }
+
+  LatLng _providersMapCenter(
+    List<ServiceProvider> providers,
+    LatLng fallback,
+  ) {
+    if (providers.isEmpty) return fallback;
+    var minLat = providers.first.latitude!;
+    var maxLat = minLat;
+    var minLng = providers.first.longitude!;
+    var maxLng = minLng;
+    for (final provider in providers.skip(1)) {
+      minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
+      maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
+      minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
+      maxLng = maxLng > provider.longitude! ? maxLng : provider.longitude!;
+    }
+    return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+  }
+
+  double _providersMapZoom(List<ServiceProvider> providers) {
+    if (providers.length < 2) return 12.5;
+    var minLat = providers.first.latitude!;
+    var maxLat = minLat;
+    var minLng = providers.first.longitude!;
+    var maxLng = minLng;
+    for (final provider in providers.skip(1)) {
+      minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
+      maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
+      minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
+      maxLng = maxLng > provider.longitude! ? maxLng : provider.longitude!;
+    }
+    final span = (maxLat - minLat) > (maxLng - minLng)
+        ? maxLat - minLat
+        : maxLng - minLng;
+    if (span > 2.0) return 7.0;
+    if (span > 1.0) return 8.0;
+    if (span > 0.55) return 9.0;
+    if (span > 0.30) return 10.0;
+    if (span > 0.15) return 11.0;
+    if (span > 0.07) return 12.0;
+    return 13.0;
   }
 
   Widget _mapPill({required IconData icon, required String label}) {
