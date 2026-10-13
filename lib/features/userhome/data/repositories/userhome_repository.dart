@@ -371,65 +371,10 @@ class UserHomeRepository {
   // ---------------------------------------------------------------------------
 
   Future<List<DeliveryDonation>> getDeliveryDonations() async {
-    try {
-      final response = await _client.rpc(
-        'list_open_donations_for_volunteers',
-        params: const {'p_city': null},
-      );
-      if (response is! List) return [];
-
-      final donations = <DeliveryDonation>[];
-
-      for (final raw in response.take(10)) {
-        try {
-          final json = Map<String, dynamic>.from(raw as Map);
-          final charityName = json['charity_name']?.toString() ?? 'جمعية خيرية';
-          final imagesRaw = json['images'];
-          final images = <String>[];
-          if (imagesRaw is List) {
-            for (final image in imagesRaw) {
-              final value = image?.toString().trim();
-              if (value != null && value.isNotEmpty) {
-                images.add(value);
-              }
-            }
-          }
-
-          final image = images.isNotEmpty ? images.first : null;
-          final createdAt =
-              DateTime.tryParse(json['created_at']?.toString() ?? '') ??
-              DateTime.now();
-          final city = json['pickup_city']?.toString() ?? '';
-
-          final donation = DeliveryDonation(
-            id: json['id']?.toString() ?? '',
-            title: json['title']?.toString() ?? 'تبرع طعام',
-            description: json['description']?.toString() ?? '',
-            pickupLocation: city.isEmpty ? 'يظهر بعد قبول المهمة' : city,
-            deliveryLocation: charityName,
-            distance: 0.0,
-            quantity: _toInt(json['quantity']) ?? 0,
-            foodType: json['category']?.toString() ?? 'وجبات',
-            status: json['status']?.toString() ?? 'volunteer_needed',
-            donorName: 'متبرع',
-            createdAt: createdAt,
-            image: image,
-            charityName: charityName,
-            city: city,
-          );
-
-          donations.add(donation);
-        } catch (e) {
-          debugPrint('⚠️ Failed to parse delivery donation: $e');
-        }
-      }
-
-      return donations;
-    } catch (e, stack) {
-      debugPrint('❌ getDeliveryDonations ERROR: $e');
-      debugPrintStack(stackTrace: stack);
-      return [];
-    }
+    // التطوع المستقل متوقف عمدًا. صلاحية الـRPC القديم مغلقة في Production،
+    // لذلك لا نستدعي list_open_donations_for_volunteers من User Home ونرجع
+    // قائمة فارغة بدون ضوضاء في السجل.
+    return <DeliveryDonation>[];
   }
 
   // ---------------------------------------------------------------------------
