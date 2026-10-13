@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:loqma/core/constants/egypt_locations.dart';
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
+import '../../domain/institution_offer_policy.dart';
 import 'institution_offer_details_page.dart';
 
 enum _OfferFilter { active, expired, soldOut }
+enum _OfferSection { symbolicSale, institutionSurplus }
 
 class InstitutionOffersPage extends StatefulWidget {
   final InstitutionOffersRepository? repository;
@@ -24,23 +26,13 @@ class InstitutionOffersPage extends StatefulWidget {
 }
 
 class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
-  static const Set<String> _allowedInstitutionTypes = {
-    'grocery',
-    'supermarket',
-    'bakery',
-    'butcher',
-    'meat_shop',
-    'poultry_shop',
-    'wedding_hall',
-    'game_store',
-    'hotel',
-  };
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _future;
   String _query = '';
   String? _selectedGovernorate;
   String? _selectedInstitutionId;
   _OfferFilter _filter = _OfferFilter.active;
+  _OfferSection _section = _OfferSection.symbolicSale;
 
   // ─── ألوان هوية Khedma ───
   static const Color _primary = Color(0xFF0B7650);
@@ -96,6 +88,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     final query = _query.trim().toLowerCase();
 
     return offers.where((offer) {
+      if (!_matchesSection(offer)) return false;
       if (!_matchesLocationFilters(offer)) return false;
 
       // ── فلتر الحالة
@@ -106,7 +99,12 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
       if (query.isEmpty) return true;
       return offer.title.toLowerCase().contains(query) ||
           offer.institutionName.toLowerCase().contains(query);
-    }).toList(growable: false);
+      }).toList(growable: false);
+  }
+
+  bool _matchesSection(InstitutionOffer offer) {
+    final surplus = InstitutionOfferPolicy.isSurplus(offer.institutionType);
+    return _section == _OfferSection.institutionSurplus ? surplus : !surplus;
   }
 
   String? _offerGovernorate(InstitutionOffer offer) {
@@ -133,12 +131,6 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
     return true;
   }
 
-  bool _isAllowedInstitutionOffer(InstitutionOffer offer) {
-    return _allowedInstitutionTypes.contains(
-      offer.institutionType?.trim().toLowerCase(),
-    );
-  }
-
   bool _matchesLocationFiltersWithoutInstitution(InstitutionOffer offer) {
     return _offerGovernorate(offer) == _selectedGovernorate;
   }
@@ -163,9 +155,12 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
           future: _future,
           builder: (context, snapshot) {
             final allOffers = (snapshot.data ?? const <InstitutionOffer>[])
-                .where(_isAllowedInstitutionOffer)
+                .where((offer) => InstitutionOfferPolicy.canPublishOffers(
+                      offer.institutionType,
+                    ))
                 .toList(growable: false);
-            final locationOffers = _locationFilteredOffers(allOffers);
+            final sectionOffers = allOffers.where(_matchesSection).toList(growable: false);
+            final locationOffers = _locationFilteredOffers(sectionOffers);
             final activeCount = _countByFilter(locationOffers, _OfferFilter.active);
             final expiredCount =
                 _countByFilter(locationOffers, _OfferFilter.expired);
@@ -225,6 +220,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                         children: [
                           _buildSearchField(),
                           const SizedBox(height: 14),
+                          _buildSectionSelector(),
+                          const SizedBox(height: 12),
                           _buildFilters(
                             activeCount: activeCount,
                             expiredCount: expiredCount,
@@ -344,7 +341,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -359,7 +356,9 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'اختيارات مفيدة بسعر رمزي',
+                              _section == _OfferSection.institutionSurplus
+                                  ? 'فائض طازج من الفنادق وقاعات الأفراح'
+                                  : 'عروض بقالة ومخبوزات ولحوم بسعر رمزي',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -621,6 +620,81 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
   // ═══════════════════════════════════════════════════════════
   // FILTERS
   // ═══════════════════════════════════════════════════════════
+  Widget _buildSectionSelector() {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F0EC),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildSectionTab(
+              section: _OfferSection.symbolicSale,
+              label: 'شراء رمزي',
+              subtitle: 'بقالة • سوبر ماركت • مخبز • جزارة',
+              icon: Icons.shopping_basket_rounded,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: _buildSectionTab(
+              section: _OfferSection.institutionSurplus,
+              label: 'فائض مؤسسات',
+              subtitle: 'فنادق • قاعات أفراح',
+              icon: Icons.volunteer_activism_rounded,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTab({
+    required _OfferSection section,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final selected = _section == section;
+    return InkWell(
+      onTap: () => setState(() {
+        _section = section;
+        _selectedInstitutionId = null;
+        _filter = _OfferFilter.active;
+      }),
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected
+              ? const [BoxShadow(color: Color(0x16000000), blurRadius: 8)]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 21, color: selected ? _primary : _inkSoft),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(color: selected ? _ink : _inkSoft, fontSize: 11, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: selected ? _primary : _inkSoft, fontSize: 8.5, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilters({
     required int activeCount,
     required int expiredCount,
@@ -1325,18 +1399,9 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              const {
-                                    'grocery': 'بقالة وسوبر ماركت',
-                                    'supermarket': 'بقالة وسوبر ماركت',
-                                    'bakery': 'مخبز',
-                                    'butcher': 'لحوم',
-                                    'meat_shop': 'لحوم',
-                                    'poultry_shop': 'دواجن',
-                                    'hotel': 'فندق',
-                                    'wedding_hall': 'قاعة أفراح',
-                                    'game_store': 'متجر ألعاب',
-                                  }[offer.institutionType!.trim().toLowerCase()] ??
-                                  offer.institutionType!,
+                              InstitutionOfferPolicy.typeLabel(
+                                offer.institutionType,
+                              ),
                               style: const TextStyle(
                                 color: _primary,
                                 fontSize: 9.5,

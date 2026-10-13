@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
+import 'package:loqma/features/institutions/domain/institution_offer_policy.dart';
 
 class InstitutionEditOfferDialog extends StatefulWidget {
   final Map<String, dynamic> offer;
@@ -45,15 +46,24 @@ class _InstitutionEditOfferDialogState
   static const _accent = Color(0xFFE28B00);
   static const _error = Color(0xFFD64545);
 
-  final List<Map<String, dynamic>> _categories = [
-    {'id': 'food', 'label': '🍽️ وجبات'},
-    {'id': 'bakery', 'label': '🥖 مخبوزات'},
-    {'id': 'dessert', 'label': '🍰 حلويات'},
-    {'id': 'fruit', 'label': '🍎 فواكه'},
-    {'id': 'drink', 'label': '🥤 مشروبات'},
-    {'id': 'meat', 'label': '🥩 لحوم'},
-    {'id': 'other', 'label': '📦 أخرى'},
-  ];
+  static const _categoryLabels = <String, String>{
+    'food': '🍽️ وجبات',
+    'bakery': '🥖 مخبوزات',
+    'dessert': '🍰 حلويات',
+    'fruit': '🍎 فواكه',
+    'drink': '🥤 مشروبات',
+    'meat': '🥩 لحوم',
+    'other': '📦 أخرى',
+  };
+
+  List<Map<String, dynamic>> get _categories {
+    final institution = widget.offer['institutions'];
+    final type = institution is Map ? institution['institution_type'] : null;
+    return InstitutionOfferPolicy.categoryIdsFor(type?.toString())
+        .where(_categoryLabels.containsKey)
+        .map((id) => {'id': id, 'label': _categoryLabels[id]!})
+        .toList(growable: false);
+  }
 
   final List<Map<String, dynamic>> _conditions = [
     {'id': 'new', 'label': 'جديد', 'color': _primary},
@@ -91,6 +101,11 @@ class _InstitutionEditOfferDialogState
     _contactPhoneController =
         TextEditingController(text: offer['contact_phone']?.toString() ?? '');
     _category = offer['category']?.toString() ?? 'food';
+    final availableCategories = _categories;
+    if (availableCategories.isNotEmpty &&
+        !availableCategories.any((item) => item['id'] == _category)) {
+      _category = availableCategories.first['id'] as String;
+    }
     _condition = offer['food_condition']?.toString() ?? 'good';
     _isHalal = offer['is_halal'] ?? true;
     _isVegetarian = offer['is_vegetarian'] ?? false;

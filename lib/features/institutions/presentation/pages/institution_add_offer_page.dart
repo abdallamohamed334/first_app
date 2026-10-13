@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../data/repositories/institutions_repository.dart';
+import '../../domain/institution_offer_policy.dart';
 
 class InstitutionAddOfferPage extends StatefulWidget {
   final String institutionId;
@@ -83,26 +84,22 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }.contains(type);
   }
 
-  // ✅ قائمة التصنيفات
-  final List<Map<String, dynamic>> _categories = [
-    {'id': 'food', 'label': '🍽️ وجبات', 'icon': Icons.restaurant_rounded},
-    {
-      'id': 'bakery',
-      'label': '🥖 مخبوزات',
-      'icon': Icons.bakery_dining_rounded
-    },
-    {'id': 'dessert', 'label': '🍰 حلويات', 'icon': Icons.cake_rounded},
-    {'id': 'fruit', 'label': '🍎 فواكه', 'icon': Icons.apple_rounded},
-    {'id': 'drink', 'label': '🥤 مشروبات', 'icon': Icons.local_drink_rounded},
-    {'id': 'meat', 'label': '🥩 لحوم', 'icon': Icons.restaurant_menu_rounded},
-    {'id': 'other', 'label': '📦 أخرى', 'icon': Icons.category_rounded},
-    {
-      'id': 'home_sweets',
-      'label': '🍰 حلويات بيتي',
-      'icon': Icons.cake_rounded
-    },
-    {'id': 'home_food', 'label': '🍲 أكل بيتي', 'icon': Icons.restaurant_rounded},
-  ];
+  // تصنيفات العرض مرتبطة بنوع المؤسسة: بيع رمزي أو فائض مؤسسة.
+  static const _categoryDefinitions = <String, Map<String, dynamic>>{
+    'food': {'label': '🍽️ وجبات', 'icon': Icons.restaurant_rounded},
+    'bakery': {'label': '🥖 مخبوزات', 'icon': Icons.bakery_dining_rounded},
+    'dessert': {'label': '🍰 حلويات', 'icon': Icons.cake_rounded},
+    'fruit': {'label': '🍎 فواكه', 'icon': Icons.apple_rounded},
+    'drink': {'label': '🥤 مشروبات', 'icon': Icons.local_drink_rounded},
+    'meat': {'label': '🥩 لحوم', 'icon': Icons.restaurant_menu_rounded},
+    'other': {'label': '📦 أخرى', 'icon': Icons.category_rounded},
+  };
+
+  List<Map<String, dynamic>> get _categories =>
+      InstitutionOfferPolicy.categoryIdsFor(widget.institutionType)
+          .map((id) => {'id': id, ...?_categoryDefinitions[id]})
+          .where((category) => category.length > 1)
+          .toList(growable: false);
 
   // ✅ قائمة حالات المنتج
   final List<Map<String, dynamic>> _conditions = [
@@ -120,6 +117,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   void initState() {
     super.initState();
     if (_isHomeRestaurant) _category = '';
+    if (!_isHomeRestaurant) {
+      final categories = _categories;
+      if (categories.isNotEmpty) _category = categories.first['id'] as String;
+    }
   }
 
   @override
@@ -278,6 +279,14 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     if (_saving) return;
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    if (!InstitutionOfferPolicy.canPublishOffers(widget.institutionType)) {
+      _showMessage(
+        'نوع المؤسسة ده لا ينشر عروضًا في قسم المؤسسات حاليًا',
+        error: true,
+      );
+      return;
+    }
 
     final quantity = int.tryParse(_normalizeDigits(_quantityController.text));
     final symbolicPrice = double.tryParse(
