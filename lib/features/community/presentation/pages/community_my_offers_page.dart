@@ -556,6 +556,7 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
 
     return Column(
       children: [
+        _buildOverviewCard(activeCount, expiredCount),
         // ✅ شريط البحث
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
@@ -644,6 +645,63 @@ class _CommunityMyOffersPageState extends State<CommunityMyOffersPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildOverviewCard(int activeCount, int inactiveCount) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1D2B26) : const Color(0xFFEAF6F0),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colors.primary.withValues(alpha: isDark ? 0.28 : 0.16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.inventory_2_rounded,
+                color: colors.primary, size: 22),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('إدارة عروضك', style: TextStyle(
+                    color: colors.onSurface, fontSize: 14,
+                    fontWeight: FontWeight.w900)),
+                const SizedBox(height: 3),
+                Text('عدّل العرض أو جدده أو علّمه كمباع', style: TextStyle(
+                    color: colors.onSurfaceVariant, fontSize: 11.5,
+                    fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Text('$activeCount', style: TextStyle(color: colors.primary,
+                  fontSize: 20, fontWeight: FontWeight.w900)),
+              Text('نشط', style: TextStyle(color: colors.onSurfaceVariant,
+                  fontSize: 10, fontWeight: FontWeight.w700)),
+              if (inactiveCount > 0)
+                Text('$inactiveCount سابق', style: TextStyle(
+                    color: colors.onSurfaceVariant, fontSize: 9.5,
+                    fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

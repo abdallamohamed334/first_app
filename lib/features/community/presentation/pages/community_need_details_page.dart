@@ -454,26 +454,12 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   // SizedBox في آخر الـ Stack، فمفيش أي تداخل مع اللي تحته.
   // ═══════════════════════════════════════════════════════════
 
-  static const double _overlapAmount = 42;
-
   Widget _buildHeroWithOverlapCard() {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
       children: [
-        Column(
-          children: [
-            _buildHero(),
-            // ✅ مساحة فاضية محجوزة تحت الهيرو بمقدار نص ارتفاع
-            // الكارت الطافي، عشان اللي بعده ميتصدمش بيه
-            const SizedBox(height: _overlapAmount),
-          ],
-        ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildRequesterCard(),
-        ),
+        _buildHero(),
+        const SizedBox(height: 10),
+        _buildRequesterCard(),
       ],
     );
   }
@@ -622,9 +608,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                       ),
                   ],
                 ),
-                // ✅ مساحة إضافية تحت البادجز عشان الكارت الطافي
-                // ميغطيش على البادجز نفسها
-                const SizedBox(height: _overlapAmount + 6),
+                const SizedBox(height: 6),
               ],
             ),
           ],

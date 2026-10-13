@@ -528,6 +528,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
 
     return Column(
       children: [
+        _buildOverviewCard(active.length, inactive.length),
         Container(
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           padding: const EdgeInsets.all(4),
@@ -595,6 +596,69 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildOverviewCard(int activeCount, int inactiveCount) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_darkGreen, _green],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: _green.withValues(alpha: 0.18),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.volunteer_activism_rounded,
+                color: Colors.white, size: 23),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('احتياجاتك في مكان واحد',
+                    style: TextStyle(color: Colors.white, fontSize: 14,
+                        fontWeight: FontWeight.w900)),
+                SizedBox(height: 4),
+                Text('تابع من يساعدك وحدّث طلبك بسهولة',
+                    style: TextStyle(color: Colors.white70, fontSize: 11.5,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Text('$activeCount', style: const TextStyle(color: Colors.white,
+                  fontSize: 20, fontWeight: FontWeight.w900)),
+              const Text('نشط', style: TextStyle(color: Colors.white70,
+                  fontSize: 10, fontWeight: FontWeight.w700)),
+              if (inactiveCount > 0)
+                Text('$inactiveCount سابق', style: const TextStyle(
+                    color: Colors.white70, fontSize: 9.5,
+                    fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
