@@ -52,6 +52,9 @@ COMMUNITY_NEEDS_REPOSITORY = ROOT / "lib/features/community/data/repositories/co
 USER_ACCOUNT_FIELDS_MIGRATION = ROOT / "supabase/migrations/20261012290000_lock_user_account_fields.sql"
 PROFILE_EDIT_DIALOG = ROOT / "lib/features/profile/presentation/widgets/profile_edit_dialog.dart"
 INSTITUTION_OFFER_POLICY_MIGRATION = ROOT / "supabase/migrations/20261012291000_fix_institution_offer_policy_recursion.sql"
+INSTITUTION_TABLE_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261013110000_harden_institution_table_column_access.sql"
+INSTITUTIONS_REPOSITORY = ROOT / "lib/features/institutions/data/repositories/institutions_repository.dart"
+INSTITUTION_OFFERS_REPOSITORY = ROOT / "lib/features/institutions/data/repositories/institution_offers_repository.dart"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -104,6 +107,9 @@ def main() -> None:
     user_account_fields_migration = USER_ACCOUNT_FIELDS_MIGRATION.read_text()
     profile_edit_dialog = PROFILE_EDIT_DIALOG.read_text()
     institution_offer_policy_migration = INSTITUTION_OFFER_POLICY_MIGRATION.read_text()
+    institution_table_access_migration = INSTITUTION_TABLE_ACCESS_MIGRATION.read_text()
+    institutions_repository = INSTITUTIONS_REPOSITORY.read_text()
+    institution_offers_repository = INSTITUTION_OFFERS_REPOSITORY.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -199,6 +205,19 @@ def main() -> None:
     require(institution_offer_policy_migration, "is_requester_for_institution_offer", "recursion-safe institution offer helper")
     require(institution_offer_policy_migration, "SECURITY DEFINER", "protected institution offer policy helper")
     require(institution_offer_policy_migration, "DROP POLICY IF EXISTS institution_offers_requester_select", "requester policy replacement")
+    require(institution_table_access_migration, "REVOKE ALL PRIVILEGES ON TABLE public.institutions FROM anon, authenticated", "institution table privilege reset")
+    require(institution_table_access_migration, "GRANT SELECT (", "institution safe-column allowlist")
+    institution_grant = institution_table_access_migration.split("GRANT SELECT (", 1)[1].split(") ON", 1)[0]
+    for sensitive in ("user_id", "email", "access_code", "login_otp_hash", "license_number", "tax_id", "verification_notes"):
+        if sensitive in institution_grant:
+            raise AssertionError(f"sensitive institution field granted directly: {sensitive}")
+    require(institution_table_access_migration, "get_my_institution_context", "session-bound institution context RPC")
+    require(institution_table_access_migration, "REVOKE INSERT, UPDATE, DELETE ON TABLE public.institutions", "institution direct mutation lock")
+    if ".from('institutions')" in institutions_repository and ".eq('user_id'" in institutions_repository:
+        raise AssertionError("institutions repository still reads ownership through restricted user_id")
+    for repository in (institutions_repository, institution_offers_repository):
+        if "pickup_token_hash" in repository:
+            raise AssertionError("institution repositories still select pickup token hashes")
     if "fallback update" in my_offers_repository.lower():
         raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 

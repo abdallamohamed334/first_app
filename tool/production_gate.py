@@ -30,6 +30,7 @@ required = [
     ROOT / "supabase/migrations/20261012280000_harden_my_community_offers_actions.sql",
     ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql",
     ROOT / "supabase/migrations/20261013102000_harden_charity_table_column_access.sql",
+    ROOT / "supabase/migrations/20261013110000_harden_institution_table_column_access.sql",
     ROOT / "tool/performance_regression_check.py",
     ROOT / ".github/workflows/flutter-ci.yml",
     ROOT / ".github/workflows/release.yml",

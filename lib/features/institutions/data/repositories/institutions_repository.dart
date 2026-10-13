@@ -409,7 +409,7 @@ class InstitutionsRepository {
 
       final response = await _client
           .from('institution_offer_requests')
-          .select('*')
+          .select('id, offer_id, requester_id, quantity, status, pickup_code, booking_code, pickup_token_expires_at, pickup_token_used_at, picked_up_at, completed_at, cancellation_reason, created_at, updated_at, accepted_at, ready_at')
           .inFilter(
             'offer_id',
             offerIds,
@@ -442,6 +442,12 @@ class InstitutionsRepository {
 
       return result;
     }).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>?> _myInstitutionContext() async {
+    final value = await _client.rpc('get_my_institution_context');
+    if (value is! Map || value.isEmpty) return null;
+    return Map<String, dynamic>.from(value);
   }
 
   // ============================================================
@@ -524,25 +530,13 @@ class InstitutionsRepository {
       );
     }
 
-    final ownedInstitution = await _client
-        .from('institutions')
-        .select('id, status')
-        .eq(
-          'id',
-          institutionId.trim(),
-        )
-        .eq(
-          'user_id',
-          userId,
-        )
-        .maybeSingle();
-
-    if (ownedInstitution == null) {
+    final ownedInstitution = await _myInstitutionContext();
+    if (ownedInstitution == null ||
+        ownedInstitution['id']?.toString() != institutionId.trim()) {
       throw const FormatException(
         'هذه المؤسسة غير مرتبطة بحساب الدخول الحالي',
       );
     }
-
     if (!Institution.isAllowedStatus(ownedInstitution['status'])) {
       throw const FormatException(
         'حساب المؤسسة غير نشط حاليًا',
@@ -802,18 +796,10 @@ class InstitutionsRepository {
         );
       }
 
-      final rows = await _client
-          .from('institutions')
-          .select()
-          .eq(
-            'user_id',
-            userId,
-          )
-          .order(
-            'created_at',
-            ascending: true,
-          )
-          .limit(2);
+      final context = await _client.rpc('get_my_institution_context');
+      final rows = context is Map && context.isNotEmpty
+          ? <Map<String, dynamic>>[Map<String, dynamic>.from(context)]
+          : <Map<String, dynamic>>[];
 
       print(
         '[InstitutionDebug] '
@@ -934,9 +920,11 @@ class InstitutionsRepository {
       throw const FormatException('استجابة غير صالحة من الخادم');
     }
 
-    return Institution.fromJson(
-      Map<String, dynamic>.from(result),
-    );
+    final context = await _client.rpc('get_my_institution_context');
+    if (context is! Map || context.isEmpty) {
+      throw const FormatException('تعذر تحميل بيانات المؤسسة بعد التحديث');
+    }
+    return Institution.fromJson(Map<String, dynamic>.from(context));
   }
 
   // ============================================================
@@ -1503,7 +1491,7 @@ class InstitutionsRepository {
           'images': images,
           'status': 'pending',
         })
-        .select()
+        .select('id, institution_id, charity_id, item_title, description, quantity, item_condition, images, status, created_at, updated_at')
         .single();
 
     return Map<String, dynamic>.from(row);
@@ -1609,14 +1597,7 @@ class InstitutionsRepository {
       );
     }
 
-    final institution = await _client
-        .from('institutions')
-        .select('id')
-        .eq(
-          'user_id',
-          userId,
-        )
-        .maybeSingle();
+    final institution = await _myInstitutionContext();
 
     final institutionId = institution?['id']?.toString();
 
@@ -1662,14 +1643,7 @@ class InstitutionsRepository {
       );
     }
 
-    final institution = await _client
-        .from('institutions')
-        .select('id')
-        .eq(
-          'user_id',
-          userId,
-        )
-        .maybeSingle();
+    final institution = await _myInstitutionContext();
 
     final institutionId = institution?['id']?.toString();
 
@@ -1703,14 +1677,7 @@ class InstitutionsRepository {
       );
     }
 
-    final institution = await _client
-        .from('institutions')
-        .select('id')
-        .eq(
-          'user_id',
-          userId,
-        )
-        .maybeSingle();
+    final institution = await _myInstitutionContext();
 
     final institutionId = institution?['id']?.toString();
 
