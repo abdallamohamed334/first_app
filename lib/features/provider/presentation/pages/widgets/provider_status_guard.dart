@@ -91,16 +91,33 @@ class _ProviderStatusGuardState extends State<ProviderStatusGuard>
           .select('verification_status, is_active, verification_notes')
           .eq('id', providerId)
           .maybeSingle();
+      final userId = _client.auth.currentUser?.id;
+      final account = userId == null
+          ? null
+          : await _client
+              .from('users')
+              .select('account_status, is_active')
+              .eq('id', userId)
+              .maybeSingle();
 
       if (!mounted || provider == null) return;
 
       final status =
           provider['verification_status']?.toString().trim().toLowerCase();
       final isActive = provider['is_active'] != false;
+      final accountStatus =
+          account?['account_status']?.toString().trim().toLowerCase();
+      final accountActive = account?['is_active'] != false;
+      final accountBlocked =
+          (accountStatus != null && accountStatus != 'active') ||
+              !accountActive;
 
-      if (status == 'rejected' || status == 'suspended' || !isActive) {
+      if (status == 'rejected' ||
+          status == 'suspended' ||
+          !isActive ||
+          accountBlocked) {
         await _handleBlockedState(
-          status: status,
+          status: status == 'rejected' ? status : 'suspended',
           notes: provider['verification_notes']?.toString(),
         );
       }
