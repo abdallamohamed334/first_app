@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
 import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
 import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
@@ -34,6 +35,12 @@ class UserInstitutionOffersPage extends StatefulWidget {
 class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   List<FoodOffer> _allOffers = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  static const int _pageSize = 20;
+  String? _userGovernorate;
+  String? _selectedGovernorate;
+  int _offset = 0;
   String _selectedInstitutionType = 'all';
 
   // ───────── نفس هوية التطبيق (Home/Offers Hub) ─────────
@@ -50,7 +57,8 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     _loadOffers();
   }
 
-  void _loadOffers() {
+  Future<void> _loadOffers() async {
+    await _loadUserGovernorate();
     if (widget.offers != null && widget.offers!.isNotEmpty) {
       // ✅ تصفية: فقط عروض المؤسسات (business_type != restaurant)
       final filtered = widget.offers!
@@ -59,21 +67,58 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       setState(() {
         _allOffers = filtered;
         _isLoading = false;
+        _hasMore = false;
       });
       return;
     }
 
-    _fetchInstitutionOffers();
+    await _fetchInstitutionOffers(reset: true);
   }
 
-  Future<void> _fetchInstitutionOffers() async {
+  Future<void> _loadUserGovernorate() async {
     try {
-      setState(() => _isLoading = true);
+      final userId = SupabaseService().client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) return;
+      final row = await SupabaseService()
+          .client
+          .from('users')
+          .select('governorate')
+          .eq('id', userId)
+          .maybeSingle();
+      final value = row?['governorate']?.toString().trim();
+      if (!mounted || value == null || value.isEmpty) return;
+      final normalized = EgyptLocations.names.firstWhere(
+        (name) => name == value,
+        orElse: () => '',
+      );
+      if (normalized.isEmpty) return;
+      setState(() {
+        _userGovernorate = normalized;
+        _selectedGovernorate ??= normalized;
+      });
+    } catch (e) {
+      debugPrint('Error loading user governorate: $e');
+    }
+  }
+
+  Future<void> _fetchInstitutionOffers({bool reset = false}) async {
+    try {
+      if (reset) {
+        setState(() {
+          _isLoading = true;
+          _isLoadingMore = false;
+          _offset = 0;
+          _hasMore = true;
+          _allOffers = [];
+        });
+      } else {
+        setState(() => _isLoadingMore = true);
+      }
 
       final client = SupabaseService().client;
       final now = DateTime.now().toUtc().toIso8601String();
 
-      final response = await client
+      var query = client
           .from('institution_offers')
           .select('''
             *,
@@ -84,6 +129,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               logo_url,
               address,
               phone,
+              governorate,
               latitude,
               longitude
             )
@@ -91,8 +137,29 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           .eq('status', 'active')
           .gt('expires_at', now)
           .filter('deleted_at', 'is', 'null')
+          .eq('institutions.governorate', _selectedGovernorate ?? '')
           .order('created_at', ascending: false)
-          .limit(200);
+          .range(_offset, _offset + _pageSize - 1);
+
+      // "كل المحافظات" is an explicit choice, not the default.
+      if (_selectedGovernorate == null) {
+        query = client
+            .from('institution_offers')
+            .select('''
+            *,
+            institutions:institution_id (
+              id, name, institution_type, logo_url, address, phone,
+              governorate, latitude, longitude
+            )
+          ''')
+            .eq('status', 'active')
+            .gt('expires_at', now)
+            .filter('deleted_at', 'is', 'null')
+            .order('created_at', ascending: false)
+            .range(_offset, _offset + _pageSize - 1);
+      }
+
+      final response = await query;
 
       final offers = <FoodOffer>[];
 
@@ -108,6 +175,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           'logo_url': institutionData['logo_url']?.toString(),
           'address': institutionData['address']?.toString(),
           'phone': institutionData['phone']?.toString(),
+          'governorate': institutionData['governorate']?.toString(),
           'latitude': institutionData['latitude'] as double?,
           'longitude': institutionData['longitude'] as double?,
           'business_type':
@@ -176,19 +244,28 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
 
       if (mounted) {
         setState(() {
-          _allOffers = offers;
+          _allOffers = reset ? offers : [..._allOffers, ...offers];
           _isLoading = false;
+          _isLoadingMore = false;
+          _offset += offers.length;
+          _hasMore = offers.length == _pageSize;
         });
       }
     } catch (e) {
       debugPrint('Error loading institution offers: $e');
       if (mounted) {
         setState(() {
-          _allOffers = [];
           _isLoading = false;
+          _isLoadingMore = false;
+          _hasMore = false;
         });
       }
     }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    await _fetchInstitutionOffers();
   }
 
   // ============================================================
@@ -217,13 +294,11 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               ? const Center(
                   child: CircularProgressIndicator(color: _primaryRed),
                 )
-              : _allOffers.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
+              : RefreshIndicator(
                       color: _primaryRed,
                       backgroundColor: _card,
                       onRefresh: () async {
-                        await _fetchInstitutionOffers();
+                        await _fetchInstitutionOffers(reset: true);
                       },
                       child: CustomScrollView(
                         physics: const BouncingScrollPhysics(
@@ -231,6 +306,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                         ),
                         slivers: [
                           SliverToBoxAdapter(child: _buildHeroHeader()),
+                          SliverToBoxAdapter(
+                            child: _buildGovernorateSelector(),
+                          ),
                           SliverToBoxAdapter(
                             child: _buildInstitutionTypeFilters(),
                           ),
@@ -262,6 +340,27 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                                     );
                                   },
                                   childCount: offers.length,
+                                ),
+                              ),
+                            ),
+                          if (_hasMore && offers.isNotEmpty)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                                child: OutlinedButton.icon(
+                                  onPressed: _isLoadingMore ? null : _loadMore,
+                                  icon: _isLoadingMore
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        )
+                                      : const Icon(Icons.expand_more_rounded),
+                                  label: Text(_isLoadingMore ? 'جاري التحميل...' : 'تحميل المزيد'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _textPrimary,
+                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                                  ),
                                 ),
                               ),
                             ),
@@ -529,6 +628,14 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   List<FoodOffer> get _filteredOffers {
     final sectionOffers = _allOffers.where((offer) {
       final type = offer.businessType.trim().toLowerCase();
+      final offerGovernorate =
+          offer.business?['governorate']?.toString().trim();
+      if (_selectedGovernorate != null &&
+          offerGovernorate != null &&
+          offerGovernorate.isNotEmpty &&
+          offerGovernorate != _selectedGovernorate) {
+        return false;
+      }
       if (widget.institutionSection == 'commercial') {
         return {
           'grocery',
@@ -551,6 +658,50 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               _selectedInstitutionType,
             ))
         .toList(growable: false);
+  }
+
+  Widget _buildGovernorateSelector() {
+    final selected = _selectedGovernorate;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      child: DropdownButtonFormField<String?>(
+        value: selected,
+        isExpanded: true,
+        dropdownColor: _card,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textSecondary),
+        decoration: InputDecoration(
+          labelText: _userGovernorate == null
+              ? 'اختار المحافظة'
+              : 'المحافظة الحالية: $_userGovernorate',
+          labelStyle: const TextStyle(color: _textSecondary, fontSize: 11),
+          prefixIcon: const Icon(Icons.location_on_outlined, color: _primaryRed),
+          filled: true,
+          fillColor: _card,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+        ),
+        style: const TextStyle(color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('كل المحافظات')),
+          ...EgyptLocations.names.map(
+            (name) => DropdownMenuItem<String?>(value: name, child: Text(name)),
+          ),
+        ],
+        onChanged: (value) async {
+          if (value == _selectedGovernorate) return;
+          setState(() => _selectedGovernorate = value);
+          if (widget.offers == null || widget.offers!.isEmpty) {
+            await _fetchInstitutionOffers(reset: true);
+          }
+        },
+      ),
+    );
   }
 
   bool _matchesInstitutionType(String? rawType, String selected) {
