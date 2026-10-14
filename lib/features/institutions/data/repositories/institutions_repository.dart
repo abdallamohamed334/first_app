@@ -41,7 +41,7 @@ class InstitutionsRepository {
       final response = await _client
           .from('institution_offers')
           .select('''
-            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, deleted_at, marketplace_category_id,
+            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
             institutions:institution_id (
               id,
               name,
@@ -132,7 +132,7 @@ class InstitutionsRepository {
       // وليس institution_offers.latitude/longitude
       // ------------------------------------------------------------
       final boundedRows = await _client.from('institution_offers').select('''
-            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, deleted_at, marketplace_category_id,
+            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
             institutions:institution_id (
               id, name, institution_type, logo_url, address, phone, latitude, longitude
             )
@@ -260,7 +260,7 @@ class InstitutionsRepository {
       final rows = await _client
           .from('institution_offers')
           .select('''
-            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, deleted_at, marketplace_category_id,
+            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
             institutions:institution_id (
               id,
               name,
@@ -303,7 +303,7 @@ class InstitutionsRepository {
       }
 
       final row = await _client.from('institution_offers').select('''
-            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, deleted_at, marketplace_category_id,
+            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
             institutions:institution_id (
               id,
               name,
@@ -466,6 +466,8 @@ class InstitutionsRepository {
     String? pickupLocation,
     required DateTime expiresAt,
     DateTime? pickupBefore,
+    DateTime? pickupStart,
+    DateTime? pickupEnd,
     String foodType = 'وجبات',
     bool isHalal = true,
     bool isVegetarian = false,
@@ -473,6 +475,14 @@ class InstitutionsRepository {
     bool requiresRefrigeration = false,
     String pickupNotes = '',
     String contactPhone = '',
+    String storageCondition = 'no_cooling',
+    String? productSubcategory,
+    String? meatCut,
+    double? productWeight,
+    DateTime? productPreparedAt,
+    DateTime? productExpiryAt,
+    int minBookingQuantity = 1,
+    int? maxBookingQuantity,
   }) async {
     final userId = _client.auth.currentUser?.id;
 
@@ -555,7 +565,7 @@ class InstitutionsRepository {
       );
 
       final result = await _client.rpc(
-        'create_institution_offer',
+        'create_institution_offer_v2',
         params: {
           'p_institution_id': institutionId.trim(),
           'p_title': cleanTitle,
@@ -570,8 +580,8 @@ class InstitutionsRepository {
               ? null
               : pickupLocation?.trim(),
           'p_expires_at': expiresAt.toUtc().toIso8601String(),
-          'p_pickup_start': null,
-          'p_pickup_end': pickupBefore?.toUtc().toIso8601String(),
+          'p_pickup_start': pickupStart?.toUtc().toIso8601String(),
+          'p_pickup_end': (pickupEnd ?? pickupBefore)?.toUtc().toIso8601String(),
           'p_food_type': foodType,
           'p_is_halal': isHalal,
           'p_is_vegetarian': isVegetarian,
@@ -582,6 +592,14 @@ class InstitutionsRepository {
           'p_contact_phone':
               contactPhone.trim().isEmpty ? null : contactPhone.trim(),
           'p_pickup_time': null,
+          'p_storage_condition': storageCondition,
+          'p_product_subcategory': productSubcategory,
+          'p_meat_cut': meatCut,
+          'p_product_weight': productWeight,
+          'p_product_prepared_at': productPreparedAt?.toIso8601String(),
+          'p_product_expiry_at': productExpiryAt?.toUtc().toIso8601String(),
+          'p_min_booking_quantity': minBookingQuantity,
+          'p_max_booking_quantity': maxBookingQuantity,
         },
       );
 
@@ -612,7 +630,7 @@ class InstitutionsRepository {
 
       // ✅ جلب العرض المنشأ بالكامل
       final createdOffer = await _client.from('institution_offers').select('''
-            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, deleted_at, marketplace_category_id,
+            id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, pickup_start, pickup_end, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
             institutions:institution_id (
               id,
               name,

@@ -22,6 +22,9 @@ class InstitutionOffer {
   final String? pickupLocation;
   final DateTime expiresAt;
   final DateTime? pickupBefore;
+  final DateTime? pickupStart;
+  final DateTime? pickupEnd;
+  final DateTime? productExpiryAt;
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -35,6 +38,13 @@ class InstitutionOffer {
   final String? pickupNotes;
   final String? contactPhone;
   final String? pickupTime;
+  final String? storageCondition;
+  final String? productSubcategory;
+  final String? meatCut;
+  final double? productWeight;
+  final DateTime? productPreparedAt;
+  final int minBookingQuantity;
+  final int? maxBookingQuantity;
   final DateTime? deletedAt;
 
   // ✅ جديد — تصنيف السوق (المطاعم / البقالة ... إلخ)
@@ -59,6 +69,9 @@ class InstitutionOffer {
     this.pickupLocation,
     required this.expiresAt,
     this.pickupBefore,
+    this.pickupStart,
+    this.pickupEnd,
+    this.productExpiryAt,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
@@ -70,6 +83,13 @@ class InstitutionOffer {
     this.pickupNotes,
     this.contactPhone,
     this.pickupTime,
+    this.storageCondition,
+    this.productSubcategory,
+    this.meatCut,
+    this.productWeight,
+    this.productPreparedAt,
+    this.minBookingQuantity = 1,
+    this.maxBookingQuantity,
     this.deletedAt,
     this.marketplaceCategoryId, // ✅ جديد
   });
@@ -204,6 +224,9 @@ class InstitutionOffer {
       pickupLocation: _nullableText(json['pickup_location']),
       expiresAt: expiresAt,
       pickupBefore: _date(json['pickup_before']),
+      pickupStart: _date(json['pickup_start']),
+      pickupEnd: _date(json['pickup_end']),
+      productExpiryAt: _date(json['product_expiry_at']),
       status: _text(json['status'], fallback: 'active'),
       createdAt: createdAt,
       updatedAt: _date(json['updated_at']) ?? createdAt,
@@ -215,6 +238,15 @@ class InstitutionOffer {
       pickupNotes: _nullableText(json['pickup_notes']),
       contactPhone: _nullableText(json['contact_phone']),
       pickupTime: _nullableText(json['pickup_time']),
+      storageCondition: _nullableText(json['storage_condition']),
+      productSubcategory: _nullableText(json['product_subcategory']),
+      meatCut: _nullableText(json['meat_cut']),
+      productWeight: _nullableDouble(json['product_weight']),
+      productPreparedAt: _date(json['product_prepared_at']),
+      minBookingQuantity: _int(json['min_booking_quantity'], fallback: 1),
+      maxBookingQuantity: json['max_booking_quantity'] == null
+          ? null
+          : _int(json['max_booking_quantity']),
       deletedAt: json['deleted_at'] != null
           ? DateTime.tryParse(json['deleted_at'].toString())
           : null,
@@ -238,6 +270,9 @@ class InstitutionOffer {
       'pickup_location': pickupLocation,
       'expires_at': expiresAt.toUtc().toIso8601String(),
       'pickup_before': pickupBefore?.toUtc().toIso8601String(),
+      'pickup_start': pickupStart?.toUtc().toIso8601String(),
+      'pickup_end': pickupEnd?.toUtc().toIso8601String(),
+      'product_expiry_at': productExpiryAt?.toUtc().toIso8601String(),
       'status': status,
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
@@ -249,6 +284,13 @@ class InstitutionOffer {
       'pickup_notes': pickupNotes,
       'contact_phone': contactPhone,
       'pickup_time': pickupTime,
+      'storage_condition': storageCondition,
+      'product_subcategory': productSubcategory,
+      'meat_cut': meatCut,
+      'product_weight': productWeight,
+      'product_prepared_at': productPreparedAt?.toIso8601String(),
+      'min_booking_quantity': minBookingQuantity,
+      'max_booking_quantity': maxBookingQuantity,
       'deleted_at': deletedAt?.toUtc().toIso8601String(),
       'marketplace_category_id': marketplaceCategoryId, // ✅ جديد
     };
@@ -273,6 +315,9 @@ class InstitutionOffer {
     String? pickupLocation,
     DateTime? expiresAt,
     DateTime? pickupBefore,
+    DateTime? pickupStart,
+    DateTime? pickupEnd,
+    DateTime? productExpiryAt,
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -284,6 +329,13 @@ class InstitutionOffer {
     String? pickupNotes,
     String? contactPhone,
     String? pickupTime,
+    String? storageCondition,
+    String? productSubcategory,
+    String? meatCut,
+    double? productWeight,
+    DateTime? productPreparedAt,
+    int? minBookingQuantity,
+    int? maxBookingQuantity,
     DateTime? deletedAt,
     String? marketplaceCategoryId, // ✅ جديد
   }) {
@@ -307,6 +359,9 @@ class InstitutionOffer {
       pickupLocation: pickupLocation ?? this.pickupLocation,
       expiresAt: expiresAt ?? this.expiresAt,
       pickupBefore: pickupBefore ?? this.pickupBefore,
+      pickupStart: pickupStart ?? this.pickupStart,
+      pickupEnd: pickupEnd ?? this.pickupEnd,
+      productExpiryAt: productExpiryAt ?? this.productExpiryAt,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -319,6 +374,13 @@ class InstitutionOffer {
       pickupNotes: pickupNotes ?? this.pickupNotes,
       contactPhone: contactPhone ?? this.contactPhone,
       pickupTime: pickupTime ?? this.pickupTime,
+      storageCondition: storageCondition ?? this.storageCondition,
+      productSubcategory: productSubcategory ?? this.productSubcategory,
+      meatCut: meatCut ?? this.meatCut,
+      productWeight: productWeight ?? this.productWeight,
+      productPreparedAt: productPreparedAt ?? this.productPreparedAt,
+      minBookingQuantity: minBookingQuantity ?? this.minBookingQuantity,
+      maxBookingQuantity: maxBookingQuantity ?? this.maxBookingQuantity,
       deletedAt: deletedAt ?? this.deletedAt,
       marketplaceCategoryId:
           marketplaceCategoryId ?? this.marketplaceCategoryId, // ✅ جديد

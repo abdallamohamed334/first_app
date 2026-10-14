@@ -440,6 +440,9 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
       'pickup_location': raw['pickup_location'] ?? '',
       'expires_at': raw['expires_at'] ?? raw['expiry_time'],
       'pickup_before': raw['pickup_before'],
+      'pickup_start': raw['pickup_start'],
+      'pickup_end': raw['pickup_end'],
+      'product_expiry_at': raw['product_expiry_at'],
       'status': raw['status'] ?? 'active',
       'created_at': raw['created_at'],
       'updated_at': raw['updated_at'],
@@ -467,6 +470,13 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
       'pickup_notes': raw['pickup_notes'],
       'contact_phone': raw['contact_phone'],
       'pickup_time': raw['pickup_time'],
+      'storage_condition': raw['storage_condition'],
+      'product_subcategory': raw['product_subcategory'],
+      'meat_cut': raw['meat_cut'],
+      'product_weight': raw['product_weight'],
+      'product_prepared_at': raw['product_prepared_at'],
+      'min_booking_quantity': raw['min_booking_quantity'] ?? 1,
+      'max_booking_quantity': raw['max_booking_quantity'],
     };
   }
 

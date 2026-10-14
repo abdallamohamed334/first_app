@@ -38,11 +38,15 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
+  final _minBookingQuantityController = TextEditingController(text: '1');
+  final _maxBookingQuantityController = TextEditingController();
   final _priceController = TextEditingController();
   final _originalPriceController = TextEditingController();
   final _pickupLocationController = TextEditingController();
   final _pickupNotesController = TextEditingController();
   final _contactPhoneController = TextEditingController();
+  final _meatCutController = TextEditingController();
+  final _productWeightController = TextEditingController();
 
   final _repository = InstitutionsRepository();
   final _picker = ImagePicker();
@@ -50,10 +54,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   // ✅ حقول إضافية
   String _category = 'food';
+  String? _productSubcategory;
   String _condition = 'good';
   bool _isHalal = true;
   bool _isVegetarian = false;
-  bool _requiresRefrigeration = false;
+  String _storageCondition = 'no_cooling';
 
   // ═══════════════════════════════════════════════════════════
   // ✅ جديد: اختيار نوع المنتج
@@ -61,12 +66,17 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   // false → منتج جديد/عادي (بدون تاريخ)
   // ═══════════════════════════════════════════════════════════
   bool _isExpiringSoon = false;
+  DateTime? _productExpiryAt;
+  DateTime? _productPreparedAt;
+  DateTime? _pickupStart;
+  DateTime? _pickupEnd;
+  DateTime? _pickupDeadline;
+  bool _usePickupWindow = true;
 
   /// الصلاحية القصوى التي يسمح بها مسار إنشاء عروض المؤسسات.
   static const Duration _maxOfferLifetime = Duration(hours: 12);
 
   /// التاريخ الافتراضي لما يختار "قريب ينتهي".
-  DateTime _expiresAt = DateTime.now().add(_maxOfferLifetime);
 
   bool _saving = false;
 
@@ -101,6 +111,36 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           .where((category) => category.length > 1)
           .toList(growable: false);
 
+  String get _normalizedInstitutionType =>
+      InstitutionOfferPolicy.normalizeType(widget.institutionType);
+
+  List<Map<String, String>> get _productSubcategories {
+    switch (_normalizedInstitutionType) {
+      case 'grocery':
+      case 'supermarket':
+        return const [
+          {'id': 'canned_goods', 'label': 'معلبات', 'category': 'food'},
+          {'id': 'drink', 'label': 'مشروبات', 'category': 'drink'},
+          {'id': 'dairy', 'label': 'ألبان', 'category': 'food'},
+        ];
+      case 'butcher':
+      case 'meat_shop':
+        return const [
+          {'id': 'beef', 'label': 'لحوم بقري', 'category': 'meat'},
+          {'id': 'lamb', 'label': 'لحوم ضأن', 'category': 'meat'},
+          {'id': 'poultry', 'label': 'دواجن', 'category': 'meat'},
+          {'id': 'other_meat', 'label': 'أنواع أخرى', 'category': 'meat'},
+        ];
+      case 'bakery':
+        return const [
+          {'id': 'bakery', 'label': 'مخبوزات', 'category': 'bakery'},
+          {'id': 'dessert', 'label': 'حلويات', 'category': 'dessert'},
+        ];
+      default:
+        return const [];
+    }
+  }
+
   // ✅ قائمة حالات المنتج
   final List<Map<String, dynamic>> _conditions = [
     {'id': 'new', 'label': 'جديد', 'color': _primary},
@@ -121,6 +161,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       final categories = _categories;
       if (categories.isNotEmpty) _category = categories.first['id'] as String;
     }
+    final subcategories = _productSubcategories;
+    if (subcategories.isNotEmpty) {
+      _productSubcategory = subcategories.first['id'];
+      _category = subcategories.first['category']!;
+    }
   }
 
   @override
@@ -128,18 +173,33 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     _titleController.dispose();
     _descriptionController.dispose();
     _quantityController.dispose();
+    _minBookingQuantityController.dispose();
+    _maxBookingQuantityController.dispose();
     _priceController.dispose();
     _originalPriceController.dispose();
     _pickupLocationController.dispose();
     _pickupNotesController.dispose();
     _contactPhoneController.dispose();
+    _meatCutController.dispose();
+    _productWeightController.dispose();
     super.dispose();
   }
 
   // ✅ حساب طبيعة المنتج بناءً على تاريخ الانتهاء
   Map<String, dynamic> _getProductNature() {
     final now = DateTime.now();
-    final daysLeft = _expiresAt.difference(now).inDays;
+    final productExpiry = _productExpiryAt;
+    if (productExpiry == null) {
+      return {
+        'id': 'ordinary',
+        'label': 'منتج عادي',
+        'color': _primary,
+        'icon': Icons.inventory_2_rounded,
+        'description': 'يتم توضيح تاريخ الصلاحية عند تحديده.',
+        'days': 365,
+      };
+    }
+    final daysLeft = productExpiry.difference(now).inDays;
 
     if (daysLeft < 0) {
       return {
@@ -212,19 +272,13 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   Future<void> _chooseExpiryDate() async {
     final now = DateTime.now();
-    final latestAllowed = now.add(_maxOfferLifetime);
+    final latestAllowed = DateTime(now.year + 10, now.month, now.day);
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: _expiresAt.isAfter(now) && !_expiresAt.isAfter(latestAllowed)
-          ? _expiresAt
-          : now,
+      initialDate: _productExpiryAt ?? now.add(const Duration(days: 3)),
       firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(
-        latestAllowed.year,
-        latestAllowed.month,
-        latestAllowed.day,
-      ),
-      helpText: 'اختر تاريخ انتهاء العرض',
+      lastDate: latestAllowed,
+      helpText: 'اختر تاريخ انتهاء صلاحية المنتج',
       cancelText: 'إلغاء',
       confirmText: 'تأكيد',
       builder: (context, child) => Theme(
@@ -239,49 +293,63 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       ),
     );
     if (!mounted || selectedDate == null) return;
+    setState(() {
+      _productExpiryAt = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+        23,
+        59,
+        59,
+      );
+    });
+  }
 
-    final isCurrentExpiryDate = _expiresAt.year == selectedDate.year &&
-        _expiresAt.month == selectedDate.month &&
-        _expiresAt.day == selectedDate.day;
-    final initialTime = isCurrentExpiryDate && _expiresAt.isAfter(now)
-        ? _expiresAt
-        : now.add(const Duration(hours: 1));
+  Future<DateTime?> _choosePickupDateTime({DateTime? initial}) async {
+    final now = DateTime.now();
+    final latestAllowed = now.add(_maxOfferLifetime);
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initial != null && initial.isAfter(now) ? initial : now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(latestAllowed.year, latestAllowed.month, latestAllowed.day),
+      helpText: 'اختر يوم الاستلام',
+      cancelText: 'إلغاء',
+      confirmText: 'التالي',
+    );
+    if (!mounted || selectedDate == null) return null;
     final selectedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(initialTime),
-      helpText: 'اختر وقت انتهاء العرض',
+      initialTime: initial != null && initial.isAfter(now)
+          ? TimeOfDay.fromDateTime(initial)
+          : TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+      helpText: 'اختر وقت الاستلام',
       cancelText: 'إلغاء',
       confirmText: 'تأكيد',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-                primary: _primary,
-                onPrimary: Colors.white,
-                surface: Colors.white,
-              ),
-        ),
-        child: child!,
-      ),
     );
-    if (!mounted || selectedTime == null) return;
-
-    final candidate = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    );
-    if (candidate.isBefore(now) || candidate.isAfter(latestAllowed)) {
-      _showMessage(
-        'اختر تاريخًا ووقتًا بين الآن والـ 12 ساعة القادمة',
-        error: true,
-      );
-      return;
+    if (!mounted || selectedTime == null) return null;
+    final value = DateTime(selectedDate.year, selectedDate.month,
+        selectedDate.day, selectedTime.hour, selectedTime.minute);
+    if (value.isBefore(now) || value.isAfter(latestAllowed)) {
+      _showMessage('وقت الاستلام يجب أن يكون خلال الـ 12 ساعة القادمة', error: true);
+      return null;
     }
-    setState(() {
-      _expiresAt = candidate;
-    });
+    return value;
+  }
+
+  Future<void> _choosePreparedDate() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _productPreparedAt ?? now,
+      firstDate: DateTime(now.year - 1, now.month, now.day),
+      lastDate: DateTime(now.year, now.month, now.day),
+      helpText: 'اختر تاريخ الإنتاج أو التجهيز',
+      cancelText: 'إلغاء',
+      confirmText: 'تأكيد',
+    );
+    if (!mounted || date == null) return;
+    setState(() => _productPreparedAt = date);
   }
 
   String _normalizeDigits(String value) {
@@ -296,11 +364,11 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   }
 
   String _getCategoryLabel() {
-    final category = _categories.firstWhere(
-      (c) => c['id'] == _category,
-      orElse: () => _categories.last,
-    );
-    return category['label'] as String;
+    final subcategory =
+        _productSubcategories.where((c) => c['id'] == _productSubcategory);
+    if (subcategory.isNotEmpty) return subcategory.first['label']!;
+    final category = _categories.where((c) => c['id'] == _category);
+    return category.isNotEmpty ? category.first['label'] as String : _category;
   }
 
   Future<void> _save() async {
@@ -317,6 +385,17 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
 
     final quantity = int.tryParse(_normalizeDigits(_quantityController.text));
+    final minBookingQuantity = int.tryParse(
+      _normalizeDigits(_minBookingQuantityController.text),
+    );
+    final maxBookingText = _maxBookingQuantityController.text.trim();
+    final maxBookingQuantity = maxBookingText.isEmpty
+        ? null
+        : int.tryParse(_normalizeDigits(maxBookingText));
+    final weightText = _productWeightController.text.trim();
+    final productWeight = weightText.isEmpty
+        ? null
+        : double.tryParse(_normalizeDigits(weightText).replaceAll(',', '.'));
     final symbolicPrice = double.tryParse(
       _normalizeDigits(_priceController.text).replaceAll(',', '.'),
     );
@@ -332,6 +411,18 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
     if (quantity == null || quantity <= 0) {
       _showMessage('اكتب كمية صحيحة أكبر من صفر', error: true);
+      return;
+    }
+    if (minBookingQuantity == null || minBookingQuantity < 1 ||
+        minBookingQuantity > quantity) {
+      _showMessage('الحد الأدنى للحجز يجب أن يكون بين 1 والكمية المتاحة', error: true);
+      return;
+    }
+    if (maxBookingText.isNotEmpty &&
+        (maxBookingQuantity == null ||
+            maxBookingQuantity < minBookingQuantity ||
+            maxBookingQuantity > quantity)) {
+      _showMessage('الحد الأقصى يجب ألا يقل عن الحد الأدنى أو يتجاوز الكمية', error: true);
       return;
     }
     if (symbolicPrice == null || symbolicPrice < 0) {
@@ -352,18 +443,34 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       return;
     }
 
-    // قاعدة البيانات تسمح بحد أقصى 12 ساعة من وقت النشر.
     final now = DateTime.now();
-    final maxExpiresAt = now.add(_maxOfferLifetime);
-    if (_isExpiringSoon && _expiresAt.isBefore(now)) {
-      _showMessage('تاريخ الانتهاء لا يمكن أن يكون في الماضي', error: true);
+    if (_isExpiringSoon &&
+        (_productExpiryAt == null || !_productExpiryAt!.isAfter(now))) {
+      _showMessage('تاريخ صلاحية المنتج مطلوب ويجب أن يكون في المستقبل', error: true);
       return;
     }
-    if (_isExpiringSoon && _expiresAt.isAfter(maxExpiresAt)) {
-      _showMessage(
-        'لا يمكن أن تتجاوز صلاحية العرض 12 ساعة من وقت النشر',
-        error: true,
-      );
+    if (productWeight != null && productWeight <= 0) {
+      _showMessage('الوزن يجب أن يكون أكبر من صفر', error: true);
+      return;
+    }
+    if (_normalizedInstitutionType == 'butcher' &&
+        (_meatCutController.text.trim().isEmpty || productWeight == null)) {
+      _showMessage('اكتب نوع قطعة اللحم والوزن', error: true);
+      return;
+    }
+    final pickupStart = _usePickupWindow ? _pickupStart : null;
+    final pickupEnd = _usePickupWindow ? _pickupEnd : _pickupDeadline;
+    if (_usePickupWindow && (pickupStart == null || pickupEnd == null)) {
+      _showMessage('حدد بداية ونهاية فترة الاستلام', error: true);
+      return;
+    }
+    if (!_usePickupWindow && pickupEnd == null) {
+      _showMessage('حدد الموعد النهائي للاستلام', error: true);
+      return;
+    }
+    if (pickupStart != null && pickupEnd != null &&
+        !pickupEnd.isAfter(pickupStart)) {
+      _showMessage('نهاية فترة الاستلام يجب أن تكون بعد بدايتها', error: true);
       return;
     }
 
@@ -379,10 +486,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
       final location = _pickupLocationController.text.trim();
 
-      // ✅ كلا النوعين يلتزمان بالحد الذي يفرضه RPC في قاعدة البيانات.
-      final expiresAtToSend = _isExpiringSoon
-          ? _expiresAt.toUtc()
-          : now.add(_maxOfferLifetime).toUtc();
+      // مدة نشر العرض تبقى منفصلة عن تاريخ صلاحية المنتج.
+      final expiresAtToSend = now.add(_maxOfferLifetime).toUtc();
 
       await _repository.createOffer(
         institutionId: widget.institutionId,
@@ -399,7 +504,17 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         isHalal: _isHalal,
         isVegetarian: _isVegetarian,
         foodCondition: _condition,
-        requiresRefrigeration: _requiresRefrigeration,
+        requiresRefrigeration: _storageCondition != 'no_cooling',
+        storageCondition: _storageCondition,
+        productSubcategory: _productSubcategory,
+        meatCut: _meatCutController.text.trim(),
+        productWeight: productWeight,
+        productPreparedAt: _productPreparedAt,
+        productExpiryAt: _isExpiringSoon ? _productExpiryAt : null,
+        minBookingQuantity: minBookingQuantity,
+        maxBookingQuantity: maxBookingQuantity,
+        pickupStart: pickupStart,
+        pickupEnd: pickupEnd,
         pickupNotes: _pickupNotesController.text.trim(),
         contactPhone: _contactPhoneController.text.trim(),
       );
@@ -540,12 +655,21 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                       const Divider(color: Color(0xFFE2EEE8)),
                       const SizedBox(height: 24),
 
-                      _buildCategorySection(),
-                      const SizedBox(height: 20),
+                      if (_productSubcategories.isEmpty) ...[
+                        _buildCategorySection(),
+                        const SizedBox(height: 20),
+                      ],
+                      _buildProductSubcategorySection(),
+                      if (_productSubcategories.isNotEmpty)
+                        const SizedBox(height: 20),
                       const Divider(color: Color(0xFFE2EEE8)),
                       const SizedBox(height: 24),
 
                       _buildConditionSection(),
+                      const SizedBox(height: 20),
+                      _buildStorageSection(),
+                      const SizedBox(height: 20),
+                      _buildQuantityLimitsSection(),
                       const SizedBox(height: 20),
                       const Divider(color: Color(0xFFE2EEE8)),
                       const SizedBox(height: 24),
@@ -636,7 +760,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                 color: _primary,
                 onTap: () {
                   if (_saving) return;
-                  setState(() => _isExpiringSoon = false);
+                  setState(() {
+                    _isExpiringSoon = false;
+                    _productExpiryAt = null;
+                  });
                 },
               ),
             ),
@@ -650,7 +777,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                 color: _accent,
                 onTap: () {
                   if (_saving) return;
-                  setState(() => _isExpiringSoon = true);
+                  setState(() {
+                    _isExpiringSoon = true;
+                    _productExpiryAt ??= DateTime.now().add(const Duration(days: 3));
+                  });
                 },
               ),
             ),
@@ -715,7 +845,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '⚠️ هذا العرض سينتهي خلال ${nature['days']} أيام - مناسب للاستخدام الفوري',
+                        '⚠️ صلاحية المنتج تنتهي خلال ${nature['days']} أيام',
                         style: const TextStyle(
                           color: _accent,
                           fontSize: 11,
@@ -1279,10 +1409,141 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               value: _isVegetarian,
               onChanged: (v) => setState(() => _isVegetarian = v),
             ),
-            _buildToggleChip(
-              label: 'يحتاج تبريد',
-              value: _requiresRefrigeration,
-              onChanged: (v) => setState(() => _requiresRefrigeration = v),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductSubcategorySection() {
+    final options = _productSubcategories;
+    if (options.isEmpty) return const SizedBox.shrink();
+    final isButcher =
+        _normalizedInstitutionType == 'butcher' || _normalizedInstitutionType == 'meat_shop';
+    final isBakery = _normalizedInstitutionType == 'bakery';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'نوع المنتج',
+          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final selected = _productSubcategory == option['id'];
+            return ChoiceChip(
+              label: Text(option['label']!),
+              selected: selected,
+              onSelected: _saving
+                  ? null
+                  : (_) => setState(() {
+                        _productSubcategory = option['id'];
+                        _category = option['category']!;
+                      }),
+              selectedColor: _primary,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : _primaryDark,
+                fontWeight: FontWeight.w700,
+              ),
+            );
+          }).toList(),
+        ),
+        if (isButcher) ...[
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _meatCutController,
+            label: 'نوع القطعة',
+            hint: 'مثال: مفروم، ستيك، صدور',
+            icon: Icons.restaurant_menu_rounded,
+          ),
+          const SizedBox(height: 12),
+          _buildTextField(
+            controller: _productWeightController,
+            label: 'الوزن بالكيلو (مطلوب)',
+            hint: 'مثال: 1.5',
+            icon: Icons.straighten_rounded,
+            numeric: true,
+            requiredField: false,
+          ),
+        ],
+        if (isBakery) ...[
+          const SizedBox(height: 12),
+          _buildDateField(
+            label: 'تاريخ الإنتاج (اختياري)',
+            value: _productPreparedAt,
+            onTap: _choosePreparedDate,
+            icon: Icons.event_outlined,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStorageSection() {
+    const options = [
+      ('needs_refrigeration', 'يحتاج تبريد', Icons.ac_unit_rounded),
+      ('needs_freezing', 'يحتاج تجميد', Icons.kitchen_rounded),
+      ('no_cooling', 'لا يحتاج تبريد', Icons.wb_sunny_outlined),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'حالة التخزين',
+          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((option) {
+            final selected = _storageCondition == option.$1;
+            return ChoiceChip(
+              avatar: Icon(option.$3, size: 17),
+              label: Text(option.$2),
+              selected: selected,
+              onSelected: _saving ? null : (_) => setState(() => _storageCondition = option.$1),
+              selectedColor: _primary,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : _primaryDark,
+                fontWeight: FontWeight.w700,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuantityLimitsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'حدود الحجز',
+          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        Column(
+          children: [
+            _buildTextField(
+              controller: _minBookingQuantityController,
+              label: 'الحد الأدنى للحجز',
+              hint: '1',
+              icon: Icons.remove_shopping_cart_outlined,
+              numeric: true,
+            ),
+            const SizedBox(height: 10),
+            _buildTextField(
+              controller: _maxBookingQuantityController,
+              label: 'الحد الأقصى للحجز (اختياري)',
+              hint: 'حسب الكمية المتاحة',
+              icon: Icons.add_shopping_cart_outlined,
+              numeric: true,
+              requiredField: false,
             ),
           ],
         ),
@@ -1400,11 +1661,82 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           ],
         ),
         const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: _primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _primary.withValues(alpha: 0.18)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.storefront_outlined, color: _primary),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'طريقة الاستلام: استلام من المحل',
+                  style: TextStyle(color: _primaryDark, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          activeColor: _primary,
+          value: _usePickupWindow,
+          onChanged: _saving ? null : (value) => setState(() => _usePickupWindow = value),
+          title: Text(_usePickupWindow ? 'تحديد فترة الاستلام من وإلى' : 'تحديد موعد نهائي للاستلام'),
+          subtitle: const Text('يظهر الموعد للعميل قبل إرسال طلب الحجز'),
+        ),
+        if (_usePickupWindow) ...[
+          _buildDateField(
+            label: 'بداية الاستلام',
+            value: _pickupStart,
+            onTap: () async {
+              final value = await _choosePickupDateTime(initial: _pickupStart);
+              if (value != null) setState(() => _pickupStart = value);
+            },
+            icon: Icons.play_circle_outline_rounded,
+          ),
+          const SizedBox(height: 10),
+          _buildDateField(
+            label: 'نهاية الاستلام',
+            value: _pickupEnd,
+            onTap: () async {
+              final value = await _choosePickupDateTime(
+                initial: _pickupEnd ?? _pickupStart?.add(const Duration(hours: 1)),
+              );
+              if (value != null) setState(() => _pickupEnd = value);
+            },
+            icon: Icons.stop_circle_outlined,
+          ),
+        ] else
+          _buildDateField(
+            label: 'آخر موعد للاستلام',
+            value: _pickupDeadline,
+            onTap: () async {
+              final value = await _choosePickupDateTime(initial: _pickupDeadline);
+              if (value != null) setState(() => _pickupDeadline = value);
+            },
+            icon: Icons.event_available_outlined,
+          ),
+        const SizedBox(height: 12),
         _buildTextField(
           controller: _pickupLocationController,
           label: 'موقع الاستلام',
           hint: 'عنوان الفرع أو الموقع',
           icon: Icons.location_on_outlined,
+          requiredField: false,
+        ),
+        const SizedBox(height: 12),
+        _buildTextField(
+          controller: _contactPhoneController,
+          label: 'رقم التواصل (اختياري)',
+          hint: 'رقم المحل أو رقم مخصص للطلبات',
+          icon: Icons.phone_outlined,
+          numeric: true,
           requiredField: false,
         ),
         const SizedBox(height: 12),
@@ -1417,6 +1749,37 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           requiredField: false,
         ),
       ],
+    );
+  }
+
+  Widget _buildDateField({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+    required IconData icon,
+  }) {
+    final text = value == null
+        ? 'اختر التاريخ والوقت'
+        : '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year} · ${TimeOfDay.fromDateTime(value).format(context)}';
+    return InkWell(
+      onTap: _saving ? null : onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: _muted),
+          filled: true,
+          fillColor: _surfaceVariant,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: value == null ? _muted : _primaryDark,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1531,7 +1894,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       borderRadius: BorderRadius.circular(14),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: 'تاريخ الانتهاء',
+          labelText: 'تاريخ انتهاء صلاحية المنتج (مطلوب)',
           prefixIcon: const Icon(Icons.event_outlined, color: _muted),
           suffixIcon: const Icon(
             Icons.arrow_drop_down_rounded,
@@ -1556,7 +1919,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           ),
         ),
         child: Text(
-          '${_expiresAt.day.toString().padLeft(2, '0')}/${_expiresAt.month.toString().padLeft(2, '0')}/${_expiresAt.year}',
+          _productExpiryAt == null
+              ? 'اضغط لاختيار التاريخ'
+              : '${_productExpiryAt!.day.toString().padLeft(2, '0')}/${_productExpiryAt!.month.toString().padLeft(2, '0')}/${_productExpiryAt!.year}',
           style: const TextStyle(
             color: _primaryDark,
             fontWeight: FontWeight.w600,
@@ -1565,4 +1930,5 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       ),
     );
   }
+
 }

@@ -69,6 +69,7 @@ class _InstitutionOfferDetailsPageState
     _repository = widget.repository ?? InstitutionOffersRepository();
     _imageController = PageController();
     _offer = widget.offer;
+    _quantity = _offer.minBookingQuantity.clamp(1, 999999).toInt();
 
     _loadOwnership();
     _loadMyRequest();
@@ -299,25 +300,25 @@ class _InstitutionOfferDetailsPageState
     if (daysLeft < 0) {
       return (
         color: _red,
-        label: 'منتهي الصلاحية',
+        label: 'انتهى العرض',
         icon: Icons.warning_amber_rounded
       );
     } else if (daysLeft <= 3) {
       return (
         color: _orange,
-        label: 'ينتهي خلال $daysLeft أيام',
+        label: 'ينتهي العرض خلال $daysLeft أيام',
         icon: Icons.timer_outlined
       );
     } else if (daysLeft <= 7) {
       return (
         color: _primary,
-        label: 'طازج · $daysLeft يوم متبقي',
+        label: 'العرض متاح · $daysLeft يوم متبقٍ',
         icon: Icons.fiber_new_rounded
       );
     } else {
       return (
         color: _blue,
-        label: 'صلاحية متبقية $daysLeft يوم',
+        label: 'العرض نشط · $daysLeft يوم متبقٍ',
         icon: Icons.inventory_2_rounded
       );
     }
@@ -335,7 +336,11 @@ class _InstitutionOfferDetailsPageState
   @override
   Widget build(BuildContext context) {
     final offer = _offer;
-    final maxQuantity = offer.remainingQuantity.clamp(1, 999999);
+    final configuredMax = offer.maxBookingQuantity;
+    final availableMax = configuredMax == null || configuredMax > offer.remainingQuantity
+        ? offer.remainingQuantity
+        : configuredMax;
+    final maxQuantity = availableMax.clamp(1, 999999).toInt();
     final expiry = _expiryInfo();
 
     return Directionality(
@@ -458,6 +463,8 @@ class _InstitutionOfferDetailsPageState
                           _buildTitleBlock(offer),
                           const SizedBox(height: 22),
                           _buildStatsRow(offer),
+                          const SizedBox(height: 22),
+                          _buildOfferTermsCard(offer),
                           const SizedBox(height: 22),
                           if (_hasExtraInfo(offer)) ...[
                             _buildFeaturedBadges(offer),
@@ -1075,10 +1082,18 @@ class _InstitutionOfferDetailsPageState
       ));
     }
 
-    if (offer.requiresRefrigeration == true) {
+    if (offer.storageCondition == 'needs_refrigeration' ||
+        (offer.requiresRefrigeration == true && offer.storageCondition == null)) {
       chips.add(_premiumBadge(
         label: 'يحتاج تبريد',
         icon: Icons.ac_unit_rounded,
+        color: _blue,
+      ));
+    }
+    if (offer.storageCondition == 'needs_freezing') {
+      chips.add(_premiumBadge(
+        label: 'يحتاج تجميد',
+        icon: Icons.kitchen_rounded,
         color: _blue,
       ));
     }
@@ -1162,6 +1177,130 @@ class _InstitutionOfferDetailsPageState
         ],
       ),
     );
+  }
+
+  Widget _buildOfferTermsCard(InstitutionOffer offer) {
+    final rows = <(IconData, String)>[];
+    final productExpiry = offer.productExpiryAt;
+    if (productExpiry != null) {
+      rows.add((Icons.event_busy_outlined,
+          'انتهاء صلاحية المنتج: ${_formatOfferDate(productExpiry)}'));
+    }
+
+    final storageLabel = switch (offer.storageCondition) {
+      'needs_refrigeration' => 'يحتاج تبريد',
+      'needs_freezing' => 'يحتاج تجميد',
+      'no_cooling' => 'لا يحتاج تبريد',
+      _ => offer.requiresRefrigeration == true ? 'يحتاج تبريد' : 'لا يحتاج تبريد',
+    };
+    rows.add((Icons.ac_unit_rounded, 'حالة التخزين: $storageLabel'));
+    rows.add((Icons.storefront_outlined, 'طريقة الاستلام: استلام من المحل'));
+
+    if (offer.pickupStart != null && offer.pickupEnd != null) {
+      rows.add((Icons.schedule_rounded,
+          'موعد الاستلام: ${_formatOfferDate(offer.pickupStart!)} إلى ${_formatOfferDate(offer.pickupEnd!)}'));
+    } else if (offer.pickupEnd != null || offer.pickupBefore != null) {
+      final deadline = offer.pickupEnd ?? offer.pickupBefore!;
+      rows.add((Icons.event_available_outlined,
+          'آخر موعد للاستلام: ${_formatOfferDate(deadline)}'));
+    }
+    if (offer.productSubcategory != null) {
+      rows.add((Icons.category_outlined,
+          'القسم: ${_subcategoryLabel(offer.productSubcategory!)}'));
+    }
+    if (offer.meatCut?.isNotEmpty == true) {
+      rows.add((Icons.restaurant_menu_rounded, 'نوع القطعة: ${offer.meatCut}'));
+    }
+    if (offer.productWeight != null) {
+      rows.add((Icons.straighten_rounded,
+          'الوزن: ${offer.productWeight} كجم'));
+    }
+    if (offer.productPreparedAt != null) {
+      rows.add((Icons.event_outlined,
+          'تاريخ الإنتاج/التجهيز: ${_formatOfferDate(offer.productPreparedAt!)}'));
+    }
+    rows.add((Icons.shopping_basket_outlined,
+        'الحد الأدنى للحجز: ${offer.minBookingQuantity} قطعة'));
+    if (offer.maxBookingQuantity != null) {
+      rows.add((Icons.inventory_2_outlined,
+          'الحد الأقصى للحجز: ${offer.maxBookingQuantity} قطعة'));
+    }
+    if (offer.contactPhone?.isNotEmpty == true) {
+      rows.add((Icons.phone_outlined, 'رقم التواصل: ${offer.contactPhone}'));
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFEEF3F0)),
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'شروط التخزين والاستلام',
+            style: TextStyle(
+              color: _ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...rows.map((row) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(row.$1, size: 18, color: _primary),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        row.$2,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+
+  String _formatOfferDate(DateTime value) {
+    final local = value.toLocal();
+    final date = '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
+    if (local.hour == 0 && local.minute == 0 && local.second == 0) return date;
+    return '$date · ${TimeOfDay.fromDateTime(local).format(context)}';
+  }
+
+  String _subcategoryLabel(String value) {
+    const labels = {
+      'canned_goods': 'معلبات',
+      'drink': 'مشروبات',
+      'dairy': 'ألبان',
+      'beef': 'لحوم بقري',
+      'lamb': 'لحوم ضأن',
+      'poultry': 'دواجن',
+      'other_meat': 'أنواع أخرى',
+      'bakery': 'مخبوزات',
+      'dessert': 'حلويات',
+    };
+    return labels[value] ?? value;
   }
 
   String _getConditionLabel(String condition) {
@@ -1452,10 +1591,20 @@ class _InstitutionOfferDetailsPageState
 
     final limitReached = _remainingToday <= 0;
     final showLimitWarning = _remainingToday <= 2 && !limitReached;
-    final isButtonDisabled = _loading || limitReached || !offer.isActive;
+    final belowMinimumStock = offer.remainingQuantity < offer.minBookingQuantity;
+    final isButtonDisabled =
+        _loading || limitReached || !offer.isActive || belowMinimumStock;
 
     return Column(
       children: [
+        if (belowMinimumStock)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'المتبقي أقل من الحد الأدنى للحجز (${offer.minBookingQuantity})',
+              style: const TextStyle(color: _red, fontWeight: FontWeight.w800),
+            ),
+          ),
         if (!_loadingLimit && (limitReached || showLimitWarning))
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -1533,7 +1682,7 @@ class _InstitutionOfferDetailsPageState
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'من 1 إلى $maxQuantity',
+                      'من ${offer.minBookingQuantity} إلى $maxQuantity',
                       style: const TextStyle(
                         color: _inkSoft,
                         fontSize: 11,
@@ -1552,7 +1701,7 @@ class _InstitutionOfferDetailsPageState
                   children: [
                     _qtyBtn(
                       icon: Icons.remove_rounded,
-                      enabled: _quantity > 1 && !isButtonDisabled,
+                      enabled: _quantity > offer.minBookingQuantity && !isButtonDisabled,
                       onTap: () => setState(() => _quantity--),
                     ),
                     SizedBox(
