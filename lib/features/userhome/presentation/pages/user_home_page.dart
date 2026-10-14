@@ -79,6 +79,13 @@ const Set<String> _homeRestaurantInstitutionTypes = {
 
 /// Slugs used by the institution category browser; nearby offers search all types.
 const Set<String> _institutionCatalogSlugs = UserHomePolicy.institutionCatalogSlugs;
+const Set<String> _institutionHomeCategorySlugs = {
+  'grocery',
+  'supermarket',
+  'bakery',
+  'butcher',
+  'meat_shop',
+};
 const Set<String> _institutionSurplusSlugs = {'hotel', 'wedding_hall'};
 
 enum _HomeMode { buy, services }
@@ -1202,8 +1209,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildInstitutionSurplusHomeSection(state)),
-        SliverToBoxAdapter(child: _buildCompanySectionTitle()),
-        SliverToBoxAdapter(child: _buildNearbyInstitutionsOffers(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -3517,11 +3522,18 @@ class _UserHomePageState extends State<UserHomePage> {
       offersByCategory.putIfAbsent(categoryId, () => []).add(offer);
     }
 
+    final seenCategoryKeys = <String>{};
     final subcategories = _institutionSubcategories
         .where((category) {
           final id = category['id']?.toString() ?? '';
           final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
-          return id.isNotEmpty && !_institutionSurplusSlugs.contains(slug);
+          return id.isNotEmpty &&
+              _institutionHomeCategorySlugs.contains(slug);
+        })
+        .where((category) {
+          final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
+          final key = slug == 'meat_shop' ? 'butcher' : slug;
+          return seenCategoryKeys.add(key);
         })
         .toList(growable: false);
 
@@ -3535,18 +3547,9 @@ class _UserHomePageState extends State<UserHomePage> {
       );
     }
 
-    final visibleSubcategories = _loadingNearbyCategoryOffers
-        ? subcategories
-        : subcategories
-            .where((category) {
-              final id = category['id']?.toString() ?? '';
-              return (offersByCategory[id] ?? const <CategoryOffer>[])
-                  .isNotEmpty;
-            })
-            .toList(growable: false);
-    if (!_loadingNearbyCategoryOffers && visibleSubcategories.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    // Keep the four institution types visible even when one currently has no
+    // nearby offers. Tapping a category still opens its full catalog page.
+    final visibleSubcategories = subcategories;
 
     return Column(
       children: [
@@ -3577,17 +3580,6 @@ class _UserHomePageState extends State<UserHomePage> {
             ],
           ),
         ),
-        ...visibleSubcategories.map((category) {
-          final id = category['id']?.toString() ?? '';
-          final offers = offersByCategory[id] ?? const <CategoryOffer>[];
-          if (offers.isEmpty) return const SizedBox.shrink();
-          return _buildNearbyCategorySection(
-            categoryId: id,
-            categoryName: category['name_ar']?.toString() ?? 'عروض المؤسسات',
-            categorySlug: category['slug']?.toString() ?? '',
-            offers: offers,
-          );
-        }),
       ],
     );
   }
@@ -3671,17 +3663,6 @@ class _UserHomePageState extends State<UserHomePage> {
             ],
           ),
         ),
-        ...surplusCategories.map((category) {
-          final id = category['id']?.toString() ?? '';
-          final offers = offersByCategory[id] ?? const <CategoryOffer>[];
-          if (offers.isEmpty) return const SizedBox.shrink();
-          return _buildNearbyCategorySection(
-            categoryId: id,
-            categoryName: category['name_ar']?.toString() ?? 'فائض المؤسسات',
-            categorySlug: category['slug']?.toString() ?? '',
-            offers: offers,
-          );
-        }),
       ],
     );
   }
@@ -3698,7 +3679,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     return SizedBox(
-      height: 220,
+      height: 248,
       child: GridView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -3707,7 +3688,7 @@ class _UserHomePageState extends State<UserHomePage> {
           crossAxisCount: 2,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
-          childAspectRatio: 1.2,
+          childAspectRatio: 1.05,
         ),
         itemCount: categories.length,
         itemBuilder: (context, index) {
@@ -3742,8 +3723,8 @@ class _UserHomePageState extends State<UserHomePage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 52,
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.16),
@@ -3752,7 +3733,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       child: Icon(
                         _iconFromName(category['icon']?.toString() ?? ''),
                         color: accent,
-                        size: 21,
+                        size: 29,
                       ),
                     ),
                     const SizedBox(height: 7),
@@ -3763,7 +3744,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _textPrimary,
-                        fontSize: 10.5,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -3772,7 +3753,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       '$offerCount عرض',
                       style: TextStyle(
                         color: _textSecondary,
-                        fontSize: 9.5,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
