@@ -977,10 +977,31 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
     final weight = raw['product_weight'];
     if (subcategory != null && subcategory.isNotEmpty) {
       chips.add(subcategory);
-    } else if (meatCut != null && meatCut.isNotEmpty) {
+    }
+    if (meatCut != null && meatCut.isNotEmpty) {
       chips.add(meatCut);
-    } else if (weight is num && weight > 0) {
+    }
+    if (weight is num && weight > 0) {
       chips.add('${weight.toString()} كجم');
+    }
+
+    final preparedAt = raw['product_prepared_at']?.toString();
+    if (preparedAt != null && preparedAt.isNotEmpty) {
+      try {
+        final date = DateTime.parse(preparedAt);
+        chips.add('تجهيز ${date.day}/${date.month}');
+      } catch (_) {}
+    }
+
+    final pickupStart = raw['pickup_start']?.toString();
+    final pickupEnd = raw['pickup_end']?.toString();
+    if (pickupStart != null && pickupStart.isNotEmpty &&
+        pickupEnd != null && pickupEnd.isNotEmpty) {
+      try {
+        final start = DateTime.parse(pickupStart);
+        final end = DateTime.parse(pickupEnd);
+        chips.add('استلام ${start.day}/${start.month}–${end.day}/${end.month}');
+      } catch (_) {}
     }
 
     final min = raw['min_booking_quantity'] is num
