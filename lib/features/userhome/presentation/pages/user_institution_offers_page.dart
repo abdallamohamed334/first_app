@@ -842,7 +842,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       'description': offer.description,
       'quantity': offer.quantity,
       'remaining_quantity':
-          (offer.details['remaining_quantity'] as num?)?.toInt() ??
+          (offer.details?['remaining_quantity'] as num?)?.toInt() ??
               offer.quantity,
       'symbolic_price': offer.salePrice,
       'original_price': offer.originalPrice,
