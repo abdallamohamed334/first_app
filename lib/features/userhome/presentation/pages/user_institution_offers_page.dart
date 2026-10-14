@@ -122,7 +122,15 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       var query = client
           .from('institution_offers')
           .select('''
-            *,
+            id, institution_id, title, description, category, quantity,
+            remaining_quantity, symbolic_price, original_price, images,
+            pickup_location, expires_at, pickup_before, pickup_start, pickup_end,
+            status, created_at, updated_at, food_type, is_halal, is_vegetarian,
+            food_condition, requires_refrigeration, pickup_notes, contact_phone,
+            pickup_time, product_expiry_at, storage_condition,
+            product_subcategory, meat_cut, product_weight, product_prepared_at,
+            min_booking_quantity, max_booking_quantity, deleted_at,
+            marketplace_category_id,
             institutions:institution_id!inner (
               id,
               name,
@@ -150,7 +158,15 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
         query = client
             .from('institution_offers')
             .select('''
-            *,
+            id, institution_id, title, description, category, quantity,
+            remaining_quantity, symbolic_price, original_price, images,
+            pickup_location, expires_at, pickup_before, pickup_start, pickup_end,
+            status, created_at, updated_at, food_type, is_halal, is_vegetarian,
+            food_condition, requires_refrigeration, pickup_notes, contact_phone,
+            pickup_time, product_expiry_at, storage_condition,
+            product_subcategory, meat_cut, product_weight, product_prepared_at,
+            min_booking_quantity, max_booking_quantity, deleted_at,
+            marketplace_category_id,
             institutions:institution_id (
               id, name, institution_type, logo_url, address, phone,
               city, latitude, longitude
@@ -944,6 +960,74 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
     super.dispose();
   }
 
+  Widget _buildOfferHighlights(FoodOffer offer) {
+    final raw = offer.details ?? const <String, dynamic>{};
+    final chips = <String>[];
+    final storage = raw['storage_condition']?.toString();
+    final storageLabel = switch (storage) {
+      'needs_refrigeration' => 'يحتاج تبريد',
+      'needs_freezing' => 'يحتاج تجميد',
+      'no_cooling' => 'لا يحتاج تبريد',
+      _ => (offer.requiresRefrigeration == true ? 'يحتاج تبريد' : null),
+    };
+    if (storageLabel != null) chips.add(storageLabel);
+
+    final subcategory = raw['product_subcategory']?.toString().trim();
+    final meatCut = raw['meat_cut']?.toString().trim();
+    final weight = raw['product_weight'];
+    if (subcategory != null && subcategory.isNotEmpty) {
+      chips.add(subcategory);
+    } else if (meatCut != null && meatCut.isNotEmpty) {
+      chips.add(meatCut);
+    } else if (weight is num && weight > 0) {
+      chips.add('${weight.toString()} كجم');
+    }
+
+    final min = raw['min_booking_quantity'] is num
+        ? (raw['min_booking_quantity'] as num).toInt()
+        : 1;
+    final max = raw['max_booking_quantity'] is num
+        ? (raw['max_booking_quantity'] as num).toInt()
+        : null;
+    chips.add(max == null ? 'حد أدنى $min' : 'حجز $min–$max');
+
+    final productExpiry = raw['product_expiry_at']?.toString();
+    if (productExpiry != null && productExpiry.isNotEmpty) {
+      try {
+        final date = DateTime.parse(productExpiry);
+        chips.add('صلاحية ${date.day}/${date.month}');
+      } catch (_) {}
+    }
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 24,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: chips.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 5),
+        itemBuilder: (_, index) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: _primaryRed.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            chips[index],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final price = widget.offer.salePrice ?? 0;
@@ -1192,6 +1276,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                               ),
                             ],
                           ),
+                          _buildOfferHighlights(widget.offer),
                           SizedBox(height: 10),
                           SizedBox(
                             width: double.infinity,
