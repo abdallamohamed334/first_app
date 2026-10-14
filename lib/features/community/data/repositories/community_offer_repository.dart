@@ -21,7 +21,12 @@ class CommunityOfferRepository {
     try {
       final response = await _client
           .from('charities')
-          .select()
+          // لا تستخدم select() هنا؛ جدول الجمعيات يحتوي على أعمدة دخول
+          // وإدارة داخلية ممنوعة على أدوار التطبيق حسب صلاحيات RLS.
+          .select(
+            'id, name, description, address, phone, email, logo, '
+            'latitude, longitude, status, is_verified, rating, total_reviews',
+          )
           .eq('status', 'active')
           .order('name');
 
