@@ -127,191 +127,193 @@ class _InstitutionBookingSearchPageState
             ),
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ✅ شرح
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _primary.withValues(alpha: 0.2)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      color: _primary,
-                      size: 24,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'أدخل كود الحجز المكون من 6 أرقام للبحث عن طلب العميل',
-                        style: TextStyle(
-                          color: _primaryDark,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+        body: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // ✅ شرح
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: _primary.withValues(alpha: 0.2)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: _primary,
+                        size: 24,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // ✅ حقل إدخال الكود
-              TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => _searchBooking(),
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'كود الحجز (6 أرقام)',
-                  hintText: 'مثال: 123456',
-                  prefixIcon: const Icon(Icons.qr_code_scanner_rounded),
-                  suffixIcon: _codeController.text.isNotEmpty
-                      ? IconButton(
-                          onPressed: () {
-                            setState(() {
-                              _codeController.clear();
-                              _error = null;
-                            });
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: _surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2EEE8)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFFE2EEE8)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _primary, width: 2),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _errorColor, width: 2),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: _errorColor, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                ),
-                onChanged: (_) {
-                  if (_error != null) {
-                    setState(() => _error = null);
-                  }
-                },
-              ),
-
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: const TextStyle(
-                    color: _errorColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-
-              const SizedBox(height: 20),
-
-              // ✅ زر البحث
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _searchBooking,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: _primary.withValues(alpha: 0.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox.square(
-                          dimension: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.search_rounded),
-                            SizedBox(width: 8),
-                            Text(
-                              'بحث',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-
-              // ✅ النصائح - باستخدام Expanded بدلاً من Spacer
-              const SizedBox(height: 24),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2EEE8)),
-                    ),
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '💡 نصائح:',
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'أدخل كود الحجز المكون من 6 أرقام للبحث عن طلب العميل',
                           style: TextStyle(
                             color: _primaryDark,
                             fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: 6),
-                        _BulletPoint(
-                          text: 'الكود يتكون من 6 أرقام',
-                        ),
-                        _BulletPoint(
-                          text: 'يمكنك العثور على الكود في رسالة تأكيد الحجز',
-                        ),
-                        _BulletPoint(
-                          text: 'بعد البحث ستظهر لك تفاصيل الحجز الكاملة',
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(height: 24),
+
+                // ✅ حقل إدخال الكود
+                TextField(
+                  controller: _codeController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _searchBooking(),
+                  autofocus: false,
+                  decoration: InputDecoration(
+                    labelText: 'كود الحجز (6 أرقام)',
+                    hintText: 'مثال: 123456',
+                    prefixIcon: const Icon(Icons.qr_code_scanner_rounded),
+                    suffixIcon: _codeController.text.isNotEmpty
+                        ? IconButton(
+                            onPressed: () {
+                              setState(() {
+                                _codeController.clear();
+                                _error = null;
+                              });
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: _surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFE2EEE8)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFE2EEE8)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: _primary, width: 2),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: _errorColor, width: 2),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: _errorColor, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                  onChanged: (_) {
+                    if (_error != null) {
+                      setState(() => _error = null);
+                    }
+                  },
+                ),
+
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _error!,
+                    style: const TextStyle(
+                      color: _errorColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // ✅ زر البحث
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: _isLoading ? null : _searchBooking,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _primary,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: _primary.withValues(alpha: 0.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox.square(
+                            dimension: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.search_rounded),
+                              SizedBox(width: 8),
+                              Text(
+                                'بحث',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+
+                // ✅ النصائح تبقى قابلة للوصول مع لوحة الأرقام عبر التمرير
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2EEE8)),
+                  ),
+                  child: const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '💡 نصائح:',
+                        style: TextStyle(
+                          color: _primaryDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      _BulletPoint(
+                        text: 'الكود يتكون من 6 أرقام',
+                      ),
+                      _BulletPoint(
+                        text: 'يمكنك العثور على الكود في رسالة تأكيد الحجز',
+                      ),
+                      _BulletPoint(
+                        text: 'بعد البحث ستظهر لك تفاصيل الحجز الكاملة',
+                      ),
+                    ],
+                  ),
+                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
