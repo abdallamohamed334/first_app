@@ -117,7 +117,7 @@ class HomeNeedCard extends StatelessWidget {
                   if (imageUrl != null && imageUrl.isNotEmpty)
                     Positioned.fill(
                       child: CachedNetworkImage(
-                        imageUrl,
+                        imageUrl: imageUrl,
                         fit: BoxFit.cover,
                         memCacheHeight: 240,
                         errorWidget: (_, __, ___) => const SizedBox.shrink(),
