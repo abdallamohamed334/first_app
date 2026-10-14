@@ -3,6 +3,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/charity/presentation/pages/person_offer_details_page.dart';
@@ -19,7 +20,7 @@ import 'package:loqma/features/userhome/presentation/pages/my_restaurant_request
 class UserAllOffersPage extends StatefulWidget {
   final List<FoodOffer>? offers;
 
-  const UserAllOffersPage({super.key, this.offers});
+  UserAllOffersPage({super.key, this.offers});
 
   @override
   State<UserAllOffersPage> createState() => _UserAllOffersPageState();
@@ -39,7 +40,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
   bool _isLoading = true;
   StreamSubscription<UserHomeState>? _blocSubscription;
 
-  static const _categories = <String>[
+  static _categories = <String>[
     'الكل',
     'وجبات',
     'مخبوزات',
@@ -49,13 +50,13 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
   ];
 
   // ───────── نفس هوية التطبيق (Home/Offers Hub) ─────────
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _orange = Color(0xFFE28B00);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color _orange = Color(0xFFE28B00);
 
   @override
   void initState() {
@@ -182,7 +183,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
 
       if (state is! UserHomeLoaded) {
         await _loadFromBloc();
-        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await Future<void>.delayed(Duration(milliseconds: 400));
         return;
       }
 
@@ -191,7 +192,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
 
       if (latitude == null || longitude == null) {
         await _loadFromBloc();
-        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await Future<void>.delayed(Duration(milliseconds: 400));
         return;
       }
 
@@ -213,7 +214,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       });
 
       try {
-        context.read<UserHomeBloc>().add(const UserHomeRefreshed());
+        context.read<UserHomeBloc>().add(UserHomeRefreshed());
       } catch (_) {}
     } catch (e) {
       debugPrint('⚠️ reload error: $e');
@@ -225,7 +226,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       });
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(Duration(milliseconds: 300));
   }
 
   Future<void> _loadFromBloc() async {
@@ -340,9 +341,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Theme(
-        data: ThemeData.dark().copyWith(
+        data: Theme.of(context).copyWith(
           scaffoldBackgroundColor: _bg,
-          colorScheme: const ColorScheme.dark(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
             primary: _primaryRed,
             surface: _bg,
             onSurface: _textPrimary,
@@ -358,7 +359,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
               _buildOffersTabContent(),
 
               // ✅ Tab 2: طلباتي على المطاعم
-              const MyRestaurantRequestsTab(),
+              MyRestaurantRequestsTab(),
             ],
           ),
         ),
@@ -380,9 +381,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       centerTitle: true,
       leading: IconButton(
         onPressed: () => Navigator.of(context).maybePop(),
-        icon: const Icon(Icons.arrow_back_rounded, color: _textPrimary),
+        icon: Icon(Icons.arrow_back_rounded, color: _textPrimary),
       ),
-      title: const Text(
+      title: Text(
         'المطاعم',
         style: TextStyle(
           color: _textPrimary,
@@ -403,7 +404,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                             builder: (_) => NotificationsPage(userId: userId),
                           ),
                         ),
-                icon: const Icon(
+                icon: Icon(
                   Icons.notifications_none_rounded,
                   color: _textSecondary,
                 ),
@@ -415,7 +416,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   child: Container(
                     width: 9,
                     height: 9,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: _primaryRed,
                       shape: BoxShape.circle,
                     ),
@@ -424,14 +425,14 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
             ],
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
       ],
       bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(56),
+        preferredSize: Size.fromHeight(56),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Container(
-            padding: const EdgeInsets.all(4),
+            padding: EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: _card,
               borderRadius: BorderRadius.circular(14),
@@ -445,7 +446,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   BoxShadow(
                     color: _primaryRed.withValues(alpha: 0.3),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    offset: Offset(0, 3),
                   ),
                 ],
               ),
@@ -453,15 +454,15 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
               dividerColor: Colors.transparent,
               labelColor: Colors.white,
               unselectedLabelColor: _textSecondary,
-              labelStyle: const TextStyle(
+              labelStyle: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 12.5,
               ),
-              unselectedLabelStyle: const TextStyle(
+              unselectedLabelStyle: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 12.5,
               ),
-              tabs: const [
+              tabs: [
                 Tab(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -507,19 +508,19 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
         await _loadOffers(reload: true);
       },
       child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
+        physics: AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
             sliver: SliverToBoxAdapter(
               child: Column(
                 children: [
                   _buildSearchBar(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   _buildCategoryChips(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   _buildStatisticsCards(),
                 ],
               ),
@@ -533,7 +534,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
           else ...[
             if (hasOffers)
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                padding: EdgeInsets.fromLTRB(16, 14, 16, 0),
                 sliver: SliverToBoxAdapter(
                   child: _EntranceAnimation(
                     index: 0,
@@ -542,13 +543,13 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                 ),
               ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              padding: EdgeInsets.fromLTRB(16, 14, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final offer = offers[index];
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
+                      padding: EdgeInsets.only(bottom: 14),
                       child: _EntranceAnimation(
                         index: index,
                         child: _offerCard(offer),
@@ -580,21 +581,21 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       child: TextField(
         controller: _searchController,
         textInputAction: TextInputAction.search,
-        style: const TextStyle(color: _textPrimary, fontSize: 14),
+        style: TextStyle(color: _textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: 'ابحث عن وجبة أو مطعم...',
-          hintStyle: const TextStyle(color: _textSecondary, fontSize: 13.5),
+          hintStyle: TextStyle(color: _textSecondary, fontSize: 13.5),
           prefixIcon:
-              const Icon(Icons.search_rounded, color: _primaryRed, size: 22),
+              Icon(Icons.search_rounded, color: _primaryRed, size: 22),
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
                   onPressed: _searchController.clear,
-                  icon: const Icon(Icons.close_rounded,
+                  icon: Icon(Icons.close_rounded,
                       color: _textSecondary, size: 20),
                 ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          contentPadding: EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );
@@ -610,7 +611,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => SizedBox(width: 8),
         itemBuilder: (context, index) {
           final category = _categories[index];
           final selected = category == _category;
@@ -659,7 +660,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
             color: _primaryRed,
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(
           child: _statCard(
             icon: Icons.local_fire_department_rounded,
@@ -679,7 +680,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(16),
@@ -697,7 +698,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
             ),
             child: Icon(icon, color: color, size: 19),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -706,13 +707,13 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   label,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
@@ -748,7 +749,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 16,
-              offset: const Offset(0, 8),
+              offset: Offset(0, 8),
             ),
           ],
           image: imageUrl == null
@@ -756,50 +757,50 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
               : DecorationImage(
                   image: NetworkImage(imageUrl),
                   fit: BoxFit.cover,
-                  colorFilter: const ColorFilter.mode(
+                  colorFilter: ColorFilter.mode(
                     Color(0xB3000000),
                     BlendMode.darken,
                   ),
                 ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: offer.isUrgent ? _orange : _primaryRed,
                   borderRadius: BorderRadius.circular(100),
                 ),
                 child: Text(
                   offer.isUrgent ? 'عرض عاجل' : 'متاح الآن',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 offer.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 '${offer.businessName}  •  ${offer.timeRemaining}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white70,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -849,7 +850,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.25),
                   blurRadius: 14,
-                  offset: const Offset(0, 6),
+                  offset: Offset(0, 6),
                 ),
               ],
             ),
@@ -860,7 +861,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                 Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(20),
                       ),
                       child: SizedBox(
@@ -868,9 +869,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                         width: double.infinity,
                         child: ColorFiltered(
                           colorFilter: cancelledByMe
-                              ? const ColorFilter.mode(
+                              ? ColorFilter.mode(
                                   Colors.black45, BlendMode.saturation)
-                              : const ColorFilter.mode(
+                              : ColorFilter.mode(
                                   Colors.transparent, BlendMode.multiply),
                           child: _offerImageSlider(offer),
                         ),
@@ -883,7 +884,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                       child: Container(
                         height: 56,
                         decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
+                          borderRadius: BorderRadius.vertical(
                             top: Radius.zero,
                           ),
                           gradient: LinearGradient(
@@ -902,7 +903,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                         top: 10,
                         right: 10,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: offer.isUrgent ? _orange : _primaryRed,
@@ -912,13 +913,13 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                                 color: (offer.isUrgent ? _orange : _primaryRed)
                                     .withValues(alpha: 0.4),
                                 blurRadius: 6,
-                                offset: const Offset(0, 2),
+                                offset: Offset(0, 2),
                               ),
                             ],
                           ),
                           child: Text(
                             offer.isUrgent ? 'عاجل 🔥' : 'متاح الآن',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
@@ -931,7 +932,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                         top: 10,
                         right: 10,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
+                          padding: EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.6),
@@ -939,7 +940,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                             border: Border.all(
                                 color: _primaryRed.withValues(alpha: 0.6)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.block_rounded,
@@ -967,7 +968,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                             size: 12,
                             color: Colors.white.withValues(alpha: 0.9),
                           ),
-                          const SizedBox(width: 3),
+                          SizedBox(width: 3),
                           Text(
                             offer.timeRemaining,
                             style: TextStyle(
@@ -984,7 +985,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
 
                 // ✅ محتوى الكارت
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -992,24 +993,24 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                         offer.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _textPrimary,
                           fontSize: 15.5,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.storefront_rounded,
+                          Icon(Icons.storefront_rounded,
                               size: 12, color: _textSecondary),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               offer.businessName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textSecondary,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -1018,20 +1019,20 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           if (sale != null && sale > 0)
                             Text(
                               '${sale.toStringAsFixed(0)} ج.م',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _primaryRed,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
                               ),
                             )
                           else
-                            const Text(
+                            Text(
                               '🎁 مجاني',
                               style: TextStyle(
                                 color: _primaryRed,
@@ -1040,7 +1041,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                               ),
                             ),
                           if (hasDiscount) ...[
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Text(
                               '${orig.toStringAsFixed(0)} ج.م',
                               style: TextStyle(
@@ -1049,9 +1050,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                                 decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 6,
                                 vertical: 3,
                               ),
@@ -1061,7 +1062,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                               ),
                               child: Text(
                                 'وفر $discount%',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _orange,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
@@ -1069,9 +1070,9 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                               ),
                             ),
                           ],
-                          const Spacer(),
+                          Spacer(),
                           if (cancelledByMe)
-                            const Text(
+                            Text(
                               'مش متاح للتقديم',
                               style: TextStyle(
                                 color: _primaryRed,
@@ -1080,7 +1081,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                               ),
                             )
                           else
-                            const Row(
+                            Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
@@ -1129,7 +1130,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     if (imageUrls.isEmpty) {
       return Container(
         color: _primaryRed.withValues(alpha: 0.1),
-        child: const Icon(Icons.restaurant_rounded, color: _primaryRed),
+        child: Icon(Icons.restaurant_rounded, color: _primaryRed),
       );
     }
 
@@ -1138,7 +1139,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       fit: BoxFit.cover,
       placeholder: (context, url) => Container(
         color: _primaryRed.withValues(alpha: 0.1),
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 20,
             height: 20,
@@ -1151,7 +1152,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       ),
       errorWidget: (context, url, error) => Container(
         color: _primaryRed.withValues(alpha: 0.1),
-        child: const Icon(Icons.restaurant_rounded, color: _primaryRed),
+        child: Icon(Icons.restaurant_rounded, color: _primaryRed),
       ),
     );
   }
@@ -1165,7 +1166,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     final hasOffers = _restaurantOffers.isNotEmpty;
 
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(28),
           child: Column(
@@ -1191,7 +1192,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     if (!hasOffers) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1203,14 +1204,14 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   color: _primaryRed.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.restaurant_rounded,
                   color: _primaryRed,
                   size: 38,
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text(
+              SizedBox(height: 18),
+              Text(
                 'مفيش عروض مطاعم حاليًا',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -1219,24 +1220,24 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'اسحب للأسفل عشان تحدّث',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _textSecondary, fontSize: 13),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               OutlinedButton.icon(
                 onPressed: () async {
                   await _loadOffers(reload: true);
                 },
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('إعادة المحاولة'),
+                icon: Icon(Icons.refresh_rounded, size: 18),
+                label: Text('إعادة المحاولة'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primaryRed,
-                  side: const BorderSide(color: _primaryRed),
+                  side: BorderSide(color: _primaryRed),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1251,7 +1252,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     if (filtered) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -1263,14 +1264,14 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   color: _primaryRed.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.search_off_rounded,
                   color: _primaryRed,
                   size: 38,
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text(
+              SizedBox(height: 18),
+              Text(
                 'مفيش نتائج مطابقة',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -1279,13 +1280,13 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'جرّب تغيير البحث أو اختيار تصنيف آخر.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: _textSecondary, fontSize: 13),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               FilledButton(
                 onPressed: () => setState(() {
                   _query = '';
@@ -1295,12 +1296,12 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                 style: FilledButton.styleFrom(
                   backgroundColor: _primaryRed,
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                      EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text('مسح الفلاتر'),
+                child: Text('مسح الفلاتر'),
               ),
             ],
           ),
@@ -1308,7 +1309,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
       );
     }
 
-    return const SizedBox.shrink();
+    return SizedBox.shrink();
   }
 
   // ============================================================
@@ -1363,7 +1364,7 @@ class _EntranceAnimation extends StatefulWidget {
   final int index;
   final Widget child;
 
-  const _EntranceAnimation({
+  _EntranceAnimation({
     required this.index,
     required this.child,
   });
@@ -1383,11 +1384,11 @@ class _EntranceAnimationState extends State<_EntranceAnimation>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 420),
+      duration: Duration(milliseconds: 420),
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _slide = Tween<Offset>(
-      begin: const Offset(0, 0.06),
+      begin: Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 

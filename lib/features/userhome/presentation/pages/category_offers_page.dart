@@ -2,6 +2,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/config/app_config.dart';
 
@@ -25,7 +26,7 @@ import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 // ✅ FEATURE FLAGS
 // ═══════════════════════════════════════════════════════════
 class _AppFeatures {
-  static const bool showRestaurants = false;
+  static bool showRestaurants = false;
 }
 
 class CategoryOffersPage extends StatefulWidget {
@@ -33,7 +34,7 @@ class CategoryOffersPage extends StatefulWidget {
   final String categoryName;
   final String? categorySlug;
 
-  const CategoryOffersPage({
+  CategoryOffersPage({
     super.key,
     required this.categoryId,
     required this.categoryName,
@@ -45,12 +46,12 @@ class CategoryOffersPage extends StatefulWidget {
 }
 
 class _CategoryOffersPageState extends State<CategoryOffersPage> {
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   late final MarketplaceBloc _marketplaceBloc;
 
@@ -97,9 +98,9 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Theme(
-          data: ThemeData.dark().copyWith(
+          data: Theme.of(context).copyWith(
             scaffoldBackgroundColor: _bg,
-            colorScheme: const ColorScheme.dark(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: _primaryRed,
               surface: _bg,
               onSurface: _textPrimary,
@@ -112,10 +113,10 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
               surfaceTintColor: _bg,
               elevation: 0,
               centerTitle: true,
-              iconTheme: const IconThemeData(color: _textPrimary),
+              iconTheme: IconThemeData(color: _textPrimary),
               title: Text(
                 widget.categoryName,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
@@ -126,7 +127,7 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
               builder: (context, marketplaceState) {
                 // 1️⃣ Loading
                 if (marketplaceState.isLoading) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(color: _primaryRed),
                   );
                 }
@@ -155,13 +156,13 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                 return BlocBuilder<UserHomeBloc, UserHomeState>(
                   builder: (context, state) {
                     if (state is! UserHomeLoaded) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(color: _primaryRed),
                       );
                     }
 
                     if (state.categoryOffersLoading) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(color: _primaryRed),
                       );
                     }
@@ -183,13 +184,13 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                             );
                       },
                       child: GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                        physics: const AlwaysScrollableScrollPhysics(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        physics: AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
                         itemCount: state.categoryOffers.length,
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                            SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
@@ -217,25 +218,25 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
   Widget _buildMarketplaceError(BuildContext context, String message) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 82,
               height: 82,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _cardSoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.error_outline_rounded,
                 color: _primaryRed,
                 size: 42,
               ),
             ),
-            const SizedBox(height: 18),
-            const Text(
+            SizedBox(height: 18),
+            Text(
               'حصل خطأ',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -244,17 +245,17 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _textSecondary,
                 fontSize: 13,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             ElevatedButton.icon(
               onPressed: () {
                 _marketplaceBloc.add(
@@ -264,8 +265,8 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                   ),
                 );
               },
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('حاول مرة أخرى'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text('حاول مرة أخرى'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryRed,
                 foregroundColor: Colors.white,
@@ -283,25 +284,25 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 88,
               height: 88,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _cardSoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.inbox_rounded,
                 color: _primaryRed,
                 size: 42,
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
+            SizedBox(height: 20),
+            Text(
               'لا توجد عروض حاليًا',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -310,11 +311,11 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               'مفيش عروض في تصنيف "${widget.categoryName}" قريبة منك دلوقتي.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _textSecondary,
                 fontSize: 13,
                 height: 1.5,
@@ -488,17 +489,17 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
   final String categoryId;
   final String categoryName;
 
-  const _MarketplaceFlowWithOffers({
+  _MarketplaceFlowWithOffers({
     required this.state,
     required this.categoryId,
     required this.categoryName,
   });
 
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -517,12 +518,12 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
 
     // ✅ لو مفيش خصائص للفلترة، نخفي القسم بالكامل
     if (visibleAttributes.isEmpty) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
         color: _bg,
         border: Border(
           bottom: BorderSide(color: Color(0xFF252527), width: 1),
@@ -533,9 +534,9 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.tune_rounded, color: _primaryRed, size: 18),
-              const SizedBox(width: 8),
-              const Expanded(
+              Icon(Icons.tune_rounded, color: _primaryRed, size: 18),
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'حدد مواصفات البحث',
                   style: TextStyle(
@@ -549,20 +550,20 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
                 TextButton.icon(
                   onPressed: () {
                     context.read<MarketplaceBloc>().add(
-                          const ResetMarketplaceFilters(),
+                          ResetMarketplaceFilters(),
                         );
                   },
-                  icon: const Icon(Icons.clear_rounded, size: 16),
-                  label: const Text('مسح'),
+                  icon: Icon(Icons.clear_rounded, size: 16),
+                  label: Text('مسح'),
                   style: TextButton.styleFrom(
                     foregroundColor: _primaryRed,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 32),
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size(0, 32),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           _buildDynamicAttributes(context, visibleAttributes),
         ],
       ),
@@ -578,7 +579,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
       runSpacing: 8,
       children: attributes.map((attribute) {
         final rawOptions = state.optionsByAttribute[attribute.slug] ??
-            const <MarketplaceAttributeOption>[];
+            <MarketplaceAttributeOption>[];
 
         final options = _deduplicateOptions(rawOptions);
         final selectedId = state.selectedOptionIds[attribute.slug];
@@ -631,9 +632,9 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
 
   // ✅ نعرض فقط "الحالة" و "الماركة" بس عشان الفلاتر متبقاش ضخمة
   List<MarketplaceAttribute> _getVisibleAttributes() {
-    if (state.attributes.isEmpty) return const [];
+    if (state.attributes.isEmpty) return [];
 
-    const allowedSlugs = {'condition', 'brand'};
+    allowedSlugs = {'condition', 'brand'};
     final seenSlugs = <String>{};
 
     return state.attributes.where((attr) {
@@ -646,13 +647,13 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
 
   Widget _buildOffersSection(BuildContext context) {
     if (state.isLoadingResults && state.offers.isEmpty) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: _primaryRed),
       );
     }
 
     if (state.offers.isEmpty) {
-      return const _EmptyOffersView();
+      return _EmptyOffersView();
     }
 
     return RefreshIndicator(
@@ -660,18 +661,18 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
       backgroundColor: _card,
       onRefresh: () async {
         context.read<MarketplaceBloc>().add(
-              const LoadMarketplaceResults(),
+              LoadMarketplaceResults(),
             );
       },
       child: Stack(
         children: [
           GridView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-            physics: const AlwaysScrollableScrollPhysics(
+            padding: EdgeInsets.fromLTRB(12, 12, 12, 24),
+            physics: AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             itemCount: state.offers.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
@@ -683,7 +684,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
             },
           ),
           if (state.isLoadingResults)
-            const Positioned(
+            Positioned(
               top: 0,
               left: 0,
               right: 0,
@@ -710,7 +711,7 @@ class _FilterDropdown extends StatelessWidget {
   final bool isLoading;
   final ValueChanged<MarketplaceAttributeOption> onSelected;
 
-  const _FilterDropdown({
+  _FilterDropdown({
     required this.attribute,
     required this.options,
     required this.selectedOptionId,
@@ -719,22 +720,22 @@ class _FilterDropdown extends StatelessWidget {
     required this.onSelected,
   });
 
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
     if (!enabled) {
       return Container(
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF252527)),
+          border: Border.all(color: Color(0xFF252527)),
         ),
         child: Row(
           children: [
@@ -743,14 +744,14 @@ class _FilterDropdown extends StatelessWidget {
                 attribute.nameAr,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: _textSecondary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const Icon(
+            Icon(
               Icons.lock_outline_rounded,
               size: 12,
               color: _textSecondary,
@@ -767,7 +768,7 @@ class _FilterDropdown extends StatelessWidget {
           color: _card,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 16,
             height: 16,
@@ -783,18 +784,18 @@ class _FilterDropdown extends StatelessWidget {
     if (options.isEmpty) {
       return Container(
         height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF252527)),
+          border: Border.all(color: Color(0xFF252527)),
         ),
         child: Center(
           child: Text(
             '${attribute.nameAr}: لا توجد خيارات',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: _textSecondary,
               fontSize: 10,
             ),
@@ -819,12 +820,12 @@ class _FilterDropdown extends StatelessWidget {
 
     return Container(
       height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: hasSelection ? _primaryRed.withValues(alpha: 0.15) : _card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: hasSelection ? _primaryRed : const Color(0xFF303033),
+          color: hasSelection ? _primaryRed : Color(0xFF303033),
         ),
       ),
       child: DropdownButtonHideUnderline(
@@ -860,12 +861,12 @@ class _FilterDropdown extends StatelessWidget {
               child: Row(
                 children: [
                   if (isSelected) ...[
-                    const Icon(
+                    Icon(
                       Icons.check_rounded,
                       size: 14,
                       color: _primaryRed,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                   ],
                   Expanded(
                     child: Text(
@@ -909,15 +910,15 @@ class _FilterDropdown extends StatelessWidget {
 // ============================================================================
 
 class _EmptyOffersView extends StatelessWidget {
-  const _EmptyOffersView();
+  _EmptyOffersView();
 
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
         padding: EdgeInsets.all(28),
         child: Column(
@@ -957,17 +958,17 @@ class _EmptyOffersView extends StatelessWidget {
 class _MarketplaceOfferCard extends StatelessWidget {
   final MarketplaceOffer offer;
 
-  const _MarketplaceOfferCard({
+  _MarketplaceOfferCard({
     required this.offer,
   });
 
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _successGreen = Color(0xFF2E7D32);
-  static const Color _warningOrange = Color(0xFFE28B00);
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color _successGreen = Color(0xFF2E7D32);
+  static Color _warningOrange = Color(0xFFE28B00);
 
   @override
   Widget build(BuildContext context) {
@@ -983,12 +984,12 @@ class _MarketplaceOfferCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF2A2A2A)),
+          border: Border.all(color: Color(0xFF2A2A2A)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
               blurRadius: 8,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -1012,7 +1013,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                       top: 8,
                       left: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
+                        padding: EdgeInsets.symmetric(
                           horizontal: 7,
                           vertical: 3,
                         ),
@@ -1023,15 +1024,15 @@ class _MarketplaceOfferCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.inventory_2_rounded,
                               color: Colors.white,
                               size: 10,
                             ),
-                            const SizedBox(width: 3),
+                            SizedBox(width: 3),
                             Text(
                               'آخر ${offer.availableQuantity}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -1047,7 +1048,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
             Expanded(
               flex: 7,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                padding: EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1060,14 +1061,14 @@ class _MarketplaceOfferCard extends StatelessWidget {
                             _formatPrice(offer.price!),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _primaryRed,
                               fontSize: 16,
                               fontWeight: FontWeight.w900,
                             ),
                           )
                         else
-                          const Text(
+                          Text(
                             'سعر رمزي',
                             style: TextStyle(
                               color: _primaryRed,
@@ -1075,9 +1076,9 @@ class _MarketplaceOfferCard extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                        const SizedBox(width: 3),
+                        SizedBox(width: 3),
                         if (offer.hasPrice)
-                          const Text(
+                          Text(
                             'ج.م',
                             style: TextStyle(
                               color: _primaryRed,
@@ -1087,45 +1088,45 @@ class _MarketplaceOfferCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       offer.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     if (offer.description != null &&
                         offer.description!.isNotEmpty)
                       Text(
                         offer.description!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _textSecondary,
                           fontSize: 10,
                           height: 1.3,
                         ),
                       ),
-                    const Spacer(),
+                    Spacer(),
                     if (offer.ownerName != null && offer.ownerName!.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
+                        padding: EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [
                             _OwnerAvatar(url: offer.ownerAvatar, size: 16),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 offer.ownerName!,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _textSecondary,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -1142,18 +1143,18 @@ class _MarketplaceOfferCard extends StatelessWidget {
                           Expanded(
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.location_on_rounded,
                                   size: 10,
                                   color: _textSecondary,
                                 ),
-                                const SizedBox(width: 2),
+                                SizedBox(width: 2),
                                 Expanded(
                                   child: Text(
                                     offer.pickupLocation!,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: _textSecondary,
                                       fontSize: 9,
                                     ),
@@ -1164,7 +1165,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                           ),
                         if (offer.conditionLabel != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                               horizontal: 6,
                               vertical: 2,
                             ),
@@ -1177,7 +1178,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
                             ),
                             child: Text(
                               offer.conditionLabel!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _successGreen,
                                 fontSize: 8,
                                 fontWeight: FontWeight.w800,
@@ -1332,7 +1333,7 @@ class _MarketplaceOfferCard extends StatelessWidget {
 class _OfferImagesCarousel extends StatefulWidget {
   final List<String> images;
 
-  const _OfferImagesCarousel({
+  _OfferImagesCarousel({
     required this.images,
   });
 
@@ -1345,8 +1346,8 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
 
   int _currentIndex = 0;
 
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   void initState() {
@@ -1365,7 +1366,7 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
     if (widget.images.isEmpty) {
       return Container(
         color: _cardSoft,
-        child: const Icon(
+        child: Icon(
           Icons.image_not_supported_rounded,
           color: _textSecondary,
           size: 38,
@@ -1401,8 +1402,8 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
             children: List.generate(
               widget.images.length,
               (index) => AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                margin: const EdgeInsets.symmetric(horizontal: 2),
+                duration: Duration(milliseconds: 250),
+                margin: EdgeInsets.symmetric(horizontal: 2),
                 width: _currentIndex == index ? 14 : 5,
                 height: 5,
                 decoration: BoxDecoration(
@@ -1419,7 +1420,7 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
           bottom: 8,
           right: 8,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            padding: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(6),
@@ -1427,15 +1428,15 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.photo_library_rounded,
                   color: Colors.white,
                   size: 9,
                 ),
-                const SizedBox(width: 2),
+                SizedBox(width: 2),
                 Text(
                   '${_currentIndex + 1}/${widget.images.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
@@ -1457,20 +1458,20 @@ class _OfferImagesCarouselState extends State<_OfferImagesCarousel> {
 class _SingleImage extends StatelessWidget {
   final String url;
 
-  const _SingleImage({
+  _SingleImage({
     required this.url,
   });
 
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
     if (url.isEmpty || url == 'null') {
       return Container(
         color: _cardSoft,
-        child: const Icon(
+        child: Icon(
           Icons.image_not_supported_rounded,
           color: _textSecondary,
           size: 38,
@@ -1485,7 +1486,7 @@ class _SingleImage extends StatelessWidget {
       fit: BoxFit.cover,
       placeholder: (_, __) => Container(
         color: _cardSoft,
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 22,
             height: 22,
@@ -1498,7 +1499,7 @@ class _SingleImage extends StatelessWidget {
       ),
       errorWidget: (_, __, ___) => Container(
         color: _cardSoft,
-        child: const Icon(
+        child: Icon(
           Icons.image_not_supported_rounded,
           color: _textSecondary,
           size: 38,
@@ -1524,13 +1525,13 @@ class _OwnerAvatar extends StatelessWidget {
   final String? url;
   final double size;
 
-  const _OwnerAvatar({
+  _OwnerAvatar({
     required this.url,
     this.size = 16,
   });
 
-  static const Color _cardSoft = Color(0xFF2C2C2E);
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -1538,7 +1539,7 @@ class _OwnerAvatar extends StatelessWidget {
       return Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: _cardSoft,
           shape: BoxShape.circle,
         ),
@@ -1583,7 +1584,7 @@ class _OwnerAvatar extends StatelessWidget {
 class _SourceBadge extends StatelessWidget {
   final String sourceType;
 
-  const _SourceBadge({
+  _SourceBadge({
     required this.sourceType,
   });
 
@@ -1595,31 +1596,31 @@ class _SourceBadge extends StatelessWidget {
 
     switch (sourceType) {
       case 'community':
-        color = const Color(0xFF2E7D32);
+        color = Color(0xFF2E7D32);
         icon = Icons.person_rounded;
         label = 'مستخدم';
         break;
 
       case 'institution':
-        color = const Color(0xFF1565C0);
+        color = Color(0xFF1565C0);
         icon = Icons.storefront_rounded;
         label = 'محل';
         break;
 
       case 'business':
-        color = const Color(0xFFE28B00);
+        color = Color(0xFFE28B00);
         icon = Icons.business_rounded;
         label = 'مؤسسة';
         break;
 
       default:
-        color = const Color(0xFF555555);
+        color = Color(0xFF555555);
         icon = Icons.storefront_rounded;
         label = 'عرض';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(6),
@@ -1628,10 +1629,10 @@ class _SourceBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: Colors.white, size: 9),
-          const SizedBox(width: 2),
+          SizedBox(width: 2),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 8,
               fontWeight: FontWeight.w800,
@@ -1651,15 +1652,15 @@ class _DubizzleStyleCard extends StatelessWidget {
   final CategoryOffer offer;
   final VoidCallback onTap;
 
-  const _DubizzleStyleCard({
+  _DubizzleStyleCard({
     required this.offer,
     required this.onTap,
   });
 
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
+  static Color get _card => HomePalette.card;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -1669,7 +1670,7 @@ class _DubizzleStyleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: _card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF2A2A2A), width: 1),
+          border: Border.all(color: Color(0xFF2A2A2A), width: 1),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -1692,7 +1693,7 @@ class _DubizzleStyleCard extends StatelessWidget {
             Expanded(
               flex: 5,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                padding: EdgeInsets.fromLTRB(10, 8, 10, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1700,40 +1701,40 @@ class _DubizzleStyleCard extends StatelessWidget {
                       offer.priceDisplay,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _primaryRed,
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text(
                       offer.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _textPrimary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                       ),
                     ),
-                    const Spacer(),
+                    Spacer(),
                     Row(
                       children: [
                         if (offer.distanceDisplay != null) ...[
-                          const Icon(
+                          Icon(
                             Icons.location_on_rounded,
                             size: 11,
                             color: _textSecondary,
                           ),
-                          const SizedBox(width: 2),
+                          SizedBox(width: 2),
                           Flexible(
                             child: Text(
                               offer.distanceDisplay!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textSecondary,
                                 fontSize: 10,
                               ),
@@ -1745,21 +1746,21 @@ class _DubizzleStyleCard extends StatelessWidget {
                               offer.categoryName!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textSecondary,
                                 fontSize: 10,
                               ),
                             ),
                           ),
                         ],
-                        const Spacer(),
+                        Spacer(),
                         if (offer.originalPriceDisplay != null)
                           Flexible(
                             child: Text(
                               offer.originalPriceDisplay!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _textSecondary,
                                 fontSize: 10,
                                 decoration: TextDecoration.lineThrough,
@@ -1786,7 +1787,7 @@ class _DubizzleStyleCard extends StatelessWidget {
 class _OwnerBadge extends StatelessWidget {
   final String ownerType;
 
-  const _OwnerBadge({
+  _OwnerBadge({
     required this.ownerType,
   });
 
@@ -1798,18 +1799,18 @@ class _OwnerBadge extends StatelessWidget {
 
     switch (ownerType) {
       case 'community':
-        color = const Color(0xFF2E7D32);
+        color = Color(0xFF2E7D32);
         icon = Icons.person_rounded;
         label = 'مستخدم';
         break;
 
       case 'restaurant':
         if (!_AppFeatures.showRestaurants) {
-          color = const Color(0xFF1565C0);
+          color = Color(0xFF1565C0);
           icon = Icons.storefront_rounded;
           label = 'محل';
         } else {
-          color = const Color(0xFFE28B00);
+          color = Color(0xFFE28B00);
           icon = Icons.restaurant_rounded;
           label = 'مطعم';
         }
@@ -1817,14 +1818,14 @@ class _OwnerBadge extends StatelessWidget {
 
       case 'institution':
       default:
-        color = const Color(0xFF1565C0);
+        color = Color(0xFF1565C0);
         icon = Icons.storefront_rounded;
         label = 'محل';
         break;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(8),
@@ -1833,10 +1834,10 @@ class _OwnerBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: Colors.white, size: 10),
-          const SizedBox(width: 3),
+          SizedBox(width: 3),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontSize: 9,
               fontWeight: FontWeight.w800,

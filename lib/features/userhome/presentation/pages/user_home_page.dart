@@ -51,6 +51,7 @@ import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.d
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_auxiliary_widgets.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_need_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_offer_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/user_home_navigation_widgets.dart';
@@ -142,14 +143,14 @@ class _UserHomePageState extends State<UserHomePage> {
 
   // ───────── ألوان الديزاين ─────────
   static bool get _isDark => ThemeNotifier.isDarkMode.value;
-  static Color get _bg => const Color(0xFF202124);
-  static Color get _card => const Color(0xFF2A2C30);
-  static Color get _cardSoft => const Color(0xFF303238);
-  static Color get _primaryRed => const Color(0xFFFF2E3B);
-  static Color get _primaryRedDark => const Color(0xFFD8202C);
-  static Color get _textPrimary => const Color(0xFFF7F7F8);
-  static Color get _textSecondary => const Color(0xFFB8B9BE);
-  static Color get _border => const Color(0x22FFFFFF);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _primaryRedDark => HomePalette.primaryRedDark;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color get _border => HomePalette.border;
   static Color get _orange => const Color(0xFFFF9B45);
   static Color get _green => const Color(0xFF18B7A0);
   static Color get _blue => const Color(0xFF4C8DFF);

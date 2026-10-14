@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/core/constants/egypt_locations.dart';
@@ -21,7 +22,7 @@ class UserInstitutionOffersPage extends StatefulWidget {
   /// `surplus` = hotels/wedding halls.
   final String? institutionSection;
 
-  const UserInstitutionOffersPage({
+  UserInstitutionOffersPage({
     super.key,
     this.offers,
     this.institutionSection,
@@ -37,19 +38,19 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
-  static const int _pageSize = 20;
+  static int _pageSize = 20;
   String? _userGovernorate;
   String? _selectedGovernorate;
   int _offset = 0;
   String _selectedInstitutionType = 'all';
 
   // ───────── نفس هوية التطبيق (Home/Offers Hub) ─────────
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _orange = Color(0xFFE28B00);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color _orange = Color(0xFFE28B00);
 
   @override
   void initState() {
@@ -210,10 +211,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           foodType: item['food_type']?.toString() ?? 'مواد غذائية',
           expiryTime: item['expires_at'] != null
               ? DateTime.parse(item['expires_at'].toString())
-              : DateTime.now().add(const Duration(days: 7)),
+              : DateTime.now().add(Duration(days: 7)),
           pickupBefore: item['pickup_before'] != null
               ? DateTime.parse(item['pickup_before'].toString())
-              : DateTime.now().add(const Duration(days: 7)),
+              : DateTime.now().add(Duration(days: 7)),
           pickupLocation: item['pickup_location']?.toString() ?? '',
           latitude:
               (institutionData['latitude'] as num?)?.toDouble() ?? 30.0444,
@@ -282,9 +283,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Theme(
-        data: ThemeData.dark().copyWith(
+        data: Theme.of(context).copyWith(
           scaffoldBackgroundColor: _bg,
-          colorScheme: const ColorScheme.dark(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
             primary: _primaryRed,
             surface: _bg,
             onSurface: _textPrimary,
@@ -294,7 +295,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           backgroundColor: _bg,
           appBar: _buildAppBar(context),
           body: _isLoading
-              ? const Center(
+              ? Center(
                   child: CircularProgressIndicator(color: _primaryRed),
                 )
               : RefreshIndicator(
@@ -304,7 +305,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                         await _fetchInstitutionOffers(reset: true);
                       },
                       child: CustomScrollView(
-                        physics: const BouncingScrollPhysics(
+                        physics: BouncingScrollPhysics(
                           parent: AlwaysScrollableScrollPhysics(),
                         ),
                         slivers: [
@@ -326,14 +327,14 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                           else
                             SliverPadding(
                               padding:
-                                  const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                                  EdgeInsets.fromLTRB(16, 8, 16, 100),
                               sliver: SliverList(
                                 delegate: SliverChildBuilderDelegate(
                                   (context, index) {
                                     final offer = offers[index];
                                     return Padding(
                                       padding:
-                                          const EdgeInsets.only(bottom: 14),
+                                          EdgeInsets.only(bottom: 14),
                                       child: _InstitutionOfferCard(
                                         offer: offer,
                                         index: index,
@@ -349,16 +350,16 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                           if (_hasMore && offers.isNotEmpty)
                             SliverToBoxAdapter(
                               child: Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
+                                padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
                                 child: OutlinedButton.icon(
                                   onPressed: _isLoadingMore ? null : _loadMore,
                                   icon: _isLoadingMore
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 16,
                                           height: 16,
                                           child: CircularProgressIndicator(strokeWidth: 2),
                                         )
-                                      : const Icon(Icons.expand_more_rounded),
+                                      : Icon(Icons.expand_more_rounded),
                                   label: Text(_isLoadingMore ? 'جاري التحميل...' : 'تحميل المزيد'),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: _textPrimary,
@@ -384,9 +385,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       elevation: 0,
       leading: IconButton(
         onPressed: () => Navigator.of(context).maybePop(),
-        icon: const Icon(Icons.arrow_back_rounded, color: _textPrimary),
+        icon: Icon(Icons.arrow_back_rounded, color: _textPrimary),
       ),
-      title: const Text(
+      title: Text(
         'عروض المؤسسات',
         style: TextStyle(
           color: _textPrimary,
@@ -407,7 +408,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                             builder: (_) => NotificationsPage(userId: userId),
                           ),
                         ),
-                icon: const Icon(
+                icon: Icon(
                   Icons.notifications_none_rounded,
                   color: _textSecondary,
                 ),
@@ -419,7 +420,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                   child: Container(
                     width: 9,
                     height: 9,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: _primaryRed,
                       shape: BoxShape.circle,
                     ),
@@ -428,7 +429,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             ],
           ),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
       ],
     );
   }
@@ -439,10 +440,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
 
   Widget _buildHeroHeader() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.fromLTRB(16, 8, 16, 16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [_primaryRed, Color(0xFF8E0F14)],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
@@ -452,7 +453,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           BoxShadow(
             color: _primaryRed.withValues(alpha: 0.3),
             blurRadius: 20,
-            offset: const Offset(0, 8),
+            offset: Offset(0, 8),
           ),
         ],
       ),
@@ -476,7 +477,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '🏪 عروض المؤسسات',
                       style: TextStyle(
                         color: Colors.white,
@@ -484,18 +485,18 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       '${_allOffers.length} عرض متاح',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 5,
                       ),
@@ -505,7 +506,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                         border: Border.all(
                             color: Colors.white.withValues(alpha: 0.2)),
                       ),
-                      child: const Text(
+                      child: Text(
                         '🏷️ بأسعار رمزية من المؤسسات',
                         style: TextStyle(
                           color: Colors.white,
@@ -524,7 +525,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.storefront_rounded,
                   color: Colors.white,
                   size: 30,
@@ -547,7 +548,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     final institutions = offers.map((o) => o.businessId).toSet().length;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
           Expanded(
@@ -558,7 +559,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               color: _primaryRed,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: _statChip(
               icon: Icons.local_fire_department_rounded,
@@ -567,13 +568,13 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
               color: _orange,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: _statChip(
               icon: Icons.verified_rounded,
               label: 'مؤسسات',
               value: '$institutions',
-              color: const Color(0xFF3679C8),
+              color: Color(0xFF3679C8),
             ),
           ),
         ],
@@ -588,7 +589,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(16),
@@ -606,7 +607,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             ),
             child: Icon(icon, color: color, size: 15),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
@@ -617,7 +618,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           ),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: _textSecondary,
               fontSize: 9.5,
               fontWeight: FontWeight.w600,
@@ -664,18 +665,18 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   Widget _buildGovernorateSelector() {
     final selected = _selectedGovernorate;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+      padding: EdgeInsets.fromLTRB(16, 8, 16, 2),
       child: DropdownButtonFormField<String>(
         value: selected,
         isExpanded: true,
         dropdownColor: _card,
-        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textSecondary),
+        icon: Icon(Icons.keyboard_arrow_down_rounded, color: _textSecondary),
         decoration: InputDecoration(
           labelText: _userGovernorate == null
               ? 'اختار المحافظة'
               : 'المحافظة الحالية: $_userGovernorate',
-          labelStyle: const TextStyle(color: _textSecondary, fontSize: 11),
-          prefixIcon: const Icon(Icons.location_on_outlined, color: _primaryRed),
+          labelStyle: TextStyle(color: _textSecondary, fontSize: 11),
+          prefixIcon: Icon(Icons.location_on_outlined, color: _primaryRed),
           filled: true,
           fillColor: _card,
           border: OutlineInputBorder(
@@ -687,9 +688,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
         ),
-        style: const TextStyle(color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
+        style: TextStyle(color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
         items: [
-          const DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')),
+          DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')),
           ...EgyptLocations.names.map(
             (name) => DropdownMenuItem<String>(value: name, child: Text(name)),
           ),
@@ -718,7 +719,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   }
 
   Widget _buildInstitutionTypeFilters() {
-    const filters = [
+    filters = [
       ('all', 'كل المؤسسات', Icons.storefront_rounded),
       ('hotel', 'فنادق', Icons.hotel_rounded),
       ('grocery', 'بقالات', Icons.shopping_cart_rounded),
@@ -727,10 +728,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
     return SizedBox(
       height: 58,
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
         scrollDirection: Axis.horizontal,
         itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => SizedBox(width: 8),
         itemBuilder: (context, index) {
           final filter = filters[index];
           final selected = _selectedInstitutionType == filter.$1;
@@ -766,7 +767,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   Widget _buildEmptyState({String? message}) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -777,14 +778,14 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                 color: _primaryRed.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.storefront_rounded,
                 color: _primaryRed,
                 size: 50,
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
+            SizedBox(height: 24),
+            Text(
               'لا توجد عروض مؤسسات',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -793,7 +794,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               message ?? 'حاليًا لا توجد عروض من المؤسسات\nحاول مرة أخرى لاحقًا',
               textAlign: TextAlign.center,
@@ -803,16 +804,16 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
                 _fetchInstitutionOffers();
               },
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('تحديث'),
+              icon: Icon(Icons.refresh_rounded, size: 18),
+              label: Text('تحديث'),
               style: FilledButton.styleFrom(
                 backgroundColor: _primaryRed,
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
                 ),
@@ -895,7 +896,7 @@ class _InstitutionOfferCard extends StatefulWidget {
   final int index;
   final VoidCallback onTap;
 
-  const _InstitutionOfferCard({
+  _InstitutionOfferCard({
     required this.offer,
     required this.index,
     required this.onTap,
@@ -907,13 +908,11 @@ class _InstitutionOfferCard extends StatefulWidget {
 
 class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
     with SingleTickerProviderStateMixin {
-  static const Color _card = _UserInstitutionOffersPageState._card;
-  static const Color _primaryRed = _UserInstitutionOffersPageState._primaryRed;
-  static const Color _textPrimary =
-      _UserInstitutionOffersPageState._textPrimary;
-  static const Color _textSecondary =
-      _UserInstitutionOffersPageState._textSecondary;
-  static const Color _orange = _UserInstitutionOffersPageState._orange;
+  static Color get _card => HomePalette.card;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color _orange = _UserInstitutionOffersPageState._orange;
 
   late AnimationController _controller;
   late Animation<double> _fade;
@@ -923,12 +922,12 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 420),
+      duration: Duration(milliseconds: 420),
       vsync: this,
     );
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _slide = Tween<Offset>(
-      begin: const Offset(0, 0.08),
+      begin: Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
@@ -973,7 +972,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.28),
                     blurRadius: 16,
-                    offset: const Offset(0, 6),
+                    offset: Offset(0, 6),
                   ),
                 ],
               ),
@@ -992,7 +991,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 fit: BoxFit.cover,
                                 placeholder: (context, url) => Container(
                                   color: _primaryRed.withValues(alpha: 0.08),
-                                  child: const Center(
+                                  child: Center(
                                     child: SizedBox(
                                       width: 20,
                                       height: 20,
@@ -1005,7 +1004,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 ),
                                 errorWidget: (context, url, error) => Container(
                                   color: _primaryRed.withValues(alpha: 0.08),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.storefront_rounded,
                                     color: _primaryRed,
                                     size: 36,
@@ -1014,7 +1013,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                               )
                             : Container(
                                 color: _primaryRed.withValues(alpha: 0.08),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.storefront_rounded,
                                   color: _primaryRed,
                                   size: 36,
@@ -1026,7 +1025,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                           top: 8,
                           right: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
+                            padding: EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: _orange,
@@ -1035,11 +1034,11 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 BoxShadow(
                                   color: _orange.withValues(alpha: 0.4),
                                   blurRadius: 6,
-                                  offset: const Offset(0, 2),
+                                  offset: Offset(0, 2),
                                 ),
                               ],
                             ),
-                            child: const Text(
+                            child: Text(
                               'عاجل 🔥',
                               style: TextStyle(
                                 color: Colors.white,
@@ -1055,7 +1054,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                   // ✅ المحتوى
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -1063,60 +1062,60 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                           // اسم المؤسسة + توثيق
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.store_rounded,
                                 size: 13,
                                 color: _textSecondary,
                               ),
-                              const SizedBox(width: 4),
+                              SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   institutionName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _textSecondary,
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
-                              const Icon(
+                              Icon(
                                 Icons.verified_rounded,
                                 size: 14,
                                 color: _primaryRed,
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
 
                           // العنوان
                           Text(
                             widget.offer.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
                               height: 1.3,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
 
                           // السعر والخصم
                           Row(
                             children: [
                               Text(
                                 '${price.toStringAsFixed(0)} ج.م',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _primaryRed,
                                   fontSize: 19,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                               if (hasDiscount) ...[
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6),
                                 Text(
                                   '${originalPrice.toStringAsFixed(0)} ج.م',
                                   style: TextStyle(
@@ -1130,9 +1129,9 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                             ],
                           ),
                           if (hasDiscount) ...[
-                            const SizedBox(height: 4),
+                            SizedBox(height: 4),
                             Container(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                 horizontal: 7,
                                 vertical: 3,
                               ),
@@ -1142,7 +1141,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                               ),
                               child: Text(
                                 'وفر $discount%',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: _orange,
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w800,
@@ -1150,13 +1149,13 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                               ),
                             ),
                           ],
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
 
                           // الكمية والوقت
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(
+                                padding: EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 4,
                                 ),
@@ -1166,25 +1165,25 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 ),
                                 child: Text(
                                   '📦 ${widget.offer.quantity}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _primaryRed,
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              const Icon(
+                              SizedBox(width: 6),
+                              Icon(
                                 Icons.schedule_rounded,
                                 size: 13,
                                 color: _orange,
                               ),
-                              const SizedBox(width: 3),
+                              SizedBox(width: 3),
                               Expanded(
                                 child: Text(
                                   widget.offer.timeRemaining,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _orange,
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w700,
@@ -1193,11 +1192,11 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                           SizedBox(
                             width: double.infinity,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 9),
+                              padding: EdgeInsets.symmetric(vertical: 9),
                               decoration: BoxDecoration(
                                 color: _primaryRed,
                                 borderRadius: BorderRadius.circular(10),
@@ -1205,11 +1204,11 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                   BoxShadow(
                                     color: _primaryRed.withValues(alpha: 0.3),
                                     blurRadius: 8,
-                                    offset: const Offset(0, 3),
+                                    offset: Offset(0, 3),
                                   ),
                                 ],
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(

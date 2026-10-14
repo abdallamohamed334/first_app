@@ -1,6 +1,7 @@
 // lib/features/userhome/presentation/pages/sub_categories_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/features/userhome/presentation/pages/category_offers_page.dart';
@@ -11,7 +12,7 @@ class SubCategoriesPage extends StatefulWidget {
   final String parentName;
   final String? parentSlug;
 
-  const SubCategoriesPage({
+  SubCategoriesPage({
     super.key,
     required this.parentId,
     required this.parentName,
@@ -23,13 +24,13 @@ class SubCategoriesPage extends StatefulWidget {
 }
 
 class _SubCategoriesPageState extends State<SubCategoriesPage> {
-  static const Color _bg = Color(0xFF0F0F0F);
-  static const Color _card = Color(0xFF1C1C1E);
-  static const Color _primaryRed = Color(0xFFE31C25);
-  static const Color _primaryRedDark = Color(0xFF8E0F14);
-  static const Color _textPrimary = Colors.white;
-  static const Color _textSecondary = Color(0xFFAAAAAA);
-  static const Color _border = Color(0x14FFFFFF);
+  static Color get _bg => HomePalette.bg;
+  static Color get _card => HomePalette.card;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _primaryRedDark => HomePalette.primaryRedDark;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+  static Color _border = Color(0x14FFFFFF);
 
   bool _loading = true;
   String? _error;
@@ -93,9 +94,9 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Theme(
-        data: ThemeData.dark().copyWith(
+        data: Theme.of(context).copyWith(
           scaffoldBackgroundColor: _bg,
-          colorScheme: const ColorScheme.dark(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
             primary: _primaryRed,
             surface: _bg,
             onSurface: _textPrimary,
@@ -108,24 +109,24 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
             surfaceTintColor: _bg,
             elevation: 0,
             centerTitle: true,
-            iconTheme: const IconThemeData(color: _textPrimary),
+            iconTheme: IconThemeData(color: _textPrimary),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   widget.parentName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
                 if (!_loading && _children.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     '${_children.length} قسم فرعي',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _textSecondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -143,7 +144,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: CircularProgressIndicator(color: _primaryRed),
       );
     }
@@ -157,9 +158,9 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-      physics: const BouncingScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
+      physics: BouncingScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         mainAxisSpacing: 14,
         crossAxisSpacing: 14,
@@ -176,7 +177,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
     final slug = category['slug']?.toString() ?? '';
     final iconName = category['icon']?.toString() ?? '';
 
-    if (id.isEmpty) return const SizedBox.shrink();
+    if (id.isEmpty) return SizedBox.shrink();
 
     return Material(
       color: _card,
@@ -189,7 +190,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: _border, width: 1),
           ),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
@@ -214,14 +215,14 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
                   size: 22,
                 ),
               ),
-              const SizedBox(height: 9),
+              SizedBox(height: 9),
               Flexible(
                 child: Text(
                   name,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _textPrimary,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
@@ -285,7 +286,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
   Widget _buildEmpty() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -304,8 +305,8 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
                 size: 36,
               ),
             ),
-            const SizedBox(height: 18),
-            const Text(
+            SizedBox(height: 18),
+            Text(
               'مفيش أقسام فرعية',
               style: TextStyle(
                 color: _textPrimary,
@@ -313,8 +314,8 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
+            SizedBox(height: 6),
+            Text(
               'هنعرضلك العروض على طول',
               style: TextStyle(color: _textSecondary, fontSize: 12.5),
             ),
@@ -327,7 +328,7 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -340,26 +341,26 @@ class _SubCategoriesPageState extends State<SubCategoriesPage> {
                 shape: BoxShape.circle,
                 border: Border.all(color: _border, width: 1),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.cloud_off_rounded,
                 color: _primaryRed,
                 size: 36,
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Text(
               _error ?? 'حصل خطأ',
-              style: const TextStyle(
+              style: TextStyle(
                 color: _textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             ElevatedButton.icon(
               onPressed: _loadChildren,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('حاول مرة أخرى'),
+              icon: Icon(Icons.refresh_rounded),
+              label: Text('حاول مرة أخرى'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryRed,
                 foregroundColor: Colors.white,
