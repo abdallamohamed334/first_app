@@ -32,6 +32,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   static const _border = Color(0xFFE9E6ED);
   static const _amber = Color(0xFFDC9A34);
   static const _blue = Color(0xFF6C4DB3);
+  static const _green = Color(0xFF2E9B68);
   static const _whatsapp = Color(0xFF25D366);
   static const _danger = Color(0xFFC1503F);
 
@@ -399,18 +400,31 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       child: Scaffold(
         backgroundColor: _bg,
         appBar: AppBar(
-          backgroundColor: _primaryDark,
-          foregroundColor: Colors.white,
+          backgroundColor: _bg,
+          foregroundColor: _ink,
           elevation: 0,
-          scrolledUnderElevation: 0.5,
-          centerTitle: true,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleSpacing: 18,
           title: const Text(
             'تفاصيل الاحتياج',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+            style: TextStyle(
+              color: _ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
           ),
+          actions: [
+            IconButton(
+              tooltip: 'تحديث',
+              onPressed: _loading ? null : _loadNeed,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator(color: _primary))
+            ? const Center(child: CircularProgressIndicator(color: _blue))
             : (_errorMessage != null || _need == null)
                 ? _buildErrorState()
                 : _buildContent(),
@@ -419,219 +433,191 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     );
   }
 
-  // ─────────────────────────────────────────────
-  // المحتوى — هيرو ثابت + كارت طافي (بمساحة محجوزة صح) + تفاصيل
-  // ─────────────────────────────────────────────
   Widget _buildContent() {
     return RefreshIndicator(
-      color: _primary,
+      color: _blue,
       onRefresh: _loadNeed,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
         children: [
-          _buildHeroWithOverlapCard(),
+          _buildNeedHero(),
+          const SizedBox(height: 14),
+          _buildRequesterCard(),
           const SizedBox(height: 14),
           _buildDetailsCard(),
           const SizedBox(height: 14),
           _buildStatsCard(),
-          const SizedBox(height: 14),
           if (!_isOwner) ...[
-            _buildAvailabilityNotice(),
             const SizedBox(height: 14),
+            _buildAvailabilityNotice(),
           ],
+          const SizedBox(height: 14),
           _buildSafetyNote(),
         ],
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ الهيرو + كارت "صاحب الاحتياج" الطافي
-  // بيستخدموا Stack عادي (مش Sliver) والمساحة بتتحجز صح عن طريق
-  // SizedBox في آخر الـ Stack، فمفيش أي تداخل مع اللي تحته.
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildHeroWithOverlapCard() {
-    return Column(
-      children: [
-        _buildHero(),
-        const SizedBox(height: 10),
-        _buildRequesterCard(),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // HERO (ثابت — من غير أي Sliver أو أنيميشن سكرول)
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildHero() {
+  Widget _buildNeedHero() {
     final need = _need!;
     final title = need['title']?.toString() ?? 'احتياج';
     final categoryName = (need['category_name_ar'] ?? need['need_category'])
             ?.toString() ??
         'احتياج آخر';
     final imageUrl = need['image_url']?.toString();
-    final urgency = need['urgency']?.toString() ?? 'normal';
-    final urgencyData = _urgencyData(urgency);
-    final expiresAt = _parseDate(need['expires_at']);
+    final urgencyData = _urgencyData(need['urgency']?.toString() ?? 'normal');
     final status = need['status']?.toString() ?? 'active';
     final statusData = _statusData(status);
+    final expiresAt = _parseDate(need['expires_at']);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [_primaryDark, _primary],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: _primaryDark,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: _blue.withValues(alpha: 0.18),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: -30,
-              bottom: -30,
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.05),
+        ],
+      ),
+      child: Stack(
+        children: [
+          if (imageUrl != null && imageUrl.trim().isNotEmpty)
+            Positioned.fill(
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    _primaryDark.withValues(alpha: 0.30),
+                    _primaryDark.withValues(alpha: 0.96),
+                  ],
                 ),
               ),
             ),
-            Positioned(
-              right: -20,
-              top: -30,
-              child: Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
-                ),
-              ),
-            ),
-            Column(
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.volunteer_activism_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
+                    _heroIcon(Icons.volunteer_activism_rounded),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          categoryName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
+                      child: Text(
+                        categoryName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
+                    _statusPill(statusData.$1, statusData.$2),
                   ],
                 ),
-                const SizedBox(height: 14),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: imageUrl != null && imageUrl.isNotEmpty
-                      ? Image.network(
-                          imageUrl,
-                          height: 148,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildCategoryImage(categoryName),
-                        )
-                      : _buildCategoryImage(categoryName),
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 92),
                 Text(
                   title,
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 19,
+                    fontSize: 25,
                     fontWeight: FontWeight.w900,
-                    height: 1.3,
+                    height: 1.18,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _buildHeroBadge(
-                      icon: urgencyData.$1,
-                      label: urgencyData.$2,
+                    _heroInfoPill(urgencyData.$1, urgencyData.$2),
+                    _heroInfoPill(
+                      Icons.schedule_rounded,
+                      _remainingText(expiresAt),
                     ),
-                    _buildHeroBadge(
-                      icon: Icons.access_time_rounded,
-                      label: _remainingText(expiresAt),
-                    ),
-                    if (status != 'active')
-                      _buildHeroBadge(
-                        icon: statusData.$2,
-                        label: statusData.$1,
-                      ),
                   ],
                 ),
-                const SizedBox(height: 6),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHeroBadge({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _heroIcon(IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Icon(icon, color: Colors.white, size: 22),
+    );
+  }
+
+  Widget _statusPill(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: _green.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _green.withValues(alpha: 0.36)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 12),
+          Icon(icon, color: Colors.white, size: 13),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroInfoPill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 14),
           const SizedBox(width: 5),
           Text(
             label,
@@ -646,61 +632,41 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // كارت صاحب الاحتياج — طافي فوق حافة الهيرو
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildRequesterCard() {
     final need = _need!;
     final users = need['users'];
-    final userMap =
-        users is Map ? Map<String, dynamic>.from(users) : <String, dynamic>{};
-
+    final userMap = users is Map
+        ? Map<String, dynamic>.from(users)
+        : <String, dynamic>{};
     final name = userMap['name']?.toString() ?? 'مستخدم';
     final avatar = userMap['avatar_url']?.toString();
     final city = userMap['city']?.toString() ?? need['city']?.toString() ?? '';
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryDark.withValues(alpha: 0.12),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+    return _surfaceCard(
       child: Row(
         children: [
           Container(
-            width: 50,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            width: 54,
+            height: 54,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
               color: _primarySoft,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(18),
             ),
             child: avatar != null && avatar.isNotEmpty
-                ? ClipOval(
-                    child: Image.network(
-                      avatar,
-                      width: 50,
-                      height: 50,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
-                        Icons.person_rounded,
-                        color: _primary,
-                        size: 24,
-                      ),
+                ? Image.network(
+                    avatar,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.person_rounded,
+                      color: _blue,
+                      size: 28,
                     ),
                   )
                 : const Icon(
                     Icons.person_rounded,
-                    color: _primary,
-                    size: 24,
+                    color: _blue,
+                    size: 28,
                   ),
           ),
           const SizedBox(width: 12),
@@ -712,16 +678,18 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   'صاحب الاحتياج',
                   style: TextStyle(
                     color: _muted,
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _ink,
-                    fontSize: 14.5,
+                    fontSize: 15,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -729,302 +697,154 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             ),
           ),
           if (city.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _primarySoft,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.location_on_rounded,
-                      color: _primary, size: 12),
-                  const SizedBox(width: 3),
-                  Text(
-                    city,
-                    style: const TextStyle(
-                      color: _primary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _softTag(Icons.location_on_rounded, city, _blue),
         ],
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // DETAILS CARD
-  // ═══════════════════════════════════════════════════════════
 
   Widget _buildDetailsCard() {
     final need = _need!;
-    final description = need['description']?.toString() ?? '';
+    final description = need['description']?.toString().trim() ?? '';
     final quantity = (need['quantity'] as num?)?.toInt() ?? 1;
-    final address = need['address']?.toString() ?? '';
+    final address = need['address']?.toString().trim() ?? '';
 
-    final rows = <(IconData, String, String)>[
-      (Icons.inventory_2_outlined, 'الكمية', '$quantity'),
-      if (description.isNotEmpty)
-        (Icons.description_outlined, 'الوصف', description),
-      if (address.isNotEmpty) (Icons.place_outlined, 'العنوان', address),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
-      ),
+    return _surfaceCard(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _primarySoft,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.info_outline_rounded,
-                  color: _primary,
-                  size: 16,
-                ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(18, 18, 18, 12),
+            child: Text(
+              'عن الاحتياج',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
               ),
-              const SizedBox(width: 10),
-              const Text(
-                'تفاصيل الاحتياج',
-                style: TextStyle(
-                  color: _ink,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
+            ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _highlightValue(
+                    Icons.inventory_2_rounded,
+                    'الكمية المطلوبة',
+                    '$quantity',
+                    'قطعة',
+                    _blue,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _highlightValue(
+                    Icons.handshake_rounded,
+                    'نوع الطلب',
+                    'مساعدة',
+                    'مجتمعية',
+                    _amber,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (description.isNotEmpty || address.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Divider(height: 1, color: _border),
+            if (description.isNotEmpty)
+              _detailBlock(Icons.notes_rounded, 'الوصف', description),
+            if (address.isNotEmpty)
+              _detailBlock(Icons.place_rounded, 'مكان التسليم', address),
+          ],
           const SizedBox(height: 8),
-          for (int i = 0; i < rows.length; i++) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
-              child: _buildDetailRow(rows[i].$1, rows[i].$2, rows[i].$3),
-            ),
-            if (i != rows.length - 1) const Divider(height: 1, color: _border),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: _primarySoft,
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, color: _primary, size: 15),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: _muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STATS CARD
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildStatsCard() {
-    final need = _need!;
-    final contactCount = (need['contact_count'] as num?)?.toInt() ?? 0;
-    final phoneCount = (need['phone_count'] as num?)?.toInt() ?? 0;
-    final whatsappCount = (need['whatsapp_count'] as num?)?.toInt() ?? 0;
-
-    if (contactCount == 0 && !_isOwner) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: _blue.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _blue.withValues(alpha: 0.18)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: _blue.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.people_outline_rounded,
-                color: _blue,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'كن أول واحد يساعد في الاحتياج ده 💙',
-                style: TextStyle(
-                  color: _blue,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+  Widget _highlightValue(
+    IconData icon,
+    String label,
+    String value,
+    String suffix,
+    Color color,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _blue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.people_alt_rounded,
-                  color: _blue,
-                  size: 19,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'عدد اللي تواصلوا',
-                      style: TextStyle(
-                        color: _muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$contactCount شخص',
-                      style: const TextStyle(
-                        color: _blue,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _buildMiniStat(
-                  icon: Icons.phone_rounded,
-                  label: 'اتصال',
-                  count: phoneCount,
-                  color: _primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMiniStat(
-                  icon: Icons.chat_rounded,
-                  label: 'واتساب',
-                  count: whatsappCount,
-                  color: _whatsapp,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStat({
-    required IconData icon,
-    required String label,
-    required int count,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
+          Icon(icon, color: color, size: 21),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: value,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      TextSpan(
+                        text: ' $suffix',
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailBlock(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Container(
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+              color: _primarySoft,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 14),
+            child: Icon(icon, color: _blue, size: 17),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1033,16 +853,18 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   label,
                   style: const TextStyle(
                     color: _muted,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 3),
                 Text(
-                  '$count',
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                  value,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 13.5,
+                    height: 1.45,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -1053,9 +875,101 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // بانر "مش متاح حاليًا" (لغير صاحب الاحتياج)
-  // ═══════════════════════════════════════════════════════════
+  Widget _buildStatsCard() {
+    final need = _need!;
+    final contactCount = (need['contact_count'] as num?)?.toInt() ?? 0;
+    final phoneCount = (need['phone_count'] as num?)?.toInt() ?? 0;
+    final whatsappCount = (need['whatsapp_count'] as num?)?.toInt() ?? 0;
+
+    return _surfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights_rounded, color: _blue, size: 21),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'التفاعل على الاحتياج',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '$contactCount تواصل',
+                style: const TextStyle(
+                  color: _blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _miniMetric(
+                  Icons.phone_rounded,
+                  'اتصالات',
+                  phoneCount,
+                  _blue,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _miniMetric(
+                  Icons.chat_rounded,
+                  'واتساب',
+                  whatsappCount,
+                  _whatsapp,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniMetric(IconData icon, String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildAvailabilityNotice() {
     final need = _need!;
@@ -1063,38 +977,28 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     final expiresAt = _parseDate(need['expires_at']);
     final isExpired = expiresAt != null && expiresAt.isBefore(DateTime.now());
     final isInactive = status != 'active' || isExpired;
-
     if (!isInactive) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _danger.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _danger.withValues(alpha: 0.2)),
+        color: _danger.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _danger.withValues(alpha: 0.20)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _danger.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child:
-                const Icon(Icons.timer_off_rounded, color: _danger, size: 18),
-          ),
+          _softIcon(Icons.timer_off_rounded, _danger),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               isExpired && status == 'active'
-                  ? 'الاحتياج انتهى خلاص.'
-                  : 'الاحتياج مش متاح حاليًا.',
+                  ? 'الاحتياج انتهى ولم يعد متاحًا للتواصل.'
+                  : 'الاحتياج غير متاح حاليًا للتواصل.',
               style: const TextStyle(
                 color: _danger,
                 fontSize: 12,
+                height: 1.4,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -1104,47 +1008,92 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // SAFETY NOTE
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildSafetyNote() {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _amber.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _amber.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _amber.withValues(alpha: 0.22)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _amber.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.shield_outlined,
-              color: _amber,
-              size: 16,
+          _softIcon(Icons.shield_outlined, _amber),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'خليك حريص في التعاملات: اتفقوا في مكان عام، ومتشاركش بياناتك البنكية أو كلمات المرور.',
+              style: TextStyle(
+                color: _ink,
+                fontSize: 11.5,
+                height: 1.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                'خد حذرك في التعاملات. اتفقوا في مكان عام، ومتشاركش بياناتك البنكية.',
-                style: TextStyle(
-                  color: _amber.withValues(alpha: 0.95),
-                  fontSize: 11.5,
-                  height: 1.5,
-                  fontWeight: FontWeight.w600,
-                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _surfaceCard({
+    required Widget child,
+    EdgeInsets padding = const EdgeInsets.all(16),
+  }) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _border),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryDark.withValues(alpha: 0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _softIcon(IconData icon, Color color) {
+    return Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Icon(icon, color: color, size: 18),
+    );
+  }
+
+  Widget _softTag(IconData icon, String label, Color color) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 115),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
