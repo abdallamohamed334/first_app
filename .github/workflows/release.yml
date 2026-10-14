@@ -20,6 +20,11 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Install dependencies
         run: flutter pub get
       - name: Security regression checks
@@ -42,6 +47,11 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Install dependencies
         run: flutter pub get
       - name: Validate runtime environment
@@ -86,11 +96,23 @@ jobs:
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=MAPBOX_PUBLIC_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           --dart-define=FIREBASE_ANDROID_API_KEY=${{ secrets.FIREBASE_ANDROID_API_KEY }}
+      - name: Build signed Android APK for direct testing
+        run: >-
+          flutter build apk --release
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=MAPBOX_PUBLIC_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }}
+          --dart-define=FIREBASE_ANDROID_API_KEY=${{ secrets.FIREBASE_ANDROID_API_KEY }}
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: loqma-android-aab
           path: build/app/outputs/bundle/release/*.aab
+      - name: Upload Android APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loqma-android-apk
+          path: build/app/outputs/flutter-apk/*.apk
 
   # Validate the archive only. App Store distribution stays gated until
   # Apple signing credentials are configured in repository secrets.

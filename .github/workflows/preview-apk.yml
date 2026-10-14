@@ -35,6 +35,12 @@ jobs:
           channel: ${{ env.FLUTTER_VERSION }}
           cache: true
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Install dependencies
         run: flutter pub get
 
