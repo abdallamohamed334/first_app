@@ -634,7 +634,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
   List<MarketplaceAttribute> _getVisibleAttributes() {
     if (state.attributes.isEmpty) return [];
 
-    allowedSlugs = {'condition', 'brand'};
+    const allowedSlugs = {'condition', 'brand'};
     final seenSlugs = <String>{};
 
     return state.attributes.where((attr) {

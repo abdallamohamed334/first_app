@@ -40,7 +40,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
   bool _isLoading = true;
   StreamSubscription<UserHomeState>? _blocSubscription;
 
-  static _categories = <String>[
+  static const List<String> _categories = <String>[
     'الكل',
     'وجبات',
     'مخبوزات',
@@ -56,7 +56,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
   static Color get _primaryRed => HomePalette.primaryRed;
   static Color get _textPrimary => HomePalette.textPrimary;
   static Color get _textSecondary => HomePalette.textSecondary;
-  static Color _orange = Color(0xFFE28B00);
+  static const Color _orange = Color(0xFFE28B00);
 
   @override
   void initState() {

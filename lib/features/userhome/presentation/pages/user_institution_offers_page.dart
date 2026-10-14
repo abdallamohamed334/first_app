@@ -719,7 +719,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   }
 
   Widget _buildInstitutionTypeFilters() {
-    filters = [
+    final filters = <(String, String, IconData)>[
       ('all', 'كل المؤسسات', Icons.storefront_rounded),
       ('hotel', 'فنادق', Icons.hotel_rounded),
       ('grocery', 'بقالات', Icons.shopping_cart_rounded),
