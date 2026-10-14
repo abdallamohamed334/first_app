@@ -432,17 +432,18 @@ class _CharityVolunteersPageState extends State<CharityVolunteersPage> {
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: green))
-          else
-            PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'edit') _openEditor(volunteer: row);
-                  if (value == 'delete') _delete(row);
-                },
-                itemBuilder: (_) => const [
-                      PopupMenuItem(
-                          value: 'edit', child: Text('تعديل الحالة والبيانات')),
-                      PopupMenuItem(value: 'delete', child: Text('حذف المتطوع'))
-                    ])
+          else ...[
+            IconButton(
+              tooltip: 'تعديل الحالة والبيانات',
+              onPressed: () => _openEditor(volunteer: row),
+              icon: const Icon(Icons.edit_outlined, color: deepGreen),
+            ),
+            IconButton(
+              tooltip: 'حذف المتطوع',
+              onPressed: () => _delete(row),
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+            ),
+          ]
         ]));
   }
 

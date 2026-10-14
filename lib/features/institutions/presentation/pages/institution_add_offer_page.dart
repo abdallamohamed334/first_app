@@ -212,14 +212,19 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   Future<void> _chooseExpiryDate() async {
     final now = DateTime.now();
-    final selected = await showTimePicker(
+    final latestAllowed = now.add(_maxOfferLifetime);
+    final selectedDate = await showDatePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(
-        _expiresAt.isAfter(now)
-            ? _expiresAt
-            : now.add(const Duration(hours: 1)),
+      initialDate: _expiresAt.isAfter(now) && !_expiresAt.isAfter(latestAllowed)
+          ? _expiresAt
+          : now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(
+        latestAllowed.year,
+        latestAllowed.month,
+        latestAllowed.day,
       ),
-      helpText: 'اختر وقت انتهاء العرض اليوم',
+      helpText: 'اختر تاريخ انتهاء العرض',
       cancelText: 'إلغاء',
       confirmText: 'تأكيد',
       builder: (context, child) => Theme(
@@ -233,20 +238,43 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         child: child!,
       ),
     );
-    if (!mounted || selected == null) return;
-    var candidate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      selected.hour,
-      selected.minute,
+    if (!mounted || selectedDate == null) return;
+
+    final isCurrentExpiryDate = _expiresAt.year == selectedDate.year &&
+        _expiresAt.month == selectedDate.month &&
+        _expiresAt.day == selectedDate.day;
+    final initialTime = isCurrentExpiryDate && _expiresAt.isAfter(now)
+        ? _expiresAt
+        : now.add(const Duration(hours: 1));
+    final selectedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initialTime),
+      helpText: 'اختر وقت انتهاء العرض',
+      cancelText: 'إلغاء',
+      confirmText: 'تأكيد',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: _primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+              ),
+        ),
+        child: child!,
+      ),
     );
-    if (candidate.isBefore(now)) {
-      candidate = candidate.add(const Duration(days: 1));
-    }
-    if (candidate.isAfter(now.add(_maxOfferLifetime))) {
+    if (!mounted || selectedTime == null) return;
+
+    final candidate = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      selectedTime.hour,
+      selectedTime.minute,
+    );
+    if (candidate.isBefore(now) || candidate.isAfter(latestAllowed)) {
       _showMessage(
-        'اختر وقتًا خلال 12 ساعة من الآن',
+        'اختر تاريخًا ووقتًا بين الآن والـ 12 ساعة القادمة',
         error: true,
       );
       return;

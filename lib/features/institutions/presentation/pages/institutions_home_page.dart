@@ -343,34 +343,10 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                 icon: const Icon(Icons.notifications_none_rounded),
                 tooltip: 'الإشعارات',
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'profile') _openProfile();
-                  if (value == 'logout') _logout();
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: 'profile',
-                    child: Row(
-                      children: [
-                        Icon(Icons.person_outline_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text('الملف الشخصي'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        Icon(Icons.logout_rounded, size: 18, color: _red),
-                        SizedBox(width: 8),
-                        Text('تسجيل الخروج', style: TextStyle(color: _red)),
-                      ],
-                    ),
-                  ),
-                ],
-                icon: const Icon(Icons.more_vert_rounded),
+              IconButton(
+                onPressed: _logout,
+                tooltip: 'تسجيل الخروج',
+                icon: const Icon(Icons.logout_rounded),
               ),
               const SizedBox(width: 8),
             ],
@@ -1396,30 +1372,14 @@ class _ActivityCard extends StatelessWidget {
                 ),
               ),
               if (isEditable && onEdit != null)
-                PopupMenuButton<String>(
-                  onSelected: (value) {
-                    if (value == 'edit') onEdit!();
-                  },
+                IconButton(
+                  onPressed: onEdit,
+                  tooltip: 'تعديل العرض',
                   icon: const Icon(
-                    Icons.more_vert_rounded,
+                    Icons.edit_outlined,
                     color: _inkSoft,
-                    size: 18,
+                    size: 20,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(Icons.edit_outlined, size: 16),
-                          SizedBox(width: 6),
-                          Text('تعديل العرض', style: TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
             ],
           ),

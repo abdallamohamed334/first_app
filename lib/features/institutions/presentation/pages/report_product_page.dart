@@ -36,7 +36,7 @@ class _ReportProductPageState extends State<ReportProductPage> {
       'label': 'جودة سيئة',
       'icon': Icons.verified_outlined
     },
-    {'value': 'other', 'label': 'أخرى', 'icon': Icons.more_horiz},
+    {'value': 'other', 'label': 'أخرى', 'icon': Icons.category_outlined},
   ];
 
   // ✅ ألوان مودرن

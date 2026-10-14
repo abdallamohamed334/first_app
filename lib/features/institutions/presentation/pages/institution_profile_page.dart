@@ -218,33 +218,10 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               ),
               actions: [
-                PopupMenuButton<String>(
-                  tooltip: 'المزيد',
-                  onSelected: (value) {
-                    if (value == 'logout') _logout();
-                  },
-                  icon: const Icon(Icons.more_vert_rounded),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'logout',
-                      child: Row(
-                        children: [
-                          Icon(Icons.logout_rounded, color: _red, size: 20),
-                          SizedBox(width: 10),
-                          Text(
-                            'تسجيل الخروج',
-                            style: TextStyle(
-                              color: _red,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  tooltip: 'تسجيل الخروج',
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout_rounded),
                 ),
                 const SizedBox(width: 8),
               ],

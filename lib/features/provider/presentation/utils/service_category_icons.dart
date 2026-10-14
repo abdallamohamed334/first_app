@@ -55,7 +55,7 @@ class ServiceCategoryIcons {
       case 'construction':
         return Icons.engineering_rounded;
       case 'other':
-        return Icons.more_horiz_rounded;
+        return Icons.category_outlined;
       default:
         return Icons.category_rounded;
     }

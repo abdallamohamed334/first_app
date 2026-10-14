@@ -201,7 +201,7 @@ class _BusinessRestaurantCreateOfferPageState
             IconButton(
               tooltip: 'مسح الحقول',
               onPressed: _submitting ? null : _clearForm,
-              icon: const Icon(Icons.more_vert_rounded),
+              icon: const Icon(Icons.clear_all_rounded),
             ),
           ],
         ),
