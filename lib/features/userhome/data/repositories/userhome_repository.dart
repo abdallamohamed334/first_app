@@ -17,6 +17,7 @@ class UserHomeRepository {
   static const _categoryRequestTimeout = Duration(seconds: 8);
   final SupabaseService _supabaseService;
   Future<Map<String, List<String>>>? _categoryChildrenFuture;
+  final Map<String, String> _categorySlugById = <String, String>{};
 
   UserHomeRepository({required SupabaseService supabaseService})
     : _supabaseService = supabaseService;
@@ -35,7 +36,7 @@ class UserHomeRepository {
     try {
       final rows = await _client
           .from('marketplace_categories')
-          .select('id, parent_id')
+          .select('id, parent_id, slug')
           .eq('is_active', true)
           .limit(5000)
           .timeout(_categoryRequestTimeout);
@@ -44,7 +45,10 @@ class UserHomeRepository {
         final row = Map<String, dynamic>.from(raw);
         final id = row['id']?.toString() ?? '';
         final parentId = row['parent_id']?.toString() ?? '';
-        if (id.isEmpty || parentId.isEmpty) continue;
+        if (id.isEmpty) continue;
+        final slug = row['slug']?.toString().trim().toLowerCase() ?? '';
+        if (slug.isNotEmpty) _categorySlugById[id] = slug;
+        if (parentId.isEmpty) continue;
         childrenByParent.putIfAbsent(parentId, () => <String>[]).add(id);
       }
       return childrenByParent;
@@ -591,14 +595,26 @@ class UserHomeRepository {
       // 1) جيب الـ slug + الـ subcategories
       // ------------------------------------------------------
 
-      final categoryInfo = await _client
-          .from('marketplace_categories')
-          .select('id, slug')
-          .eq('id', categoryId)
-          .maybeSingle()
-          .timeout(_categoryRequestTimeout);
-
-      final slug = categoryInfo?['slug']?.toString() ?? '';
+      // getCategoryTreeIds shares the category-dimension request and fills this
+      // cache. Avoid a second request for the same category on every tap.
+      await _getCategoryChildren();
+      var slug = _categorySlugById[categoryId] ?? '';
+      if (slug.isEmpty) {
+        try {
+          final categoryInfo = await _client
+              .from('marketplace_categories')
+              .select('id, slug')
+              .eq('id', categoryId)
+              .maybeSingle()
+              .timeout(_categoryRequestTimeout);
+          slug = categoryInfo?['slug']?.toString().trim().toLowerCase() ?? '';
+          if (slug.isNotEmpty) _categorySlugById[categoryId] = slug;
+        } catch (e) {
+          // The category tree is enough to continue loading offers. A slow
+          // slug lookup must not turn a valid category tap into an empty page.
+          debugPrint('⚠️ category slug lookup skipped: $e');
+        }
+      }
       final isFood = slug == 'food';
       final isGrocery = slug == 'grocery';
       const institutionCategorySlugs = {'institution-offers'};
