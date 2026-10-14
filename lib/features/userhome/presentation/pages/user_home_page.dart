@@ -2790,7 +2790,8 @@ class _UserHomePageState extends State<UserHomePage> {
           .select('id')
           .eq('parent_id', id)
           .eq('is_active', true)
-          .limit(1);
+          .limit(1)
+          .timeout(const Duration(seconds: 6));
 
       hasChildren = (response as List).isNotEmpty;
     } catch (e) {

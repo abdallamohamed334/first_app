@@ -6,6 +6,7 @@ import 'package:loqma/features/marketplace/data/models/marketplace_offer_model.d
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MarketplaceRemoteDataSource {
+  static const _requestTimeout = Duration(seconds: 8);
   final SupabaseClient _supabase;
 
   MarketplaceRemoteDataSource({
@@ -24,7 +25,7 @@ class MarketplaceRemoteDataSource {
       params: {
         'p_category_id': categoryId,
       },
-    );
+    ).timeout(_requestTimeout);
 
     if (response is! List) {
       return <MarketplaceAttributeModel>[];
@@ -54,7 +55,7 @@ class MarketplaceRemoteDataSource {
         'p_category_id': categoryId,
         'p_option_id': optionId,
       },
-    );
+    ).timeout(_requestTimeout);
 
     if (response is! List || response.isEmpty) {
       return null;
@@ -85,7 +86,7 @@ class MarketplaceRemoteDataSource {
         'p_attribute_id': attributeId,
         'p_parent_option_id': parentOptionId,
       },
-    );
+    ).timeout(_requestTimeout);
 
     if (response is! List) {
       return <MarketplaceAttributeOptionModel>[];
@@ -119,7 +120,7 @@ class MarketplaceRemoteDataSource {
         'p_parent_option_id': parentOptionId,
         'p_filters': filters,
       },
-    );
+    ).timeout(_requestTimeout);
 
     if (response is! List) {
       return <MarketplaceAttributeOptionModel>[];
@@ -186,7 +187,7 @@ class MarketplaceRemoteDataSource {
         'p_category_id': categoryId,
         'p_filters': filters,
       },
-    );
+    ).timeout(_requestTimeout);
 
     if (response is! List) {
       return <MarketplaceOfferModel>[];

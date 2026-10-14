@@ -14,6 +14,7 @@ import 'package:loqma/features/userhome/presentation/widgets/home_delivery_donat
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserHomeRepository {
+  static const _categoryRequestTimeout = Duration(seconds: 8);
   final SupabaseService _supabaseService;
   Future<Map<String, List<String>>>? _categoryChildrenFuture;
 
@@ -36,7 +37,8 @@ class UserHomeRepository {
           .from('marketplace_categories')
           .select('id, parent_id')
           .eq('is_active', true)
-          .limit(5000);
+          .limit(5000)
+          .timeout(_categoryRequestTimeout);
       final childrenByParent = <String, List<String>>{};
       for (final raw in rows) {
         final row = Map<String, dynamic>.from(raw);
@@ -441,7 +443,8 @@ class UserHomeRepository {
           .filter('parent_id', 'is', null)
           .eq('is_active', true)
           .order('sort_order', ascending: true)
-          .limit(200);
+          .limit(200)
+          .timeout(_categoryRequestTimeout);
 
       return response.map((item) => Map<String, dynamic>.from(item)).toList();
     } catch (e, stack) {
@@ -459,7 +462,8 @@ class UserHomeRepository {
           .eq('parent_id', parentId)
           .eq('is_active', true)
           .order('sort_order', ascending: true)
-          .limit(200);
+          .limit(200)
+          .timeout(_categoryRequestTimeout);
 
       return response.map((item) => Map<String, dynamic>.from(item)).toList();
     } catch (e) {
@@ -591,7 +595,8 @@ class UserHomeRepository {
           .from('marketplace_categories')
           .select('id, slug')
           .eq('id', categoryId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(_categoryRequestTimeout);
 
       final slug = categoryInfo?['slug']?.toString() ?? '';
       final isFood = slug == 'food';
@@ -767,7 +772,8 @@ class UserHomeRepository {
           .eq('status', 'available')
           .gt('expires_at', DateTime.now().toUtc().toIso8601String())
           .order('created_at', ascending: false)
-          .limit(200);
+          .limit(200)
+          .timeout(_categoryRequestTimeout);
 
       final offers = <CategoryOffer>[];
 
@@ -904,7 +910,8 @@ class UserHomeRepository {
           .filter('deleted_at', 'is', 'null')
           .gt('remaining_quantity', 0)
           .order('created_at', ascending: false)
-          .limit(200);
+          .limit(200)
+          .timeout(_categoryRequestTimeout);
 
       final offers = <CategoryOffer>[];
 
@@ -1014,7 +1021,8 @@ class UserHomeRepository {
           .eq('is_paused', false)
           .gt('expiry_time', DateTime.now().toUtc().toIso8601String())
           .order('created_at', ascending: false)
-          .limit(200);
+          .limit(200)
+          .timeout(_categoryRequestTimeout);
 
       final offers = <CategoryOffer>[];
 

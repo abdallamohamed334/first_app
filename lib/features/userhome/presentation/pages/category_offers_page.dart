@@ -21,6 +21,7 @@ import 'package:loqma/features/marketplace/presentation/bloc/marketplace_state.d
 import 'package:loqma/features/userhome/domain/entities/category_offer.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
+import 'package:loqma/features/userhome/domain/user_home_policy.dart';
 
 // ═══════════════════════════════════════════════════════════
 // ✅ FEATURE FLAGS
@@ -55,6 +56,12 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
 
   late final MarketplaceBloc _marketplaceBloc;
 
+  bool get _usesDirectOfferPath {
+    final slug = widget.categorySlug?.trim().toLowerCase() ?? '';
+    return slug == 'institution-offers' ||
+        UserHomePolicy.isAllowedCatalogSlug(slug);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,12 +83,24 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
         'with categoryId=${widget.categoryId}',
       );
 
-      _marketplaceBloc.add(
-        LoadMarketplaceCategory(
-          categoryId: widget.categoryId,
-          categoryName: widget.categoryName,
-        ),
-      );
+      if (_usesDirectOfferPath) {
+        debugPrint('🔵 [CategoryOffers] Using direct offers path for '
+            'slug=${widget.categorySlug}');
+        context.read<UserHomeBloc>().add(
+              SelectCategory(
+                categoryId: widget.categoryId,
+                categoryName: widget.categoryName,
+                categorySlug: widget.categorySlug,
+              ),
+            );
+      } else {
+        _marketplaceBloc.add(
+          LoadMarketplaceCategory(
+            categoryId: widget.categoryId,
+            categoryName: widget.categoryName,
+          ),
+        );
+      }
     });
   }
 
@@ -123,7 +142,9 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                 ),
               ),
             ),
-            body: BlocBuilder<MarketplaceBloc, MarketplaceState>(
+            body: _usesDirectOfferPath
+                ? _buildDirectOffers(context)
+                : BlocBuilder<MarketplaceBloc, MarketplaceState>(
               builder: (context, marketplaceState) {
                 // 1️⃣ Loading
                 if (marketplaceState.isLoading) {
@@ -212,6 +233,54 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDirectOffers(BuildContext context) {
+    return BlocBuilder<UserHomeBloc, UserHomeState>(
+      builder: (context, state) {
+        if (state is! UserHomeLoaded || state.categoryOffersLoading) {
+          return Center(
+            child: CircularProgressIndicator(color: _primaryRed),
+          );
+        }
+        if (state.categoryOffers.isEmpty) {
+          return _buildEmptyState(context);
+        }
+        return RefreshIndicator(
+          color: _primaryRed,
+          backgroundColor: _card,
+          onRefresh: () async {
+            context.read<UserHomeBloc>().add(
+                  SelectCategory(
+                    categoryId: widget.categoryId,
+                    categoryName: widget.categoryName,
+                    categorySlug: widget.categorySlug,
+                  ),
+                );
+          },
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            itemCount: state.categoryOffers.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.68,
+            ),
+            itemBuilder: (context, index) {
+              final offer = state.categoryOffers[index];
+              return _DubizzleStyleCard(
+                offer: offer,
+                onTap: () => _openOfferDetails(context, offer),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
