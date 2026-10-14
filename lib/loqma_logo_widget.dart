@@ -19,8 +19,10 @@ class loqmaLogo extends StatelessWidget {
       label: 'Khedma',
       image: true,
       child: Image.asset(
-        'assets/images/khedma_logo.png',
-        width: showWordmark ? size * 2.6 : size,
+        showWordmark
+            ? 'assets/images/khedma_logo.png'
+            : 'assets/images/khedma_icon.png',
+        width: showWordmark ? size * 2.25 : size,
         height: size,
         fit: fit,
         errorBuilder: (context, error, stackTrace) => Icon(

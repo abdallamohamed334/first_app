@@ -30,8 +30,8 @@ class OnboardingHeader extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                'assets/images/khedma_logo.png',
-                fit: BoxFit.contain,
+                'assets/images/khedma_icon.png',
+                fit: BoxFit.cover,
               ),
             ),
           ),

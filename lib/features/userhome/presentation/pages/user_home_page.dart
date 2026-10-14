@@ -2186,7 +2186,7 @@ class _UserHomePageState extends State<UserHomePage> {
             height: 42,
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(color: _cardSoft, shape: BoxShape.circle, border: Border.all(color: _border)),
-            child: Image.asset('assets/images/khedma_logo.png', fit: BoxFit.contain),
+            child: Image.asset('assets/images/khedma_icon.png', fit: BoxFit.cover),
           ),
         ],
       ),

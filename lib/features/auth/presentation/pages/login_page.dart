@@ -798,8 +798,8 @@ class _LoginLogo extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(size * 0.27),
         child: Image.asset(
-          'assets/images/khedma_logo.png',
-          fit: BoxFit.contain,
+          'assets/images/khedma_icon.png',
+          fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => Icon(
             Icons.volunteer_activism_rounded,
             size: size * 0.48,

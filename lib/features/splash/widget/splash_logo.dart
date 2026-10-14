@@ -37,8 +37,8 @@ class SplashLogo extends StatelessWidget {
           ),
           child: ClipOval(
             child: Image.asset(
-              'assets/images/khedma_logo.png',
-              fit: BoxFit.contain,
+              'assets/images/khedma_icon.png',
+              fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
                 return Icon(
                   Icons.restaurant,
