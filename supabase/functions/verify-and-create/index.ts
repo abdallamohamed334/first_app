@@ -46,6 +46,8 @@ serve(async (req) => {
       typeof profile.role === "string"
         ? profile.role.trim().toLowerCase()
         : "user";
+    const isUserRegistration =
+      requestedRole === "user" && profile.intent === "user_registration";
     const isProviderRegistration =
       requestedRole === "provider" &&
       (profile.intent === "provider_registration" ||
@@ -76,18 +78,22 @@ serve(async (req) => {
     }
     const providerRegistrationUnavailable =
       "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
+    const userRegistrationUnavailable = "الرقم مسجل بالفعل، روح لتسجيل الدخول.";
     const providerLoginWithoutAccount =
       requestedRole === "provider" &&
       !isProviderRegistration &&
       access?.is_new_user === true;
     if (
       access?.allowed !== true ||
+      (isUserRegistration && access?.is_new_user !== true) ||
       (isProviderRegistration && access?.is_new_user !== true) ||
       providerLoginWithoutAccount
     ) {
       return err(
         isProviderRegistration
           ? providerRegistrationUnavailable
+          : isUserRegistration
+          ? userRegistrationUnavailable
           : requestedRole === "provider"
           ? "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً."
           : "لا يمكن إكمال تسجيل الدخول بهذا الرقم",

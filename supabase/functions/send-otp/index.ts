@@ -38,6 +38,7 @@ serve(async (req) => {
     const phone = typeof body?.phone === "string" ? body.phone : "";
     const loginMode = body?.loginMode as LoginMode | undefined;
     const requestedPurpose = body?.purpose;
+    const isUserRegistration = requestedPurpose === "user_registration";
     const isProviderRegistration = requestedPurpose === "provider_registration";
 
     if (!phone.trim()) {
@@ -50,7 +51,9 @@ serve(async (req) => {
     if (
       (requestedPurpose !== undefined &&
         requestedPurpose !== "login" &&
+        requestedPurpose !== "user_registration" &&
         requestedPurpose !== "provider_registration") ||
+      (isUserRegistration && loginMode !== "user") ||
       (isProviderRegistration && loginMode !== "provider")
     ) {
       return errorResponse("بيانات الطلب غير صحيحة", 400);
@@ -96,6 +99,7 @@ serve(async (req) => {
 
     const providerRegistrationUnavailable =
       "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
+    const userRegistrationUnavailable = "الرقم مسجل بالفعل، روح لتسجيل الدخول.";
     if (
       loginMode === "provider" &&
       !isProviderRegistration &&
@@ -110,6 +114,7 @@ serve(async (req) => {
     if (
       !access ||
       access.allowed !== true ||
+      (isUserRegistration && access.is_new_user !== true) ||
       (isProviderRegistration && access.is_new_user !== true)
     ) {
       console.warn("OTP request blocked by account access check");
@@ -118,6 +123,8 @@ serve(async (req) => {
           success: false,
           error: isProviderRegistration
             ? providerRegistrationUnavailable
+            : isUserRegistration
+            ? userRegistrationUnavailable
             : "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.",
         }),
         {

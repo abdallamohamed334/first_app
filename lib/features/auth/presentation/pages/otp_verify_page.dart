@@ -171,6 +171,8 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
       final result = await _authRepo.sendOtp(
         phone: widget.phone,
         loginMode: role == 'provider' ? 'provider' : 'user',
+        isRegistration: widget.profile['intent']?.toString() ==
+            'user_registration',
       );
       if (!mounted) return;
 

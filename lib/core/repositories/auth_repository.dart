@@ -151,6 +151,7 @@ class AuthRepository {
   Future<Either<String, String>> sendOtp({
     required String phone,
     String loginMode = 'user',
+    bool isRegistration = false,
   }) async {
     try {
       final cleanPhone = _cleanPhone(phone);
@@ -170,6 +171,11 @@ class AuthRepository {
         body: {
           'phone': cleanPhone,
           'loginMode': loginMode,
+          'purpose': isRegistration
+              ? (loginMode == 'provider'
+                  ? 'provider_registration'
+                  : 'user_registration')
+              : 'login',
         },
       );
 
@@ -355,6 +361,7 @@ class AuthRepository {
       final otpResult = await sendOtp(
         phone: cleanPhone,
         loginMode: cleanRole == 'provider' ? 'provider' : 'user',
+        isRegistration: true,
       );
 
       return await otpResult.fold(

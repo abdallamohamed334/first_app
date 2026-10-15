@@ -417,9 +417,23 @@ class ServiceProviderRepository {
       final existingRows = await _client.rpc(
         'get_provider_auth_state',
       );
-      final existing = existingRows is List && existingRows.isNotEmpty
+      Map<String, dynamic>? existing = existingRows is List && existingRows.isNotEmpty
           ? Map<String, dynamic>.from(existingRows.first as Map)
           : null;
+
+      // verify-and-create creates the provider row server-side. If the auth
+      // state RPC is briefly behind the new session, read the row directly
+      // before falling back to the legacy client-side insert below.
+      if (existing == null && isRegisterMode) {
+        final createdRow = await _client
+            .from('service_providers')
+            .select()
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (createdRow != null) {
+          existing = Map<String, dynamic>.from(createdRow);
+        }
+      }
 
       if (existing != null) {
         final status = existing['verification_status']?.toString() ?? 'pending';

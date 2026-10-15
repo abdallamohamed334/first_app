@@ -392,6 +392,9 @@ class _RegisterPageState extends State<RegisterPage> {
       final profile = <String, dynamic>{
         'name': name,
         'role': widget.role,
+        'intent': _isProvider
+            ? 'provider_registration'
+            : 'user_registration',
         if (_isProvider) 'city': 'طنطا',
       };
 
@@ -399,6 +402,7 @@ class _RegisterPageState extends State<RegisterPage> {
       final result = await _authRepo.sendOtp(
         phone: phone,
         loginMode: _isProvider ? 'provider' : 'user',
+        isRegistration: true,
       );
 
       if (!mounted) return;
