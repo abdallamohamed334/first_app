@@ -696,7 +696,9 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
           crossAxisCount: 2,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
-          childAspectRatio: 1.8,
+          // Keep enough vertical room for the icon, value, Arabic label, and
+          // card padding on narrow phones.
+          childAspectRatio: 1.35,
           children: [
             _statCard(
               icon: Icons.rate_review_rounded,
@@ -764,6 +766,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
               const SizedBox(height: 2),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: _inkSoft.withValues(alpha: 0.7),
                   fontSize: 11,
