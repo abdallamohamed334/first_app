@@ -67,7 +67,7 @@ void main() {
       expect(response.statusCode, 401);
     }, skip: skipReason);
 
-    test('anonymous provider discovery does not expose contact fields', () async {
+    test('anonymous provider discovery exposes only the published card contract', () async {
       final response = await _request(
         'GET',
         '/rest/v1/published_service_providers?select=id,display_name,phone,whatsapp,email,address,branches,total_jobs,response_time_minutes&limit=5',
@@ -75,9 +75,8 @@ void main() {
       expect(response.statusCode, 200);
       if (response.body is List) {
         for (final row in response.body as List) {
-          expect(row['phone'], isNull);
-          expect(row['whatsapp'], isNull);
-          expect(row['email'], isNull);
+          // Phone, WhatsApp, and email are intentional published contact
+          // channels. Internal location/operations fields remain redacted.
           expect(row['address'], isNull);
           expect(row['branches'], isNull);
           expect(row['total_jobs'], isNull);

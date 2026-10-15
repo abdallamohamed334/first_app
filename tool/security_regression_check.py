@@ -43,6 +43,7 @@ PROVIDER_AUTH_PAGE = ROOT / "lib/features/provider/presentation/pages/provider_a
 SEND_OTP_FUNCTION = ROOT / "supabase/functions/send-otp/index.ts"
 VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.ts"
 PUBLIC_PROVIDER_PROJECTION_MIGRATION = ROOT / "supabase/migrations/20261012180000_public_provider_projection_and_rpc_hardening.sql"
+PUBLIC_PROVIDER_READ_ONLY_MIGRATION = ROOT / "supabase/migrations/20261015090000_lock_public_provider_read_views.sql"
 POSTGIS_RPC_MIGRATION = ROOT / "supabase/migrations/20261012181000_revoke_unused_postgis_rpc_execution.sql"
 DONATION_PICKUP_MIGRATION = ROOT / "supabase/migrations/20261012272000_harden_donation_pickup_authorization.sql"
 MY_OFFERS_ACTIONS_MIGRATION = ROOT / "supabase/migrations/20261012280000_harden_my_community_offers_actions.sql"
@@ -98,6 +99,7 @@ def main() -> None:
     send_otp_function = SEND_OTP_FUNCTION.read_text()
     verify_and_create_function = VERIFY_AND_CREATE_FUNCTION.read_text()
     public_provider_projection_migration = PUBLIC_PROVIDER_PROJECTION_MIGRATION.read_text()
+    public_provider_read_only_migration = PUBLIC_PROVIDER_READ_ONLY_MIGRATION.read_text()
     postgis_rpc_migration = POSTGIS_RPC_MIGRATION.read_text()
     donation_pickup_migration = DONATION_PICKUP_MIGRATION.read_text()
     my_offers_actions_migration = MY_OFFERS_ACTIONS_MIGRATION.read_text()
@@ -120,6 +122,8 @@ def main() -> None:
     require(public_provider_migration, "RETURNS TABLE(\n  verification_status text,\n  is_active boolean", "minimal provider phone response")
     require(public_provider_migration, "CASE WHEN auth.uid() IS NOT NULL THEN sp.phone END", "authenticated provider contact access")
     require(public_provider_migration, "REVOKE ALL ON public.published_service_providers FROM PUBLIC", "public provider privilege reset")
+    require(public_provider_read_only_migration, "REVOKE ALL PRIVILEGES ON TABLE public.published_service_providers", "public provider view mutation revoke")
+    require(public_provider_read_only_migration, "REVOKE ALL PRIVILEGES ON TABLE public.published_service_reviews", "public review view mutation revoke")
     for sensitive in ("id_card_front_url", "id_card_back_url", "verification_notes", "verified_by", "verified_at", "company_legal_name", "employees_count", "founded_year"):
         if sensitive in public_provider_migration.split("CREATE VIEW public.published_service_providers", 1)[1].split("REVOKE ALL", 1)[0]:
             raise AssertionError(f"sensitive field leaked by public provider view: {sensitive}")
