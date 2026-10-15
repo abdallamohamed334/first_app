@@ -1,6 +1,5 @@
 // lib/features/userhome/presentation/pages/user_home_page.dart
 
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -137,10 +136,6 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _locationUnavailable = false;
   final Set<int> _visitedPages = {0};
 
-  final PageController _bannerController = PageController(viewportFraction: 1);
-  int _bannerIndex = 0;
-  Timer? _bannerTimer;
-
   // ───────── ألوان الديزاين ─────────
   static bool get _isDark => ThemeNotifier.isDarkMode.value;
   static Color get _bg => HomePalette.bg;
@@ -184,8 +179,6 @@ class _UserHomePageState extends State<UserHomePage> {
 
   @override
   void dispose() {
-    _bannerTimer?.cancel();
-    _bannerController.dispose();
     super.dispose();
   }
 
@@ -631,20 +624,6 @@ class _UserHomePageState extends State<UserHomePage> {
         name.contains('مأكولات') ||
         name.contains('اكل') ||
         name.contains('أكل');
-  }
-
-  void _startBannerAutoPlay(int count) {
-    _bannerTimer?.cancel();
-    if (count <= 1) return;
-    _bannerTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!mounted || !_bannerController.hasClients) return;
-      final next = (_bannerIndex + 1) % count;
-      _bannerController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 450),
-        curve: Curves.easeOutCubic,
-      );
-    });
   }
 
   @override
@@ -2366,61 +2345,36 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildCompanyOffersSlider() {
-    // السلايدر يظل خفيفًا ويعرض أقرب خمسة عروض انتهاءً فقط.
+    // كروت أفقية مضغوطة بدل بانر رأسي كبير حتى يظهر محتوى أكبر في الشاشة.
     // عروض مطاعم البيت لها قسمها المخصص؛ لا تعرضها مرة ثانية هنا.
     final offers = _institutionOffers
         .where((offer) =>
             !_isHomeRestaurantOffer(offer) && _isVisibleInstitutionOffer(offer))
-        .take(5)
+        .take(8)
         .toList(growable: false);
     if (_loadingInstitutionOffers && offers.isEmpty) {
       return const SizedBox(
-        height: 244,
+        height: 196,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
       );
     }
 
     if (offers.isEmpty) return const SizedBox.shrink();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startBannerAutoPlay(offers.length);
-    });
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 22),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 270,
-            child: PageView.builder(
-              controller: _bannerController,
-              itemCount: offers.length,
-              onPageChanged: (index) {
-                if (mounted) setState(() => _bannerIndex = index);
-              },
-              itemBuilder: (_, index) => _buildCompanyOfferCard(offers[index]),
-            ),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+      child: SizedBox(
+        height: 190,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: offers.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, index) => SizedBox(
+            width: 258,
+            child: _buildCompanyOfferCard(offers[index]),
           ),
-          if (offers.length > 1) ...[
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(offers.length, (index) {
-                final active = index == _bannerIndex;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 240),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 24 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active ? _textPrimary : _border,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                );
-              }),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -3681,18 +3635,13 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     return SizedBox(
-      height: 248,
-      child: GridView.builder(
+      height: 142,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 2),
         physics: const BouncingScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.05,
-        ),
         itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final category = categories[index];
           final id = category['id']?.toString() ?? '';
@@ -3701,16 +3650,18 @@ class _UserHomePageState extends State<UserHomePage> {
           final offerCount = offersByCategory[id]?.length ?? 0;
           final accent = [_primaryRed, _orange, _green, _blue, _purple][index % 5];
 
-          return Material(
-            color: _card,
-            borderRadius: BorderRadius.circular(16),
+          return SizedBox(
+            width: 158,
+            child: Material(
+              color: _card,
+              borderRadius: BorderRadius.circular(18),
             child: InkWell(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               onTap: () => _openSmartCategory(id, name, slug),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: _border),
                   gradient: LinearGradient(
                     colors: [
@@ -3724,9 +3675,11 @@ class _UserHomePageState extends State<UserHomePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 52,
-                      height: 52,
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: accent.withValues(alpha: 0.16),
@@ -3735,22 +3688,26 @@ class _UserHomePageState extends State<UserHomePage> {
                       child: Icon(
                         _iconFromName(category['icon']?.toString() ?? ''),
                         color: accent,
-                        size: 29,
+                        size: 23,
                       ),
                     ),
-                    const SizedBox(height: 7),
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: _textPrimary,
+                              fontSize: 12.5,
+                              height: 1.15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
+                    const Spacer(),
                     Text(
                       '$offerCount عرض',
                       style: TextStyle(
@@ -3760,6 +3717,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                     ),
                   ],
+                ),
                 ),
               ),
             ),
