@@ -405,26 +405,9 @@ class UserHomeRepository {
 
   Future<List<HomeBanner>> getHomeBanners() async {
     try {
-      final now = DateTime.now().toUtc();
-      final response = await _client
-          .from('home_banners')
-          .select('id, image_url, offer_id, sort_order, starts_at, ends_at')
-          .eq('is_active', true)
-          .order('sort_order', ascending: true)
-          .limit(50);
-
-      return response
-          .where((json) {
-            final startsAt = DateTime.tryParse(
-              json['starts_at']?.toString() ?? '',
-            );
-            final endsAt = DateTime.tryParse(
-              json['ends_at']?.toString() ?? '',
-            );
-            return (startsAt == null || !now.isBefore(startsAt.toUtc())) &&
-                (endsAt == null || !now.isAfter(endsAt.toUtc()));
-          })
-          .map((json) => HomeBanner.fromJson(json))
+      final response = await _client.rpc('get_active_home_ads');
+      return (response as List)
+          .map((json) => HomeBanner.fromJson(Map<String, dynamic>.from(json)))
           .toList(growable: false);
     } catch (e, stack) {
       debugPrint('❌ getHomeBanners error: $e');

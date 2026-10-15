@@ -50,6 +50,7 @@ import 'package:loqma/features/userhome/presentation/pages/sub_categories_page.d
 import 'package:loqma/features/userhome/presentation/pages/user_all_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/pages/user_institution_offers_page.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_auxiliary_widgets.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_banner_carousel.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_need_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_offer_widgets.dart';
@@ -1184,7 +1185,8 @@ class _UserHomePageState extends State<UserHomePage> {
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
-        SliverToBoxAdapter(child: _buildCompanyOffersSlider()),
+        if (state.banners.isNotEmpty)
+          SliverToBoxAdapter(child: HomeBannerCarousel(banners: state.banners)),
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),

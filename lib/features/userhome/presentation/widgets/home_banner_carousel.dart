@@ -3,23 +3,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:loqma/core/services/supabase_service.dart';
-import 'package:loqma/features/institutions/presentation/pages/institution_offer_details_page.dart';
-import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeBanner {
   final String id;
   final String imageUrl;
-  final String offerId;
+  final String? targetUrl;
   final int sortOrder;
+  final String advertiserName;
   final String? title;
   final String? subtitle;
 
   const HomeBanner({
     required this.id,
     required this.imageUrl,
-    required this.offerId,
+    this.targetUrl,
     required this.sortOrder,
+    required this.advertiserName,
     this.title,
     this.subtitle,
   });
@@ -28,8 +28,9 @@ class HomeBanner {
     return HomeBanner(
       id: json['id']?.toString() ?? '',
       imageUrl: json['image_url']?.toString() ?? '',
-      offerId: json['offer_id']?.toString() ?? '',
+      targetUrl: json['target_url']?.toString(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      advertiserName: json['advertiser_name']?.toString() ?? 'إعلان',
       title: json['title']?.toString(),
       subtitle: json['subtitle']?.toString(),
     );
@@ -80,56 +81,17 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     });
   }
 
-  void _onBannerTap(HomeBanner banner) async {
+  Future<void> _onBannerTap(HomeBanner banner) async {
+    final rawUrl = banner.targetUrl?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) return;
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !uri.hasScheme || !{'http', 'https'}.contains(uri.scheme)) {
+      return;
+    }
     try {
-      final client = SupabaseService().client;
-      final response = await client.from('institution_offers').select('''
-            *,
-            institutions:institution_id (
-              id,
-              name,
-              institution_type,
-              logo_url,
-              address,
-              phone
-            )
-          ''').eq('id', banner.offerId).maybeSingle();
-
-      if (!mounted) return;
-
-      if (response == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('العرض غير متاح حالياً'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      final offer = InstitutionOffer.fromJson(
-        Map<String, dynamic>.from(response),
-      );
-
-      if (!offer.isActive) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('هذا العرض غير متاح حالياً'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => InstitutionOfferDetailsPage(offer: offer),
-        ),
-      );
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      if (!mounted) return;
-      debugPrint('❌ Error opening banner offer: $e');
+      debugPrint('❌ Error opening home ad link: $e');
     }
   }
 
@@ -218,6 +180,34 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                               ),
                             ),
 
+                            Positioned(
+                              top: 14,
+                              right: 14,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.42),
+                                  borderRadius: BorderRadius.circular(100),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                child: Text(
+                                  'إعلان • ${banner.advertiserName}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
+
                             // ✅ النص على الصورة
                             if (banner.title != null || banner.subtitle != null)
                               Positioned(
@@ -266,8 +256,11 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                                         color: colors.primary,
                                         borderRadius: BorderRadius.circular(20),
                                       ),
-                                      child: const Text(
-                                        'شاهد العرض',
+                                      child: Text(
+                                        banner.targetUrl == null ||
+                                                banner.targetUrl!.trim().isEmpty
+                                            ? 'إعلان'
+                                            : 'اعرف أكثر',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 11,
