@@ -12,6 +12,9 @@ import 'package:universal_html/html.dart' as html;
 
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/supabase_service.dart';
+import '../../../services/data/repositories/service_providers_repository.dart';
+import '../../../services/domain/entities/service_provider.dart';
+import '../../../services/presentation/pages/service_provider_details_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -32,6 +35,10 @@ class _MapPageState extends State<MapPage> {
   LatLng? _selectedLocation;
   bool _isLocationSaved = false;
   bool _isLoggedIn = false;
+  bool _isLoadingProviders = false;
+  List<ServiceProvider> _providers = const [];
+  final ServiceProvidersRepository _providersRepository =
+      ServiceProvidersRepository();
 
   @override
   void initState() {
@@ -188,6 +195,7 @@ class _MapPageState extends State<MapPage> {
       }
 
       await _checkLocationInDatabase(location);
+      await _loadNearbyProviders(location);
     } catch (e) {
       print('📍 [MapPage] Error getting location: $e');
       setState(() {
@@ -200,6 +208,48 @@ class _MapPageState extends State<MapPage> {
         buttonText: 'إعادة المحاولة',
         onPressed: _getCurrentLocation,
       );
+    }
+  }
+
+  Future<void> _loadNearbyProviders(LatLng location) async {
+    if (!_isLoggedIn || !mounted) return;
+    setState(() => _isLoadingProviders = true);
+    try {
+      final userId = SupabaseService().client.auth.currentUser?.id;
+      if (userId == null) return;
+      final userData = await SupabaseService()
+          .client
+          .from('users')
+          .select('city, governorate')
+          .eq('id', userId)
+          .maybeSingle();
+      if (userData == null) return;
+
+      final city = userData['city']?.toString().trim() ?? '';
+      final governorate = userData['governorate']?.toString().trim();
+      final providers = await _providersRepository.listNearbyProviders(
+        city: city,
+        governorate: governorate,
+        limit: 100,
+      );
+      final nearby = providers.where((provider) {
+        final lat = provider.latitude;
+        final lng = provider.longitude;
+        if (lat == null || lng == null) return false;
+        return _calculateDistance(
+              location.latitude,
+              location.longitude,
+              lat,
+              lng,
+            ) <=
+            70;
+      }).toList(growable: false);
+      if (!mounted) return;
+      setState(() => _providers = nearby);
+    } catch (e) {
+      debugPrint('⚠️ [MapPage] Failed to load service providers: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingProviders = false);
     }
   }
 
@@ -476,6 +526,65 @@ class _MapPageState extends State<MapPage> {
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.khedma.app',
                   ),
+                  if (_providers.isNotEmpty)
+                    MarkerLayer(
+                      markers: _providers.map((provider) {
+                        return Marker(
+                          point: LatLng(provider.latitude!, provider.longitude!),
+                          width: 48,
+                          height: 56,
+                          child: GestureDetector(
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ServiceProviderDetailsPage(
+                                  provider: provider,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: provider.isCompany
+                                        ? const Color(0xFFD64545)
+                                        : const Color(0xFF3679C8),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2.5,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black26,
+                                        blurRadius: 7,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    provider.isCompany
+                                        ? Icons.business_rounded
+                                        : Icons.handyman_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_drop_down_rounded,
+                                  color: provider.isCompany
+                                      ? const Color(0xFFD64545)
+                                      : const Color(0xFF3679C8),
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(growable: false),
+                    ),
                   if (_selectedLocation != null)
                     MarkerLayer(
                       markers: [
@@ -508,6 +617,32 @@ class _MapPageState extends State<MapPage> {
                           ),
                         ),
                       ],
+                    ),
+                  if (_isLoadingProviders)
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.94),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 8),
+                          ],
+                        ),
+                        child: const Text(
+                          'جاري تحميل مزودي الخدمة',
+                          style: TextStyle(
+                            color: Color(0xFF123F31),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               )
