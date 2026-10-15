@@ -23,8 +23,6 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
   final _repository = InstitutionsRepository();
   bool _isLoading = false;
   int _offersCount = 0;
-  int _followersCount = 0;
-  double _rating = 0.0;
 
   // ─── ألوان هوية Khedma ───
   static const Color _primary = Color(0xFF0B7650);
@@ -53,42 +51,12 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
 
       final offersResponse = await SupabaseService()
           .client
-          .from('food_offers')
+          .from('institution_offers')
           .select('id')
-          .eq('business_id', institutionId)
-          .eq('status', 'available');
+          .eq('institution_id', institutionId)
+          .eq('status', 'active')
+          .filter('deleted_at', 'is', 'null');
       _offersCount = offersResponse.length;
-
-      try {
-        final followersResponse = await SupabaseService()
-            .client
-            .from('institution_followers')
-            .select('id')
-            .eq('institution_id', institutionId);
-        _followersCount = followersResponse.length;
-      } catch (_) {
-        _followersCount = 0;
-      }
-
-      try {
-        final ratingsResponse = await SupabaseService()
-            .client
-            .from('institution_ratings')
-            .select('rating')
-            .eq('institution_id', institutionId);
-
-        if (ratingsResponse.isNotEmpty) {
-          double total = 0;
-          for (var item in ratingsResponse) {
-            total += (item['rating'] as num?)?.toDouble() ?? 0;
-          }
-          _rating = total / ratingsResponse.length;
-        } else {
-          _rating = 0;
-        }
-      } catch (_) {
-        _rating = 0;
-      }
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
@@ -488,31 +456,21 @@ class _InstitutionProfilePageState extends State<InstitutionProfilePage> {
       children: [
         Expanded(
           child: _buildStatCard(
-            icon: Icons.star_rounded,
-            label: 'التقييم',
-            value: _rating > 0 ? _rating.toStringAsFixed(1) : '—',
-            color: _gold,
-            sublabel: _rating > 0 ? 'من 5' : 'لا يوجد',
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.people_rounded,
-            label: 'المتابعون',
-            value: '$_followersCount',
-            color: _blue,
-            sublabel: 'متابع',
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatCard(
             icon: Icons.local_offer_rounded,
-            label: 'العروض',
+            label: 'العروض النشطة',
             value: '$_offersCount',
             color: _primary,
-            sublabel: 'عرض',
+            sublabel: 'عرض متاح',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.verified_rounded,
+            label: 'حالة التوثيق',
+            value: widget.institution.isVerified ? 'موثقة' : 'قيد المراجعة',
+            color: widget.institution.isVerified ? _gold : _inkSoft,
+            sublabel: 'بيانات المؤسسة',
           ),
         ),
       ],
