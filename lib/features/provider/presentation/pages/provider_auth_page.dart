@@ -105,6 +105,9 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
 
   void _switchTab(int index) {
     FocusScope.of(context).unfocus();
+    if (index == 0 && _loginPhone.text.trim().isEmpty) {
+      _loginPhone.text = _regPhone.text.trim();
+    }
     setState(() {
       _errorMessage = null;
       _showSwitchToRegister = false;
@@ -256,6 +259,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
     final result = await _repo.sendProviderOtp(
       phone: phone,
       loginMode: 'provider',
+      isRegistration: true,
     );
     if (!mounted) return;
 
@@ -264,6 +268,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
         setState(() {
           _loading = false;
           _errorMessage = err;
+          _showSwitchToLogin = err.contains('روح لتسجيل الدخول');
         });
       },
       (returnedPhone) {
