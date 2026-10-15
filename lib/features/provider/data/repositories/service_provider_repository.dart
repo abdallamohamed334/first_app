@@ -504,7 +504,7 @@ class ServiceProviderRepository {
       debugPrint('❌ [Provider OTP] verify error: $error');
       debugPrintStack(stackTrace: stack);
       final rawError = error.toString().toLowerCase();
-      if (isRegisterMode &&
+      if (categoryId.trim().isNotEmpty &&
           RegExp(r'functionexception\(\s*status:\s*403')
               .hasMatch(rawError)) {
         return const Left(
