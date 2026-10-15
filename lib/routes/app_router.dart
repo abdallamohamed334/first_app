@@ -143,6 +143,12 @@ class AppRouter {
       if (loc == restaurantHome && auth.homeRoute != restaurantHome) {
         return auth.homeRoute ?? userTypeSelection;
       }
+      const providerOperationalRoutes = {
+        providerHome,
+        providerReviews,
+        providerEditProfile,
+        providerPublicProfile,
+      };
       const protectedProviderRoutes = {
         providerHome,
         providerPending,
@@ -168,18 +174,22 @@ class AppRouter {
       if (auth.role == 'provider') {
         final status = auth.providerStatus ?? 'pending';
         final isActive = auth.isActive;
+        final isApprovedProvider = status == 'approved' && isActive;
+        final isPendingProvider = status == 'pending' && isActive;
 
-        // مزود الخدمة المعتمد لا يدخل Home المستخدم حتى لو استدعاه كود قديم.
-        if (status == 'approved' && isActive && loc == home) {
-          return providerHome;
+        // Keep the status/support screen available for pending, blocked, and
+        // unknown provider states. Operational routes are approved-only.
+        if (loc == providerPending) return null;
+
+        // A provider must never enter the ordinary-user feed or operational
+        // provider pages unless the backend status is explicitly approved.
+        if (loc == home && !isApprovedProvider) return providerPending;
+        if (providerOperationalRoutes.contains(loc) && !isApprovedProvider) {
+          return providerPending;
         }
 
-        final isPending = status == 'pending' && isActive;
-        final isRejectedOrSuspended =
-            !isActive || status == 'suspended' || status == 'rejected';
-
-        // pending له صفحة انتظار حقيقية، ويسمح بالرجوع لاختيار نوع الحساب.
-        if (isPending) {
+        // Pending providers may view their status or continue the OTP flow.
+        if (isPendingProvider) {
           final pendingAllowed = loc == providerPending ||
               loc == userTypeSelection ||
               loc == providerAuth ||
@@ -190,14 +200,11 @@ class AppRouter {
           }
         }
 
-        // المرفوض أو الموقوف لا يدخل صفحات المزود.
-        if (isRejectedOrSuspended) {
-          final isProviderRoute =
-              loc == providerHome || loc.startsWith('/provider/');
-
-          if (isProviderRoute || loc == home) {
-            return userTypeSelection;
-          }
+        // Rejected, suspended, inactive, or unknown statuses fail closed to
+        // the status page instead of bypassing the check via a direct route.
+        if (!isApprovedProvider && !isPendingProvider &&
+            loc.startsWith('/provider/')) {
+          return providerPending;
         }
       }
 

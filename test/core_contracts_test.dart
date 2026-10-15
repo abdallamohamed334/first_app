@@ -150,6 +150,28 @@ void main() {
       expect(state.homeRoute, '/provider/pending');
     });
 
+    test('only an active approved provider receives the operational home', () {
+      for (final status in ['rejected', 'suspended', 'unknown']) {
+        state.setLoggedIn(
+          isLoggedIn: true,
+          role: 'provider',
+          providerStatus: status,
+          isActive: true,
+          authResolved: true,
+        );
+        expect(state.homeRoute, '/provider/pending', reason: 'status=$status');
+      }
+
+      state.setLoggedIn(
+        isLoggedIn: true,
+        role: 'provider',
+        providerStatus: 'approved',
+        isActive: false,
+        authResolved: true,
+      );
+      expect(state.homeRoute, '/provider/pending');
+    });
+
     test('requires complete user profile before opening the home feed', () {
       state.setLoggedIn(
         isLoggedIn: true,
