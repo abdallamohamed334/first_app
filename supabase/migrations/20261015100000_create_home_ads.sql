@@ -98,11 +98,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-  UPDATE public.home_ads
+  UPDATE public.home_ads AS expired
   SET is_active = false,
       updated_at = now()
-  WHERE is_active = true
-    AND ends_at <= now();
+  WHERE expired.is_active = true
+    AND expired.ends_at <= now();
 
   RETURN QUERY
   SELECT a.id, a.advertiser_name, a.title, a.subtitle, a.image_url,
