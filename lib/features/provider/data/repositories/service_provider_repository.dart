@@ -96,6 +96,10 @@ class ServiceProviderRepository {
         raw.contains('لا يمكن التسجيل بهذا الرقم')) {
       return 'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.';
     }
+    if (raw.contains('provider_profile_not_found') ||
+        raw.contains('الرقم ده مش مسجل كمزود خدمة')) {
+      return 'الرقم ده مش مسجل كمزود خدمة. افتح حساب جديد من التبويب الآخر.';
+    }
     if (raw.contains('rate') || raw.contains('too many')) {
       return 'محاولات كثيرة. استنى شوية وحاول تاني.';
     }
@@ -150,6 +154,11 @@ class ServiceProviderRepository {
             raw.contains('لا يمكن التسجيل بهذا الرقم') ||
             raw.contains('الرقم غير متاح لإنشاء حساب جديد'))) {
       return 'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.';
+    }
+    if (isSending &&
+        (raw.contains('provider_profile_not_found') ||
+            raw.contains('الرقم ده مش مسجل كمزود خدمة'))) {
+      return 'الرقم ده مش مسجل كمزود خدمة. افتح حساب جديد من التبويب الآخر.';
     }
     if (isSending &&
         (raw.contains('cannot send') ||

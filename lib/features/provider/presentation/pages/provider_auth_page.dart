@@ -219,6 +219,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
         setState(() {
           _loading = false;
           _errorMessage = err;
+          _showSwitchToRegister = err.contains('حساب جديد');
         });
       },
       (returnedPhone) {

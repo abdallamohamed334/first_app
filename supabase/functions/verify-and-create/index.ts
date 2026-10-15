@@ -76,13 +76,20 @@ serve(async (req) => {
     }
     const providerRegistrationUnavailable =
       "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
+    const providerLoginWithoutAccount =
+      requestedRole === "provider" &&
+      !isProviderRegistration &&
+      access?.is_new_user === true;
     if (
       access?.allowed !== true ||
-      (isProviderRegistration && access?.is_new_user !== true)
+      (isProviderRegistration && access?.is_new_user !== true) ||
+      providerLoginWithoutAccount
     ) {
       return err(
         isProviderRegistration
           ? providerRegistrationUnavailable
+          : requestedRole === "provider"
+          ? "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً."
           : "لا يمكن إكمال تسجيل الدخول بهذا الرقم",
         403,
       );
