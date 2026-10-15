@@ -273,13 +273,7 @@ class _CharityDonationRequestsPageState
     _assignmentDialogOpen = true;
 
     try {
-      final charityId = await _currentCharityId();
-      final rawVolunteers = await SupabaseService().client
-          .from('charity_volunteers')
-          .select('id, name, phone, status')
-          .eq('charity_id', charityId)
-          .eq('status', 'active')
-          .order('name');
+      final rawVolunteers = await _repository.getMyCharityVolunteers();
 
       if (!mounted) {
         _assignmentDialogOpen = false;
@@ -322,32 +316,6 @@ class _CharityDonationRequestsPageState
       _assignmentDialogOpen = false;
       if (mounted) setState(() => _busyId = null);
     }
-  }
-
-  Future<String> _currentCharityId() async {
-    final client = SupabaseService().client;
-    final userId = client.auth.currentUser?.id;
-    if (userId == null || userId.isEmpty) {
-      throw const FormatException('يجب تسجيل الدخول أولًا');
-    }
-
-    // Resolve the charity through the owner-scoped RPC. The direct
-    // charities.user_id column is intentionally hidden from browser roles.
-    final rawContext = await client.rpc('get_my_charity_context');
-    final context = rawContext is Map
-        ? Map<String, dynamic>.from(rawContext)
-        : <String, dynamic>{};
-    final id = context['charity_id']?.toString().trim() ?? '';
-    final rpcUserId = context['user_id']?.toString().trim() ?? '';
-    if (context['allowed'] != true || id.isEmpty) {
-      throw FormatException(
-        context['message']?.toString() ?? 'لا توجد جمعية نشطة مرتبطة بالحساب',
-      );
-    }
-    if (rpcUserId != userId) {
-      throw const FormatException('بيانات الجمعية لا تتطابق مع حساب الدخول');
-    }
-    return id;
   }
 
   String _successMessage(String status) =>
@@ -660,7 +628,6 @@ class _CharityDonationRequestsPageState
       'all': 'الكل',
       'pending': 'جديد',
       'accepted': 'مقبول',
-      'volunteer_needed': 'مفتوح للمتطوعين',
       'donor_ready': 'المتبرع جاهز',
       'volunteer_assigned': 'المندوب أُرسل',
       'picked_up_from_donor': 'تم الاستلام',
@@ -1270,9 +1237,9 @@ class _CharityDonationRequestsPageState
           const Color(0xFF2F6DA5),
         ),
         'volunteer_needed': (
-          'مفتوح للمتطوعين',
-          const Color(0xFFECE8FF),
-          const Color(0xFF6651B5),
+          'مسار قديم',
+          const Color(0xFFF0F1F0),
+          Colors.black54,
         ),
         'donor_ready': (
           'المتبرع جاهز',

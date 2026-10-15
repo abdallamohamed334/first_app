@@ -108,15 +108,18 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
     final results = await Future.wait([
       _donationRepository.getCharityDonations(),
       _institutionDonationRepository.listMyDonations(),
-      _client
-          .from('charity_volunteers')
-          .select('id, status')
-          .eq('charity_id', charityId),
+      _client.rpc('list_my_current_charity_volunteers'),
     ]);
 
     final rows = List<Map<String, dynamic>>.from(results[0] as List);
     final institutionRows = List<Map<String, dynamic>>.from(results[1] as List);
-    final volunteerRows = List<Map<String, dynamic>>.from(results[2] as List);
+    final volunteerRaw = results[2];
+    final volunteerRows = volunteerRaw is List
+        ? volunteerRaw
+            .whereType<Map>()
+            .map((row) => Map<String, dynamic>.from(row))
+            .toList(growable: false)
+        : const <Map<String, dynamic>>[];
 
     // ✅ عدّادات
     int count(String status) =>
@@ -145,8 +148,6 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
       volunteers: volunteerRows.length,
       activeVolunteers:
           volunteerRows.where((row) => row['status'] == 'active').length,
-      // ✅ جديد
-      volunteerNeededRequests: count('volunteer_needed'),
       inProgressRequests: count('accepted') +
           count('donor_ready') +
           count('volunteer_assigned') +
@@ -391,11 +392,6 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
             _metrics(data),
             const SizedBox(height: 14),
             _sourceSummary(data),
-            // ✅ Action Alert للتبرعات المفتوحة
-            if (data.volunteerNeededRequests > 0) ...[
-              const SizedBox(height: 16),
-              _volunteerNeededAlert(data),
-            ],
             const SizedBox(height: 22),
             _sectionTitle(
                 'متابعة التبرعات', Icons.dashboard_customize_outlined),
@@ -565,76 +561,6 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
       );
 
   // ═══════════════════════════════════════════════════════════
-  // VOLUNTEER NEEDED ALERT
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _volunteerNeededAlert(_WorkspaceSnapshot data) => InkWell(
-        onTap: () => _open(const CharityDonationRequestsPage()),
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                purple.withValues(alpha: 0.08),
-                purple.withValues(alpha: 0.02),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: purple.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: purple.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.people_alt_rounded,
-                  color: purple,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${data.volunteerNeededRequests} تبرع مفتوح للمتطوعين',
-                      style: const TextStyle(
-                        color: purple,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'في انتظار متطوعين مستقلين يوصلوهم',
-                      style: TextStyle(
-                        color: purple,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: purple,
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      );
-
-  // ═══════════════════════════════════════════════════════════
   // SOURCE SUMMARY
   // ═══════════════════════════════════════════════════════════
 
@@ -733,13 +659,6 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
               Icons.hourglass_top_rounded,
               orange,
             ),
-            if (data.volunteerNeededRequests > 0)
-              _metric(
-                'مفتوح للمتطوعين',
-                '${data.volunteerNeededRequests}',
-                Icons.people_alt_rounded,
-                purple,
-              ),
             _metric(
               'المتطوعون',
               '${data.activeVolunteers}',
@@ -964,14 +883,6 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
               'المتطوعون النشطون: ${data.activeVolunteers} من ${data.volunteers}',
               purple,
             ),
-            if (data.volunteerNeededRequests > 0) ...[
-              const SizedBox(height: 10),
-              _activityLine(
-                Icons.people_alt_rounded,
-                '${data.volunteerNeededRequests} تبرع مفتوح للمتطوعين',
-                purple,
-              ),
-            ],
           ],
         ),
       );
@@ -1119,7 +1030,6 @@ class _WorkspaceSnapshot {
   final int completedRequests;
   final int volunteers;
   final int activeVolunteers;
-  final int volunteerNeededRequests; // ✅ جديد
   final int inProgressRequests; // ✅ جديد
   final bool isBlocked;
   final String? blockedMessage;
@@ -1135,7 +1045,6 @@ class _WorkspaceSnapshot {
     required this.completedRequests,
     required this.volunteers,
     required this.activeVolunteers,
-    required this.volunteerNeededRequests,
     required this.inProgressRequests,
   })  : isBlocked = false,
         blockedMessage = null;
@@ -1151,7 +1060,6 @@ class _WorkspaceSnapshot {
         completedRequests = 0,
         volunteers = 0,
         activeVolunteers = 0,
-        volunteerNeededRequests = 0,
         inProgressRequests = 0,
         isBlocked = true;
 }
