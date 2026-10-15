@@ -8,6 +8,7 @@ import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:loqma/routes/app_router.dart';
 import 'user_profile_setup_flow.dart';
 
 class OtpVerifyPage extends StatefulWidget {
