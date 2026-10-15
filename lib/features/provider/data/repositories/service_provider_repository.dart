@@ -308,6 +308,14 @@ class ServiceProviderRepository {
       debugPrint('❌ [Provider OTP] send exception: ${error.runtimeType}');
       debugPrintStack(stackTrace: stack);
       final rawError = error.toString().toLowerCase();
+      if (!isRegistration &&
+          (rawError.contains('status: 403') ||
+              rawError.contains('provider_profile_not_found') ||
+              rawError.contains('مش مسجل كمزود خدمة'))) {
+        return const Left(
+          'الرقم ده مسجل كمستخدم عادي وليس كمزود خدمة. افتح تبويب «حساب جديد» لإنشاء حساب مزود خدمة، أو استخدم رقم مزود خدمة موجود.',
+        );
+      }
       if (isRegistration &&
           RegExp(r'functionexception\(\s*status:\s*403')
               .hasMatch(rawError)) {
