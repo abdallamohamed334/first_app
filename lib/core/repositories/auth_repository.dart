@@ -71,6 +71,22 @@ class AuthRepository {
   String _friendlyAuthError(Object error) {
     final raw = error.toString().toLowerCase();
 
+    if (raw.contains('user_registration_unavailable') ||
+        raw.contains('الرقم مسجل بالفعل')) {
+      return 'الرقم مسجل بالفعل. استخدم تسجيل الدخول أو رقمًا آخر.';
+    }
+    if (raw.contains('provider_registration_unavailable') ||
+        raw.contains('الرقم غير متاح لإنشاء حساب جديد')) {
+      return 'الرقم مرتبط بحساب سابق أو غير متاح لإنشاء حساب مزود خدمة. استخدم تسجيل الدخول أو رقمًا آخر.';
+    }
+    if (raw.contains('account_type_mismatch') ||
+        raw.contains('نوع الحساب ورقم الهاتف')) {
+      return 'الرقم مرتبط بنوع حساب مختلف. استخدم شاشة الدخول المناسبة أو رقمًا آخر.';
+    }
+    if (raw.contains('provider_profile_not_found') ||
+        raw.contains('مش مسجل كمزود خدمة')) {
+      return 'الرقم غير مسجل كمزود خدمة. اختر «حساب جديد» أو استخدم رقمًا آخر.';
+    }
     if (raw.contains('already') ||
         raw.contains('exists') ||
         raw.contains('duplicate') ||
