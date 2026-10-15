@@ -494,10 +494,9 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
         categoryId: event.categoryId,
         latitude: currentState.userLatitude,
         longitude: currentState.userLongitude,
-        // Category pages are nationwide catalogs. The Home page remains the
-        // place for nearby-radius filtering; selecting a category must not
-        // hide valid offers elsewhere in Egypt.
-        radiusKm: double.infinity,
+        // Category pages use a wider regional radius than Home. From Tanta,
+        // 70 km covers Gharbia and nearby cities without showing all Egypt.
+        radiusKm: 70,
       );
 
       final latest = state;
