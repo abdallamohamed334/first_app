@@ -105,7 +105,7 @@ class _CharityWorkspacePageState extends State<CharityWorkspacePage>
     }
 
     // ✅ جلب البيانات بالتوازي
-    final results = await Future.wait([
+    final results = await Future.wait<dynamic>(<Future<dynamic>>[
       _donationRepository.getCharityDonations(),
       _institutionDonationRepository.listMyDonations(),
       _client.rpc('list_my_current_charity_volunteers'),
