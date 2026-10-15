@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:loqma/core/models/user_model.dart';
-import 'package:loqma/features/userhome/presentation/pages/user_home_page.dart'
-    as user_home;
+import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/routes/app_router.dart';
 
 import 'complete_profile_page.dart';
 
@@ -35,6 +36,20 @@ class UserProfileSetupFlow {
   }) async {
     if (role.toLowerCase() != 'user') return;
 
+    final auth = AuthStateNotifier.instance;
+    if (!auth.isLoggedIn) {
+      context.go(AppRouter.userTypeSelection);
+      return;
+    }
+    if (auth.isSyncing || !auth.isResolved) {
+      context.go(AppRouter.splash);
+      return;
+    }
+    if (auth.role != 'user') {
+      context.go(auth.homeRoute ?? AppRouter.accountRestricted);
+      return;
+    }
+
     // The database-backed profile is the single source of truth. Complete
     // users go Home; every incomplete user must finish setup, regardless of
     // whether the flow came from auto-login, OTP login, or registration.
@@ -53,9 +68,6 @@ class UserProfileSetupFlow {
       return;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const user_home.UserHomePage()),
-      (_) => false,
-    );
+    context.go(AppRouter.home);
   }
 }

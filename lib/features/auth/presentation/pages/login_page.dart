@@ -6,6 +6,7 @@ import 'package:dartz/dartz.dart' as dartz;
 import 'package:go_router/go_router.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -685,45 +686,36 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _navigateToHome(UserModel user) async {
     if (!mounted) return;
 
-    final type = user.type.value.trim().toLowerCase();
-    debugPrint('🔴 [Login] navigating for role: $type');
-
-    if (type.isEmpty) {
-      _showError('نوع الحساب غير معروف');
+    final auth = AuthStateNotifier.instance;
+    if (!auth.isLoggedIn || auth.isSyncing || !auth.isResolved) {
+      _showError('تعذر تأكيد نوع الحساب. حاول تسجيل الدخول مرة أخرى.');
       return;
     }
 
-    if (type == 'user') {
-      if (!mounted) return;
+    final role = auth.role ?? 'unknown';
+    debugPrint('🔴 [Login] navigating for resolved role: $role');
+
+    if (role == 'user') {
       await UserProfileSetupFlow.open(
         context,
         user,
-        role: type,
+        role: role,
       );
       return;
     }
 
-    if (type == 'provider') {
+    if (role == 'provider') {
       _showError('هذا الرقم مسجل كمزود خدمة. استخدم دخول مزود الخدمة.');
       return;
     }
 
-    if (type == 'institution') {
-      context.go(AppRouter.institutionsHome);
+    final route = auth.homeRoute;
+    if (route != null) {
+      context.go(route);
       return;
     }
 
-    if (type == 'charity') {
-      context.go(AppRouter.charityHome);
-      return;
-    }
-
-    if (type == 'admin') {
-      context.go(AppRouter.home);
-      return;
-    }
-
-    debugPrint('❌ Unknown role: $type');
+    debugPrint('❌ Unknown role: $role');
     _showError('نوع الحساب غير معروف');
   }
 

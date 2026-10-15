@@ -47,6 +47,91 @@ void main() {
       expect(state.isSyncing, isTrue);
     });
 
+    test('an institution relation cannot promote a user account', () {
+      final role = AuthStateNotifier.resolveRole(
+        userType: ' user ',
+        fallbackRole: 'institution',
+        institutionType: 'restaurant',
+      );
+      expect(role, 'user');
+
+      state.setLoggedIn(
+        isLoggedIn: true,
+        role: role,
+        authResolved: true,
+        userProfileComplete: true,
+      );
+      expect(state.homeRoute, '/home');
+    });
+
+    test('institution type only refines an institution/business profile', () {
+      expect(
+        AuthStateNotifier.resolveRole(
+          userType: 'institution',
+          institutionType: 'restaurant',
+        ),
+        'restaurant',
+      );
+      expect(
+        AuthStateNotifier.resolveRole(
+          userType: 'company',
+          institutionType: 'hotel',
+        ),
+        'hotel',
+      );
+      expect(
+        AuthStateNotifier.resolveRole(
+          userType: 'unknown',
+          institutionType: 'restaurant',
+        ),
+        'unknown',
+      );
+    });
+
+    test('a provider profile still resolves a user_type=user provider account', () {
+      expect(
+        AuthStateNotifier.resolveRole(
+          userType: 'user',
+          hasProviderProfile: true,
+        ),
+        'provider',
+      );
+    });
+
+    test('every supported institution role has its intended home destination', () {
+      for (final role in AuthStateNotifier.institutionRoles) {
+        state.setLoggedIn(
+          isLoggedIn: true,
+          role: role,
+          institutionStatus: 'approved',
+          isActive: true,
+          authResolved: true,
+        );
+        expect(
+          state.homeRoute,
+          role == 'restaurant' ? '/restaurant-home' : '/institutions-home',
+          reason: 'unexpected route for role=$role',
+        );
+      }
+    });
+
+    test('charity and admin accounts use their dedicated home destinations', () {
+      state.setLoggedIn(
+        isLoggedIn: true,
+        role: 'charity',
+        institutionStatus: 'active',
+        authResolved: true,
+      );
+      expect(state.homeRoute, '/charity-home');
+
+      state.setLoggedIn(
+        isLoggedIn: true,
+        role: 'admin',
+        authResolved: true,
+      );
+      expect(state.homeRoute, '/admin/account-cases');
+    });
+
     test('routes approved providers and blocks pending providers', () {
       state.setLoggedIn(
         isLoggedIn: true,
@@ -128,6 +213,18 @@ void main() {
 
     test('missing profile data always requires completion, including re-login', () {
       expect(UserProfileSetupFlow.needsProfile(user(complete: false)), isTrue);
+    });
+
+    test('database user_type wins over a stale role field', () {
+      final parsed = UserModel.fromJson({
+        'id': 'user-1',
+        'name': 'مستخدم عادي',
+        'user_type': 'user',
+        'role': 'institution',
+        'created_at': '2026-10-15T00:00:00Z',
+      });
+
+      expect(parsed.type, UserType.user);
     });
   });
 }
