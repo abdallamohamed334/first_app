@@ -3708,7 +3708,8 @@ class _UserHomePageState extends State<UserHomePage> {
                             ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
                     const Spacer(),
                     Text(
                       '$offerCount عرض',
