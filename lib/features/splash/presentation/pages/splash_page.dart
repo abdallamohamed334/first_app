@@ -3,10 +3,7 @@
 // ✅ سبلاش شاشة تطبيق "Khedma" — المنصة اللي بتوصّل الناس ببعض:
 // بيع منتجات، البحث عن خدمة، والتبرع للجمعيات.
 // نفس جودة ومستوى الأنيميشن بتاع سبلاش "جُود" (scale/fade/glow + نمط
-// خلفية + progress bar) لكن الشعار واللوجو اتبنوا من الصفر بما إنه
-// معندناش asset صورة جاهزة للتطبيق الجديد لسه — الشعار هنا متصمم
-// بالكود (CustomPaint + أيقونات) فمفيش احتياج لأي ملف صورة خارجي،
-// وهيفضل شغال برضو لو حبيت تستبدله بـ Image.asset لاحقًا بسهولة.
+// خلفية + progress bar) مع استخدام أيقونة Khedma النهائية من assets.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -345,9 +342,7 @@ class _SplashPageState extends State<SplashPage>
                   );
                 },
               ),
-              // ✅ الشعار المركزي: علامة "Khedma" مرسومة بالكود — حلقتين
-              // متشابكتين (رمز الوصل/الربط بين الناس وبين الاحتياج
-              // والحل)، بدل ما نعتمد على صورة أيقونة غير موجودة.
+              // ✅ الشعار المركزي: أيقونة Khedma النهائية.
               Container(
                 width: 142,
                 height: 142,
@@ -367,10 +362,11 @@ class _SplashPageState extends State<SplashPage>
                     ),
                   ],
                 ),
-                child: CustomPaint(
-                  painter: _LinkMarkPainter(
-                    ringColor: _ink,
-                    accentColor: _gold,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(38),
+                  child: Image.asset(
+                    'assets/images/khedma_icon.png',
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
@@ -494,51 +490,7 @@ class _Pillar {
   const _Pillar({required this.icon, required this.color});
 }
 
-// ============ شعار "Khedma" المرسوم بالكود ============
-//
-// حلقتين متشابكتين (زى رمز "link" لكن مرسومة بخط ناعم ومتدرج) ترمز
-// للوصل بين طرفين — البائع والمشترى، صاحب الخدمة والي محتاجها،
-// المتبرع والمحتاج. لو حبيت تستبدلها بصورة لوجو جاهزة فى أى وقت، يكفي
-// تستبدل الـ CustomPaint دي بـ Image.asset زى ما كان موجود فى نسخة
-// "جُود".
-class _LinkMarkPainter extends CustomPainter {
-  final Color ringColor;
-  final Color accentColor;
-
-  _LinkMarkPainter({required this.ringColor, required this.accentColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final strokeWidth = size.width * 0.11;
-
-    final leftCenter = Offset(center.dx - size.width * 0.14, center.dy);
-    final rightCenter = Offset(center.dx + size.width * 0.14, center.dy);
-    final ringRadius = size.width * 0.22;
-
-    final leftPaint = Paint()
-      ..color = ringColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    final rightPaint = Paint()
-      ..color = accentColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // الحلقة اليمنى (خلف) بلون الذهبي
-    canvas.drawCircle(rightCenter, ringRadius, rightPaint);
-    // الحلقة اليسرى (قدام) باللون الأخضر الغامق
-    canvas.drawCircle(leftCenter, ringRadius, leftPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _LinkMarkPainter oldDelegate) =>
-      oldDelegate.ringColor != ringColor ||
-      oldDelegate.accentColor != accentColor;
-}
+// The final Khedma icon is loaded from assets/images/khedma_icon.png.
 
 // ============ نمط خلفية منقّط هادي ============
 class _DotPatternPainter extends CustomPainter {
