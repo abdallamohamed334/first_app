@@ -293,12 +293,33 @@ def main() -> None:
     require(send_otp_function, '"check_phone_access"', "server-side OTP issuance role check")
     require(send_otp_function, '"create_otp_challenge"', "atomic OTP challenge creation")
     require(send_otp_function, "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.", "non-enumerating OTP rejection")
+    provider_login_guard = (
+        'loginMode === "provider" &&\n'
+        '      !isProviderRegistration &&\n'
+        '      access?.is_new_user === true'
+    )
+    require(send_otp_function, provider_login_guard, "unregistered provider login blocked before OTP")
+    if send_otp_function.index(provider_login_guard) > send_otp_function.index('"create_otp_challenge"'):
+        raise AssertionError("unregistered provider login check must run before creating OTP")
     require(provider, "'purpose': isRegistration ? 'provider_registration' : 'login'", "provider registration intent reaches the OTP server")
     require(send_otp_function, "isProviderRegistration && access.is_new_user !== true", "registered phone blocked from provider registration before OTP")
     require(send_otp_function, "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول", "safe duplicate-registration guidance")
     require(verify_and_create_function, 'profile.intent === "provider_registration"', "provider registration intent rechecked during verification")
     require(verify_and_create_function, "isProviderRegistration && access?.is_new_user !== true", "registered phone blocked again before OTP consumption")
+    require(
+        verify_and_create_function,
+        'requestedRole === "provider" &&\n'
+        '      !isProviderRegistration &&\n'
+        '      access?.is_new_user === true',
+        "unregistered provider login blocked during verification",
+    )
+    if (
+        verify_and_create_function.index("const providerLoginWithoutAccount")
+        > verify_and_create_function.index('"consume_otp_challenge"')
+    ):
+        raise AssertionError("unregistered provider login check must run before OTP consumption")
     require(provider_auth_page, "isRegistration: true", "registration form marks provider OTP intent")
+    require(provider_auth_page, "_showSwitchToRegister = err.contains('حساب جديد');", "provider login offers registration for an unknown phone")
     require(provider_auth_page, "_showSwitchToLogin = err.contains('روح لتسجيل الدخول');", "duplicate-registration login action")
     require(provider_auth_page, "_loginPhone.text = _regPhone.text.trim();", "registration phone carried into login form")
     require(verify_and_create_function, '"check_phone_access"', "role re-check before OTP consumption")
