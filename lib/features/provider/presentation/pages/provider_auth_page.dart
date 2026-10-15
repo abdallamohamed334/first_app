@@ -296,7 +296,7 @@ class _ProviderAuthPageState extends State<ProviderAuthPage>
           backgroundColor: _bg,
           body: AnnotatedRegion<SystemUiOverlayStyle>(
             value: const SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
+              statusBarColor: _bg,
               statusBarIconBrightness: Brightness.dark,
               statusBarBrightness: Brightness.light,
             ),

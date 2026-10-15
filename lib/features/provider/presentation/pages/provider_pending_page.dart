@@ -202,7 +202,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
         backgroundColor: _bg,
         body: AnnotatedRegion(
           value: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
+            statusBarColor: _bg,
             statusBarIconBrightness: Brightness.dark,
           ),
           child: Container(

@@ -97,33 +97,42 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: _bg,
-        body: IndexedStack(
-          index: _currentIndex,
-          children: _pages,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: _bg,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.white,
+          systemNavigationBarIconBrightness: Brightness.dark,
         ),
-        bottomNavigationBar: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
+        child: Scaffold(
+          backgroundColor: _bg,
+          body: IndexedStack(
+            index: _currentIndex,
+            children: _pages,
           ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 68,
-              child: Row(
-                children: [
-                  _navItem(0, Icons.home_rounded, 'الرئيسية'),
-                  _navItem(1, Icons.star_rounded, 'التقييمات'),
-                  _navItem(2, Icons.person_rounded, 'حسابي'),
-                ],
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                height: 68,
+                child: Row(
+                  children: [
+                    _navItem(0, Icons.home_rounded, 'الرئيسية'),
+                    _navItem(1, Icons.star_rounded, 'التقييمات'),
+                    _navItem(2, Icons.person_rounded, 'حسابي'),
+                  ],
+                ),
               ),
             ),
           ),

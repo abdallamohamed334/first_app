@@ -307,7 +307,13 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: _bg,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+        child: Scaffold(
         backgroundColor: _bg,
         body: Container(
           decoration: const BoxDecoration(
@@ -348,6 +354,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                     ),
                   ),
           ),
+        ),
         ),
       ),
     );

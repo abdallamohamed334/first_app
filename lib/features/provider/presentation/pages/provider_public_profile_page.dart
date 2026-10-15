@@ -84,6 +84,11 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
         backgroundColor: _bg,
         appBar: AppBar(
           backgroundColor: _cardBg,
+          systemOverlayStyle: const SystemUiOverlayStyle(
+            statusBarColor: _cardBg,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
+          ),
           elevation: 0,
           centerTitle: true,
           leading: IconButton(

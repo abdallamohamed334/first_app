@@ -193,7 +193,7 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
         backgroundColor: _bg,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
+            statusBarColor: _bg,
             statusBarIconBrightness: Brightness.dark,
           ),
           child: Container(
