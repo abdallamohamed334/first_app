@@ -52,6 +52,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
   }
 
   Future<void> _refresh() async {
+    if (_refreshing) return;
     setState(() => _refreshing = true);
     final result = await _repo.getCurrentProvider();
 
@@ -60,6 +61,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
     result.fold(
       (err) {
         setState(() => _refreshing = false);
+        _snack(err, error: true);
       },
       (data) {
         final newStatus = data['verification_status']?.toString() ?? 'pending';
@@ -77,6 +79,7 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
           role: 'provider',
           providerStatus: newStatus,
           isActive: newIsActive,
+          authResolved: true,
         );
 
         if (newStatus == 'approved' && newIsActive) {

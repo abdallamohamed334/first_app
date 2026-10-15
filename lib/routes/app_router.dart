@@ -148,6 +148,7 @@ class AppRouter {
         providerPending,
         providerReviews,
         providerEditProfile,
+        providerPublicProfile,
       };
       if (protectedProviderRoutes.contains(loc) && auth.role != 'provider') {
         return auth.homeRoute ?? userTypeSelection;

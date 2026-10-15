@@ -66,6 +66,7 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
             role: 'provider',
             providerStatus: status,
             isActive: isActive,
+            authResolved: true,
           );
 
           // ✅ نحوّله لصفحة Pending
