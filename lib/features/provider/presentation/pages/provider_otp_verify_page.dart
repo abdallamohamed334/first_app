@@ -160,7 +160,10 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
     if (_timer > 0 || _sending) return;
     setState(() => _sending = true);
 
-    final result = await _repo.sendProviderOtp(phone: widget.phone);
+    final result = await _repo.sendProviderOtp(
+      phone: widget.phone,
+      isRegistration: widget.categoryId.trim().isNotEmpty,
+    );
 
     if (!mounted) return;
 

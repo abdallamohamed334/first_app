@@ -91,6 +91,11 @@ class ServiceProviderRepository {
     if (raw.contains('email not confirmed')) {
       return 'لازم تأكّد إيميلك الأول.';
     }
+    if (raw.contains('provider_registration_unavailable') ||
+        raw.contains('الرقم غير متاح لإنشاء حساب جديد') ||
+        raw.contains('لا يمكن التسجيل بهذا الرقم')) {
+      return 'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.';
+    }
     if (raw.contains('rate') || raw.contains('too many')) {
       return 'محاولات كثيرة. استنى شوية وحاول تاني.';
     }
@@ -125,6 +130,7 @@ class ServiceProviderRepository {
   String _friendlyProviderOtpResponseError(
     String error, {
     required bool isSending,
+    bool isRegistration = false,
   }) {
     final raw = error.trim().toLowerCase();
     if (raw.isEmpty) {
@@ -138,6 +144,12 @@ class ServiceProviderRepository {
         raw.contains('انتظر') ||
         raw.contains('429')) {
       return 'تم تجاوز عدد المحاولات. انتظر دقيقة ثم حاول مرة أخرى.';
+    }
+    if (isRegistration &&
+        (raw.contains('provider_registration_unavailable') ||
+            raw.contains('لا يمكن التسجيل بهذا الرقم') ||
+            raw.contains('الرقم غير متاح لإنشاء حساب جديد'))) {
+      return 'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.';
     }
     if (isSending &&
         (raw.contains('cannot send') ||
@@ -244,6 +256,7 @@ class ServiceProviderRepository {
   Future<Either<String, String>> sendProviderOtp({
     required String phone,
     String loginMode = 'provider',
+    bool isRegistration = false,
   }) async {
     try {
       final cleanPhone = _cleanPhoneIntl(phone);
@@ -262,6 +275,7 @@ class ServiceProviderRepository {
         body: {
           'phone': cleanPhone,
           'loginMode': loginMode,
+          'purpose': isRegistration ? 'provider_registration' : 'login',
         },
       );
 
@@ -269,7 +283,13 @@ class ServiceProviderRepository {
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
         debugPrint('❌ [Provider OTP] error response received');
-        return Left(_friendlyProviderOtpResponseError(err, isSending: true));
+        return Left(
+          _friendlyProviderOtpResponseError(
+            err,
+            isSending: true,
+            isRegistration: isRegistration,
+          ),
+        );
       }
 
       final returned = data['phone']?.toString() ?? cleanPhone;
@@ -278,6 +298,14 @@ class ServiceProviderRepository {
     } catch (error, stack) {
       debugPrint('❌ [Provider OTP] send exception: ${error.runtimeType}');
       debugPrintStack(stackTrace: stack);
+      final rawError = error.toString().toLowerCase();
+      if (isRegistration &&
+          RegExp(r'functionexception\(\s*status:\s*403')
+              .hasMatch(rawError)) {
+        return const Left(
+          'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.',
+        );
+      }
       return Left(_friendlyError(error));
     }
   }
@@ -316,6 +344,9 @@ class ServiceProviderRepository {
           'code': cleanCode,
           'profile': {
             'role': 'provider',
+            'intent': isRegisterMode
+                ? 'provider_registration'
+                : 'provider_login',
             'name': displayName.isEmpty ? 'مزود خدمة' : displayName,
             'phone': cleanPhone,
             // Required for a new service_providers row. Omit it for login so
@@ -332,7 +363,13 @@ class ServiceProviderRepository {
       if (data == null || data['success'] != true) {
         final err = data?['error']?.toString() ?? '';
         debugPrint('❌ [Provider OTP] verify error response received');
-        return Left(_friendlyProviderOtpResponseError(err, isSending: false));
+        return Left(
+          _friendlyProviderOtpResponseError(
+            err,
+            isSending: false,
+            isRegistration: isRegisterMode,
+          ),
+        );
       }
 
       final refreshToken = data['refresh_token']?.toString();
@@ -466,6 +503,14 @@ class ServiceProviderRepository {
     } catch (error, stack) {
       debugPrint('❌ [Provider OTP] verify error: $error');
       debugPrintStack(stackTrace: stack);
+      final rawError = error.toString().toLowerCase();
+      if (categoryId.trim().isNotEmpty &&
+          RegExp(r'functionexception\(\s*status:\s*403')
+              .hasMatch(rawError)) {
+        return const Left(
+          'الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.',
+        );
+      }
       return Left(_friendlyError(error));
     }
   }

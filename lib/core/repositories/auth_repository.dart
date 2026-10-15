@@ -424,7 +424,7 @@ class AuthRepository {
 
       if (!_validUserTypes.contains(rawRole)) {
         debugPrint(
-          'AUTH ROLE UNKNOWN: role=$rawRole → defaulting to institution',
+          'AUTH ROLE UNKNOWN: role=$rawRole → protected routes will fail closed',
         );
       }
 
@@ -533,22 +533,15 @@ class AuthRepository {
         debugPrint('⚠️ [Auth Sync] institution lookup skipped: $error');
       }
 
-      final hasProviderProfile = provider != null;
       final institutionType =
           institution?['institution_type']?.toString().trim().toLowerCase();
-      final resolvedRole = hasProviderProfile
-          ? 'provider'
-          : (institutionType != null && institutionType.isNotEmpty
-              ? institutionType
-              : ((profile?['user_type']
-                          ?.toString()
-                          .trim()
-                          .toLowerCase()
-                          .isNotEmpty ==
-                      true)
-                  ? profile!['user_type'].toString().trim().toLowerCase()
-                  : (profile?['role']?.toString().trim().toLowerCase() ??
-                      'user')));
+      final hasProviderProfile = provider != null;
+      final resolvedRole = AuthStateNotifier.resolveRole(
+        userType: profile?['user_type'],
+        fallbackRole: profile?['role'],
+        hasProviderProfile: hasProviderProfile,
+        institutionType: institutionType,
+      );
 
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();

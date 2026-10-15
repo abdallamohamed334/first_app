@@ -320,14 +320,12 @@ class SupabaseService {
 
       final institutionType =
           institution?['institution_type']?.toString().trim().toLowerCase();
-      final resolvedRole = hasProvider
-          ? 'provider'
-          : (institutionType != null && institutionType.isNotEmpty
-              ? institutionType
-              : ((profile['user_type']?.toString().trim().isNotEmpty == true)
-                  ? profile['user_type'].toString().trim().toLowerCase()
-                  : (profile['role']?.toString().trim().toLowerCase() ??
-                      'user')));
+      final resolvedRole = AuthStateNotifier.resolveRole(
+        userType: profile['user_type'],
+        fallbackRole: profile['role'],
+        hasProviderProfile: hasProvider,
+        institutionType: institutionType,
+      );
 
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();

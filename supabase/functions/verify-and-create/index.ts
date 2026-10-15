@@ -46,6 +46,10 @@ serve(async (req) => {
       typeof profile.role === "string"
         ? profile.role.trim().toLowerCase()
         : "user";
+    const isProviderRegistration =
+      requestedRole === "provider" &&
+      (profile.intent === "provider_registration" ||
+        (typeof profile.categoryId === "string" && profile.categoryId.trim().length > 0));
     if (!["user", "provider"].includes(requestedRole)) {
       return err("نوع الحساب غير مدعوم", 400);
     }
@@ -70,8 +74,18 @@ serve(async (req) => {
       console.error("Phone access check failed", accessError.code);
       return err("تعذر التحقق من صلاحية الحساب، حاول مرة أخرى", 503);
     }
-    if (access?.allowed !== true) {
-      return err("لا يمكن إكمال تسجيل الدخول بهذا الرقم", 403);
+    const providerRegistrationUnavailable =
+      "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
+    if (
+      access?.allowed !== true ||
+      (isProviderRegistration && access?.is_new_user !== true)
+    ) {
+      return err(
+        isProviderRegistration
+          ? providerRegistrationUnavailable
+          : "لا يمكن إكمال تسجيل الدخول بهذا الرقم",
+        403,
+      );
     }
 
     // Consume under a per-phone database lock: a challenge can succeed once only.

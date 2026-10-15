@@ -40,6 +40,7 @@ MANUAL_PARTNER_OTP_REGEX_MIGRATION = ROOT / "supabase/migrations/20261009224200_
 LOGIN_SECURITY_MIGRATION = ROOT / "supabase/migrations/20261010092000_secure_partner_login_and_pre_auth.sql"
 LOGIN_PAGE = ROOT / "lib/features/auth/presentation/pages/login_page.dart"
 PROVIDER_AUTH_PAGE = ROOT / "lib/features/provider/presentation/pages/provider_auth_page.dart"
+PROVIDER_PENDING_PAGE = ROOT / "lib/features/provider/presentation/pages/provider_pending_page.dart"
 SEND_OTP_FUNCTION = ROOT / "supabase/functions/send-otp/index.ts"
 VERIFY_AND_CREATE_FUNCTION = ROOT / "supabase/functions/verify-and-create/index.ts"
 PUBLIC_PROVIDER_PROJECTION_MIGRATION = ROOT / "supabase/migrations/20261012180000_public_provider_projection_and_rpc_hardening.sql"
@@ -96,6 +97,7 @@ def main() -> None:
     login_security_migration = LOGIN_SECURITY_MIGRATION.read_text()
     login_page = LOGIN_PAGE.read_text()
     provider_auth_page = PROVIDER_AUTH_PAGE.read_text()
+    provider_pending_page = PROVIDER_PENDING_PAGE.read_text()
     send_otp_function = SEND_OTP_FUNCTION.read_text()
     verify_and_create_function = VERIFY_AND_CREATE_FUNCTION.read_text()
     public_provider_projection_migration = PUBLIC_PROVIDER_PROJECTION_MIGRATION.read_text()
@@ -226,15 +228,23 @@ def main() -> None:
         raise AssertionError("my offers repository contains an unsafe direct-write fallback")
 
     require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
+    require(auth_state, "static String resolveRole(", "centralized auth role resolution")
+    require(auth_state, "storedRole == 'user' && hasProviderProfile", "provider-only role promotion exception")
+    require(auth_state, "storedRole == 'institution' ||", "institution type refinement requires an institutional profile")
     require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")
     require(app_router, "loc == institutionsHome && auth.homeRoute != institutionsHome", "institution route role guard")
     require(app_router, "protectedProviderRoutes.contains(loc) && auth.role != 'provider'", "provider route role allowlist")
+    require(app_router, "if (loc == providerPending) return null;", "provider status/support route remains reachable")
+    require(app_router, "providerOperationalRoutes.contains(loc) && !isApprovedProvider", "provider operations require approved active status")
+    require(app_router, "if (loc == home && !isApprovedProvider) return providerPending;", "non-approved provider cannot enter user Home")
     require(app_router, "loc == charityHome && auth.role != 'charity'", "charity route role allowlist")
+    require(app_router, "if (loc == home && auth.role != 'user')", "non-user Home destination guard")
+    require(login_page, "final role = auth.role ?? 'unknown';", "login uses resolved auth role")
     require(onboarding_bloc, "setBool('onboarding_seen', true)", "persisted onboarding completion")
     require(user_home_bloc, "generation != _loadGeneration", "stale UserHome load guard")
     require(main_dart, "client.auth.currentUser?.id != userId", "session identity recheck after auth sync awaits")
     require(main_dart, "_supabaseInitialization ??= Supabase.initialize(", "single-flight Supabase initialization")
-    require(main_dart, "storedProfileRole == null || storedProfileRole.isEmpty", "unknown role handling for incomplete profile")
+    require(main_dart, "AuthStateNotifier.resolveRole(", "auth listener uses canonical role resolver")
     if re.search(r"debugPrint\([^\n]*(?:userId|phone|\$name)", main_dart):
         raise AssertionError("auth logs expose user identifiers or phone/name values")
     require(user_home_repository, "expires_at.is.null,expires_at.gt.", "community/institution category expiry filters")
@@ -283,9 +293,20 @@ def main() -> None:
     require(send_otp_function, '"check_phone_access"', "server-side OTP issuance role check")
     require(send_otp_function, '"create_otp_challenge"', "atomic OTP challenge creation")
     require(send_otp_function, "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.", "non-enumerating OTP rejection")
+    require(provider, "'purpose': isRegistration ? 'provider_registration' : 'login'", "provider registration intent reaches the OTP server")
+    require(send_otp_function, "isProviderRegistration && access.is_new_user !== true", "registered phone blocked from provider registration before OTP")
+    require(send_otp_function, "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول", "safe duplicate-registration guidance")
+    require(verify_and_create_function, 'profile.intent === "provider_registration"', "provider registration intent rechecked during verification")
+    require(verify_and_create_function, "isProviderRegistration && access?.is_new_user !== true", "registered phone blocked again before OTP consumption")
+    require(provider_auth_page, "isRegistration: true", "registration form marks provider OTP intent")
+    require(provider_auth_page, "_showSwitchToLogin = err.contains('روح لتسجيل الدخول');", "duplicate-registration login action")
+    require(provider_auth_page, "_loginPhone.text = _regPhone.text.trim();", "registration phone carried into login form")
     require(verify_and_create_function, '"check_phone_access"', "role re-check before OTP consumption")
     require(verify_and_create_function, '"consume_otp_challenge"', "atomic OTP consumption")
     require(verify_and_create_function, '"phone_normalized"', "normalized phone account lookup")
+    require(provider_pending_page, "AuthStateNotifier.instance.providerStatus", "provider status restored from auth state")
+    require(provider_pending_page, "unawaited(_refresh())", "provider status loaded on session restore")
+    require(provider_pending_page, "!{'pending', 'approved'}.contains(status)", "unknown or blocked provider status exposes support")
     if ".isNotEmpty" in verify_and_create_function:
         raise AssertionError("Edge Function contains a Dart-only string API")
     require(public_provider_projection_migration, "CREATE TABLE IF NOT EXISTS public.published_service_provider_cards", "sanitized provider projection")

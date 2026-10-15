@@ -1,5 +1,7 @@
 // lib/features/provider/presentation/pages/provider_pending_page.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -44,11 +46,22 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
   void initState() {
     super.initState();
     _provider = widget.provider;
-    _status = _provider?['verification_status']?.toString() ?? 'pending';
-    _isActive = _provider?['is_active'] as bool? ?? true;
+    _status = _provider?['verification_status']
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        AuthStateNotifier.instance.providerStatus ??
+        'pending';
+    _isActive = _provider?['is_active'] as bool? ??
+        AuthStateNotifier.instance.isActive;
 
-    // ✅ بس لما يكون في auth session (يعني المستخدم فاتح من جوه التطبيق)
-    // مش هنعمل refresh لو جاي من extra
+    // On session restore there is no route `extra`; fetch the source-of-truth
+    // provider row so rejected/suspended accounts do not appear as pending.
+    if (_provider == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_refresh());
+      });
+    }
   }
 
   Future<void> _refresh() async {
@@ -64,7 +77,9 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
         _snack(err, error: true);
       },
       (data) {
-        final newStatus = data['verification_status']?.toString() ?? 'pending';
+        final newStatus = (data['verification_status']?.toString() ?? 'pending')
+            .trim()
+            .toLowerCase();
         final newIsActive = data['is_active'] as bool? ?? true;
 
         setState(() {
@@ -187,12 +202,14 @@ class _ProviderPendingPageState extends State<ProviderPendingPage> {
       case 'approved':
         return 'معتمد';
       default:
-        return _status;
+        return 'حالة غير معروفة';
     }
   }
 
-  bool get _needsSupport =>
-      !_isActive || _status == 'suspended' || _status == 'rejected';
+  bool get _needsSupport {
+    final status = _status.trim().toLowerCase();
+    return !_isActive || !{'pending', 'approved'}.contains(status);
+  }
 
   @override
   Widget build(BuildContext context) {

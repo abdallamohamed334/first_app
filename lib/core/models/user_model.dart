@@ -63,7 +63,10 @@ class UserModel extends Equatable {
   // fromJson
   // ═══════════════════════════════════════════════════════════
   factory UserModel.fromJson(Map<String, dynamic> json) {
-    final rawRole = json['role'] ?? json['user_type'];
+    final userType = json['user_type']?.toString().trim();
+    final rawRole = userType == null || userType.isEmpty
+        ? json['role']
+        : userType;
 
     return UserModel(
       id: _string(json['id']),

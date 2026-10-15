@@ -298,23 +298,36 @@ Future<void> _applyRealtimeAccountState(
   final isActive = profile['is_active'] != false &&
       (provider == null || provider['is_active'] != false) &&
       (institution == null || Institution.isAllowedStatus(institutionStatus));
+  final profileRole = AuthStateNotifier.resolveRole(
+    userType: profile['user_type'],
+    fallbackRole: profile['role'],
+  );
+  final resolvedRole = AuthStateNotifier.resolveRole(
+    userType: profile['user_type'],
+    fallbackRole: profile['role'],
+    hasProviderProfile: provider != null,
+    institutionType: institution?['institution_type'],
+  );
 
   authState.setLoggedIn(
     isLoggedIn: true,
-    role: provider != null ? 'provider' : authState.role,
+    role: resolvedRole,
     providerStatus: providerStatus ?? authState.providerStatus,
     institutionStatus: institutionStatus ?? authState.institutionStatus,
     accountStatus: accountStatus,
     suspensionUntil: suspensionUntil,
     isActive: isActive,
-    userProfileComplete: authState.userProfileComplete,
+    userProfileComplete: AuthStateNotifier.isCompleteUserProfile(
+      profile,
+      role: profileRole,
+    ),
     authResolved: true,
   );
   debugPrint('[AuthState] Realtime account state applied: $accountStatus');
 }
 
 /// مزامنة الجلسة مع users و service_providers و institutions قبل السماح للـ router بالتوجيه.
-/// لا نحدد الدور من users.user_type وحده، لأن الحساب قد يكون مستخدمًا ومزود خدمة.
+/// users.user_type هو المرجع؛ سجل المؤسسة لا يغيّر دور user، وسجل المزود هو الاستثناء المعتمد.
 void _attachAuthStateSync() {
   if (_authStateSubscription != null) return;
   _authStateSubscription =
@@ -402,25 +415,22 @@ void _attachAuthStateSync() {
         return;
       }
 
-      final storedProfileRole = (profile['user_type'] ?? profile['role'])
-          ?.toString()
-          .trim()
-          .toLowerCase();
-      final profileRole =
-          storedProfileRole == null || storedProfileRole.isEmpty
-              ? 'unknown'
-              : storedProfileRole;
+      final profileRole = AuthStateNotifier.resolveRole(
+        userType: profile['user_type'],
+        fallbackRole: profile['role'],
+      );
       final profileComplete = AuthStateNotifier.isCompleteUserProfile(
         profile,
         role: profileRole,
       );
       final institutionType =
           institution?['institution_type']?.toString().trim().toLowerCase();
-      final resolvedRole = provider != null
-          ? 'provider'
-          : (institutionType == null || institutionType.isEmpty
-              ? profileRole
-              : institutionType);
+      final resolvedRole = AuthStateNotifier.resolveRole(
+        userType: profile['user_type'],
+        fallbackRole: profile['role'],
+        hasProviderProfile: provider != null,
+        institutionType: institutionType,
+      );
       final providerStatus =
           provider?['verification_status']?.toString().trim().toLowerCase();
       final institutionStatus =

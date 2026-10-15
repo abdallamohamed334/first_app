@@ -6,6 +6,76 @@ class AuthStateNotifier extends ChangeNotifier {
   static final AuthStateNotifier instance = AuthStateNotifier._();
   AuthStateNotifier._();
 
+  static const Set<String> institutionRoles = {
+    'institution',
+    'business',
+    'restaurant',
+    'grocery',
+    'bakery',
+    'pastry_shop',
+    'sweets',
+    'juice_shop',
+    'butcher',
+    'fish_market',
+    'poultry_shop',
+    'dairy_shop',
+    'food_factory',
+    'catering',
+    'food_truck',
+    'hotel',
+    'resort',
+    'wedding_hall',
+    'company',
+    'cafe',
+    'game_store',
+    'pharmacy',
+    'clinic',
+    'school',
+    'university',
+    'bookstore',
+    'clothing_store',
+    'electronics_store',
+    'furniture_store',
+    'market',
+    'supermarket',
+    'other',
+  };
+
+  /// `users.user_type` is authoritative. A linked institution row may refine
+  /// a generic institution/business/company account, but must never change a
+  /// `user` account into an institution session.
+  static String resolveRole({
+    required dynamic userType,
+    dynamic fallbackRole,
+    bool hasProviderProfile = false,
+    dynamic institutionType,
+  }) {
+    final storedRole =
+        _normalizeRole(userType) ?? _normalizeRole(fallbackRole);
+    if (storedRole == null) return 'unknown';
+
+    // Provider profiles are the established exception: provider accounts are
+    // represented by a related service_providers row while user_type can stay
+    // `user` in the database.
+    if (storedRole == 'user' && hasProviderProfile) return 'provider';
+    if (storedRole == 'provider') return 'provider';
+
+    if (storedRole == 'institution' ||
+        storedRole == 'business' ||
+        storedRole == 'company') {
+      final type = _normalizeRole(institutionType);
+      if (type != null && institutionRoles.contains(type)) return type;
+    }
+
+    return storedRole;
+  }
+
+  static String? _normalizeRole(dynamic value) {
+    final text = value?.toString().trim().toLowerCase();
+    if (text == null || text.isEmpty || text == 'null') return null;
+    return text;
+  }
+
   bool _isLoggedIn = false;
   bool _isSyncing = false;
   bool _isResolved = false;
@@ -222,8 +292,6 @@ class AuthStateNotifier extends ChangeNotifier {
   }
 
   String? _normalize(String? value) {
-    final text = value?.trim().toLowerCase();
-    if (text == null || text.isEmpty || text == 'null') return null;
-    return text;
+    return _normalizeRole(value);
   }
 }

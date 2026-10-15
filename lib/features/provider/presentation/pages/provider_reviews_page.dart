@@ -1,6 +1,7 @@
 // lib/features/provider/presentation/pages/provider_reviews_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
@@ -129,6 +130,7 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
                   ),
           ),
         ),
+      ),
       ),
     );
   }
