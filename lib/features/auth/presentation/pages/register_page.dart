@@ -2,10 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 import 'package:loqma/features/auth/presentation/pages/otp_verify_page.dart';
+import 'package:loqma/routes/app_router.dart';
 
 import '../widgets/auth_button.dart';
 import '../widgets/auth_text_field.dart';
@@ -103,7 +105,15 @@ class _RegisterPageState extends State<RegisterPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          onPressed: _isLoading
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRouter.userTypeSelection);
+                  }
+                },
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
             backgroundColor: Colors.white,

@@ -413,7 +413,15 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          onPressed: _verifying ? null : () => Navigator.pop(context),
+          onPressed: _verifying
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRouter.login);
+                  }
+                },
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
             backgroundColor: Colors.white,

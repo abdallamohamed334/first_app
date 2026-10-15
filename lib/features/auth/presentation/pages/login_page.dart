@@ -229,7 +229,15 @@ class _LoginPageState extends State<LoginPage>
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         IconButton(
-          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          onPressed: _isLoading
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRouter.userTypeSelection);
+                  }
+                },
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
             backgroundColor: Colors.white,
