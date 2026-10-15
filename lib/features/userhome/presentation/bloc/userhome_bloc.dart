@@ -494,7 +494,10 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
         categoryId: event.categoryId,
         latitude: currentState.userLatitude,
         longitude: currentState.userLongitude,
-        radiusKm: 10,
+        // Category pages are nationwide catalogs. The Home page remains the
+        // place for nearby-radius filtering; selecting a category must not
+        // hide valid offers elsewhere in Egypt.
+        radiusKm: double.infinity,
       );
 
       final latest = state;

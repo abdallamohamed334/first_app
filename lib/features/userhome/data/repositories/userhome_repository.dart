@@ -669,7 +669,7 @@ class UserHomeRepository {
       // 4) حساب المسافة
       // ------------------------------------------------------
 
-      if (latitude != null && longitude != null) {
+      if (radiusKm.isFinite && latitude != null && longitude != null) {
         for (int i = 0; i < allOffers.length; i++) {
           final offer = allOffers[i];
 
@@ -713,7 +713,7 @@ class UserHomeRepository {
 
       final filtered = <CategoryOffer>[];
       for (final offer in allOffers) {
-        if (latitude != null && longitude != null) {
+        if (radiusKm.isFinite && latitude != null && longitude != null) {
           // A missing seller location is not evidence that the offer is nearby.
           if (offer.latitude == null || offer.longitude == null) continue;
           final distanceMeters = offer.distanceMeters;
