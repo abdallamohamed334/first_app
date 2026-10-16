@@ -15,11 +15,16 @@ Deno.serve(async (req) => {
     const { data: userData, error: userError } = await publicClient.auth.getUser(token);
     if (userError || !userData.user) return json({ success: false, error: "unauthorized" }, 401);
 
+    const { error: cleanupError } = await publicClient.rpc("delete_my_account");
+    if (cleanupError) {
+      console.error("account cleanup failed", cleanupError.message);
+      return json({ success: false, error: "تعذر تجهيز بيانات الحساب للحذف" }, 500);
+    }
+
     const admin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
-    await admin.from("user_devices").delete().eq("user_id", userData.user.id);
     const { error } = await admin.auth.admin.deleteUser(userData.user.id);
     if (error) {
       console.error("account deletion failed", error.message);

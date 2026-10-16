@@ -1,6 +1,7 @@
 // lib/features/institutions/presentation/pages/institution_offers_page.dart
 
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
 import 'package:loqma/core/constants/egypt_locations.dart';
 import '../../data/repositories/institution_offers_repository.dart';
@@ -31,6 +32,9 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
   String _query = '';
   String? _selectedGovernorate;
   String? _selectedInstitutionId;
+  double? _userLatitude;
+  double? _userLongitude;
+  double _radiusKm = 25;
   _OfferFilter _filter = _OfferFilter.active;
   _OfferSection _section = _OfferSection.symbolicSale;
 
@@ -57,10 +61,15 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
 
   Future<void> _loadUserGovernorate() async {
     final governorate = await _repository.getCurrentUserGovernorate();
-    if (!mounted || governorate == null) return;
-    if (EgyptLocations.names.contains(governorate)) {
-      setState(() => _selectedGovernorate = governorate);
-    }
+    final location = await _repository.getCurrentUserLocation();
+    if (!mounted) return;
+    setState(() {
+      if (governorate != null && EgyptLocations.names.contains(governorate)) {
+        _selectedGovernorate = governorate;
+      }
+      _userLatitude = location?.latitude;
+      _userLongitude = location?.longitude;
+    });
   }
 
   Future<void> _reload() async {
@@ -128,7 +137,33 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
         offer.institutionId != _selectedInstitutionId) {
       return false;
     }
+    if (_radiusKm > 0 &&
+        _userLatitude != null &&
+        _userLongitude != null &&
+        offer.latitude != null &&
+        offer.longitude != null &&
+        _distanceKm(
+              _userLatitude!,
+              _userLongitude!,
+              offer.latitude!,
+              offer.longitude!,
+            ) >
+            _radiusKm) {
+      return false;
+    }
     return true;
+  }
+
+  double _distanceKm(double lat1, double lon1, double lat2, double lon2) {
+    const earthRadius = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLon = (lon2 - lon1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return earthRadius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
   bool _matchesLocationFiltersWithoutInstitution(InstitutionOffer offer) {
@@ -555,6 +590,43 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Padding(
+                padding: EdgeInsetsDirectional.only(end: 4),
+                child: Text(
+                  'النطاق:',
+                  style: TextStyle(
+                    color: _inkSoft,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              for (final radius in <double>[5, 15, 25, 50, 0])
+                ChoiceChip(
+                  label: Text(radius == 0 ? 'كل المسافات' : '${radius.toInt()} كم'),
+                  selected: _radiusKm == radius,
+                  onSelected: (_) => setState(() => _radiusKm = radius),
+                  selectedColor: _primary.withValues(alpha: 0.16),
+                  labelStyle: TextStyle(
+                    color: _radiusKm == radius ? _primaryDark : _inkSoft,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  side: BorderSide(
+                    color: _radiusKm == radius ? _primary : const Color(0xFFE2EAE5),
+                  ),
+                ),
+            ],
+          ),
         ),
         if (_selectedGovernorate != null || _selectedInstitutionId != null)
           Align(
@@ -1120,6 +1192,10 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
   Widget build(BuildContext context) {
     final offer = widget.offer;
     final images = _images;
+    final location = [
+      offer.institutionGovernorate,
+      offer.institutionCity,
+    ].where((value) => value != null && value.trim().isNotEmpty).join('، ');
 
     return Material(
       color: Colors.white,
@@ -1128,483 +1204,181 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
       child: InkWell(
         onTap: widget.onTap,
         child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0xFFEEF3F0)),
             boxShadow: [
               BoxShadow(
-                color: _ink.withValues(alpha: 0.06),
-                blurRadius: 20,
+                color: _ink.withValues(alpha: 0.07),
+                blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ═══════════════════════════════════════════
-              // Image section
-              // ═══════════════════════════════════════════
               SizedBox(
-                height: 200,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (images.isEmpty)
-                      _imageFallback()
-                    else
-                      PageView.builder(
-                        controller: _pageController,
-                        itemCount: images.length,
-                        onPageChanged: (i) => setState(() => _currentImage = i),
-                        itemBuilder: (_, i) => Image.network(
-                          images[i],
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return _imageLoading();
-                          },
-                          errorBuilder: (_, __, ___) => _imageFallback(),
-                        ),
-                      ),
-
-                    // ── Gradient
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.black.withValues(alpha: 0.35),
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.5),
-                              ],
-                              stops: const [0, 0.5, 1],
-                            ),
+                width: 142,
+                height: 190,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (images.isEmpty)
+                        _imageFallback()
+                      else
+                        PageView.builder(
+                          controller: _pageController,
+                          itemCount: images.length,
+                          onPageChanged: (i) => setState(() => _currentImage = i),
+                          itemBuilder: (_, i) => Image.network(
+                            images[i],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _imageFallback(),
                           ),
                         ),
-                      ),
-                    ),
-
-                    // ── Status badge (top-right)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _statusIcon,
-                              size: 13,
-                              color: _statusColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _statusLabel,
-                              style: TextStyle(
-                                color: _statusColor,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.28),
+                                  Colors.transparent,
+                                  Colors.black.withValues(alpha: 0.42),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // ── Discount badge (top-left)
-                    if (_hasDiscount)
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [_red, Color(0xFFB83838)],
-                              begin: Alignment.topRight,
-                              end: Alignment.bottomLeft,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: _red.withValues(alpha: 0.4),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            '${offer.discountPercent!.round()}% خصم',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w900,
-                            ),
                           ),
                         ),
                       ),
-
-                    // ── Image counter (bottom-left)
-                    if (images.length > 1)
                       Positioned(
-                        bottom: 12,
-                        left: 12,
+                        top: 8,
+                        right: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.15),
-                            ),
+                            color: Colors.white.withValues(alpha: 0.94),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.photo_library_rounded,
-                                color: Colors.white,
-                                size: 10,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${_currentImage + 1}/${images.length}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                              Icon(_statusIcon, size: 12, color: _statusColor),
+                              const SizedBox(width: 3),
+                              Text(_statusLabel, style: TextStyle(color: _statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
                             ],
                           ),
                         ),
                       ),
-
-                    // ── Dots (bottom-center)
-                    if (images.length > 1)
-                      Positioned(
-                        bottom: 16,
-                        left: 0,
-                        right: 0,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            images.length,
-                            (index) => AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 2.5,
-                              ),
-                              width: _currentImage == index ? 20 : 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: _currentImage == index
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
+                      if (_hasDiscount)
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                            decoration: BoxDecoration(color: _red, borderRadius: BorderRadius.circular(12)),
+                            child: Text('${offer.discountPercent!.round()}% خصم', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
                           ),
                         ),
-                      ),
-                  ],
+                      if (images.length > 1)
+                        Positioned(
+                          bottom: 8,
+                          left: 8,
+                          child: Text('${_currentImage + 1}/${images.length}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-
-              // ═══════════════════════════════════════════
-              // Details section
-              // ═══════════════════════════════════════════
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Title
-                    Text(
-                      offer.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _ink,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Institution
-                    Row(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                          child: const Icon(
-                            Icons.storefront_rounded,
-                            color: _primary,
-                            size: 12,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            offer.institutionName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: _inkSoft,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (offer.institutionType != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 7,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              InstitutionOfferPolicy.typeLabel(
-                                offer.institutionType,
-                              ),
-                              style: const TextStyle(
-                                color: _primary,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                              ),
+                              offer.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w900, height: 1.25),
                             ),
                           ),
+                          const SizedBox(width: 5),
+                          const Icon(Icons.chevron_left_rounded, color: _primary, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        offer.description.trim().isEmpty ? 'عرض متاح من المؤسسة' : offer.description.trim(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _inkSoft, fontSize: 11.5, height: 1.45),
+                      ),
+                      const SizedBox(height: 9),
+                      _detailLine(Icons.storefront_rounded, offer.institutionName),
+                      if (location.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        _detailLine(Icons.location_on_outlined, location),
                       ],
-                    ),
-
-                    const SizedBox(height: 14),
-                    Divider(
-                      height: 1,
-                      color: const Color(0xFFEEF3F0),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // ── Price + Quantity
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // ── Price
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(5),
-                                    decoration: BoxDecoration(
-                                      color: _gold.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(7),
-                                    ),
-                                    child: const Icon(
-                                      Icons.local_offer_rounded,
-                                      color: _gold,
-                                      size: 11,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    'السعر الرمزي',
-                                    style: TextStyle(
-                                      color: _inkSoft,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  Text(
-                                    offer.symbolicPrice.toStringAsFixed(0),
-                                    style: const TextStyle(
-                                      color: _primary,
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    'ج.م',
-                                    style: TextStyle(
-                                      color: _primary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  if (_hasDiscount) ...[
-                                    const SizedBox(width: 8),
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 2),
-                                      child: Text(
-                                        '${offer.originalPrice!.toStringAsFixed(0)} ج.م',
-                                        style: const TextStyle(
-                                          color: _inkSoft,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          decoration:
-                                              TextDecoration.lineThrough,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // ── Quantity badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: offer.remainingQuantity > 0
-                                ? _primary.withValues(alpha: 0.08)
-                                : _red.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: offer.remainingQuantity > 0
-                                  ? _primary.withValues(alpha: 0.2)
-                                  : _red.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.inventory_2_rounded,
-                                color: offer.remainingQuantity > 0
-                                    ? _primary
-                                    : _red,
-                                size: 16,
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${offer.remainingQuantity}',
-                                style: TextStyle(
-                                  color: offer.remainingQuantity > 0
-                                      ? _primary
-                                      : _red,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1,
-                                ),
-                              ),
-                              Text(
-                                'متبقي',
-                                style: TextStyle(
-                                  color: offer.remainingQuantity > 0
-                                      ? _primary
-                                      : _red,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      if ((offer.pickupLocation ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        _detailLine(Icons.pin_drop_outlined, offer.pickupLocation!.trim()),
                       ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // ── CTA Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: widget.onTap,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              'شاهد التفاصيل',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 24,
-                              height: 24,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_back_rounded,
-                                color: Colors.white,
-                                size: 14,
-                              ),
-                            ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text('${offer.symbolicPrice.toStringAsFixed(0)} ج.م', style: const TextStyle(color: _primary, fontSize: 18, fontWeight: FontWeight.w900)),
+                          if (_hasDiscount) ...[
+                            const SizedBox(width: 5),
+                            Text('${offer.originalPrice!.toStringAsFixed(0)} ج.م', style: const TextStyle(color: _inkSoft, fontSize: 10, decoration: TextDecoration.lineThrough)),
                           ],
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(color: offer.remainingQuantity > 0 ? _primary.withValues(alpha: 0.09) : _red.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(10)),
+                            child: Text('${offer.remainingQuantity} متبقي', style: TextStyle(color: offer.remainingQuantity > 0 ? _primary : _red, fontSize: 10, fontWeight: FontWeight.w900)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 9),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 34,
+                        child: ElevatedButton(
+                          onPressed: widget.onTap,
+                          style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, elevation: 0, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11))),
+                          child: const Text('شاهد التفاصيل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _detailLine(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: _primary, size: 14),
+        const SizedBox(width: 5),
+        Expanded(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _inkSoft, fontSize: 10.5, fontWeight: FontWeight.w700))),
+      ],
     );
   }
 

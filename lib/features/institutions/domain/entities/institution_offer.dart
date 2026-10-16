@@ -11,6 +11,8 @@ class InstitutionOffer {
   final String? institutionGovernorate;
   final String? institutionCity;
   final String? institutionLogoUrl;
+  final double? latitude;
+  final double? longitude;
   final String title;
   final String description;
   final String category;
@@ -58,6 +60,8 @@ class InstitutionOffer {
     this.institutionGovernorate,
     this.institutionCity,
     this.institutionLogoUrl,
+    this.latitude,
+    this.longitude,
     required this.title,
     required this.description,
     required this.category,
@@ -212,6 +216,8 @@ class InstitutionOffer {
         institution['image_url'],
         institution['logo'],
       ]),
+      latitude: _nullableDouble(json['latitude'] ?? institution['latitude']),
+      longitude: _nullableDouble(json['longitude'] ?? institution['longitude']),
       title: _text(json['title'], fallback: 'عرض بدون اسم'),
       description: _text(json['description']),
       category: _text(json['category'], fallback: 'other'),
@@ -304,6 +310,8 @@ class InstitutionOffer {
     String? institutionGovernorate,
     String? institutionCity,
     String? institutionLogoUrl,
+    double? latitude,
+    double? longitude,
     String? title,
     String? description,
     String? category,
@@ -348,6 +356,8 @@ class InstitutionOffer {
           institutionGovernorate ?? this.institutionGovernorate,
       institutionCity: institutionCity ?? this.institutionCity,
       institutionLogoUrl: institutionLogoUrl ?? this.institutionLogoUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       title: title ?? this.title,
       description: description ?? this.description,
       category: category ?? this.category,

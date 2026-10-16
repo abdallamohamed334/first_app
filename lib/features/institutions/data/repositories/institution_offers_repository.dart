@@ -54,6 +54,8 @@ class InstitutionOffersRepository {
             pickup_notes,
             contact_phone,
             pickup_time,
+            latitude,
+            longitude,
             deleted_at,
             marketplace_category_id,
             institutions:institution_id (
@@ -62,7 +64,10 @@ class InstitutionOffersRepository {
               institution_type,
               logo_url,
               address,
+              governorate,
               city,
+              latitude,
+              longitude,
               phone
             )
           ''')
@@ -106,6 +111,26 @@ class InstitutionOffersRepository {
       return value == null || value.isEmpty ? null : value;
     } catch (e) {
       debugPrint('❌ getCurrentUserGovernorate error: $e');
+      return null;
+    }
+  }
+
+  Future<({double latitude, double longitude})?> getCurrentUserLocation() async {
+    try {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) return null;
+      final row = await _client
+          .from('users')
+          .select('latitude, longitude, lat')
+          .eq('id', userId)
+          .maybeSingle();
+      final latitude = (row?['latitude'] as num?)?.toDouble() ??
+          (row?['lat'] as num?)?.toDouble();
+      final longitude = (row?['longitude'] as num?)?.toDouble();
+      if (latitude == null || longitude == null) return null;
+      return (latitude: latitude, longitude: longitude);
+    } catch (e) {
+      debugPrint('❌ getCurrentUserLocation error: $e');
       return null;
     }
   }
