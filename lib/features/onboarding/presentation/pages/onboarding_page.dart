@@ -1,8 +1,4 @@
-﻿// lib/features/onboarding/presentation/pages/onboarding_page.dart
-
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,71 +13,22 @@ class OnboardingPage extends StatefulWidget {
   State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState extends State<OnboardingPage>
-    with TickerProviderStateMixin {
-  // ─── ألوان Khedma ───
-  static const _green = Color(0xFF0B6B64);
-  static const _greenLight = Color(0xFF9AD83D);
-  static const _greenDark = Color(0xFF063F3A);
-  static const _mint = Color(0xFFDDF4E8);
-  static const _cream = Color(0xFFF6FBF8);
-  static const _ink = Color(0xFF0B3833);
-  static const _inkSoft = Color(0xFF66827B);
-  static const _gold = Color(0xFFF2B84B);
-
-  // ─── Animations ───
-  late final AnimationController _fadeController;
-  late final AnimationController _staggerController;
-  late final AnimationController _floatController;
-
-  late final Animation<double> _fade;
-  late final Animation<double> _float;
-
-  int _lastIndex = 0;
+class _OnboardingPageState extends State<OnboardingPage> {
+  static const _background = Color(0xFFF7F8FA);
+  static const _primary = Color(0xFFFF2E3B);
+  static const _ink = Color(0xFF1B1D22);
+  static const _muted = Color(0xFF68707C);
+  static const _border = Color(0xFFE2E6EC);
 
   @override
   void initState() {
     super.initState();
-
-    _fadeController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 550),
-    );
-    _fade = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
-
-    _staggerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
-    _float = CurvedAnimation(
-      parent: _floatController,
-      curve: Curves.easeInOutSine,
-    );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      context.read<OnboardingBloc>().add(const OnboardingStarted());
-      _fadeController.forward();
-      _staggerController.forward();
+      if (mounted) {
+        context.read<OnboardingBloc>().add(const OnboardingStarted());
+      }
     });
   }
-
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _staggerController.dispose();
-    _floatController.dispose();
-    super.dispose();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // BUILD
-  // ═══════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -91,17 +38,6 @@ class _OnboardingPageState extends State<OnboardingPage>
         listener: (context, state) {
           if (state is OnboardingCompleted && mounted) {
             context.go(AppRouter.userTypeSelection);
-          }
-          if (state is OnboardingLoaded && mounted) {
-            if (state.currentIndex != _lastIndex) {
-              _lastIndex = state.currentIndex;
-              _staggerController
-                ..reset()
-                ..forward();
-            }
-            _fadeController
-              ..reset()
-              ..forward();
           }
         },
         builder: (context, state) {
@@ -120,1010 +56,593 @@ class _OnboardingPageState extends State<OnboardingPage>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // LOADING
-  // ═══════════════════════════════════════════════════════════
-
   Widget _loadingView() {
     return Scaffold(
-      backgroundColor: _cream,
+      backgroundColor: _background,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-              colors: [_cream, _mint],
+            colors: [Color(0xFFFFF8F8), _background],
           ),
         ),
         child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _LogoMark(size: 90),
-              SizedBox(height: 26),
-              SizedBox(
-                width: 34,
-                height: 34,
-                child: CircularProgressIndicator(
-                  color: _green,
-                  strokeWidth: 3,
-                  backgroundColor: Color(0xFFD4E8DE),
-                ),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'جاري تجهيز تجربتك...',
-                style: TextStyle(
-                  color: _ink,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                ),
-              ),
-            ],
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(
+              color: _primary,
+              strokeWidth: 2.5,
+            ),
           ),
         ),
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // ERROR
-  // ═══════════════════════════════════════════════════════════
 
   Widget _errorView(BuildContext context, String message) {
     return Scaffold(
-      backgroundColor: _cream,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFE8E4), Color(0xFFFFF3E8)],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
+      backgroundColor: _background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEEF0),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFD64545).withValues(alpha: 0.15),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
+                  child: const Icon(
+                    Icons.wifi_off_rounded,
+                    color: _primary,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const Text(
+                  'تعذر تحميل التطبيق',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: () => context
+                      .read<OnboardingBloc>()
+                      .add(const OnboardingStarted()),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('إعادة المحاولة'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 14,
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.cloud_off_rounded,
-                  size: 58,
-                  color: Color(0xFFD64545),
-                ),
-              ),
-              const SizedBox(height: 22),
-              const Text(
-                'تعذر تحميل التطبيق',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: _ink,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _inkSoft,
-                  fontSize: 13.5,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 26),
-              FilledButton.icon(
-                onPressed: () => context
-                    .read<OnboardingBloc>()
-                    .add(const OnboardingStarted()),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text(
-                  'إعادة المحاولة',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 26,
-                    vertical: 15,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // LOADED VIEW
-  // ═══════════════════════════════════════════════════════════
 
   Widget _loadedView(BuildContext context, OnboardingLoaded state) {
     final page = state.pages[state.currentIndex];
 
     return Scaffold(
-      backgroundColor: _cream,
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeInOut,
+      backgroundColor: _background,
+      body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [_cream, Color(0xFFE9F7F0)],
+            colors: [Color(0xFFFFFAFA), _background],
           ),
         ),
         child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              // ── الشريط العلوي
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
-                child: _buildTopBar(context),
-              ),
-
-              // ── الرسمة المدمجة
-              Expanded(
-                flex: 6,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                  child: FadeTransition(
-                    opacity: _fade,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 550),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: ScaleTransition(
-                            scale: Tween<double>(begin: 1.06, end: 1.0).animate(
-                              CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutCubic,
-                              ),
-                            ),
-                            child: child,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 14),
+            child: Column(
+              children: [
+                _buildTopBar(context),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 8, bottom: 12),
+                    child: Column(
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 320),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          child: _FeaturePreview(
+                            key: ValueKey(state.currentIndex),
+                            index: state.currentIndex,
                           ),
-                        );
-                      },
-                      child: _OnboardingIllustration(
-                        key: ValueKey(state.currentIndex),
-                        index: state.currentIndex,
-                        float: _float,
-                      ),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildIndicators(state),
+                        const SizedBox(height: 17),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: Text(
+                            page.title,
+                            key: ValueKey('${state.currentIndex}-title'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: _ink,
+                              fontSize: 25,
+                              height: 1.3,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 9),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: Text(
+                            page.subtitle,
+                            key: ValueKey('${state.currentIndex}-subtitle'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: _muted,
+                              fontSize: 14.5,
+                              height: 1.65,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-
-              // ── المحتوى السفلي
-              _buildBottomContent(context, state, page),
-            ],
+                _buildContinueButton(context, state),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // TOP BAR
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildTopBar(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: _greenDark.withValues(alpha: 0.12),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.asset(
-                  'assets/images/khedma_icon.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Khedma',
-              style: TextStyle(
-                color: _ink,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            'assets/images/khedma_icon.png',
+            width: 34,
+            height: 34,
+            fit: BoxFit.cover,
+          ),
         ),
-        _SkipButton(
-          onTap: () => _goToUserTypeSelection(context),
+        const SizedBox(width: 9),
+        const Text(
+          'Khedma',
+          style: TextStyle(
+            color: _ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        TextButton(
+          onPressed: () => context
+              .read<OnboardingBloc>()
+              .add(const OnboardingComplete()),
+          style: TextButton.styleFrom(
+            foregroundColor: _muted,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          child: const Text(
+            'تخطي',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // BOTTOM CONTENT
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildBottomContent(
-    BuildContext context,
-    OnboardingLoaded state,
-    dynamic page,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(38)),
-        boxShadow: [
-          BoxShadow(
-            color: _greenDark.withValues(alpha: 0.1),
-            blurRadius: 30,
-            offset: const Offset(0, -10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildIndicators(state),
-          const SizedBox(height: 18),
-          const Text(
-            'Khedma • معًا نصنع أثرًا',
-            style: TextStyle(
-              color: _green,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _staggeredEntry(
-            index: 0,
-            child: Text(
-              page.title,
-              style: const TextStyle(
-                color: _ink,
-                fontSize: 26,
-                height: 1.25,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          _staggeredEntry(
-            index: 1,
-            child: Text(
-              page.subtitle,
-              style: const TextStyle(
-                color: _inkSoft,
-                fontSize: 13.5,
-                height: 1.65,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          _staggeredEntry(
-            index: 2,
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: _PrimaryButton(
-                isLast: state.isLastPage,
-                onTap: () {
-                  if (state.isLastPage) {
-                    context
-                        .read<OnboardingBloc>()
-                        .add(const OnboardingComplete());
-                  } else {
-                    context
-                        .read<OnboardingBloc>()
-                        .add(const OnboardingNextPage());
-                  }
-                },
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _staggeredEntry(
-            index: 3,
-            child: Center(
-              child: Text(
-                '${state.currentIndex + 1} / ${state.pages.length}',
-                style: const TextStyle(
-                  color: Color(0xFF8BA097),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11.5,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STAGGERED ENTRY
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _staggeredEntry({required int index, required Widget child}) {
-    final start = index * 0.12;
-    final end = (start + 0.4).clamp(0.0, 1.0);
-
-    final curve = CurvedAnimation(
-      parent: _staggerController,
-      curve: Interval(start, end, curve: Curves.easeOutCubic),
-    );
-
-    return AnimatedBuilder(
-      animation: curve,
-      builder: (context, _) {
-        return Opacity(
-          opacity: curve.value.clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(0, (1 - curve.value) * 22),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // INDICATORS
-  // ═══════════════════════════════════════════════════════════
-
   Widget _buildIndicators(OnboardingLoaded state) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: List.generate(state.pages.length, (index) {
-        final active = index == state.currentIndex;
+        final isActive = index == state.currentIndex;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOutCubic,
-          width: active ? 34 : 9,
-          height: 8,
-          margin: const EdgeInsets.only(left: 7),
+          duration: const Duration(milliseconds: 240),
+          width: isActive ? 26 : 7,
+          height: 7,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
-            gradient: active
-                ? const LinearGradient(colors: [_green, _greenLight])
-                : null,
-            color: active ? null : const Color(0xFFD8E9E1),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: _green.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ]
-                : null,
+            color: isActive ? _primary : const Color(0xFFD5D9DF),
+            borderRadius: BorderRadius.circular(10),
           ),
         );
       }),
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // NAVIGATION
-  // ═══════════════════════════════════════════════════════════
-
-  void _goToUserTypeSelection(BuildContext context) {
-    context.go(AppRouter.userTypeSelection);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// ONBOARDING ILLUSTRATION — رسومات مدمجة بـ Flutter
-// ═══════════════════════════════════════════════════════════════
-
-class _OnboardingIllustration extends StatelessWidget {
-  final int index;
-  final Animation<double> float;
-
-  const _OnboardingIllustration({
-    super.key,
-    required this.index,
-    required this.float,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: _OnboardingPageState._greenDark.withValues(alpha: 0.14),
-            blurRadius: 32,
-            offset: const Offset(0, 14),
+  Widget _buildContinueButton(BuildContext context, OnboardingLoaded state) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: FilledButton(
+        onPressed: () {
+          if (state.isLastPage) {
+            context.read<OnboardingBloc>().add(const OnboardingComplete());
+          } else {
+            context.read<OnboardingBloc>().add(const OnboardingNextPage());
+          }
+        },
+        style: FilledButton.styleFrom(
+          backgroundColor: _primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-          BoxShadow(
-            color: _OnboardingPageState._greenDark.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Stack(
-          fit: StackFit.expand,
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // ── الخلفية المتدرجة حسب الصفحة
-            _buildBackground(),
-            // ── الزخارف العائمة
-            _buildDecorative(),
-            // ── المشهد الرئيسي
-            Center(
-              child: AnimatedBuilder(
-                animation: float,
-                builder: (context, _) {
-                  return Transform.translate(
-                    offset: Offset(0, float.value * -8),
-                    child: _buildScene(),
-                  );
-                },
+            Text(
+              state.isLastPage ? 'اختيار نوع الحساب' : 'التالي',
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              state.isLastPage
+                  ? Icons.check_rounded
+                  : Icons.arrow_back_rounded,
+              size: 19,
             ),
           ],
         ),
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════
-  // BACKGROUND
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildBackground() {
-    switch (index % 3) {
-      case 0:
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-              colors: [Color(0xFFE5F5EC), Color(0xFFC7EBD8)],
-            ),
-          ),
-        );
-      case 1:
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            colors: [Color(0xFFFFF7E6), Color(0xFFFFE9B5)],
-            ),
-          ),
-        );
-      default:
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topRight,
-              end: Alignment.bottomLeft,
-            colors: [Color(0xFFE6F7F5), Color(0xFFC9EDE5)],
-            ),
-          ),
-        );
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // DECORATIVE SHAPES
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildDecorative() {
-    final color = _accentColor();
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          // دائرة علوية
-          Positioned(
-            top: -30,
-            right: -20,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-          // دائرة سفلية
-          Positioned(
-            bottom: -40,
-            left: -30,
-            child: Container(
-              width: 130,
-              height: 130,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.4),
-              ),
-            ),
-          ),
-          // نقاط مبعثرة
-          Positioned(
-            top: 40,
-            left: 30,
-            child: _dot(color.withValues(alpha: 0.4), 8),
-          ),
-          Positioned(
-            top: 80,
-            left: 60,
-            child: _dot(color.withValues(alpha: 0.25), 5),
-          ),
-          Positioned(
-            bottom: 50,
-            right: 40,
-            child: _dot(color.withValues(alpha: 0.35), 6),
-          ),
-          Positioned(
-            bottom: 90,
-            right: 70,
-            child: _dot(color.withValues(alpha: 0.2), 4),
-          ),
-          // نجوم صغيرة
-          Positioned(
-            top: 55,
-            right: 55,
-            child: Icon(
-              Icons.star_rounded,
-              color: Colors.white.withValues(alpha: 0.7),
-              size: 18,
-            ),
-          ),
-          Positioned(
-            bottom: 70,
-            left: 55,
-            child: Icon(
-              Icons.star_rounded,
-              color: Colors.white.withValues(alpha: 0.5),
-              size: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dot(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // SCENES
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildScene() {
-    switch (index % 3) {
-      case 0:
-        return _buildDonationScene();
-      case 1:
-        return _buildFoodScene();
-      default:
-        return _buildCommunityScene();
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // Scene 1: التبرع (قلب + أيادي + هدية)
-  // ─────────────────────────────────────────────
-  Widget _buildDonationScene() {
-    return SizedBox(
-      width: 200,
-      height: 200,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // دائرة خلفية كبيرة
-          Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.55),
-            ),
-          ),
-          // قلب كبير في المنتصف
-          Icon(
-            Icons.favorite_rounded,
-            color: _OnboardingPageState._green,
-            size: 110,
-          ),
-          // أيقونة يد فوق القلب
-          Positioned(
-            top: 34,
-            child: Icon(
-              Icons.volunteer_activism_rounded,
-              color: Colors.white,
-              size: 46,
-            ),
-          ),
-          // شرارة يسار
-          Positioned(
-            top: 30,
-            left: 24,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: _OnboardingPageState._gold,
-              size: 26,
-            ),
-          ),
-          // شرارة يمين
-          Positioned(
-            bottom: 34,
-            right: 22,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: _OnboardingPageState._gold,
-              size: 20,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // Scene 2: الطعام (طبق + أدوات)
-  // ─────────────────────────────────────────────
-  Widget _buildFoodScene() {
-    return SizedBox(
-      width: 200,
-      height: 200,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // دائرة خلفية
-          Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.55),
-            ),
-          ),
-          // الأيقونة الرئيسية (طبق / مطعم)
-          Icon(
-            Icons.restaurant_rounded,
-            color: const Color(0xFFB57A2E),
-            size: 110,
-          ),
-          // أيقونة يد فوق
-          Positioned(
-            top: 34,
-            child: Icon(
-              Icons.volunteer_activism_rounded,
-              color: Colors.white,
-              size: 46,
-            ),
-          ),
-          // شوكة يسار
-          Positioned(
-            top: 30,
-            left: 20,
-            child: Icon(
-              Icons.eco_rounded,
-              color: _OnboardingPageState._green,
-              size: 26,
-            ),
-          ),
-          // شوكة يمين
-          Positioned(
-            bottom: 34,
-            right: 20,
-            child: Icon(
-              Icons.local_dining_rounded,
-              color: _OnboardingPageState._green,
-              size: 22,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // Scene 3: المجتمع (مجموعة ناس + نجوم)
-  // ─────────────────────────────────────────────
-  Widget _buildCommunityScene() {
-    return SizedBox(
-      width: 200,
-      height: 200,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // دائرة خلفية
-          Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.55),
-            ),
-          ),
-          // الأيقونة الرئيسية
-          Icon(
-            Icons.groups_rounded,
-            color: const Color(0xFF6B4FBF),
-            size: 110,
-          ),
-          // أيقونة يد فوق
-          Positioned(
-            top: 30,
-            child: Icon(
-              Icons.handshake_rounded,
-              color: Colors.white,
-              size: 46,
-            ),
-          ),
-          // نجوم
-          Positioned(
-            top: 30,
-            left: 24,
-            child: Icon(
-              Icons.star_rounded,
-              color: _OnboardingPageState._gold,
-              size: 26,
-            ),
-          ),
-          Positioned(
-            bottom: 34,
-            right: 22,
-            child: Icon(
-              Icons.auto_awesome_rounded,
-              color: _OnboardingPageState._gold,
-              size: 20,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // HELPERS
-  // ═══════════════════════════════════════════════════════════
-
-  Color _accentColor() {
-    switch (index % 3) {
-      case 0:
-        return _OnboardingPageState._green;
-      case 1:
-        return _OnboardingPageState._gold;
-      default:
-        return _OnboardingPageState._green;
-    }
-  }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SKIP BUTTON
-// ═══════════════════════════════════════════════════════════════
+class _FeaturePreview extends StatelessWidget {
+  const _FeaturePreview({super.key, required this.index});
 
-class _SkipButton extends StatefulWidget {
-  final VoidCallback onTap;
-  const _SkipButton({required this.onTap});
+  final int index;
 
-  @override
-  State<_SkipButton> createState() => _SkipButtonState();
-}
-
-class _SkipButtonState extends State<_SkipButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.94 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-          decoration: BoxDecoration(
-            color: _OnboardingPageState._ink.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: _OnboardingPageState._ink.withValues(alpha: 0.06),
-            ),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'تخطي',
-                style: TextStyle(
-                  color: _OnboardingPageState._ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-              SizedBox(width: 4),
-              Icon(
-                Icons.keyboard_double_arrow_left_rounded,
-                color: _OnboardingPageState._ink,
-                size: 16,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PRIMARY BUTTON
-// ═══════════════════════════════════════════════════════════════
-
-class _PrimaryButton extends StatefulWidget {
-  final bool isLast;
-  final VoidCallback onTap;
-
-  const _PrimaryButton({required this.isLast, required this.onTap});
-
-  @override
-  State<_PrimaryButton> createState() => _PrimaryButtonState();
-}
-
-class _PrimaryButtonState extends State<_PrimaryButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                _OnboardingPageState._green,
-                _OnboardingPageState._greenLight,
-              ],
-              begin: Alignment.centerRight,
-              end: Alignment.centerLeft,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: _OnboardingPageState._green.withValues(alpha: 0.35),
-                blurRadius: _pressed ? 10 : 20,
-                offset: Offset(0, _pressed ? 4 : 8),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  widget.isLast ? 'ابدأ رحلتك' : 'اكتشف المزيد',
-                  style: const TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Icon(
-                  widget.isLast
-                      ? Icons.rocket_launch_rounded
-                      : Icons.arrow_back_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// LOGO MARK
-// ═══════════════════════════════════════════════════════════════
-
-class _LogoMark extends StatelessWidget {
-  final double size;
-
-  const _LogoMark({this.size = 76});
+  static const _primary = Color(0xFFFF2E3B);
+  static const _ink = Color(0xFF1B1D22);
+  static const _muted = Color(0xFF68707C);
+  static const _border = Color(0xFFE7E9ED);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: size,
-      height: size,
+      width: double.infinity,
+      height: 272,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            _OnboardingPageState._green,
-            _OnboardingPageState._greenLight,
-          ],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
+          colors: [Color(0xFFFFF0F1), Color(0xFFF1F2F5)],
         ),
-        borderRadius: BorderRadius.circular(size * .30),
-        boxShadow: [
-          BoxShadow(
-            color: _OnboardingPageState._green.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(25),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(size * .08),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(size * .24),
-          child: Image.asset(
-            'assets/images/khedma_icon.png',
-            fit: BoxFit.cover,
+      child: Center(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(color: _border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x120F172A),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.asset(
+                      'assets/images/khedma_icon.png',
+                      width: 28,
+                      height: 28,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Khedma',
+                    style: TextStyle(
+                      color: _ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF4F5F7),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'من التطبيق',
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _previewHeader,
+              const SizedBox(height: 12),
+              _previewContent,
+            ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget get _previewHeader {
+    final data = switch (index) {
+      0 => ('عروض قريبة منك', Icons.storefront_rounded),
+      1 => ('مقدمو الخدمات', Icons.handyman_rounded),
+      _ => ('التبرعات والاحتياجات', Icons.volunteer_activism_rounded),
+    };
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            data.$1,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Icon(data.$2, color: _primary, size: 19),
+      ],
+    );
+  }
+
+  Widget get _previewContent {
+    switch (index) {
+      case 0:
+        return Column(
+          children: [
+            _InfoTile(
+              icon: Icons.restaurant_rounded,
+              title: 'فائض طعام من مؤسسة قريبة',
+              subtitle: 'تفاصيل العرض • متاح الآن',
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _smallChip('وجبات'),
+                const SizedBox(width: 6),
+                _smallChip('مخبوزات'),
+                const SizedBox(width: 6),
+                _smallChip('عروض مؤسسات'),
+              ],
+            ),
+          ],
+        );
+      case 1:
+        return Column(
+          children: [
+            _InfoTile(
+              icon: Icons.build_rounded,
+              title: 'مزوّد خدمة في محافظتك',
+              subtitle: 'تصفّح التخصص والتفاصيل',
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.place_outlined, color: _muted, size: 16),
+                const SizedBox(width: 5),
+                const Text(
+                  'اختيار حسب الموقع',
+                  style: TextStyle(
+                    color: _muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: 62,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFDADD),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      width: 34,
+                      decoration: BoxDecoration(
+                        color: _primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      default:
+        return Column(
+          children: [
+            _InfoTile(
+              icon: Icons.volunteer_activism_rounded,
+              title: 'تبرّع لجمعية أو اطلب احتياجًا',
+              subtitle: 'كل الخطوات واضحة داخل التطبيق',
+            ),
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: _primary, size: 16),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    'تابع حالة الطلب حتى الاستلام',
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
+              ],
+            ),
+          ],
+        );
+    }
+  }
+
+  Widget _smallChip(String label) {
+    return Flexible(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F6F8),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: _muted,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoTile extends StatelessWidget {
+  const _InfoTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  static const _primary = Color(0xFFFF2E3B);
+  static const _ink = Color(0xFF1B1D22);
+  static const _muted = Color(0xFF68707C);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9FAFB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE7E9ED)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE8EA),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _primary, size: 21),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
+        ],
       ),
     );
   }

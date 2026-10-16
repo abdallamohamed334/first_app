@@ -41,13 +41,12 @@ class _LoginPageState extends State<LoginPage>
   bool _isLoading = false;
   bool _isCheckingAutoLogin = true;
 
-  // ── ألوان (هوية "Khedma" الخضراء)
-  static const _bg = Color(0xFFF5FBF8);
-  static const _primary = Color(0xFF0B6B64);
-  static const _primaryLight = Color(0xFF9AD83D);
-  static const _darkGreen = Color(0xFF063F3A);
-  static const _red = Color(0xFFD64545);
-  static const _cardBorder = Color(0xFFDDEEE7);
+  // ألوان Khedma: أحمر العلامة التجارية مع درجات محايدة.
+  static const _bg = Color(0xFFF7F8FA);
+  static const _primary = Color(0xFFFF2E3B);
+  static const _darkGreen = Color(0xFF1B1D22);
+  static const _red = Color(0xFFE53946);
+  static const _cardBorder = Color(0xFFE2E6EC);
 
   @override
   void initState() {
@@ -108,9 +107,9 @@ class _LoginPageState extends State<LoginPage>
                     child: Column(
                       children: [
                         _buildTopBar(),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 22),
                         _buildBrand(),
-                        const SizedBox(height: 30),
+                        const SizedBox(height: 22),
                         _buildLoginCard(),
                         const SizedBox(height: 22),
                         _buildBackLink(),
@@ -141,7 +140,7 @@ class _LoginPageState extends State<LoginPage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _LoginLogo(size: 88),
+                  _LoginLogo(size: 68),
                   SizedBox(height: 26),
                   SizedBox(
                     width: 28,
@@ -169,54 +168,15 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // ✅ Background — تدرج + دوائر توهج + نقش خفيف (نفس روح السبلاش)
-  // ═══════════════════════════════════════════════════════════
+  // خلفية هادئة لا تنافس النموذج أو الشعار.
   Widget _buildBackground() {
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFF5FBF8), Color(0xFFE8F7F0)],
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: CustomPaint(painter: _DotPatternPainter()),
-          ),
-          Positioned(
-            top: -90,
-            right: -70,
-            child: _glowCircle(220, const Color(0xFF8EDDD1)),
-          ),
-          Positioned(
-            bottom: -100,
-            left: -60,
-            child: _glowCircle(250, const Color(0xFFDDF4A9)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _glowCircle(double size, Color color) {
     return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.3),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.22),
-            blurRadius: 80,
-            spreadRadius: 20,
-          ),
-        ],
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFFAFA), _bg],
+        ),
       ),
     );
   }
@@ -280,26 +240,25 @@ class _LoginPageState extends State<LoginPage>
       children: [
         ScaleTransition(
           scale: _logoScaleAnimation,
-          child: const _LoginLogo(size: 104),
+          child: const _LoginLogo(size: 62),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
         const Text(
-          'مرحبًا بعودتك 👋',
+          'تسجيل دخول المستخدم',
           style: TextStyle(
             color: _darkGreen,
-            fontSize: 30,
+            fontSize: 25,
             fontWeight: FontWeight.w900,
-            letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
-          'سجّل دخولك برقم هاتفك عشان تكمّل رحلتك معانا',
+          'اكتب رقم الموبايل المرتبط بحسابك.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.black.withValues(alpha: 0.5),
-            fontSize: 13.5,
-            height: 1.5,
+            color: _darkGreen.withValues(alpha: 0.62),
+            fontSize: 13,
+            height: 1.55,
           ),
         ),
       ],
@@ -311,72 +270,34 @@ class _LoginPageState extends State<LoginPage>
   // ═══════════════════════════════════════════════════════════
   Widget _buildLoginCard() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+      padding: const EdgeInsets.fromLTRB(19, 21, 19, 19),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(34),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: _cardBorder),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: _primary.withValues(alpha: 0.08),
-            blurRadius: 38,
-            offset: const Offset(0, 18),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Color(0x080F172A),
+            blurRadius: 18,
+            offset: Offset(0, 8),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(
-                  Icons.lock_outline_rounded,
-                  color: _primary,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'تسجيل الدخول',
-                      style: TextStyle(
-                        color: Color(0xFF153F31),
-                        fontSize: 18.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 3),
-                    Text(
-                      'هيوصلك كود تحقق على واتساب',
-                      style: TextStyle(color: Colors.black45, fontSize: 12.5),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const Text(
+            'ادخل رقم الموبايل المسجّل في حسابك',
+            style: TextStyle(
+              color: _darkGreen,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 20),
-          _buildWhatsAppNotice(),
-          const SizedBox(height: 20),
+          const SizedBox(height: 15),
           AuthTextField(
             controller: _phoneController,
-            label: 'رقم الهاتف',
+            label: 'رقم الموبايل',
             hint: '01012345678',
             prefixIcon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
@@ -385,12 +306,14 @@ class _LoginPageState extends State<LoginPage>
               LengthLimitingTextInputFormatter(16),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 13),
+          _buildWhatsAppNotice(),
+          const SizedBox(height: 18),
           AuthButton(
             text: 'إرسال كود التحقق',
             isLoading: _isLoading,
             onPressed: _handleLogin,
-            icon: Icons.send_rounded,
+            icon: Icons.chat_rounded,
           ),
         ],
       ),
@@ -399,47 +322,34 @@ class _LoginPageState extends State<LoginPage>
 
   Widget _buildWhatsAppNotice() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF0F8F3), Color(0xFFE7F5EE)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFD7EADF)),
+        color: const Color(0xFFF5F7F6),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 32,
+            height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: const Color(0xFF128C7E).withValues(alpha: 0.1),
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
-            child:
-                const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+            child: const Icon(
+              Icons.chat_rounded,
+              color: Color(0xFF128C7E),
+              size: 17,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 9),
           const Expanded(
             child: Text(
-              'هنبعتلك كود تحقق على واتساب 📲',
+              'كود التحقق هيوصلك على واتساب.',
               style: TextStyle(
-                color: Color(0xFF315A49),
-                fontSize: 12.5,
+                color: Color(0xFF41464F),
+                fontSize: 12,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
               ),
@@ -454,42 +364,30 @@ class _LoginPageState extends State<LoginPage>
   // ✅ Back Link (بدل Register Link)
   // ═══════════════════════════════════════════════════════════
   Widget _buildBackLink() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(100),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.storefront_outlined,
-            size: 15,
-            color: Colors.black45,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text(
+          'حسابك من نوع تاني؟',
+          style: TextStyle(color: _darkGreen, fontSize: 12.5),
+        ),
+        TextButton(
+          onPressed: _isLoading
+              ? null
+              : () => context.push(AppRouter.userTypeSelection),
+          style: TextButton.styleFrom(
+            foregroundColor: _primary,
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          const SizedBox(width: 6),
-          const Text(
-            'عايز تسجل كمقدم خدمة أو مؤسسة؟',
-            style: TextStyle(color: Colors.black54, fontSize: 12.5),
+          child: const Text(
+            'اختار نوع الحساب',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
           ),
-          TextButton(
-            onPressed: _isLoading
-                ? null
-                : () => context.push(AppRouter.userTypeSelection),
-            style: TextButton.styleFrom(
-              foregroundColor: _primary,
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'اختار نوع تاني',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -782,55 +680,26 @@ class _LoginLogo extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(size * 0.085),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(size * 0.34),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0B6B64).withValues(alpha: 0.2),
-            blurRadius: 30,
-            spreadRadius: 4,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(size * 0.24),
+        border: Border.all(color: const Color(0xFFE2E6EC)),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.27),
+        borderRadius: BorderRadius.circular(size * 0.24),
         child: Image.asset(
           'assets/images/khedma_icon.png',
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Icon(
-            Icons.volunteer_activism_rounded,
-            size: size * 0.48,
-            color: const Color(0xFF0B6B64),
+          errorBuilder: (context, error, stackTrace) => Container(
+            color: const Color(0xFFFFE8EA),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.person_rounded,
+              size: size * 0.48,
+              color: const Color(0xFFFF2E3B),
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-// ═══════════════════════════════════════════════════════════
-// ✅ Dot Pattern Painter — نقش خلفية خفيف يضيف عمق من غير ما يزاحم
-// ═══════════════════════════════════════════════════════════
-class _DotPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF0B6B64).withValues(alpha: 0.045)
-      ..style = PaintingStyle.fill;
-
-    const spacing = 46.0;
-    const dotSize = 3.0;
-
-    for (double x = 0; x < size.width; x += spacing) {
-      for (double y = 0; y < size.height; y += spacing) {
-        canvas.drawCircle(Offset(x, y), dotSize / 2, paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

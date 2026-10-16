@@ -1,5 +1,3 @@
-// lib/features/auth/presentation/pages/user_type_selection_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -9,173 +7,127 @@ import 'package:loqma/routes/app_router.dart';
 class UserTypeSelectionPage extends StatelessWidget {
   const UserTypeSelectionPage({super.key});
 
-  // ── ألوان Khedma
-  static const _bg = Color(0xFFF4F8F6);
-  static const _bgDark = Color(0xFFE6F0EA);
-  static const _primary = Color(0xFF0B7650);
-  static const _primaryLight = Color(0xFF25B77C);
-  static const _ink = Color(0xFF123F31);
-  static const _inkSoft = Color(0xFF315A45);
-  static const _cardBg = Color(0xFFFFFFFF);
+  static const _background = Color(0xFFF7F8FA);
+  static const _primary = Color(0xFFFF2E3B);
+  static const _ink = Color(0xFF1B1D22);
+  static const _muted = Color(0xFF68707C);
+  static const _border = Color(0xFFE2E6EC);
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: _background,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.dark,
             statusBarBrightness: Brightness.light,
+            systemNavigationBarColor: _background,
+            systemNavigationBarIconBrightness: Brightness.dark,
           ),
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [_bg, _bgDark],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [Color(0xFFFFFAFA), _background],
               ),
             ),
             child: SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    _buildBrand(),
                     const SizedBox(height: 30),
-
-                    // ── Logo
-                    Center(
-                      child: Container(
-                        width: 84,
-                        height: 84,
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _cardBg,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _primary.withValues(alpha: 0.18),
-                              blurRadius: 26,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.asset(
-                            'assets/images/khedma_icon.png',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [_primary, _primaryLight],
-                                  begin: Alignment.topRight,
-                                  end: Alignment.bottomLeft,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.volunteer_activism_rounded,
-                                size: 36,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── Title
                     const Text(
-                      'أهلًا بيك في Khedma 👋',
-                      textAlign: TextAlign.center,
+                      'أهلًا بيك في Khedma',
+                      textAlign: TextAlign.right,
                       style: TextStyle(
                         color: _ink,
-                        fontSize: 24,
+                        fontSize: 27,
+                        height: 1.3,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'اختار نوع حسابك عشان نجهزلك التجربة الصح',
-                      textAlign: TextAlign.center,
+                    const SizedBox(height: 7),
+                    const Text(
+                      'اختار نوع حسابك عشان نفتح لك المساحة المناسبة.',
+                      textAlign: TextAlign.right,
                       style: TextStyle(
-                        color: _inkSoft.withValues(alpha: 0.75),
+                        color: _muted,
                         fontSize: 14,
-                        height: 1.5,
+                        height: 1.6,
                       ),
                     ),
-                    const SizedBox(height: 36),
-
-                    // ═══════════════════════════════════════════
-                    // 👤 مستخدم عادي → LOGIN
-                    // ═══════════════════════════════════════════
-                    _TypeCard(
-                      icon: Icons.person_rounded,
+                    const SizedBox(height: 25),
+                    const Text(
+                      'هتستخدم التطبيق بصفتك إيه؟',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 13),
+                    _AccountTypeCard(
+                      icon: Icons.person_outline_rounded,
                       title: 'مستخدم عادي',
-                      subtitle: 'اكتشف عروض قريبة منك، واطلب خدمات',
-                      color: _primary,
-                      // Replace the selection route. This prevents a stale
-                      // auth refresh from re-applying the previous route over
-                      // the ordinary-user login page in release APKs.
+                      description:
+                          'تصفّح العروض القريبة، واطلب خدمة أو احتياجًا من المجتمع.',
                       onTap: () => context.go(AppRouter.login),
                     ),
-                    const SizedBox(height: 14),
-
-                    // ═══════════════════════════════════════════
-                    // 🔧 مقدم خدمة → ProviderAuthPage ✅ جديد
-                    // ═══════════════════════════════════════════
-                    _TypeCard(
-                      icon: Icons.handyman_rounded,
-                      title: 'مقدم خدمة',
-                      subtitle: 'سباك، كهربائي، نجار، أو أي حرفة تانية',
-                      color: const Color(0xFF3679C8),
+                    const SizedBox(height: 11),
+                    _AccountTypeCard(
+                      icon: Icons.handyman_outlined,
+                      title: 'مقدّم خدمة',
+                      description:
+                          'اعرض خدماتك وتابع طلبات العملاء من مساحة واحدة.',
                       onTap: () => context.push(AppRouter.providerAuth),
                     ),
-                    const SizedBox(height: 14),
-
-                    // ═══════════════════════════════════════════
-                    // 🏢 مؤسسة / جمعية → LOGIN PAGE
-                    // ═══════════════════════════════════════════
-                    _TypeCard(
-                      icon: Icons.business_rounded,
-                      title: 'مؤسسة / جمعية',
-                      subtitle: 'مطعم، جمعية، أو مؤسسة شريكة مع Khedma',
-                      color: const Color(0xFFE28B00),
+                    const SizedBox(height: 11),
+                    _AccountTypeCard(
+                      icon: Icons.domain_outlined,
+                      title: 'مؤسسة أو جمعية',
+                      description:
+                          'انشر العروض والفائض، أو استقبل التبرعات وادِر الطلبات.',
                       onTap: () => context.push(AppRouter.institutionLogin),
                     ),
-                    const SizedBox(height: 36),
-
-                    // ── Login Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'عندك حساب بالفعل؟',
-                          style: TextStyle(
-                            color: _inkSoft.withValues(alpha: 0.7),
-                            fontSize: 13,
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 15,
+                        vertical: 13,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF0F1),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 19,
+                            color: _primary,
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () => context.go(AppRouter.login),
-                          child: const Text(
-                            'تسجيل الدخول',
-                            style: TextStyle(
-                              color: _primary,
-                              fontWeight: FontWeight.w800,
+                          SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              'لو عندك حساب بالفعل، اختار نفس نوعه عشان تدخل من الصفحة المناسبة.',
+                              style: TextStyle(
+                                color: _ink,
+                                fontSize: 12,
+                                height: 1.5,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -185,68 +137,101 @@ class UserTypeSelectionPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildBrand() {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.asset(
+            'assets/images/khedma_icon.png',
+            width: 42,
+            height: 42,
+            fit: BoxFit.cover,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Text(
+          'Khedma',
+          style: TextStyle(
+            color: _ink,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: _border),
+          ),
+          child: const Text(
+            'اختيار الحساب',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// ============================================================
-// TYPE CARD
-// ============================================================
-class _TypeCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _TypeCard({
+class _AccountTypeCard extends StatelessWidget {
+  const _AccountTypeCard({
     required this.icon,
     required this.title,
-    required this.subtitle,
-    required this.color,
+    required this.description,
     required this.onTap,
   });
 
-  static const _ink = Color(0xFF123F31);
-  static const _inkSoft = Color(0xFF315A45);
-  static const _cardBg = Color(0xFFFFFFFF);
+  final IconData icon;
+  final String title;
+  final String description;
+  final VoidCallback onTap;
+
+  static const _primary = Color(0xFFFF2E3B);
+  static const _ink = Color(0xFF1B1D22);
+  static const _muted = Color(0xFF68707C);
+  static const _border = Color(0xFFE2E6EC);
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _cardBg,
-      borderRadius: BorderRadius.circular(20),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(19),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
+        borderRadius: BorderRadius.circular(19),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _inkSoft.withValues(alpha: 0.08)),
-            boxShadow: [
+            borderRadius: BorderRadius.circular(19),
+            border: Border.all(color: _border),
+            boxShadow: const [
               BoxShadow(
-                color: _inkSoft.withValues(alpha: 0.06),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
+                color: Color(0x080F172A),
+                blurRadius: 12,
+                offset: Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
-                alignment: Alignment.center,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: color.withValues(alpha: 0.25),
-                    width: 1.5,
-                  ),
+                  color: const Color(0xFFFFEAEC),
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: Icon(icon, color: color, size: 26),
+                child: Icon(icon, color: _primary, size: 24),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,26 +240,27 @@ class _TypeCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color: _ink,
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: _inkSoft.withValues(alpha: 0.7),
+                      description,
+                      style: const TextStyle(
+                        color: _muted,
                         fontSize: 11.5,
-                        height: 1.4,
+                        height: 1.45,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
+              const SizedBox(width: 6),
+              const Icon(
                 Icons.chevron_left_rounded,
-                color: color.withValues(alpha: 0.6),
-                size: 26,
+                color: _muted,
+                size: 23,
               ),
             ],
           ),
