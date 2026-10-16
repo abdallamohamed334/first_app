@@ -18,6 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -32,6 +34,7 @@ import 'features/splash/presentation/bloc/splash_bloc.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
+import 'core/services/sentry_service.dart';
 import 'core/config/app_config.dart';
 // ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
 import 'core/services/auth_state_notifier.dart';
@@ -42,6 +45,7 @@ import 'features/institutions/domain/entities/institution.dart';
 import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
+bool _sentryEnabled = false;
 Future<dynamic>? _supabaseInitialization;
 StreamSubscription<AuthState>? _authStateSubscription;
 
@@ -56,6 +60,40 @@ const _defaultSupabasePublishableKey = String.fromEnvironment(
 );
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (kDebugMode) {
+    await _bootstrapApp();
+    return;
+  }
+
+  final dsn = const String.fromEnvironment('SENTRY_DSN');
+  if (dsn.isEmpty) {
+    await _bootstrapApp();
+    return;
+  }
+
+  final packageInfo = await PackageInfo.fromPlatform();
+  _sentryEnabled = true;
+  LoqmaSentry.enabled = true;
+  await SentryFlutter.init(
+    (options) {
+      options.dsn = dsn;
+      options.environment = kReleaseMode ? 'production' : 'development';
+      options.release =
+          'khedma@${packageInfo.version}+${packageInfo.buildNumber}';
+      options.tracesSampleRate = 0.2;
+      options.sendDefaultPii = false;
+      options.attachScreenshot = false;
+      options.attachViewHierarchy = false;
+      options.beforeSend = _scrubSentryEvent;
+      options.beforeBreadcrumb = _scrubSentryBreadcrumb;
+    },
+    appRunner: _bootstrapApp,
+  );
+}
+
+Future<void> _bootstrapApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   _installGlobalErrorHandlers();
@@ -339,6 +377,7 @@ void _attachAuthStateSync() {
       _authSyncGeneration++;
       unawaited(_stopAccountStatusSubscription());
       AuthStateNotifier.instance.clear();
+      unawaited(LoqmaSentry.setAnonymousUser(null));
       debugPrint('🔔 [AuthState] signed out → cleared');
       return;
     }
@@ -415,6 +454,8 @@ void _attachAuthStateSync() {
         return;
       }
 
+      unawaited(LoqmaSentry.setAnonymousUser(userId));
+
       final profileRole = AuthStateNotifier.resolveRole(
         userType: profile['user_type'],
         fallbackRole: profile['role'],
@@ -472,6 +513,7 @@ void _attachAuthStateSync() {
       );
     } catch (error, stack) {
       if (generation != _authSyncGeneration) return;
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'auth_sync'));
       debugPrint('⚠️ Failed to sync AuthState: $error');
       debugPrintStack(stackTrace: stack);
       // لا نمسح جلسة صحيحة بسبب timeout أو انقطاع مؤقت؛ إبقاؤها في وضع
@@ -525,9 +567,52 @@ Future<bool> _loadThemePreferenceSafely() async {
   }
 }
 
+SentryEvent? _scrubSentryEvent(SentryEvent event, Hint hint) {
+  // Never forward identity, request metadata, or arbitrary exception extras.
+  event.user = null;
+  event.request = null;
+  event.extra = null;
+  event.breadcrumbs = event.breadcrumbs
+      ?.where((breadcrumb) => _scrubSentryBreadcrumb(breadcrumb, hint) != null)
+      .toList();
+  return event;
+}
+
+Breadcrumb? _scrubSentryBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
+  if (breadcrumb == null) return null;
+  final data = breadcrumb.data;
+  if (data == null || data.isEmpty) return breadcrumb;
+  const forbidden = {
+    'password',
+    'token',
+    'access_token',
+    'refresh_token',
+    'authorization',
+    'phone',
+    'id_card',
+    'id_photo',
+    'request_body',
+    'body',
+  };
+  if (data.keys.any((key) => forbidden.contains(key.toLowerCase()))) {
+    return null;
+  }
+  return breadcrumb;
+}
+
 void _installGlobalErrorHandlers() {
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
+
+    if (_sentryEnabled) {
+      unawaited(
+        LoqmaSentry.capture(
+          details.exception,
+          details.stack ?? StackTrace.current,
+          flow: 'flutter',
+        ),
+      );
+    }
 
     if (_firebaseCrashlyticsReady) {
       unawaited(
@@ -545,6 +630,10 @@ void _installGlobalErrorHandlers() {
     Object error,
     StackTrace stack,
   ) {
+    if (_sentryEnabled) {
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'async'));
+    }
+
     if (_firebaseCrashlyticsReady) {
       unawaited(
         FirebaseCrashlytics.instance.recordError(

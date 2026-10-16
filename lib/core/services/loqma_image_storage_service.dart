@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:loqma/core/services/sentry_service.dart';
 
 import 'image_upload_codec.dart';
 
@@ -113,10 +116,12 @@ class loqmaImageStorageService {
       return finalPath;
     } on StorageException catch (error, stackTrace) {
       // التفاصيل تبقى للمطور فقط ولا تظهر للمستخدم.
+      unawaited(LoqmaSentry.capture(error, stackTrace, flow: 'image_upload'));
       debugPrint('STORAGE ERROR: $error');
       debugPrintStack(stackTrace: stackTrace);
       throw StateError(errorMessage);
     } catch (error, stackTrace) {
+      unawaited(LoqmaSentry.capture(error, stackTrace, flow: 'image_upload'));
       debugPrint('IMAGE UPLOAD ERROR: $error');
       debugPrintStack(stackTrace: stackTrace);
       throw StateError(errorMessage);

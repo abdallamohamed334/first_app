@@ -1,6 +1,7 @@
 ﻿// lib/routes/app_router.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:loqma/features/provider/presentation/pages/widgets/provider_status_guard.dart';
 
@@ -13,6 +14,7 @@ import '../features/auth/presentation/pages/user_type_selection_page.dart';
 import '../features/auth/presentation/pages/institution_login_page.dart';
 import '../features/auth/presentation/pages/account_restricted_page.dart';
 import '../features/admin/presentation/pages/account_cases_page.dart';
+import '../features/debug/presentation/pages/sentry_test_page.dart';
 
 // ✅ Provider (مزود الخدمة)
 import '../features/provider/presentation/pages/provider_auth_page.dart';
@@ -55,6 +57,7 @@ class AppRouter {
   static const String register = '/register';
   static const String institutionLogin = '/institution-login';
   static const String accountRestricted = '/account-restricted';
+  static const String sentryDebugTest = '/__debug/sentry-test';
 
   // ✅ Provider (مزود الخدمة)
   static const String providerAuth = '/provider/auth';
@@ -111,6 +114,8 @@ class AppRouter {
       };
 
       final isPublic = publicRoutes.contains(loc);
+
+      if (loc == sentryDebugTest && kDebugMode) return null;
 
       // ❌ مش مسجل دخول
       if (!auth.isLoggedIn) {
@@ -274,6 +279,12 @@ class AppRouter {
     },
 
     routes: [
+      if (kDebugMode)
+        GoRoute(
+          path: sentryDebugTest,
+          name: 'sentry-debug-test',
+          builder: (context, state) => const SentryTestPage(),
+        ),
       // ─────────────────────────────────────────────
       // 1. Splash
       // ─────────────────────────────────────────────

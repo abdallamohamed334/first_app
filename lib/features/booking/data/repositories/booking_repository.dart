@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/booking/domain/entities/booking.dart';
+import 'package:loqma/core/services/sentry_service.dart';
 
 class BookingRepository {
   final SupabaseService _supabase;
@@ -349,6 +352,11 @@ class BookingRepository {
       };
 
   void _log(String operation, Object error) {
+    unawaited(LoqmaSentry.capture(
+      error,
+      StackTrace.current,
+      flow: 'booking_$operation',
+    ));
     if (kDebugMode) debugPrint('$operation failed: ${error.runtimeType}');
   }
 }

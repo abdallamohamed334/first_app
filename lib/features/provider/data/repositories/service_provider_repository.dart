@@ -1,5 +1,6 @@
 // lib/features/provider/data/repositories/service_provider_repository.dart
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dartz/dartz.dart';
@@ -10,6 +11,7 @@ import '../../../../core/errors/app_error_mapper.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../../core/services/auth_state_notifier.dart';
 import '../../../../core/services/image_upload_codec.dart';
+import '../../../../core/services/sentry_service.dart';
 
 class ServiceProviderRepository {
   final SupabaseService _supabase;
@@ -268,6 +270,10 @@ class ServiceProviderRepository {
     bool isRegistration = false,
   }) async {
     try {
+      unawaited(LoqmaSentry.breadcrumb(
+        'provider_auth',
+        action: isRegistration ? 'signup_otp_start' : 'login_otp_start',
+      ));
       final cleanPhone = _cleanPhoneIntl(phone);
 
       if (cleanPhone.length < 10 || cleanPhone.length > 15) {
@@ -305,6 +311,7 @@ class ServiceProviderRepository {
       debugPrint('✅ [Provider OTP] Sent to ${_maskPhone(returned)}');
       return Right(returned);
     } catch (error, stack) {
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'provider_send_otp'));
       debugPrint('❌ [Provider OTP] send exception: ${error.runtimeType}');
       debugPrintStack(stackTrace: stack);
       final rawError = error.toString().toLowerCase();
@@ -341,6 +348,10 @@ class ServiceProviderRepository {
     String? address,
   }) async {
     try {
+      unawaited(LoqmaSentry.breadcrumb(
+        'provider_auth',
+        action: 'otp_verify_start',
+      ));
       final cleanPhone = _cleanPhoneIntl(phone);
       final cleanCode = code.trim();
 
@@ -402,6 +413,11 @@ class ServiceProviderRepository {
       }
 
       debugPrint('✅ [Provider OTP] Auth OK: $userId');
+      unawaited(LoqmaSentry.breadcrumb(
+        'provider_auth',
+        action: isRegisterMode ? 'signup_complete' : 'login_complete',
+        outcome: 'success',
+      ));
 
       // امنع الـ router من اتخاذ قرار قبل تحميل حالة مزود الخدمة.
       AuthStateNotifier.instance.beginSync();
@@ -532,6 +548,7 @@ class ServiceProviderRepository {
         'needsApproval': true,
       });
     } catch (error, stack) {
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'provider_verify_otp'));
       debugPrint('❌ [Provider OTP] verify error: $error');
       debugPrintStack(stackTrace: stack);
       final rawError = error.toString().toLowerCase();

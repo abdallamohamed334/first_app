@@ -1,5 +1,7 @@
 // lib/features/auth/data/repositories/auth_repository.dart
 
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import '../services/supabase_service.dart';
 import '../services/analytics_service.dart';
 import '../services/fcm_notification_service.dart';
 import '../services/auth_state_notifier.dart'; // ✅
+import '../services/sentry_service.dart';
 import '../utils/validators.dart';
 
 class AuthRepository {
@@ -170,6 +173,10 @@ class AuthRepository {
     bool isRegistration = false,
   }) async {
     try {
+      unawaited(LoqmaSentry.breadcrumb(
+        'auth',
+        action: isRegistration ? 'signup_otp_start' : 'login_otp_start',
+      ));
       final cleanPhone = _cleanPhone(phone);
 
       if (loginMode != 'user' && loginMode != 'provider') {
@@ -206,9 +213,15 @@ class AuthRepository {
       }
 
       final returnedPhone = data['phone']?.toString() ?? cleanPhone;
+      unawaited(LoqmaSentry.breadcrumb(
+        'auth',
+        action: 'otp_sent',
+        outcome: 'success',
+      ));
       debugPrint('OTP request accepted');
       return Right(returnedPhone);
-    } catch (error) {
+    } catch (error, stack) {
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'auth_send_otp'));
       debugPrint('❌ sendOtp exception: ${error.runtimeType}');
       return Left(_friendlyAuthError(error));
     }
@@ -224,6 +237,7 @@ class AuthRepository {
     required Map<String, dynamic> profile,
   }) async {
     try {
+      unawaited(LoqmaSentry.breadcrumb('auth', action: 'otp_verify_start'));
       final cleanPhone = _cleanPhone(phone);
       final cleanCode = code.trim();
 
@@ -296,6 +310,11 @@ class AuthRepository {
       }
 
       debugPrint('✅ Auth success: ${isNewUser ? "new" : "existing"} user');
+      unawaited(LoqmaSentry.breadcrumb(
+        'auth',
+        action: isNewUser ? 'signup_complete' : 'login_complete',
+        outcome: 'success',
+      ));
 
       // ✅ نرجّع Map فيه user + isNewUser
       return Right({
@@ -310,6 +329,7 @@ class AuthRepository {
       debugPrint('❌ verifyAndCreate AuthApiException: ${error.code}');
       return Left(_friendlyAuthError(error));
     } catch (error, stack) {
+      unawaited(LoqmaSentry.capture(error, stack, flow: 'auth_verify_otp'));
       debugPrint('❌ verifyAndCreate exception: ${error.runtimeType}');
       debugPrintStack(stackTrace: stack);
       return Left(_friendlyAuthError(error));
