@@ -706,21 +706,31 @@ void _installGlobalErrorHandlers() {
 Future<bool> _initializeFirebaseSafely() async {
   try {
     if (Firebase.apps.isEmpty) {
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-      } catch (configuredError, configuredStack) {
-        // Android's google-services plugin already provides the native
-        // Firebase config. Use it as a fallback so FCM can still obtain a
-        // token when a dart-define/runtime API key is missing or stale.
-        debugPrint(
-          'Configured Firebase startup failed; trying native config: '
-          '$configuredError',
-        );
-        debugPrintStack(stackTrace: configuredStack);
-        if (Firebase.apps.isEmpty) {
-          await Firebase.initializeApp();
+      final useNativeIosConfig = !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.iOS &&
+          !DefaultFirebaseOptions.hasRuntimeValue('FIREBASE_IOS_API_KEY');
+
+      if (useNativeIosConfig) {
+        // GoogleService-Info.plist is bundled by Runner for CodeMagic and
+        // Appetize builds; do not throw for an optional missing dart-define.
+        await Firebase.initializeApp();
+        debugPrint('Firebase initialized from native iOS configuration');
+      } else {
+        try {
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+        } catch (configuredError, configuredStack) {
+          // Keep native config as a recovery path for stale overrides on
+          // platforms whose Firebase configuration is bundled natively.
+          debugPrint(
+            'Configured Firebase startup failed; trying native config: '
+            '$configuredError',
+          );
+          debugPrintStack(stackTrace: configuredStack);
+          if (Firebase.apps.isEmpty) {
+            await Firebase.initializeApp();
+          }
         }
       }
     }

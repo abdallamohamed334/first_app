@@ -18,6 +18,8 @@ class DefaultFirebaseOptions {
     return trimmed.isEmpty ? null : trimmed;
   }
 
+  static bool hasRuntimeValue(String name) => _optionalEnv(name) != null;
+
   static String _env(String name) {
     final value = _runtimeOverrides[name] ??
         dotenv.env[name] ??
