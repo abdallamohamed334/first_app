@@ -34,6 +34,11 @@
 		<string>ar</string>
 		<string>en</string>
 	</array>
+	<!-- Google Mobile Ads requires an iOS application ID at initialization time.
+	     iOS ads remain disabled in AdBannerCard until a production iOS ID is
+	     configured; this official test ID keeps simulator/Appetize builds safe. -->
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نستخدم موقعك فقط عند اختيار الخريطة لعرض المزودين والعروض القريبة منك. We use your location only when you choose the map to show nearby providers and offers.</string>
 	<key>NSCameraUsageDescription</key>

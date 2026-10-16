@@ -36,3 +36,4 @@ build/ios/ipa/*.ipa
 - إعدادات التوقيع يجب أن تُحفظ داخل Codemagic Code signing أو Environment groups.
 - ملف Appetize مخصص للمحاكي فقط، لذلك اختبار الكاميرا وGPS والإشعارات قد يختلف عن جهاز iPhone حقيقي.
 - يجب رفع `codemagic.yaml` إلى جذر المستودع حتى يظهر كإعداد YAML في Codemagic.
+- تم وضع معرف AdMob الرسمي التجريبي الخاص بـ iOS في `Info.plist` لمنع توقف المحاكي عند تهيئة SDK. إعلانات iOS متوقفة حاليًا في الكود. قبل تفعيل الإعلانات على App Store يجب استبداله بمعرف تطبيق iOS الحقيقي من AdMob، وليس معرف Android أو معرف وحدة الإعلان.
