@@ -822,283 +822,171 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
     final orig = offer.originalPrice;
     final hasDiscount = sale != null && orig != null && orig > sale;
     final discount = hasDiscount ? ((1 - sale / orig) * 100).round() : 0;
-
-    // ⚠️ TODO: حاليًا مفيش مصدر بيانات في الصفحة دي يوضح إن المستخدم
-    // "قدّم على العرض ده وبعدين لغى طلبه" — ده تفصيل مرتبط بطلبات
-    // المستخدم (my requests / bookings) مش بحالة العرض نفسه. سيبت
-    // الـ hook هنا جاهز (_isCancelledByMe) عشان يوصل بسهولة لما تبعتلي
-    // كود صفحة الطلبات أو تفاصيل العرض اللي فيها منطق الإلغاء.
     final cancelledByMe = _isCancelledByMe(offer);
 
     return Material(
       color: _card,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: cancelledByMe ? null : () => _navigateToDetails(offer),
         child: Opacity(
           opacity: cancelledByMe ? 0.55 : 1,
           child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: cancelledByMe
-                    ? _primaryRed.withValues(alpha: 0.25)
-                    : Colors.white.withValues(alpha: 0.05),
+                    ? _primaryRed.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.08),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  offset: Offset(0, 6),
+                  color: Colors.black.withValues(alpha: 0.24),
+                  blurRadius: 16,
+                  offset: const Offset(0, 7),
                 ),
               ],
             ),
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✅ صورة كبيرة فوق الكارت + شارات فوقها
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                      child: SizedBox(
-                        height: 150,
-                        width: double.infinity,
-                        child: ColorFiltered(
+                SizedBox(
+                  width: 142,
+                  height: 190,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(17),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ColorFiltered(
                           colorFilter: cancelledByMe
-                              ? ColorFilter.mode(
-                                  Colors.black45, BlendMode.saturation)
-                              : ColorFilter.mode(
-                                  Colors.transparent, BlendMode.multiply),
+                              ? const ColorFilter.mode(Colors.black45, BlendMode.saturation)
+                              : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
                           child: _offerImageSlider(offer),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        height: 56,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.zero,
-                          ),
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.45),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (!cancelledByMe)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: offer.isUrgent ? _orange : _primaryRed,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (offer.isUrgent ? _orange : _primaryRed)
-                                    .withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            offer.isUrgent ? 'عاجل 🔥' : 'متاح الآن',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (cancelledByMe)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                                color: _primaryRed.withValues(alpha: 0.6)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.block_rounded,
-                                  color: _primaryRed, size: 12),
-                              SizedBox(width: 4),
-                              Text(
-                                'ملغي',
-                                style: TextStyle(
-                                  color: _primaryRed,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    Positioned(
-                      bottom: 10,
-                      right: 12,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.schedule_rounded,
-                            size: 12,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                          SizedBox(width: 3),
-                          Text(
-                            offer.timeRemaining,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                // ✅ محتوى الكارت
-                Padding(
-                  padding: EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        offer.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: _textPrimary,
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.storefront_rounded,
-                              size: 12, color: _textSecondary),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              offer.businessName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: _textSecondary,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          if (sale != null && sale > 0)
-                            Text(
-                              '${sale.toStringAsFixed(0)} ج.م',
-                              style: TextStyle(
-                                color: _primaryRed,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            )
-                          else
-                            Text(
-                              '🎁 مجاني',
-                              style: TextStyle(
-                                color: _primaryRed,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          if (hasDiscount) ...[
-                            SizedBox(width: 6),
-                            Text(
-                              '${orig.toStringAsFixed(0)} ج.م',
-                              style: TextStyle(
-                                color: _textSecondary.withValues(alpha: 0.8),
-                                fontSize: 11.5,
-                                decoration: TextDecoration.lineThrough,
-                              ),
-                            ),
-                            SizedBox(width: 6),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
-                              ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: _orange.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(7),
-                              ),
-                              child: Text(
-                                'وفر $discount%',
-                                style: TextStyle(
-                                  color: _orange,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.w800,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.3),
+                                    Colors.transparent,
+                                    Colors.black.withValues(alpha: 0.45),
+                                  ],
                                 ),
                               ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: cancelledByMe ? Colors.black87 : (offer.isUrgent ? _orange : _primaryRed),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Text(
+                              cancelledByMe ? 'ملغي' : (offer.isUrgent ? 'عاجل' : 'متاح'),
+                              style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          left: 8,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.schedule_rounded, size: 12, color: Colors.white),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(offer.timeRemaining, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800))),
+                            ],
+                          ),
+                        ),
+                        if (hasDiscount)
+                          Positioned(
+                            bottom: 30,
+                            right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                              decoration: BoxDecoration(color: _orange, borderRadius: BorderRadius.circular(11)),
+                              child: Text('وفر $discount%', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                offer.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w900, height: 1.25),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_left_rounded, color: _primaryRed, size: 20),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          offer.description.trim().isEmpty ? 'عرض مميز من المتجر' : offer.description.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: _textSecondary, fontSize: 11.5, height: 1.4),
+                        ),
+                        const SizedBox(height: 9),
+                        _offerInfoLine(Icons.storefront_rounded, offer.businessName),
+                        const SizedBox(height: 5),
+                        _offerInfoLine(Icons.location_on_outlined, offer.displayLocation),
+                        const SizedBox(height: 5),
+                        _offerInfoLine(Icons.category_outlined, offer.foodType),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Text(offer.priceDisplay, style: const TextStyle(color: _primaryRed, fontSize: 18, fontWeight: FontWeight.w900)),
+                            if (hasDiscount) ...[
+                              const SizedBox(width: 5),
+                              Text('${orig.toStringAsFixed(0)} ج.م', style: TextStyle(color: _textSecondary.withValues(alpha: 0.8), fontSize: 10, decoration: TextDecoration.lineThrough)),
+                            ],
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(color: _primaryRed.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                              child: Text('${offer.quantity} متاح', style: const TextStyle(color: _primaryRed, fontSize: 10, fontWeight: FontWeight.w900)),
                             ),
                           ],
-                          Spacer(),
-                          if (cancelledByMe)
-                            Text(
-                              'مش متاح للتقديم',
-                              style: TextStyle(
-                                color: _primaryRed,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            )
-                          else
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'التفاصيل',
-                                  style: TextStyle(
-                                    color: _primaryRed,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Icon(Icons.chevron_left_rounded,
-                                    color: _primaryRed, size: 18),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 9),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 34,
+                          child: ElevatedButton(
+                            onPressed: cancelledByMe ? null : () => _navigateToDetails(offer),
+                            style: ElevatedButton.styleFrom(backgroundColor: _primaryRed, foregroundColor: Colors.white, elevation: 0, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11))),
+                            child: Text(cancelledByMe ? 'غير متاح للتقديم' : 'شاهد التفاصيل', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -1106,6 +994,23 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _offerInfoLine(IconData icon, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 13, color: _textSecondary),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _textSecondary, fontSize: 10.5, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
     );
   }
 
