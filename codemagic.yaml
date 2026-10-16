@@ -1,0 +1,70 @@
+workflows:
+  ios-simulator-appetize:
+    name: Khedma iOS Simulator for Appetize
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Install Flutter dependencies
+        script: |
+          flutter pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Build unsigned iOS Simulator app
+        script: |
+          flutter build ios --simulator --debug
+      - name: Package Appetize upload
+        script: |
+          mkdir -p artifacts
+          cd build/ios/iphonesimulator
+          zip -r ../../../artifacts/khedma-ios-simulator.zip Runner.app
+    artifacts:
+      - artifacts/khedma-ios-simulator.zip
+      - build/ios/iphonesimulator/Runner.app
+
+  ios-release:
+    name: Khedma iOS Release IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - khedma-production
+    triggering:
+      events: []
+    scripts:
+      - name: Install Flutter dependencies
+        script: |
+          flutter pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Apply Codemagic iOS signing profiles
+        script: |
+          xcode-project use-profiles
+      - name: Build signed IPA
+        script: |
+          flutter build ipa \
+            --release \
+            --obfuscate \
+            --split-debug-info=build/ios/symbols
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - build/ios/symbols/**
+      - /tmp/xcodebuild_logs/*.log
