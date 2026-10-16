@@ -939,11 +939,11 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                                 offer.title,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w900, height: 1.25),
+                                style: TextStyle(color: _textPrimary, fontSize: 16, fontWeight: FontWeight.w900, height: 1.25),
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(Icons.chevron_left_rounded, color: _primaryRed, size: 20),
+                            Icon(Icons.chevron_left_rounded, color: _primaryRed, size: 20),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -962,7 +962,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            Text(offer.priceDisplay, style: const TextStyle(color: _primaryRed, fontSize: 18, fontWeight: FontWeight.w900)),
+                            Text(offer.priceDisplay, style: TextStyle(color: _primaryRed, fontSize: 18, fontWeight: FontWeight.w900)),
                             if (hasDiscount) ...[
                               const SizedBox(width: 5),
                               Text('${orig.toStringAsFixed(0)} ج.م', style: TextStyle(color: _textSecondary.withValues(alpha: 0.8), fontSize: 10, decoration: TextDecoration.lineThrough)),
@@ -971,7 +971,7 @@ class _UserAllOffersPageState extends State<UserAllOffersPage>
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                               decoration: BoxDecoration(color: _primaryRed.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                              child: Text('${offer.quantity} متاح', style: const TextStyle(color: _primaryRed, fontSize: 10, fontWeight: FontWeight.w900)),
+                              child: Text('${offer.quantity} متاح', style: TextStyle(color: _primaryRed, fontSize: 10, fontWeight: FontWeight.w900)),
                             ),
                           ],
                         ),
