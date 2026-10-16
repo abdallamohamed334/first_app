@@ -7,10 +7,14 @@ class LoqmaSentry {
 
   static Future<void> setAnonymousUser(String? userId) async {
     if (!enabled) return;
-    final id = userId?.trim();
-    await Sentry.configureScope((scope) {
-      scope.setUser(id == null || id.isEmpty ? null : SentryUser(id: id));
-    });
+    try {
+      final id = userId?.trim();
+      await Sentry.configureScope((scope) {
+        scope.setUser(id == null || id.isEmpty ? null : SentryUser(id: id));
+      });
+    } catch (_) {
+      // Monitoring must never block auth/session recovery.
+    }
   }
 
   static Future<void> breadcrumb(
@@ -19,16 +23,20 @@ class LoqmaSentry {
     String? outcome,
   }) async {
     if (!enabled) return;
-    await Sentry.addBreadcrumb(
-      Breadcrumb(
-        category: 'flow',
-        message: action == null ? flow : '$flow: $action',
-        data: {
-          'flow': flow,
-          if (outcome != null) 'outcome': outcome,
-        },
-      ),
-    );
+    try {
+      await Sentry.addBreadcrumb(
+        Breadcrumb(
+          category: 'flow',
+          message: action == null ? flow : '$flow: $action',
+          data: {
+            'flow': flow,
+            if (outcome != null) 'outcome': outcome,
+          },
+        ),
+      );
+    } catch (_) {
+      // Monitoring must never block auth/session recovery.
+    }
   }
 
   static Future<void> capture(
@@ -37,15 +45,23 @@ class LoqmaSentry {
     required String flow,
   }) async {
     if (!enabled) return;
-    await breadcrumb(flow, action: 'error');
-    await Sentry.captureException(error, stackTrace: stackTrace);
+    try {
+      await breadcrumb(flow, action: 'error');
+      await Sentry.captureException(error, stackTrace: stackTrace);
+    } catch (_) {
+      // Monitoring must never mask the original application error.
+    }
   }
 
   static Future<void> testException() async {
     if (!enabled) return;
-    await Sentry.captureException(
-      StateError('Khedma Sentry test exception'),
-      stackTrace: StackTrace.current,
-    );
+    try {
+      await Sentry.captureException(
+        StateError('Khedma Sentry test exception'),
+        stackTrace: StackTrace.current,
+      );
+    } catch (_) {
+      // The test control must not crash the app if Sentry is unavailable.
+    }
   }
 }
