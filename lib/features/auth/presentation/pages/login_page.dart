@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dartz/dartz.dart' as dartz;
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
@@ -30,8 +29,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage>
     with SingleTickerProviderStateMixin {
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
   final AuthRepository _authRepo = AuthRepository(SupabaseService());
 
   final FirebaseMessagingService _fcmService =
@@ -42,7 +39,6 @@ class _LoginPageState extends State<LoginPage>
   late final Animation<double> _logoScaleAnimation;
 
   bool _isLoading = false;
-  bool _useEmailLogin = false;
   bool _isCheckingAutoLogin = true;
 
   // ── ألوان (هوية "Khedma" الخضراء)
@@ -86,8 +82,6 @@ class _LoginPageState extends State<LoginPage>
   @override
   void dispose() {
     _phoneController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -378,62 +372,26 @@ class _LoginPageState extends State<LoginPage>
             ],
           ),
           const SizedBox(height: 20),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('واتساب'), icon: Icon(Icons.chat_rounded)),
-              ButtonSegment(value: true, label: Text('إيميل'), icon: Icon(Icons.email_outlined)),
+          _buildWhatsAppNotice(),
+          const SizedBox(height: 20),
+          AuthTextField(
+            controller: _phoneController,
+            label: 'رقم الهاتف',
+            hint: '01012345678',
+            prefixIcon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩+ ]')),
+              LengthLimitingTextInputFormatter(16),
             ],
-            selected: {_useEmailLogin},
-            onSelectionChanged: _isLoading
-                ? null
-                : (value) => setState(() => _useEmailLogin = value.first),
           ),
           const SizedBox(height: 20),
-          if (_useEmailLogin) ...[
-            AuthTextField(
-              controller: _emailController,
-              label: 'البريد الإلكتروني',
-              hint: 'reviewer@example.com',
-              prefixIcon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 14),
-            AuthTextField(
-              controller: _passwordController,
-              label: 'كلمة المرور',
-              hint: 'أدخل كلمة المرور',
-              prefixIcon: Icons.lock_outline,
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            AuthButton(
-              text: 'تسجيل الدخول',
-              isLoading: _isLoading,
-              onPressed: _handleEmailLogin,
-              icon: Icons.login_rounded,
-            ),
-          ] else ...[
-            _buildWhatsAppNotice(),
-            const SizedBox(height: 20),
-            AuthTextField(
-              controller: _phoneController,
-              label: 'رقم الهاتف',
-              hint: '01012345678',
-              prefixIcon: Icons.phone_outlined,
-              keyboardType: TextInputType.phone,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩+ ]')),
-                LengthLimitingTextInputFormatter(16),
-              ],
-            ),
-            const SizedBox(height: 20),
-            AuthButton(
-              text: 'إرسال كود التحقق',
-              isLoading: _isLoading,
-              onPressed: _handleLogin,
-              icon: Icons.send_rounded,
-            ),
-          ],
+          AuthButton(
+            text: 'إرسال كود التحقق',
+            isLoading: _isLoading,
+            onPressed: _handleLogin,
+            icon: Icons.send_rounded,
+          ),
         ],
       ),
     );
@@ -642,43 +600,6 @@ class _LoginPageState extends State<LoginPage>
   // ═══════════════════════════════════════════════════════════
   // Handle Login — Send OTP
   // ═══════════════════════════════════════════════════════════
-  Future<void> _handleEmailLogin() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-      _showError('أدخل بريدًا إلكترونيًا صحيحًا');
-      return;
-    }
-    if (password.length < 8) {
-      _showError('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
-      return;
-    }
-    setState(() => _isLoading = true);
-    try {
-      await SupabaseService().client.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
-      final userResult = await _authRepo.getCurrentUserFromDb();
-      await userResult.fold(
-        (error) async => _showError(error),
-        (user) async {
-          await _registerDevice();
-          if (mounted) await _navigateToHome(user);
-        },
-      );
-    } on AuthException catch (error) {
-      _showError(error.message.contains('Invalid login credentials')
-          ? 'البريد أو كلمة المرور غير صحيحة'
-          : 'تعذر تسجيل الدخول بالبريد');
-    } catch (error) {
-      debugPrint('❌ [Email Login] $error');
-      _showError('تعذر تسجيل الدخول بالبريد');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   Future<void> _handleLogin() async {
     final phone = _normalizeEgyptianPhone(_phoneController.text);
 
