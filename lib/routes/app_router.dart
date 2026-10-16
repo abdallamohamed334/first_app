@@ -115,7 +115,7 @@ class AppRouter {
 
       final isPublic = publicRoutes.contains(loc);
 
-      if (loc == sentryDebugTest && kDebugMode) return null;
+      if (loc == sentryDebugTest && SentryTestPage.isEnabled) return null;
 
       // ❌ مش مسجل دخول
       if (!auth.isLoggedIn) {
@@ -279,7 +279,7 @@ class AppRouter {
     },
 
     routes: [
-      if (kDebugMode)
+      if (SentryTestPage.isEnabled)
         GoRoute(
           path: sentryDebugTest,
           name: 'sentry-debug-test',

@@ -46,6 +46,9 @@ import 'core/theme/theme_notifier.dart';
 
 bool _firebaseCrashlyticsReady = false;
 bool _sentryEnabled = false;
+final Map<String, DateTime> _sentryRecentEvents = <String, DateTime>{};
+int _sentryEventsSentThisSession = 0;
+int _sentryDroppedNoiseThisSession = 0;
 Future<dynamic>? _supabaseInitialization;
 StreamSubscription<AuthState>? _authStateSubscription;
 
@@ -67,6 +70,15 @@ Future<void> main() async {
     return;
   }
 
+  final stagingEnabled = const bool.fromEnvironment(
+    'SENTRY_STAGING',
+    defaultValue: false,
+  );
+  if (!kReleaseMode && !stagingEnabled) {
+    await _bootstrapApp();
+    return;
+  }
+
   final dsn = const String.fromEnvironment('SENTRY_DSN');
   if (dsn.isEmpty) {
     await _bootstrapApp();
@@ -79,10 +91,11 @@ Future<void> main() async {
   await SentryFlutter.init(
     (options) {
       options.dsn = dsn;
-      options.environment = kReleaseMode ? 'production' : 'development';
+      options.environment = stagingEnabled ? 'staging' : 'production';
       options.release =
           'khedma@${packageInfo.version}+${packageInfo.buildNumber}';
-      options.tracesSampleRate = 0.2;
+      options.tracesSampleRate = stagingEnabled ? 0.01 : 0.05;
+      options.maxBreadcrumbs = 50;
       options.sendDefaultPii = false;
       options.attachScreenshot = false;
       options.attachViewHierarchy = false;
@@ -568,6 +581,44 @@ Future<bool> _loadThemePreferenceSafely() async {
 }
 
 SentryEvent? _scrubSentryEvent(SentryEvent event, Hint hint) {
+  final exception = event.exceptions != null && event.exceptions!.isNotEmpty
+      ? event.exceptions!.first
+      : null;
+  final type = exception?.type ?? event.throwable?.runtimeType.toString() ?? '';
+  final message = exception?.value ?? event.throwable?.toString() ?? '';
+  final frames = exception?.stackTrace?.frames ?? const [];
+  final frame = frames.isNotEmpty ? frames.last : null;
+  final topFrame = frame == null
+      ? ''
+      : '${frame.fileName ?? frame.module ?? ''}:${frame.lineNo ?? ''}:${frame.function ?? ''}';
+
+  if (LoqmaSentry.classify(type: type, message: message) ==
+      SentryFilterResult.drop) {
+    _sentryDroppedNoiseThisSession++;
+    debugPrint('[Sentry] dropped expected/noisy event: $type');
+    return null;
+  }
+
+  final now = DateTime.now();
+  _sentryRecentEvents.removeWhere(
+    (_, timestamp) => now.difference(timestamp) >= const Duration(minutes: 10),
+  );
+  final fingerprint = '${type.toLowerCase()}|${message.toLowerCase()}|$topFrame';
+  final previous = _sentryRecentEvents[fingerprint];
+  if (previous != null &&
+      now.difference(previous) < const Duration(minutes: 10)) {
+    _sentryDroppedNoiseThisSession++;
+    debugPrint('[Sentry] dropped duplicate event: $type');
+    return null;
+  }
+  if (_sentryEventsSentThisSession >= 10) {
+    _sentryDroppedNoiseThisSession++;
+    debugPrint('[Sentry] session cap reached; event dropped: $type');
+    return null;
+  }
+  _sentryRecentEvents[fingerprint] = now;
+  _sentryEventsSentThisSession++;
+
   // Never forward identity, request metadata, or arbitrary exception extras.
   event.user = null;
   event.request = null;
