@@ -59,9 +59,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           FIREBASE_ANDROID_API_KEY: ${{ secrets.FIREBASE_ANDROID_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
           test -n "$FIREBASE_ANDROID_API_KEY"
+          test -n "$SENTRY_DSN" && test -n "$SENTRY_AUTH_TOKEN"
       - name: Restore Android signing material
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -90,19 +93,35 @@ jobs:
             -destkeypass "$ANDROID_KEY_PASSWORD" \
             -destalias "$ANDROID_KEY_ALIAS" >/dev/null
       - name: Build signed Android App Bundle
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: >-
           flutter build appbundle --release
+          --obfuscate
+          --split-debug-info=build/symbols/android
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=MAPBOX_PUBLIC_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           --dart-define=FIREBASE_ANDROID_API_KEY=${{ secrets.FIREBASE_ANDROID_API_KEY }}
+          --dart-define=SENTRY_DSN=$SENTRY_DSN
       - name: Build signed Android APK for direct testing
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: >-
           flutter build apk --release
+          --obfuscate
+          --split-debug-info=build/symbols/android-apk
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=MAPBOX_PUBLIC_TOKEN=${{ secrets.MAPBOX_PUBLIC_TOKEN }}
           --dart-define=FIREBASE_ANDROID_API_KEY=${{ secrets.FIREBASE_ANDROID_API_KEY }}
+          --dart-define=SENTRY_DSN=$SENTRY_DSN
+      - name: Upload Android symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: khedma
+          SENTRY_PROJECT: khedma
+        run: flutter pub run sentry_dart_plugin
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
@@ -137,14 +156,28 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
+          test -n "$SENTRY_DSN" && test -n "$SENTRY_AUTH_TOKEN"
       - name: Build unsigned iOS archive validation
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: >-
           flutter build ipa --release --no-codesign
+          --obfuscate
+          --split-debug-info=build/symbols/ios
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
           --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
           --dart-define=FIREBASE_IOS_API_KEY=${{ secrets.FIREBASE_IOS_API_KEY }}
+          --dart-define=SENTRY_DSN=$SENTRY_DSN
+      - name: Upload iOS symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: khedma
+          SENTRY_PROJECT: khedma
+        run: flutter pub run sentry_dart_plugin
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
