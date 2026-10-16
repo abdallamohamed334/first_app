@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:loqma/core/theme/theme_notifier.dart';
 
 import 'package:loqma/core/models/user_model.dart';
@@ -14,6 +15,7 @@ import 'package:loqma/features/community/presentation/pages/my_community_needs_p
 import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
 import 'package:loqma/features/community/presentation/pages/customer_reviews_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:loqma/routes/app_router.dart';
 
 import '../bloc/profile_bloc.dart';
 import '../bloc/profile_event.dart';
@@ -258,6 +260,21 @@ class _ProfilePageState extends State<ProfilePage> {
                         onEditProfile: () => _showEditDialog(
                           context,
                           state.user,
+                        ),
+                        onOpenNotifications: () => context.push(
+                          AppRouter.notifications,
+                        ),
+                        onOpenSupport: () => context.push(
+                          AppRouter.support,
+                        ),
+                        onOpenPrivacy: () => context.push(
+                          AppRouter.privacy,
+                        ),
+                        onOpenTerms: () => context.push(
+                          AppRouter.terms,
+                        ),
+                        onDeleteAccount: () => context.push(
+                          AppRouter.accountDeletion,
                         ),
                         onLogout: () {
                           _showLogoutDialog(

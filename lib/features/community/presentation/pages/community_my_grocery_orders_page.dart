@@ -163,10 +163,10 @@ class _CommunityMyGroceryOrdersPageState
                               onShowCode: () =>
                                   _handleShowCode(context, request),
                               onShowRoute: () {
-                                // TODO: افتح صفحة الـ Tracking بالخريطة هنا
+                                _showFriendlyMessage(context, 'موقع الاستلام موضح داخل تفاصيل العرض.');
                               },
                               onRate: () {
-                                // TODO: افتح صفحة التقييم
+                                _showFriendlyMessage(context, 'يمكنك تقييم التجربة بعد إتمام الطلب.');
                               },
                             );
                           },

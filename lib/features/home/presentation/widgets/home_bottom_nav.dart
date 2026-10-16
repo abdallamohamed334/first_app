@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:loqma/features/community/presentation/pages/add_community_offer_page.dart';
 
 class HomeBottomNav extends StatelessWidget {
   final int currentIndex;
@@ -170,13 +171,9 @@ class HomeBottomNav extends StatelessWidget {
   }
 
   void _onAddButtonTap(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('إضافة عرض جديد - قيد التطوير'),
-        duration: Duration(seconds: 2),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddCommunityOfferPage()),
     );
   }
 }
-
 

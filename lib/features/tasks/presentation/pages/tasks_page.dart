@@ -58,13 +58,13 @@ class TasksPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.timer,
+                        Icons.inbox_outlined,
                       size: 16,
                       color: colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'قريباً',
+                      'لا توجد مهام متاحة الآن',
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.primary,
@@ -81,5 +81,4 @@ class TasksPage extends StatelessWidget {
     );
   }
 }
-
 

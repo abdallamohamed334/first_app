@@ -34,6 +34,11 @@ import '../features/userhome/presentation/pages/user_all_offers_page.dart';
 import '../features/map/presentation/pages/map_page.dart';
 import '../features/tasks/presentation/pages/tasks_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
+import '../features/legal/presentation/pages/legal_page.dart';
+import '../features/legal/presentation/pages/account_deletion_page.dart';
+import '../features/support/presentation/pages/support_page.dart';
+import '../features/notification/presentation/pages/notifications_page.dart';
+import '../core/services/supabase_service.dart';
 import '../features/volunteer/presentation/pages/volunteer_leaderboard_page.dart';
 import '../features/donation/presentation/pages/offer_details_page.dart';
 import '../features/charity/presentation/pages/charities_page.dart';
@@ -77,6 +82,11 @@ class AppRouter {
   static const String map = '/map';
   static const String tasks = '/tasks';
   static const String profile = '/profile';
+  static const String notifications = '/notifications';
+  static const String support = '/support';
+  static const String privacy = '/privacy';
+  static const String terms = '/terms';
+  static const String accountDeletion = '/account-deletion';
   static const String volunteer = '/volunteer';
   static const String allOffers = '/all-offers';
   static const String charities = '/charities';
@@ -111,6 +121,8 @@ class AppRouter {
         '/institution-login',
         '/provider/auth',
         '/provider/otp-verify',
+        privacy,
+        terms,
       };
 
       final isPublic = publicRoutes.contains(loc);
@@ -493,6 +505,38 @@ class AppRouter {
         builder: (context, state) => const ProfilePage(),
       ),
 
+      GoRoute(
+        path: notifications,
+        name: 'notifications',
+        builder: (context, state) => NotificationsPage(
+          userId: SupabaseService().client.auth.currentUser?.id ?? '',
+        ),
+      ),
+      GoRoute(
+        path: support,
+        name: 'support',
+        builder: (context, state) => const SupportPage(),
+      ),
+      GoRoute(
+        path: privacy,
+        name: 'privacy',
+        builder: (context, state) => const LegalPage(
+          document: LegalDocument.privacy,
+        ),
+      ),
+      GoRoute(
+        path: terms,
+        name: 'terms',
+        builder: (context, state) => const LegalPage(
+          document: LegalDocument.terms,
+        ),
+      ),
+      GoRoute(
+        path: accountDeletion,
+        name: 'account-deletion',
+        builder: (context, state) => const AccountDeletionPage(),
+      ),
+
       // ─────────────────────────────────────────────
       // 13. Volunteer Leaderboard
       // ─────────────────────────────────────────────
@@ -532,7 +576,7 @@ class AppRouter {
         name: 'placeholder',
         builder: (context, state) {
           final title =
-              state.uri.queryParameters['title'] ?? 'صفحة قيد التطوير';
+              state.uri.queryParameters['title'] ?? 'الصفحة غير متاحة';
           return _PlaceholderPage(title: title);
         },
       ),
@@ -646,7 +690,7 @@ class _PlaceholderPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'هذه الصفحة قيد التطوير',
+                  'هذه الصفحة غير متاحة حاليًا',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,

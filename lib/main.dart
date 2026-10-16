@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:loqma/features/business/restaurant/data/repositories/session_aware_scope.dart';
 import 'features/map/data/repositories/map_repository_impl.dart';
 import 'package:loqma/features/notification/notification_injection.dart';
+import 'package:loqma/features/notification/presentation/bloc/notification_bloc.dart';
 import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
 import 'package:loqma/routes/app_router.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -879,6 +880,9 @@ class _MyAppState extends State<MyApp> {
           create: (_) => ProfileBloc(
             supabaseService: supabaseService,
           ),
+        ),
+        BlocProvider(
+          create: (_) => sl<NotificationBloc>(),
         ),
       ],
       child: SessionAwareBlocScope(

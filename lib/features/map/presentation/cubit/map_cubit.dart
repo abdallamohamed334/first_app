@@ -128,6 +128,6 @@ class MapCubit extends Cubit<MapState> {
   }
 
   void selectOffer(FoodOffer offer) {
-    // TODO: Navigate to offer details
+    // يتم فتح التفاصيل من بطاقة العرض التي تستقبل الاختيار.
   }
 }

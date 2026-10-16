@@ -122,7 +122,7 @@ class _CharitiesPageState extends State<CharitiesPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'سيتم إضافة الجمعيات قريباً',
+                      'لا توجد جمعيات معتمدة متاحة في منطقتك حاليًا',
                       style: TextStyle(
                         fontSize: 14,
                         color: colorScheme.onSurfaceVariant,
@@ -238,5 +238,4 @@ class _CharitiesPageState extends State<CharitiesPage> {
     );
   }
 }
-
 

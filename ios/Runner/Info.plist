@@ -35,15 +35,13 @@
 		<string>en</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>نحتاج موقعك علشان نعرضلك المزودين والعروض القريبة منك</string>
+	<string>نستخدم موقعك فقط عند اختيار الخريطة لعرض المزودين والعروض القريبة منك. We use your location only when you choose the map to show nearby providers and offers.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>نحتاج الكاميرا علشان ترفع صور لمزود الخدمة أو للعروض</string>
+	<string>نستخدم الكاميرا فقط عند اختيارك التقاط صورة لملفك أو عرضك. We use the camera only when you choose to take a profile or offer photo.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>نحتاج معرض الصور علشان تختار صور للعرض</string>
+	<string>نستخدم الصور فقط عند اختيارك صورة لملفك أو عرضك. We use your photo library only when you choose a profile or offer image.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>نحتاج نحفظ الصور في معرضك</string>
+	<string>نحفظ الصور في معرضك فقط عند طلبك ذلك. We save images to your library only when you request it.</string>
 
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:loqma/core/models/user_model.dart';
+import 'package:loqma/routes/app_router.dart';
 
 class HomeAppBar extends StatelessWidget {
   final UserModel user;
@@ -120,7 +122,7 @@ class HomeAppBar extends StatelessWidget {
             Stack(
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () => context.push(AppRouter.notifications),
                   icon: Icon(
                     Icons.notifications,
                     color: colorScheme.primary,
@@ -128,18 +130,6 @@ class HomeAppBar extends StatelessWidget {
                   style: IconButton.styleFrom(
                     backgroundColor: colorScheme.surfaceContainerHigh,
                     shape: const CircleBorder(),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
                   ),
                 ),
               ],
