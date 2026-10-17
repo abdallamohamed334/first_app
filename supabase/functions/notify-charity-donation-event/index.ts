@@ -547,18 +547,27 @@ async function sendPush(
     .eq("user_id", userId)
     .eq("is_active", true)
     .limit(10);
-  if (deviceError) return { sent: false, failures: ["device_lookup_failed"] };
-  const fallback = devices && devices.length > 0
-    ? devices
-    : await fallbackDevice(userId);
-  if (!fallback || fallback.length === 0) {
-    return { sent: false, failures: ["no_active_device"] };
+  const legacyDevices = await fallbackDevice(userId);
+  const candidates = new Map<string, { id?: string; fcm_token: string }>();
+  for (const device of [...(devices ?? []), ...legacyDevices]) {
+    const token = String(device.fcm_token ?? "").trim();
+    if (!token) continue;
+    const existing = candidates.get(token);
+    candidates.set(token, {
+      ...(existing?.id ? { id: existing.id } : {}),
+      ...(device.id ? { id: String(device.id) } : {}),
+      fcm_token: token,
+    });
+  }
+  const targets = [...candidates.values()];
+  const failures = deviceError ? ["device_lookup_failed"] : [];
+  if (targets.length === 0) {
+    return { sent: false, failures: [...failures, "no_active_device"] };
   }
 
   const { accessToken, projectId } = await googleAccessToken();
   let sent = false;
-  const failures: string[] = [];
-  for (const device of fallback) {
+  for (const device of targets) {
     try {
       const response = await fetch(
         `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
