@@ -7,6 +7,7 @@ import 'package:loqma/core/widgets/ad_banner_card.dart';
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
 import '../../domain/entities/institution_offer_request.dart';
+import 'institution_public_offers_page.dart';
 import 'report_product_page.dart';
 
 class InstitutionOfferDetailsPage extends StatefulWidget {
@@ -190,6 +191,22 @@ class _InstitutionOfferDetailsPageState
       if (!mounted) return;
       setState(() => _checkingOwner = false);
     }
+  }
+
+  void _openInstitutionOffers(InstitutionOffer offer) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => InstitutionPublicOffersPage(
+          institutionId: offer.institutionId,
+          institutionName: offer.institutionName,
+          institutionType: offer.institutionType,
+          institutionLogoUrl: offer.institutionLogoUrl,
+          institutionCity: offer.institutionCity,
+          institutionGovernorate: offer.institutionGovernorate,
+          repository: _repository,
+        ),
+      ),
+    );
   }
 
   Future<void> _requestOffer() async {
@@ -764,8 +781,13 @@ class _InstitutionOfferDetailsPageState
           ),
         ),
         const SizedBox(height: 12),
-        Row(
-          children: [
+        InkWell(
+          onTap: () => _openInstitutionOffers(offer),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
             Container(
               width: 38,
               height: 38,
@@ -794,18 +816,18 @@ class _InstitutionOfferDetailsPageState
             const SizedBox(width: 12),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    offer.institutionName,
-                    style: const TextStyle(
-                      color: _ink,
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  offer.institutionName,
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w900,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
@@ -847,7 +869,14 @@ class _InstitutionOfferDetailsPageState
                 ],
               ),
             ),
-          ],
+                const Icon(
+                  Icons.chevron_left_rounded,
+                  color: _primary,
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );

@@ -192,6 +192,62 @@ class InstitutionOffersRepository {
     }
   }
 
+  /// العروض المنشورة والمتاحة للزوار لدى مؤسسة محددة، مع جلب النتائج على دفعات.
+  Future<List<InstitutionOffer>> listAvailableOffersByInstitution(
+    String institutionId,
+  ) async {
+    final cleanInstitutionId = institutionId.trim();
+    if (cleanInstitutionId.isEmpty) return [];
+
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      const pageSize = 100;
+      var offset = 0;
+      final offers = <InstitutionOffer>[];
+
+      while (true) {
+        final rows = await _client.from('institution_offers').select('''
+              id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id, latitude, longitude,
+              institutions:institution_id (
+                id,
+                name,
+                institution_type,
+                logo_url,
+                address,
+                governorate,
+                city,
+                latitude,
+                longitude,
+                phone
+              )
+            ''').eq('institution_id', cleanInstitutionId)
+            .eq('status', 'active')
+            .gt('expires_at', now)
+            .gt('remaining_quantity', 0)
+            .filter('deleted_at', 'is', 'null')
+            .order('created_at', ascending: false)
+            .range(offset, offset + pageSize - 1);
+
+        final batch = rows
+            .whereType<Map>()
+            .map((row) => InstitutionOffer.fromJson(
+                  Map<String, dynamic>.from(row),
+                ))
+            .where((offer) => offer.isActive && offer.remainingQuantity > 0)
+            .toList(growable: false);
+        offers.addAll(batch);
+
+        if (rows.length < pageSize) break;
+        offset += pageSize;
+      }
+
+      return offers;
+    } catch (e) {
+      debugPrint('❌ listAvailableOffersByInstitution error: $e');
+      rethrow;
+    }
+  }
+
   // ============================================================
   // ✅ عدد طلبات البقالة النهارده للمستخدم
   // ============================================================
