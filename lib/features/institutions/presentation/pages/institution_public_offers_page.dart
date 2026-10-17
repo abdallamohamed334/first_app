@@ -42,12 +42,15 @@ class _InstitutionPublicOffersPageState
 
   late final InstitutionOffersRepository _repository;
   late Future<List<InstitutionOffer>> _offersFuture;
+  String? _institutionPhone;
 
   @override
   void initState() {
     super.initState();
     _repository = widget.repository ?? InstitutionOffersRepository();
+    _institutionPhone = widget.institutionPhone;
     _offersFuture = _loadOffers();
+    _loadInstitutionPhone();
   }
 
   Future<List<InstitutionOffer>> _loadOffers() =>
@@ -61,6 +64,13 @@ class _InstitutionPublicOffersPageState
       });
     }
     await future;
+    await _loadInstitutionPhone();
+  }
+
+  Future<void> _loadInstitutionPhone() async {
+    final phone = await _repository.getInstitutionPhone(widget.institutionId);
+    if (!mounted || phone == null || phone.isEmpty) return;
+    setState(() => _institutionPhone = phone);
   }
 
   String get _location {
@@ -174,7 +184,7 @@ class _InstitutionPublicOffersPageState
 
   Widget _buildInstitutionHeader(List<InstitutionOffer> offers) {
     final firstOffer = offers.isEmpty ? null : offers.first;
-    final passedPhone = widget.institutionPhone?.trim();
+    final passedPhone = _institutionPhone?.trim();
     final offerPhone = firstOffer?.institutionPhone?.trim();
     final phone = passedPhone != null && passedPhone.isNotEmpty
         ? passedPhone

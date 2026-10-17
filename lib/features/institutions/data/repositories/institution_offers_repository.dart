@@ -245,6 +245,25 @@ class InstitutionOffersRepository {
     }
   }
 
+  /// رقم هاتف المؤسسة المسجل في ملفها، وليس رقم التواصل الخاص بالعرض.
+  Future<String?> getInstitutionPhone(String institutionId) async {
+    final cleanInstitutionId = institutionId.trim();
+    if (cleanInstitutionId.isEmpty) return null;
+
+    try {
+      final row = await _client
+          .from('institutions')
+          .select('phone')
+          .eq('id', cleanInstitutionId)
+          .maybeSingle();
+      final phone = row?['phone']?.toString().trim();
+      return phone == null || phone.isEmpty ? null : phone;
+    } catch (e) {
+      debugPrint('❌ getInstitutionPhone error: $e');
+      return null;
+    }
+  }
+
   // ============================================================
   // ✅ عدد طلبات البقالة النهارده للمستخدم
   // ============================================================
