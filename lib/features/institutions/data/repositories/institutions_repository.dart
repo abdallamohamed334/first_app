@@ -373,53 +373,37 @@ class InstitutionsRepository {
       return const <Map<String, dynamic>>[];
     }
 
-    List<Map<String, dynamic>> requestRows;
+    final response = await _client
+        .from('institution_offer_requests')
+        .select('id, offer_id, requester_id, quantity, status, pickup_code, booking_code, pickup_token_expires_at, pickup_token_used_at, picked_up_at, completed_at, cancellation_reason, created_at, updated_at, accepted_at, ready_at')
+        .inFilter(
+          'offer_id',
+          offerIds,
+        )
+        .order(
+          'created_at',
+          ascending: false,
+        );
+    final requestRows = _maps(response);
 
-    try {
-      final response = await _client
-          .from('institution_offer_requests')
-          .select('''
-            id, offer_id, requester_id, quantity, status, pickup_code, booking_code, pickup_token_expires_at, pickup_token_used_at, picked_up_at, completed_at, cancellation_reason, created_at, updated_at, accepted_at, ready_at,
-            users!requester_id (
-              id,
-              name,
-              phone,
-              avatar_url,
-              city,
-              points,
-              level,
-              email
-            )
-          ''')
-          .inFilter(
-            'offer_id',
-            offerIds,
-          )
-          .order(
-            'created_at',
-            ascending: false,
-          );
-
-      requestRows = _maps(response);
-    } on PostgrestException catch (error) {
-      print(
-        '[InstitutionDebug] users relation skipped: '
-        '${error.code} ${error.message}',
-      );
-
-      final response = await _client
-          .from('institution_offer_requests')
-          .select('id, offer_id, requester_id, quantity, status, pickup_code, booking_code, pickup_token_expires_at, pickup_token_used_at, picked_up_at, completed_at, cancellation_reason, created_at, updated_at, accepted_at, ready_at')
-          .inFilter(
-            'offer_id',
-            offerIds,
-          )
-          .order(
-            'created_at',
-            ascending: false,
-          );
-
-      requestRows = _maps(response);
+    final requesterRows = requestRows.isEmpty
+        ? <Map<String, dynamic>>[]
+        : _maps(await _client.rpc(
+            'get_institution_offer_requesters',
+            params: {
+              'p_request_ids': requestRows
+                  .map((request) => request['id']?.toString())
+                  .whereType<String>()
+                  .toList(growable: false),
+            },
+          ));
+    final requestersById = <String, Map<String, dynamic>>{};
+    for (final row in requesterRows) {
+      final requestId = row['request_id']?.toString();
+      final requester = row['requester'];
+      if (requestId != null && requester is Map) {
+        requestersById[requestId] = Map<String, dynamic>.from(requester);
+      }
     }
 
     print(
@@ -431,6 +415,11 @@ class InstitutionsRepository {
       final result = Map<String, dynamic>.from(
         request,
       );
+
+      result['users'] = requestersById[
+            result['id']?.toString() ?? ''
+          ] ??
+          <String, dynamic>{};
 
       final offerId = result['offer_id']?.toString();
 

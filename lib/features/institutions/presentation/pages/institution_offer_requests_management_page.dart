@@ -328,6 +328,47 @@ class _InstitutionOfferRequestsManagementPageState
     }
   }
 
+  Future<void> _complete(String requestId) async {
+    if (!mounted || _isProcessing) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('إكمال الطلب'),
+        content: const Text('هل تم استلام الطلب بالفعل وتريد تسجيله كمكتمل؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('إكمال الطلب'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    _isProcessing = true;
+    setState(() {});
+    try {
+      await _repository.completeOfferRequest(requestId);
+      if (!mounted) return;
+      _showMessage('✅ تم إكمال الطلب بنجاح');
+      await _reload();
+    } catch (error) {
+      _handleError(
+        error,
+        customMessage: 'تعذر إكمال الطلب',
+      );
+    } finally {
+      _isProcessing = false;
+      if (mounted) setState(() {});
+    }
+  }
+
   // ============================================================
   // ACCEPT / REJECT
   // ============================================================
@@ -673,6 +714,9 @@ class _InstitutionOfferRequestsManagementPageState
                     onVerifyCode: (requestId) => _verifyCode(
                       requestId,
                     ),
+                    onComplete: (requestId) => _complete(
+                      requestId,
+                    ),
                     onOpenRequest: (requestMap) => _openRequestDetails(
                       context,
                       requestMap,
@@ -842,6 +886,7 @@ class _OfferGroupCard extends StatelessWidget {
   final Function(String) onReject;
   final Function(String) onReady;
   final Function(String) onVerifyCode;
+  final Function(String) onComplete;
   final Function(Map<String, dynamic>) onOpenRequest;
 
   final bool isProcessing;
@@ -852,6 +897,7 @@ class _OfferGroupCard extends StatelessWidget {
     required this.onReject,
     required this.onReady,
     required this.onVerifyCode,
+    required this.onComplete,
     required this.onOpenRequest,
     this.isProcessing = false,
   });
@@ -1129,11 +1175,23 @@ class _OfferGroupCard extends StatelessWidget {
         );
 
       case 'picked_up':
-        return _buildSimpleStatus(
-          'تم استلام الطلب',
-          'الطلب تم استلامه بالفعل',
-          const Color(0xFF6651B5),
-          Icons.done_all_rounded,
+        return SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: isProcessing ? null : () => onComplete(requestId),
+            icon: const Icon(
+              Icons.done_all_rounded,
+              size: 19,
+            ),
+            label: const Text('إكمال الطلب'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF0B7650),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         );
 
       case 'completed':
