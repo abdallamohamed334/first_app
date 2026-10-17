@@ -213,6 +213,7 @@ class _InstitutionOfferDetailsPageState
           institutionName: offer.institutionName,
           institutionType: offer.institutionType,
           institutionLogoUrl: offer.institutionLogoUrl,
+          institutionPhone: offer.institutionPhone,
           institutionCity: offer.institutionCity,
           institutionGovernorate: offer.institutionGovernorate,
           repository: _repository,
