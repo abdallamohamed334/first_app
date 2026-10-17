@@ -2028,161 +2028,113 @@ class _HeroGalleryState extends State<_HeroGallery> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.images.isEmpty) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(color: const Color(0xFF20332B)),
-          Positioned.fill(
-            top: 76,
-            left: 14,
-            right: 14,
-            bottom: 16,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(26),
-              child: _placeholder(),
-            ),
-          ),
-        ],
-      );
-    }
+    if (widget.images.isEmpty) return _placeholder();
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        Container(color: const Color(0xFF20332B)),
-        Positioned.fill(
-          top: 76,
-          left: 14,
-          right: 14,
-          bottom: 16,
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F4F2),
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 22,
-                  offset: Offset(0, 9),
-                ),
-              ],
+        CarouselSlider.builder(
+          itemCount: widget.images.length,
+          itemBuilder: (_, index, __) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openFullGallery(index),
+            child: Hero(
+              tag: 'offer_image_$index',
+              child: Image.network(
+                widget.images[index],
+                fit: BoxFit.cover,
+                width: double.infinity,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    color: const Color(0xFFE9EFEC),
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: Color(0xFF3D765C),
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (_, __, ___) => _placeholder(),
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CarouselSlider.builder(
-                  itemCount: widget.images.length,
-                  itemBuilder: (_, index, __) => GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openFullGallery(index),
-                    child: Hero(
-                      tag: 'offer_image_$index',
-                      child: Image.network(
-                        widget.images[index],
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            color: const Color(0xFFE9EFEC),
-                            alignment: Alignment.center,
-                            child: const SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Color(0xFF3D765C),
-                              ),
-                            ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => _placeholder(),
-                      ),
-                    ),
-                  ),
-                  options: CarouselOptions(
-                    viewportFraction: 1,
-                    height: double.infinity,
-                    autoPlay: false,
-                    enlargeCenterPage: false,
-                    enableInfiniteScroll: widget.images.length > 1,
-                    onPageChanged: (index, _) =>
-                        setState(() => _currentIndex = index),
-                  ),
+          ),
+          options: CarouselOptions(
+            viewportFraction: 1,
+            height: double.infinity,
+            autoPlay: false,
+            enlargeCenterPage: false,
+            enableInfiniteScroll: widget.images.length > 1,
+            onPageChanged: (index, _) => setState(() => _currentIndex = index),
+          ),
+        ),
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: [0, .22, .62, 1],
+                  colors: [
+                    Color(0x52000000),
+                    Colors.transparent,
+                    Colors.transparent,
+                    Color(0x70000000),
+                  ],
                 ),
-                if (widget.images.length > 1)
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .55),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: .25),
-                        ),
-                      ),
-                      child: Text(
-                        '${_currentIndex + 1} / ${widget.images.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (widget.images.length > 1)
-                  Positioned(
-                    bottom: 12,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: .48),
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            widget.images.length,
-                            (index) => AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: index == _currentIndex ? 18 : 6,
-                              height: 6,
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
-                              decoration: BoxDecoration(
-                                color: index == _currentIndex
-                                    ? Colors.white
-                                    : Colors.white54,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 12,
-                  right: 12,
-                  child: _GalleryHint(),
-                ),
-              ],
+              ),
             ),
           ),
         ),
+        if (widget.images.length > 1) ...[
+          Positioned(
+            bottom: 22,
+            left: 18,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .42),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${_currentIndex + 1} / ${widget.images.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 28,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                widget.images.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: index == _currentIndex ? 18 : 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: index == _currentIndex
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: .6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -2210,32 +2162,6 @@ class _HeroGalleryState extends State<_HeroGallery> {
           ],
         ),
       );
-}
-
-class _GalleryHint extends StatelessWidget {
-  const _GalleryHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: .48),
-          borderRadius: BorderRadius.circular(30)),
-      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
-        SizedBox(width: 4),
-        Text(
-          'اضغط لعرض كل الصور',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ]),
-    );
-  }
 }
 
 class _FullScreenGallery extends StatefulWidget {
