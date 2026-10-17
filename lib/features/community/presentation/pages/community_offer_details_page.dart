@@ -2028,113 +2028,187 @@ class _HeroGalleryState extends State<_HeroGallery> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.images.isEmpty) return _placeholder();
+    if (widget.images.isEmpty) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(color: const Color(0xFF20332B)),
+          Positioned.fill(
+            top: 76,
+            left: 14,
+            right: 14,
+            bottom: 16,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: _placeholder(),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        CarouselSlider.builder(
-          itemCount: widget.images.length,
-          itemBuilder: (_, index, __) => GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _openFullGallery(index),
-            child: Hero(
-              tag: 'offer_image_$index',
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    widget.images[index],
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return Container(
-                        color: const Color(0xFF202326),
-                        alignment: Alignment.center,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white54,
-                        ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => _placeholder(),
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Color(0x66000000),
-                          ]),
+        Container(color: const Color(0xFF20332B)),
+        Positioned.fill(
+          top: 76,
+          left: 14,
+          right: 14,
+          bottom: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F4F2),
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 22,
+                  offset: Offset(0, 9),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CarouselSlider.builder(
+                  itemCount: widget.images.length,
+                  itemBuilder: (_, index, __) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _openFullGallery(index),
+                    child: Hero(
+                      tag: 'offer_image_$index',
+                      child: Image.network(
+                        widget.images[index],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: const Color(0xFFE9EFEC),
+                            alignment: Alignment.center,
+                            child: const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Color(0xFF3D765C),
+                              ),
+                            ),
+                          );
+                        },
+                        errorBuilder: (_, __, ___) => _placeholder(),
+                      ),
                     ),
                   ),
-                  const Positioned(
-                      bottom: 18, right: 18, child: _GalleryHint()),
-                ],
-              ),
+                  options: CarouselOptions(
+                    viewportFraction: 1,
+                    height: double.infinity,
+                    autoPlay: false,
+                    enlargeCenterPage: false,
+                    enableInfiniteScroll: widget.images.length > 1,
+                    onPageChanged: (index, _) =>
+                        setState(() => _currentIndex = index),
+                  ),
+                ),
+                if (widget.images.length > 1)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .55),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: .25),
+                        ),
+                      ),
+                      child: Text(
+                        '${_currentIndex + 1} / ${widget.images.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.images.length > 1)
+                  Positioned(
+                    bottom: 12,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: .48),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            widget.images.length,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              width: index == _currentIndex ? 18 : 6,
+                              height: 6,
+                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              decoration: BoxDecoration(
+                                color: index == _currentIndex
+                                    ? Colors.white
+                                    : Colors.white54,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: _GalleryHint(),
+                ),
+              ],
             ),
-          ),
-          options: CarouselOptions(
-            viewportFraction: 1,
-            height: double.infinity,
-            autoPlay: widget.images.length > 1,
-            autoPlayInterval: const Duration(seconds: 4),
-            autoPlayAnimationDuration: const Duration(milliseconds: 650),
-            enlargeCenterPage: false,
-            onPageChanged: (index, _) => setState(() => _currentIndex = index),
           ),
         ),
-        if (widget.images.length > 1)
-          Positioned(
-            bottom: 16,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                  widget.images.length,
-                  (index) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        width: index == _currentIndex ? 22 : 7,
-                        height: 7,
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                            color: index == _currentIndex
-                                ? Colors.white
-                                : Colors.white54,
-                            borderRadius: BorderRadius.circular(10)),
-                      )),
-            ),
-          ),
-        if (widget.images.length > 1)
-          Positioned(
-            top: 18,
-            right: 18,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: .48),
-                  borderRadius: BorderRadius.circular(30)),
-              child: Text(
-                '${_currentIndex + 1}/${widget.images.length}',
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
       ],
     );
   }
 
   Widget _placeholder() => Container(
-        color: const Color(0xFF202326),
+        color: const Color(0xFFE9EFEC),
         alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported_outlined,
-            size: 72, color: Colors.white38),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 42,
+              color: Color(0xFF7D9187),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'الصورة غير متاحة',
+              style: TextStyle(
+                color: Color(0xFF65776D),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       );
 }
 
