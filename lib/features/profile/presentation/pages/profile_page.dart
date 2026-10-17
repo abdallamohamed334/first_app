@@ -9,10 +9,7 @@ import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
-
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
-import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
 import 'package:loqma/features/community/presentation/pages/customer_reviews_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -220,14 +217,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   const SizedBox(height: 22),
 
-                  _buildCommunityActions(
-                    context,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  const SizedBox(height: 22),
-
                   // ==========================
                   // SETTINGS
                   // ==========================
@@ -317,7 +306,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // ═══════════════════════════════════════════════════════════
-  // Community Actions (احتياجاتي بس)
+  // Customer Reviews
   // ═══════════════════════════════════════════════════════════
 
   Widget _buildCustomerReviewsAction(BuildContext context, UserModel user) {
@@ -362,111 +351,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCommunityActions(
-    BuildContext context,
-  ) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.primaryContainer.withAlpha(
-          Theme.of(context).brightness == Brightness.dark ? 70 : 100,
-        ),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: colors.primary.withAlpha(45),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'مجتمع Khedma',
-            style: TextStyle(
-              color: colors.onPrimaryContainer,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'تابع احتياجاتك اللي نشرتها وشوف مين تواصل معاك.',
-            style: TextStyle(
-              color: colors.onPrimaryContainer.withAlpha(190),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _profileActionButton(
-                  context,
-                  icon: Icons.volunteer_activism_rounded,
-                  label: 'احتياجاتي',
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MyCommunityNeedsPage(),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CommunityMyRequestsPage(),
-                    ),
-                  ),
-                  icon: const Icon(Icons.receipt_long_rounded, size: 18),
-                  label: const Text(
-                    'طلباتي',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colors.primary,
-                    side: BorderSide(color: colors.primary.withAlpha(100)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _profileActionButton(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(
-        label,
-        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: colors.primary,
-        foregroundColor: colors.onPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
