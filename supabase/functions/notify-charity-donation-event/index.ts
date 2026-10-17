@@ -4,6 +4,9 @@ import { SignJWT, importPKCS8 } from "https://esm.sh/jose@5.9.6";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const wapilotApiBase = "https://api.wapilot.net/api";
+const wapilotInstanceId = "instance5127";
+const wapilotToken = Deno.env.get("WAPILOT_TOKEN") ?? "";
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -497,27 +500,31 @@ async function sendWhatsApp(phone: string, message: string) {
   const cleanPhone = normalizePhone(phone);
   const cleanMessage = Array.from(message.trim()).slice(0, 950).join("");
   if (!cleanPhone) return { sent: false, code: "invalid_phone" };
-  if (!serviceRoleKey) return { sent: false, code: "service_role_missing" };
+  if (!wapilotToken) return { sent: false, code: "provider_not_configured" };
   if (!cleanMessage) return { sent: false, code: "empty_message" };
   try {
-    const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+    const response = await fetch(
+      `${wapilotApiBase}/v2/${wapilotInstanceId}/send-message`,
+      {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: anonKey,
+        Authorization: `Bearer ${wapilotToken}`,
         "Content-Type": "application/json",
+        Accept: "application/json",
       },
-      body: JSON.stringify({ to: cleanPhone, message: cleanMessage }),
+      body: JSON.stringify({ to: cleanPhone, text: cleanMessage }),
       signal: AbortSignal.timeout(10_000),
-    });
-    const result = await response.json().catch(() => ({}));
+      },
+    );
     if (!response.ok) {
-      const code = typeof result?.error === "string"
-        ? result.error.slice(0, 60)
-        : `http_${response.status}`;
-      console.error("whatsapp_delivery_rejected", response.status, code);
+      await response.text();
+      const code = response.status === 401
+        ? "provider_unauthorized"
+        : `provider_http_${response.status}`;
+      console.error("whatsapp_provider_rejected", response.status, code);
       return { sent: false, code };
     }
+    await response.text();
     return { sent: true, code: "" };
   } catch (error) {
     console.error(
@@ -589,6 +596,30 @@ async function sendPush(
           ? providerError.status
           : `HTTP_${response.status}`;
         failures.push(code.slice(0, 60));
+        if (code === "UNREGISTERED") {
+          try {
+            if ("id" in device) {
+              const { error: deviceUpdateError } = await admin
+                .from("user_devices")
+                .update({ is_active: false, updated_at: new Date().toISOString() })
+                .eq("id", device.id)
+                .eq("user_id", userId);
+              if (deviceUpdateError) {
+                console.error("fcm_invalid_device_deactivation_failed");
+              }
+            }
+            const { error: legacyTokenError } = await admin
+              .from("users")
+              .update({ fcm_token: null })
+              .eq("id", userId)
+              .eq("fcm_token", String(device.fcm_token));
+            if (legacyTokenError) {
+              console.error("fcm_invalid_legacy_token_clear_failed");
+            }
+          } catch (_) {
+            console.error("fcm_invalid_token_cleanup_failed");
+          }
+        }
         console.error("fcm_delivery_rejected", response.status, code.slice(0, 60));
       }
     } catch (error) {
