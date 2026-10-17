@@ -2242,12 +2242,11 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildMarketplaceCategoriesStrip(UserHomeLoaded state) {
-    final categories = state.categories.where((c) {
-      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c)) return false;
-      if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) return false;
-      return true;
-    }).take(10).toList(growable: false);
+    // The repository supplies every active root marketplace category.
+    // Keep the full list scrollable instead of silently truncating it.
+    final categories = state.categories;
     if (categories.isEmpty) return const SizedBox(height: 16);
+
     return SizedBox(
       height: 112,
       child: ListView.separated(
@@ -2258,22 +2257,50 @@ class _UserHomePageState extends State<UserHomePage> {
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           final category = categories[index];
-          final color = [ _orange, _primaryRed, _purple, _green, _blue ][index % 5];
-          return GestureDetector(
-            onTap: () => _openCategory(category),
-            child: SizedBox(
-              width: 74,
-              child: Column(
-                children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(color: color.withValues(alpha: .18), borderRadius: BorderRadius.circular(19)),
-                    child: Icon(_iconFromName(category['icon']?.toString() ?? ''), color: color, size: 30),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(category['name_ar']?.toString() ?? 'قسم', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: TextStyle(color: _textPrimary, fontSize: 11, fontWeight: FontWeight.w700)),
-                ],
+          final name = category['name_ar']?.toString() ?? 'قسم';
+          final icon = _iconFromName(category['icon']?.toString() ?? '');
+          final color = _categoryColorFor(category);
+
+          return SizedBox(
+            width: 92,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _openCategory(category),
+                borderRadius: BorderRadius.circular(18),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .11),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: color.withValues(alpha: .2),
+                        ),
+                      ),
+                      child: Icon(icon, color: color, size: 29),
+                    ),
+                    const SizedBox(height: 5),
+                    SizedBox(
+                      height: 27,
+                      child: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -2828,7 +2855,7 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   IconData _iconFromName(String name) {
-    switch (name) {
+    switch (name.trim().toLowerCase()) {
       case 'restaurant':
         return Icons.restaurant_rounded;
       case 'checkroom':
@@ -2843,6 +2870,30 @@ class _UserHomePageState extends State<UserHomePage> {
         return Icons.computer_rounded;
       case 'smartphone':
         return Icons.smartphone_rounded;
+      case 'home_work':
+        return Icons.home_work_rounded;
+      case 'electrical_services':
+        return Icons.electrical_services_rounded;
+      case 'business':
+        return Icons.business_rounded;
+      case 'handyman':
+        return Icons.handyman_rounded;
+      case 'card_giftcard':
+        return Icons.card_giftcard_rounded;
+      case 'medical_services':
+        return Icons.medical_services_rounded;
+      case 'school':
+        return Icons.school_rounded;
+      case 'lightbulb':
+        return Icons.lightbulb_rounded;
+      case 'work':
+        return Icons.work_rounded;
+      case 'construction':
+        return Icons.construction_rounded;
+      case 'monitor_heart':
+        return Icons.monitor_heart_rounded;
+      case 'agriculture':
+        return Icons.agriculture_rounded;
       case 'devices_other':
         return Icons.devices_other_rounded;
       case 'chair':
@@ -2898,6 +2949,54 @@ class _UserHomePageState extends State<UserHomePage> {
       case 'category':
       default:
         return Icons.category_rounded;
+    }
+  }
+
+  Color _categoryColorFor(Map<String, dynamic> category) {
+    final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
+    switch (slug) {
+      case 'mobile-tablets':
+        return const Color(0xFF6C63D9);
+      case 'real-estate':
+        return const Color(0xFF318579);
+      case 'cars-parts':
+        return const Color(0xFFD64F4F);
+      case 'furniture-decor':
+        return const Color(0xFF9B6A43);
+      case 'electrical-appliances':
+        return const Color(0xFFD18A1B);
+      case 'computers':
+        return const Color(0xFF4568B2);
+      case 'home-appliances':
+        return const Color(0xFF328A78);
+      case 'home-supplies':
+        return const Color(0xFF5C914A);
+      case 'institution-offers':
+        return const Color(0xFFCE624A);
+      case 'home-tools':
+        return const Color(0xFF80634A);
+      case 'home-restaurants':
+        return const Color(0xFFE27638);
+      case 'gifts':
+        return const Color(0xFFC14E82);
+      case 'medical-supplies':
+        return const Color(0xFFD55362);
+      case 'stationery-school':
+        return const Color(0xFF3E80B8);
+      case 'lighting':
+        return const Color(0xFFD5A21B);
+      case 'professional-equip':
+        return const Color(0xFF536C82);
+      case 'equipment':
+        return const Color(0xFF68777E);
+      case 'medical-devices':
+        return const Color(0xFF368C9C);
+      case 'clothing':
+        return const Color(0xFF805AA6);
+      case 'agricultural-tools':
+        return const Color(0xFF648B3F);
+      default:
+        return _primaryRed;
     }
   }
 
