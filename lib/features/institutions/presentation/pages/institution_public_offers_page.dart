@@ -52,7 +52,11 @@ class _InstitutionPublicOffersPageState
 
   Future<void> _refresh() async {
     final future = _loadOffers();
-    if (mounted) setState(() => _offersFuture = future);
+    if (mounted) {
+      setState(() {
+        _offersFuture = future;
+      });
+    }
     await future;
   }
 
