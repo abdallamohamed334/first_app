@@ -3577,12 +3577,6 @@ class _UserHomePageState extends State<UserHomePage> {
     }
     if (surplusCategories.isEmpty) return const SizedBox.shrink();
 
-    final surplusOffers = <CategoryOffer>[
-      for (final category in surplusCategories)
-        ...(offersByCategory[category['id']?.toString() ?? ''] ??
-            const <CategoryOffer>[]),
-    ];
-
     return Column(
       children: [
         _section(
@@ -3611,13 +3605,6 @@ class _UserHomePageState extends State<UserHomePage> {
                 surplusCategories,
                 offersByCategory,
               ),
-              if (!_loadingNearbyCategoryOffers && surplusOffers.isEmpty) ...[
-                const SizedBox(height: 12),
-                _emptyMini(
-                  Icons.hotel_rounded,
-                  'لا توجد عروض فائض متاحة حاليًا',
-                ),
-              ],
             ],
           ),
         ),
@@ -3637,7 +3624,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     return SizedBox(
-      height: 142,
+      height: 164,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -3651,23 +3638,26 @@ class _UserHomePageState extends State<UserHomePage> {
           final slug = category['slug']?.toString() ?? '';
           final offerCount = offersByCategory[id]?.length ?? 0;
           final accent = [_primaryRed, _orange, _green, _blue, _purple][index % 5];
+          final hasOffers = offerCount > 0;
 
           return SizedBox(
-            width: 158,
+            width: 174,
             child: Material(
               color: _card,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
             child: InkWell(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(20),
               onTap: () => _openSmartCategory(id, name, slug),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: _border),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: hasOffers ? accent.withValues(alpha: 0.32) : _border,
+                  ),
                   gradient: LinearGradient(
                     colors: [
-                      accent.withValues(alpha: 0.18),
+                      accent.withValues(alpha: hasOffers ? 0.2 : 0.1),
                       _card,
                     ],
                     begin: Alignment.topRight,
@@ -3677,47 +3667,66 @@ class _UserHomePageState extends State<UserHomePage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _iconFromName(category['icon']?.toString() ?? ''),
-                        color: accent,
-                        size: 23,
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          _iconFromName(category['icon']?.toString() ?? ''),
+                          color: accent,
+                          size: 26,
+                        ),
                       ),
                     ),
-                        const SizedBox(width: 8),
-                        Expanded(
+                    const Spacer(),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          hasOffers ? 'تصفح العروض' : 'اكتشف القسم',
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           child: Text(
-                            name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.right,
+                            '$offerCount عرض',
                             style: TextStyle(
-                              color: _textPrimary,
-                              fontSize: 12.5,
-                              height: 1.15,
+                              color: accent,
+                              fontSize: 10,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
                       ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      '$offerCount عرض',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
                     ),
                   ],
                 ),
@@ -4206,62 +4215,38 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildAddButton() {
-    final isDark = _isDark;
-    final shellColor = isDark ? const Color(0xFF171717) : Colors.white;
-    final selectedColor = isDark
-        ? const Color(0xFF3E315B)
-        : const Color(0xFFE9E0F6);
-    final selectedText = isDark ? Colors.white : const Color(0xFF57408E);
     return Hero(
       tag: 'loqma_home_add_button',
       child: Material(
-        color: shellColor,
-        borderRadius: BorderRadius.circular(24),
-        elevation: 0,
+        color: const Color(0xFF7A4DAD),
+        borderRadius: BorderRadius.circular(18),
+        elevation: 6,
         child: InkWell(
           onTap: _showAddSheet,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(18),
           child: Ink(
-            width: 178,
-            height: 60,
+            width: 148,
+            height: 48,
             decoration: BoxDecoration(
-              color: shellColor,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.12)
-                    : const Color(0xFFE8E4EE),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, 7),
-                ),
-              ],
+              color: const Color(0xFF7A4DAD),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
             ),
             child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 10),
-                decoration: BoxDecoration(
-                  color: selectedColor,
-                  borderRadius: BorderRadius.circular(21),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, color: selectedText, size: 22),
-                    const SizedBox(width: 7),
-                    Text(
-                      'أضف مشاركة',
-                      style: TextStyle(
-                        color: selectedText,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded, color: Colors.white, size: 21),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'أضف مشاركة',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
                     ),
-                  ],
                   ),
+                ],
               ),
             ),
           ),
