@@ -3524,33 +3524,13 @@ class _UserHomePageState extends State<UserHomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'اختار القسم المناسب وشوف عروض المؤسسات المتاحة',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 76,
-                    height: 70,
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF4E4),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Image.asset(
-                      'assets/images/institution_sections/institution_offers_store.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
+              Text(
+                'اختار القسم المناسب وشوف عروض المؤسسات المتاحة',
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 14),
               _buildInstitutionSubcategoryStrip(
@@ -3612,33 +3592,13 @@ class _UserHomePageState extends State<UserHomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'فائض الطعام المتاح من الفنادق وقاعات الأفراح بسعر رمزي',
-                      style: TextStyle(
-                        color: _textSecondary,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 76,
-                    height: 70,
-                    padding: const EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3E8),
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Image.asset(
-                      'assets/images/institution_sections/institution_surplus_hotel.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
+              Text(
+                'فائض الطعام المتاح من الفنادق وقاعات الأفراح بسعر رمزي',
+                style: TextStyle(
+                  color: _textSecondary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 14),
               _buildInstitutionSubcategoryStrip(
