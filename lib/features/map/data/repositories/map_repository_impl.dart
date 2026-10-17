@@ -45,7 +45,10 @@ class MapRepositoryImpl implements MapRepository {
       for (final item in response) {
         if (item is! Map) continue;
         try {
-          offers.add(FoodOffer.fromJson(Map<String, dynamic>.from(item)));
+          final offerData = Map<String, dynamic>.from(item);
+          offerData['source'] = 'institution';
+          offerData['details'] = Map<String, dynamic>.from(item);
+          offers.add(FoodOffer.fromJson(offerData));
         } catch (e) {
           print('⚠️ MapRepositoryImpl: failed to parse offer: $e');
         }
@@ -103,7 +106,10 @@ class MapRepositoryImpl implements MapRepository {
       for (final item in response) {
         if (item is! Map) continue;
         try {
-          offers.add(FoodOffer.fromJson(Map<String, dynamic>.from(item)));
+          final offerData = Map<String, dynamic>.from(item);
+          offerData['source'] = 'institution';
+          offerData['details'] = Map<String, dynamic>.from(item);
+          offers.add(FoodOffer.fromJson(offerData));
         } catch (e) {
           print('⚠️ MapRepositoryImpl: failed to parse offer: $e');
         }

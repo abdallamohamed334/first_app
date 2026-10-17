@@ -73,8 +73,13 @@ class _InstitutionOfferDetailsPageState
     _quantity = _offer.minBookingQuantity.clamp(1, 999999).toInt();
 
     _loadOwnership();
-    _loadMyRequest();
-    _loadRemainingLimit();
+    if (_offer.isBookable) {
+      _loadMyRequest();
+      _loadRemainingLimit();
+    } else {
+      _loadingRequest = false;
+      _loadingLimit = false;
+    }
 
     // ✅ نجدد العرض من السيرفر لما الصفحة تفتح
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,7 +103,14 @@ class _InstitutionOfferDetailsPageState
       final fresh = await _repository.getOffer(widget.offer.id);
       if (!mounted) return;
       if (fresh != null) {
-        setState(() => _offer = fresh);
+        setState(() {
+          _offer = fresh;
+          if (!fresh.isBookable) {
+            _myRequest = null;
+            _loadingRequest = false;
+            _loadingLimit = false;
+          }
+        });
       }
     } catch (_) {
       // نتجاهل الخطأ — بنسيب القيمة القديمة
@@ -211,6 +223,10 @@ class _InstitutionOfferDetailsPageState
 
   Future<void> _requestOffer() async {
     if (_loading || _isOwner || _myRequest != null) return;
+    if (!_offer.isBookable) {
+      _showSnack('هذا العرض للمشاهدة فقط ولا يقبل الحجز', _red);
+      return;
+    }
 
     if (_remainingToday <= 0) {
       _showSnack(
@@ -1590,6 +1606,57 @@ class _InstitutionOfferDetailsPageState
                   fontSize: 13,
                   height: 1.5,
                 ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!offer.isBookable) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4F4),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _primary.withValues(alpha: 0.18)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.visibility_outlined, color: _primary),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'عرض عادي',
+                    style: TextStyle(
+                      color: _ink,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'هذا العرض متاح للمشاهدة فقط، ولا يمكن إرسال طلب حجز عليه.',
+                    style: TextStyle(
+                      color: _inkSoft,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

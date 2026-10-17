@@ -129,7 +129,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             food_condition, requires_refrigeration, pickup_notes, contact_phone,
             pickup_time, product_expiry_at, storage_condition,
             product_subcategory, meat_cut, product_weight, product_prepared_at,
-            min_booking_quantity, max_booking_quantity, deleted_at,
+            min_booking_quantity, max_booking_quantity, is_bookable, deleted_at,
             marketplace_category_id,
             institutions:institution_id!inner (
               id,
@@ -165,7 +165,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             food_condition, requires_refrigeration, pickup_notes, contact_phone,
             pickup_time, product_expiry_at, storage_condition,
             product_subcategory, meat_cut, product_weight, product_prepared_at,
-            min_booking_quantity, max_booking_quantity, deleted_at,
+            min_booking_quantity, max_booking_quantity, is_bookable, deleted_at,
             marketplace_category_id,
             institutions:institution_id (
               id, name, institution_type, logo_url, address, phone,
@@ -866,6 +866,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       'pickup_location': offer.pickupLocation,
       'expires_at': offer.expiryTime.toIso8601String(),
       'status': institutionStatus, // ✅ 'active' بدل 'available'
+      'is_bookable': offer.details?['is_bookable'] ?? true,
       'created_at': offer.createdAt.toIso8601String(),
       'updated_at': offer.updatedAt.toIso8601String(),
       'institution_id': offer.businessId,
@@ -963,6 +964,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
   Widget _buildOfferHighlights(FoodOffer offer) {
     final raw = offer.details ?? const <String, dynamic>{};
     final chips = <String>[];
+    final isBookable = raw['is_bookable']?.toString().toLowerCase() != 'false';
     final storage = raw['storage_condition']?.toString();
     final storageLabel = switch (storage) {
       'needs_refrigeration' => 'يحتاج تبريد',
@@ -995,7 +997,7 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
 
     final pickupStart = raw['pickup_start']?.toString();
     final pickupEnd = raw['pickup_end']?.toString();
-    if (pickupStart != null && pickupStart.isNotEmpty &&
+    if (isBookable && pickupStart != null && pickupStart.isNotEmpty &&
         pickupEnd != null && pickupEnd.isNotEmpty) {
       try {
         final start = DateTime.parse(pickupStart);
@@ -1004,13 +1006,17 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
       } catch (_) {}
     }
 
-    final min = raw['min_booking_quantity'] is num
-        ? (raw['min_booking_quantity'] as num).toInt()
-        : 1;
-    final max = raw['max_booking_quantity'] is num
-        ? (raw['max_booking_quantity'] as num).toInt()
-        : null;
-    chips.add(max == null ? 'حد أدنى $min' : 'حجز $min–$max');
+    if (isBookable) {
+      final min = raw['min_booking_quantity'] is num
+          ? (raw['min_booking_quantity'] as num).toInt()
+          : 1;
+      final max = raw['max_booking_quantity'] is num
+          ? (raw['max_booking_quantity'] as num).toInt()
+          : null;
+      chips.add(max == null ? 'حد أدنى $min' : 'حجز $min–$max');
+    } else {
+      chips.add('عرض عادي · مشاهدة فقط');
+    }
 
     final productExpiry = raw['product_expiry_at']?.toString();
     if (productExpiry != null && productExpiry.isNotEmpty) {
@@ -1318,7 +1324,9 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'احجز الآن',
+                                    widget.offer.details?['is_bookable'] == false
+                                        ? 'عرض التفاصيل'
+                                        : 'احجز الآن',
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 11.5,

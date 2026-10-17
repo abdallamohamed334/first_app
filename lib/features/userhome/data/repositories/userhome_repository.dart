@@ -876,6 +876,7 @@ class UserHomeRepository {
             product_prepared_at,
             min_booking_quantity,
             max_booking_quantity,
+            is_bookable,
             food_type,
             is_halal,
             is_vegetarian,

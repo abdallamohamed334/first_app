@@ -47,6 +47,7 @@ class InstitutionOffer {
   final DateTime? productPreparedAt;
   final int minBookingQuantity;
   final int? maxBookingQuantity;
+  final bool isBookable;
   final DateTime? deletedAt;
 
   // ✅ جديد — تصنيف السوق (المطاعم / البقالة ... إلخ)
@@ -94,6 +95,7 @@ class InstitutionOffer {
     this.productPreparedAt,
     this.minBookingQuantity = 1,
     this.maxBookingQuantity,
+    this.isBookable = true,
     this.deletedAt,
     this.marketplaceCategoryId, // ✅ جديد
   });
@@ -253,6 +255,7 @@ class InstitutionOffer {
       maxBookingQuantity: json['max_booking_quantity'] == null
           ? null
           : _int(json['max_booking_quantity']),
+      isBookable: json['is_bookable'] as bool? ?? true,
       deletedAt: json['deleted_at'] != null
           ? DateTime.tryParse(json['deleted_at'].toString())
           : null,
@@ -297,6 +300,7 @@ class InstitutionOffer {
       'product_prepared_at': productPreparedAt?.toIso8601String(),
       'min_booking_quantity': minBookingQuantity,
       'max_booking_quantity': maxBookingQuantity,
+      'is_bookable': isBookable,
       'deleted_at': deletedAt?.toUtc().toIso8601String(),
       'marketplace_category_id': marketplaceCategoryId, // ✅ جديد
     };
@@ -344,6 +348,7 @@ class InstitutionOffer {
     DateTime? productPreparedAt,
     int? minBookingQuantity,
     int? maxBookingQuantity,
+    bool? isBookable,
     DateTime? deletedAt,
     String? marketplaceCategoryId, // ✅ جديد
   }) {
@@ -391,6 +396,7 @@ class InstitutionOffer {
       productPreparedAt: productPreparedAt ?? this.productPreparedAt,
       minBookingQuantity: minBookingQuantity ?? this.minBookingQuantity,
       maxBookingQuantity: maxBookingQuantity ?? this.maxBookingQuantity,
+      isBookable: isBookable ?? this.isBookable,
       deletedAt: deletedAt ?? this.deletedAt,
       marketplaceCategoryId:
           marketplaceCategoryId ?? this.marketplaceCategoryId, // ✅ جديد

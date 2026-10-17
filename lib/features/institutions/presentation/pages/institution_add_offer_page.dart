@@ -72,6 +72,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   DateTime? _pickupEnd;
   DateTime? _pickupDeadline;
   bool _usePickupWindow = true;
+  bool _isBookable = true;
 
   /// الصلاحية القصوى التي يسمح بها مسار إنشاء عروض المؤسسات.
   static const Duration _maxOfferLifetime = Duration(hours: 12);
@@ -385,10 +386,12 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
 
     final quantity = int.tryParse(_normalizeDigits(_quantityController.text));
-    final minBookingQuantity = int.tryParse(
-      _normalizeDigits(_minBookingQuantityController.text),
-    );
-    final maxBookingText = _maxBookingQuantityController.text.trim();
+    final minBookingQuantity = _isBookable
+        ? int.tryParse(_normalizeDigits(_minBookingQuantityController.text))
+        : 1;
+    final minBookingQuantityToSend = minBookingQuantity ?? 1;
+    final maxBookingText =
+        _isBookable ? _maxBookingQuantityController.text.trim() : '';
     final maxBookingQuantity = maxBookingText.isEmpty
         ? null
         : int.tryParse(_normalizeDigits(maxBookingText));
@@ -413,14 +416,16 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       _showMessage('اكتب كمية صحيحة أكبر من صفر', error: true);
       return;
     }
-    if (minBookingQuantity == null || minBookingQuantity < 1 ||
-        minBookingQuantity > quantity) {
+    if (_isBookable &&
+        (minBookingQuantity == null ||
+            minBookingQuantity < 1 ||
+            minBookingQuantity > quantity)) {
       _showMessage('الحد الأدنى للحجز يجب أن يكون بين 1 والكمية المتاحة', error: true);
       return;
     }
-    if (maxBookingText.isNotEmpty &&
+    if (_isBookable && maxBookingText.isNotEmpty &&
         (maxBookingQuantity == null ||
-            maxBookingQuantity < minBookingQuantity ||
+            maxBookingQuantity < minBookingQuantityToSend ||
             maxBookingQuantity > quantity)) {
       _showMessage('الحد الأقصى يجب ألا يقل عن الحد الأدنى أو يتجاوز الكمية', error: true);
       return;
@@ -458,17 +463,20 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       _showMessage('اكتب نوع قطعة اللحم والوزن', error: true);
       return;
     }
-    final pickupStart = _usePickupWindow ? _pickupStart : null;
-    final pickupEnd = _usePickupWindow ? _pickupEnd : _pickupDeadline;
-    if (_usePickupWindow && (pickupStart == null || pickupEnd == null)) {
+    final pickupStart = _isBookable && _usePickupWindow ? _pickupStart : null;
+    final pickupEnd = !_isBookable
+        ? null
+        : (_usePickupWindow ? _pickupEnd : _pickupDeadline);
+    if (_isBookable && _usePickupWindow &&
+        (pickupStart == null || pickupEnd == null)) {
       _showMessage('حدد بداية ونهاية فترة الاستلام', error: true);
       return;
     }
-    if (!_usePickupWindow && pickupEnd == null) {
+    if (_isBookable && !_usePickupWindow && pickupEnd == null) {
       _showMessage('حدد الموعد النهائي للاستلام', error: true);
       return;
     }
-    if (pickupStart != null && pickupEnd != null &&
+    if (_isBookable && pickupStart != null && pickupEnd != null &&
         !pickupEnd.isAfter(pickupStart)) {
       _showMessage('نهاية فترة الاستلام يجب أن تكون بعد بدايتها', error: true);
       return;
@@ -511,8 +519,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         productWeight: productWeight,
         productPreparedAt: _productPreparedAt,
         productExpiryAt: _isExpiringSoon ? _productExpiryAt : null,
-        minBookingQuantity: minBookingQuantity,
+        minBookingQuantity: minBookingQuantityToSend,
         maxBookingQuantity: maxBookingQuantity,
+        isBookable: _isBookable,
         pickupStart: pickupStart,
         pickupEnd: pickupEnd,
         pickupNotes: _pickupNotesController.text.trim(),
@@ -639,6 +648,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                         const Divider(color: Color(0xFFE2EEE8)),
                         const SizedBox(height: 24),
                       ],
+                      _buildPublicationModeSection(),
+                      const SizedBox(height: 20),
+                      const Divider(color: Color(0xFFE2EEE8)),
+                      const SizedBox(height: 24),
                       _buildImageSection(),
                       const SizedBox(height: 24),
                       const Divider(color: Color(0xFFE2EEE8)),
@@ -668,11 +681,13 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                       _buildConditionSection(),
                       const SizedBox(height: 20),
                       _buildStorageSection(),
-                      const SizedBox(height: 20),
-                      _buildQuantityLimitsSection(),
-                      const SizedBox(height: 20),
-                      const Divider(color: Color(0xFFE2EEE8)),
-                      const SizedBox(height: 24),
+                      if (_isBookable) ...[
+                        const SizedBox(height: 20),
+                        _buildQuantityLimitsSection(),
+                        const SizedBox(height: 20),
+                        const Divider(color: Color(0xFFE2EEE8)),
+                        const SizedBox(height: 24),
+                      ],
 
                       _buildPickupSection(),
                       const SizedBox(height: 24),
@@ -1518,6 +1533,108 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     );
   }
 
+  Widget _buildPublicationModeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.tune_rounded, color: _primary, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'طريقة نشر العرض',
+              style: TextStyle(
+                color: _primaryDark,
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildPublicationModeOption(
+          isBookable: false,
+          title: 'عرض عادي',
+          subtitle: 'يشاهده المستخدمون فقط، بدون حجز أو إرسال طلب.',
+          icon: Icons.visibility_outlined,
+        ),
+        const SizedBox(height: 10),
+        _buildPublicationModeOption(
+          isBookable: true,
+          title: 'عرض مع إمكانية الحجز',
+          subtitle: 'يستمر بنفس خطوات الحجز المتاحة حاليًا للمستخدمين.',
+          icon: Icons.shopping_bag_outlined,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPublicationModeOption({
+    required bool isBookable,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final selected = _isBookable == isBookable;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _saving
+            ? null
+            : () => setState(() => _isBookable = isBookable),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected ? _primary.withValues(alpha: 0.07) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? _primary : const Color(0xFFDCEBE3),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: selected ? _primary : _muted, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: _primaryDark,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: _muted,
+                        fontSize: 11.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected ? _primary : _muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildQuantityLimitsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1682,46 +1799,55 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           ),
         ),
         const SizedBox(height: 8),
-        SwitchListTile.adaptive(
-          contentPadding: EdgeInsets.zero,
-          activeColor: _primary,
-          value: _usePickupWindow,
-          onChanged: _saving ? null : (value) => setState(() => _usePickupWindow = value),
-          title: Text(_usePickupWindow ? 'تحديد فترة الاستلام من وإلى' : 'تحديد موعد نهائي للاستلام'),
-          subtitle: const Text('يظهر الموعد للعميل قبل إرسال طلب الحجز'),
-        ),
-        if (_usePickupWindow) ...[
-          _buildDateField(
-            label: 'بداية الاستلام',
-            value: _pickupStart,
-            onTap: () async {
-              final value = await _choosePickupDateTime(initial: _pickupStart);
-              if (value != null) setState(() => _pickupStart = value);
-            },
-            icon: Icons.play_circle_outline_rounded,
+        if (_isBookable) ...[
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            activeColor: _primary,
+            value: _usePickupWindow,
+            onChanged: _saving
+                ? null
+                : (value) => setState(() => _usePickupWindow = value),
+            title: Text(_usePickupWindow
+                ? 'تحديد فترة الاستلام من وإلى'
+                : 'تحديد موعد نهائي للاستلام'),
+            subtitle: const Text('يظهر الموعد للعميل قبل إرسال طلب الحجز'),
           ),
-          const SizedBox(height: 10),
-          _buildDateField(
-            label: 'نهاية الاستلام',
-            value: _pickupEnd,
-            onTap: () async {
-              final value = await _choosePickupDateTime(
-                initial: _pickupEnd ?? _pickupStart?.add(const Duration(hours: 1)),
-              );
-              if (value != null) setState(() => _pickupEnd = value);
-            },
-            icon: Icons.stop_circle_outlined,
-          ),
-        ] else
-          _buildDateField(
-            label: 'آخر موعد للاستلام',
-            value: _pickupDeadline,
-            onTap: () async {
-              final value = await _choosePickupDateTime(initial: _pickupDeadline);
-              if (value != null) setState(() => _pickupDeadline = value);
-            },
-            icon: Icons.event_available_outlined,
-          ),
+          if (_usePickupWindow) ...[
+            _buildDateField(
+              label: 'بداية الاستلام',
+              value: _pickupStart,
+              onTap: () async {
+                final value = await _choosePickupDateTime(initial: _pickupStart);
+                if (value != null) setState(() => _pickupStart = value);
+              },
+              icon: Icons.play_circle_outline_rounded,
+            ),
+            const SizedBox(height: 10),
+            _buildDateField(
+              label: 'نهاية الاستلام',
+              value: _pickupEnd,
+              onTap: () async {
+                final value = await _choosePickupDateTime(
+                  initial: _pickupEnd ??
+                      _pickupStart?.add(const Duration(hours: 1)),
+                );
+                if (value != null) setState(() => _pickupEnd = value);
+              },
+              icon: Icons.stop_circle_outlined,
+            ),
+          ] else
+            _buildDateField(
+              label: 'آخر موعد للاستلام',
+              value: _pickupDeadline,
+              onTap: () async {
+                final value = await _choosePickupDateTime(
+                  initial: _pickupDeadline,
+                );
+                if (value != null) setState(() => _pickupDeadline = value);
+              },
+              icon: Icons.event_available_outlined,
+            ),
+        ],
         const SizedBox(height: 12),
         _buildTextField(
           controller: _pickupLocationController,

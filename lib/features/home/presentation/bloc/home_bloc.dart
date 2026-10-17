@@ -97,7 +97,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<List<InstitutionOffer>> _loadInstitutionOffers() async {
     try {
       final response = await _supabaseService.client
-          .from('institution_offers_core')
+          .from('institution_offers')
           .select('''
             *,
             institutions:institution_id (
@@ -109,6 +109,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
             )
           ''')
           .eq('status', 'active')
+          .gt('expires_at', DateTime.now().toUtc().toIso8601String())
+          .gt('remaining_quantity', 0)
+          .filter('deleted_at', 'is', 'null')
           .order('created_at', ascending: false);
 
       return response

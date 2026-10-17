@@ -552,6 +552,7 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
       'product_prepared_at': raw['product_prepared_at'],
       'min_booking_quantity': raw['min_booking_quantity'] ?? 1,
       'max_booking_quantity': raw['max_booking_quantity'],
+      'is_bookable': raw['is_bookable'] ?? true,
     };
   }
 

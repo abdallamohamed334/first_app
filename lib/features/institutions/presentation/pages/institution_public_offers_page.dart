@@ -338,14 +338,14 @@ class _OfferCard extends StatelessWidget {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.check_circle_rounded,
                                 color: _red, size: 14),
                             SizedBox(width: 4),
                             Text(
-                              'متاح',
+                              offer.isBookable ? 'قابل للحجز' : 'عرض عادي',
                               style: TextStyle(
                                 color: _ink,
                                 fontSize: 11,
