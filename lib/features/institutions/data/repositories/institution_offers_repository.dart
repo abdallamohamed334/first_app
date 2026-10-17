@@ -207,17 +207,13 @@ class InstitutionOffersRepository {
 
       while (true) {
         final rows = await _client.from('institution_offers').select('''
-              id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id, latitude, longitude,
+              id, institution_id, title, description, category, quantity, remaining_quantity, symbolic_price, original_price, images, pickup_location, expires_at, pickup_before, status, created_at, updated_at, food_type, is_halal, is_vegetarian, food_condition, requires_refrigeration, pickup_notes, contact_phone, pickup_time, pickup_start, pickup_end, product_expiry_at, storage_condition, product_subcategory, meat_cut, product_weight, product_prepared_at, min_booking_quantity, max_booking_quantity, deleted_at, marketplace_category_id,
               institutions:institution_id (
                 id,
                 name,
                 institution_type,
                 logo_url,
                 address,
-                governorate,
-                city,
-                latitude,
-                longitude,
                 phone
               )
             ''').eq('institution_id', cleanInstitutionId)
