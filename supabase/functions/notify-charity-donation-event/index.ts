@@ -7,22 +7,29 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const admin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json" },
   });
+
 const text = (value: unknown, max = 500) => {
   const valueText = String(value ?? "").trim();
   return valueText.length > max ? valueText.slice(0, max) : valueText;
 };
 
 Deno.serve(async (request) => {
-  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (request.method !== "POST") {
+    return json({ error: "method_not_allowed" }, 405);
+  }
 
   try {
     const authorization = request.headers.get("Authorization") ?? "";
-    if (!authorization.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
+    if (!authorization.startsWith("Bearer ")) {
+      return json({ error: "unauthorized" }, 401);
+    }
+
     const authClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authorization } },
       auth: { persistSession: false, autoRefreshToken: false },
@@ -34,162 +41,512 @@ Deno.serve(async (request) => {
     const payload = await request.json();
     const requestId = text(payload?.requestId, 80);
     const event = text(payload?.event, 30);
-    if (!requestId || !["created", "status"].includes(event)) {
+    if (!requestId || !["created", "status", "volunteer_assigned"].includes(event)) {
       return json({ error: "requestId_and_valid_event_required" }, 400);
     }
 
     const { data: donation, error: donationError } = await admin
       .from("charity_donation_requests")
-      .select("id, donor_id, charity_id, volunteer_id, title, description, quantity, pickup_address, donor_phone, status")
+      .select(
+        "id, donor_id, charity_id, volunteer_id, title, description, quantity, pickup_address, donor_phone, volunteer_name, volunteer_phone, assigned_at, status, rejection_reason, cancellation_reason",
+      )
       .eq("id", requestId)
       .maybeSingle();
-    if (donationError || !donation) return json({ error: "donation_not_found" }, 404);
+    if (donationError || !donation) {
+      return json({ error: "donation_not_found" }, 404);
+    }
 
     const [charityResult, donorResult, volunteerResult] = await Promise.all([
-      admin.from("charities").select("user_id, name, phone").eq("id", donation.charity_id).maybeSingle(),
-      admin.from("users").select("name, phone").eq("id", donation.donor_id).maybeSingle(),
+      admin
+        .from("charities")
+        .select("user_id, name, phone")
+        .eq("id", donation.charity_id)
+        .maybeSingle(),
+      admin
+        .from("users")
+        .select("name, phone")
+        .eq("id", donation.donor_id)
+        .maybeSingle(),
       donation.volunteer_id
-        ? admin.from("users").select("name, phone").eq("id", donation.volunteer_id).maybeSingle()
+        ? admin
+            .from("users")
+            .select("name, phone")
+            .eq("id", donation.volunteer_id)
+            .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
-    const charity = charityResult.data;
-    if (!charity?.user_id) return json({ error: "charity_not_found" }, 404);
 
-    const allowedActors = new Set<string>([
-      String(donation.donor_id),
-      String(charity.user_id),
-      ...(donation.volunteer_id ? [String(donation.volunteer_id)] : []),
-    ]);
-    if (!allowedActors.has(actorId)) return json({ error: "not_allowed" }, 403);
+    const charity = charityResult.data;
+    const donor = donorResult.data;
+    const volunteer = volunteerResult.data;
+    if (charityResult.error || !charity?.user_id) {
+      return json({ error: "charity_not_found" }, 404);
+    }
 
     const status = String(donation.status ?? "pending");
-    const recipients = recipientsForStatus(status, {
+    if (
+      !actorCanNotify({
+        actorId,
+        event,
+        status,
+        donorId: String(donation.donor_id),
+        charityUserId: String(charity.user_id),
+        volunteerId: donation.volunteer_id
+          ? String(donation.volunteer_id)
+          : null,
+        assignedAt: donation.assigned_at,
+      })
+    ) {
+      return json({ error: "not_allowed_for_event" }, 403);
+    }
+
+    const recipientIds = {
       donorId: String(donation.donor_id),
       charityUserId: String(charity.user_id),
-      volunteerId: donation.volunteer_id ? String(donation.volunteer_id) : null,
-    });
-    const message = messageFor(status, String(donation.title ?? "تبرع"));
+      volunteerId: donation.volunteer_id
+        ? String(donation.volunteer_id)
+        : null,
+    };
+    const notificationStatus = event === "volunteer_assigned"
+      ? "volunteer_assigned"
+      : status;
+    const recipients = event === "volunteer_assigned"
+      ? uniqueIds([recipientIds.donorId, recipientIds.volunteerId])
+      : recipientsForStatus(status, recipientIds);
+    const message = messageFor(
+      notificationStatus,
+      text(donation.title, 160) || "التبرع",
+    );
 
-    for (const recipientId of recipients) {
-      const { error: notificationError } = await admin.from("notifications").insert({
-        user_id: recipientId,
-        title: message.title,
-        body: message.body,
-        type: "system",
-        reference_id: requestId,
-        reference_type: "charity_donation",
-        is_read: false,
-      });
-      if (notificationError) {
-        console.error("notification_insert_failed", notificationError.message);
-      }
-    }
+    // The database trigger create_direct_charity_status_notifications is the
+    // single source of truth for in-app notifications. Do not insert here:
+    // doing so would create a duplicate for every create/status event.
+    const pushResults = await Promise.all(
+      recipients.map(async (recipientId) => {
+        try {
+          return await sendPush(recipientId, message.title, message.body, {
+            type: "charity_donation_status",
+            reference_id: requestId,
+            reference_type: "charity_donation",
+            status,
+          });
+        } catch (error) {
+          console.error(
+            "push_delivery_failed",
+            error instanceof Error ? error.name : "unknown",
+          );
+          return false;
+        }
+      }),
+    );
 
-    let whatsappSent = false;
-    if (event === "created") {
-      const charityPhone = text(charity.phone, 40);
-      if (charityPhone) {
-        const donor = donorResult.data;
-        const donorName = text(donor?.name, 100) || "متبرع";
-        const donationMessage = [
-          `تبرع جديد للجمعية: ${text(charity.name, 120)}`,
-          `العنوان: ${text(donation.title, 160)}`,
-          `الكمية: ${text(donation.quantity, 20)}`,
-          `المتبرع: ${donorName}`,
-          `هاتف المتبرع: ${text(donation.donor_phone || donor?.phone, 40)}`,
-          `عنوان الاستلام: ${text(donation.pickup_address, 220)}`,
-          `التفاصيل: ${text(donation.description, 350)}`,
-          `رقم التبرع داخل التطبيق: ${requestId}`,
-          "افتح تطبيق وِصلة لمراجعة التبرع واتخاذ الإجراء.",
-        ].join("\n");
-        whatsappSent = await sendWhatsApp(charityPhone, donationMessage);
-      }
-    }
-
-    const pushResults = await Promise.all(recipients.map(async (recipientId) => {
-      try {
-        return await sendPush(recipientId, message.title, message.body, {
-          type: "charity_donation_status",
-          reference_id: requestId,
-          reference_type: "charity_donation",
-          status,
+    const whatsappDeliveries = event === "created"
+      ? [
+          {
+            phone: text(charity.phone, 40),
+            message: newDonationMessage({ donation, charity, donor, requestId }),
+          },
+        ]
+      : whatsappMessagesForStatus({
+          status: notificationStatus,
+          donation,
+          charity,
+          donor,
+          volunteer,
         });
-      } catch (error) {
-        console.error("push_delivery_failed", error instanceof Error ? error.message : "unknown");
-        return false;
-      }
-    }));
+
+    const uniqueDeliveries = deduplicateWhatsAppDeliveries(whatsappDeliveries);
+    const whatsappResults = await Promise.all(
+      uniqueDeliveries.map((delivery) =>
+        sendWhatsApp(delivery.phone, delivery.message),
+      ),
+    );
 
     return json({
       success: true,
       recipients: recipients.length,
       push_sent: pushResults.filter(Boolean).length,
-      whatsapp_sent: whatsappSent,
+      whatsapp_sent: whatsappResults.filter(Boolean).length,
+      whatsapp_failed: whatsappResults.filter((sent) => !sent).length,
       status,
     });
   } catch (error) {
-    console.error("[notify-charity-donation-event] failed", error instanceof Error ? error.name : "unknown");
+    console.error(
+      "[notify-charity-donation-event] failed",
+      error instanceof Error ? error.name : "unknown",
+    );
     return json({ error: "notification_delivery_failed" }, 500);
   }
 });
 
-function recipientsForStatus(status: string, ids: { donorId: string; charityUserId: string; volunteerId: string | null }) {
-  const result = new Set<string>();
-  if (status === "pending") result.add(ids.charityUserId);
-  else if (status === "volunteer_needed") result.add(ids.charityUserId);
-  else {
-    result.add(ids.donorId);
-    result.add(ids.charityUserId);
-    if (ids.volunteerId) result.add(ids.volunteerId);
+function actorCanNotify({
+  actorId,
+  event,
+  status,
+  donorId,
+  charityUserId,
+  volunteerId,
+  assignedAt,
+}: {
+  actorId: string;
+  event: string;
+  status: string;
+  donorId: string;
+  charityUserId: string;
+  volunteerId: string | null;
+  assignedAt: unknown;
+}) {
+  if (event === "volunteer_assigned") {
+    return actorId === charityUserId && Boolean(assignedAt);
   }
-  return [...result];
+  if (event === "created") {
+    return actorId === donorId && status === "pending";
+  }
+
+  switch (status) {
+    case "accepted":
+    case "rejected":
+    case "volunteer_assigned":
+      return actorId === charityUserId;
+    case "donor_ready":
+    case "cancelled":
+      return actorId === donorId;
+    case "picked_up_from_donor":
+    case "in_transit":
+      return actorId === donorId ||
+        actorId === charityUserId ||
+        actorId === volunteerId;
+    case "completed":
+      return actorId === charityUserId || actorId === volunteerId;
+    case "volunteer_needed":
+      return actorId === charityUserId;
+    default:
+      return false;
+  }
+}
+
+function recipientsForStatus(
+  status: string,
+  ids: { donorId: string; charityUserId: string; volunteerId: string | null },
+) {
+  switch (status) {
+    case "pending":
+    case "volunteer_needed":
+    case "donor_ready":
+      return [ids.charityUserId];
+    case "accepted":
+    case "rejected":
+    case "completed":
+      return [ids.donorId];
+    case "volunteer_assigned":
+      return uniqueIds([ids.donorId, ids.volunteerId]);
+    case "picked_up_from_donor":
+    case "in_transit":
+    case "expired":
+      return uniqueIds([ids.donorId, ids.charityUserId]);
+    case "cancelled":
+      return uniqueIds([ids.charityUserId, ids.volunteerId]);
+    default:
+      return uniqueIds([ids.donorId, ids.charityUserId, ids.volunteerId]);
+  }
+}
+
+function uniqueIds(values: Array<string | null>) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
 }
 
 function messageFor(status: string, title: string) {
-  const map: Record<string, { title: string; body: string }> = {
-    pending: { title: "تبرع جديد للجمعية", body: `وصل تبرع جديد بعنوان «${title}» ويحتاج للمراجعة.` },
-    accepted: { title: "تم قبول التبرع", body: `تم قبول تبرع «${title}» وبدأت خطوات الاستلام.` },
-    rejected: { title: "تم رفض التبرع", body: `تم تحديث حالة تبرع «${title}». افتح التطبيق لمعرفة التفاصيل.` },
-    volunteer_needed: { title: "التبرع يحتاج مندوبًا", body: `التبرع «${title}» متاح الآن للتوصيل.` },
-    volunteer_assigned: { title: "تم تعيين مندوب للتبرع", body: `تم تعيين مندوب لتوصيل «${title}».` },
-    donor_ready: { title: "المتبرع جاهز للاستلام", body: `المتبرع أعلن جاهزية «${title}» للاستلام.` },
-    picked_up_from_donor: { title: "تم استلام التبرع", body: `تم استلام «${title}» من المتبرع.` },
-    in_transit: { title: "التبرع في الطريق", body: `التبرع «${title}» في الطريق إلى الجمعية.` },
-    completed: { title: "وصل التبرع للجمعية", body: `تم تسجيل وصول «${title}» إلى الجمعية بنجاح.` },
-    cancelled: { title: "تم إلغاء التبرع", body: `تم إلغاء تبرع «${title}».` },
-    expired: { title: "انتهت مهلة التبرع", body: `انتهت مهلة متابعة «${title}».` },
+  const messages: Record<string, { title: string; body: string }> = {
+    pending: {
+      title: "تبرع جديد للجمعية",
+      body: `وصل تبرع جديد بعنوان «${title}» ويحتاج إلى المراجعة.`,
+    },
+    accepted: {
+      title: "تم قبول التبرع",
+      body: `وافقت الجمعية على تبرعك «${title}». راجع التطبيق لمعرفة الخطوة التالية.`,
+    },
+    rejected: {
+      title: "تم رفض التبرع",
+      body: `اعتذرت الجمعية عن قبول تبرعك «${title}». افتح التطبيق لمعرفة التفاصيل.`,
+    },
+    donor_ready: {
+      title: "المتبرع جاهز للاستلام",
+      body: `أعلن المتبرع جاهزية «${title}» للاستلام.`,
+    },
+    volunteer_assigned: {
+      title: "تم تعيين مندوب للتبرع",
+      body: `تم تعيين مندوب لاستلام «${title}».`,
+    },
+    picked_up_from_donor: {
+      title: "تم استلام التبرع من المتبرع",
+      body: `تم استلام «${title}» من المتبرع.`,
+    },
+    in_transit: {
+      title: "التبرع في الطريق",
+      body: `التبرع «${title}» في طريقه إلى الجمعية.`,
+    },
+    completed: {
+      title: "وصل التبرع للجمعية",
+      body: `أكدت الجمعية استلام تبرعك «${title}».`,
+    },
+    cancelled: {
+      title: "تم إلغاء التبرع",
+      body: `تم إلغاء التبرع «${title}».`,
+    },
+    expired: {
+      title: "انتهت مهلة التبرع",
+      body: `انتهت مهلة متابعة التبرع «${title}».`,
+    },
+    volunteer_needed: {
+      title: "التبرع يحتاج مندوبًا",
+      body: `التبرع «${title}» يحتاج إلى مندوب للتوصيل.`,
+    },
   };
-  return map[status] ?? { title: "تحديث التبرع", body: `تم تحديث حالة «${title}». افتح التطبيق للتفاصيل.` };
+  return messages[status] ?? {
+    title: "تحديث التبرع",
+    body: `تم تحديث حالة التبرع «${title}». افتح التطبيق للتفاصيل.`,
+  };
+}
+
+function newDonationMessage({
+  donation,
+  charity,
+  donor,
+  requestId,
+}: {
+  donation: Record<string, unknown>;
+  charity: Record<string, unknown>;
+  donor: Record<string, unknown> | null;
+  requestId: string;
+}) {
+  const donorPhone = text(donation.donor_phone, 40) || text(donor?.phone, 40);
+  return [
+    `تبرع جديد وصل لجمعية ${text(charity.name, 120) || "الجمعية"}`,
+    `العنوان: ${text(donation.title, 160) || "تبرع"}`,
+    `الكمية: ${text(donation.quantity, 20)}`,
+    `المتبرع: ${text(donor?.name, 100) || "متبرع"}`,
+    `هاتف المتبرع: ${donorPhone || "غير متاح"}`,
+    `عنوان الاستلام: ${text(donation.pickup_address, 220) || "غير محدد"}`,
+    `التفاصيل: ${text(donation.description, 350) || "لا توجد تفاصيل إضافية"}`,
+    `رقم التبرع داخل التطبيق: ${requestId}`,
+    "افتح التطبيق لمراجعة التبرع واتخاذ الإجراء.",
+  ].join("\n");
+}
+
+function whatsappMessagesForStatus({
+  status,
+  donation,
+  charity,
+  donor,
+  volunteer,
+}: {
+  status: string;
+  donation: Record<string, unknown>;
+  charity: Record<string, unknown>;
+  donor: Record<string, unknown> | null;
+  volunteer: Record<string, unknown> | null;
+}) {
+  const title = text(donation.title, 160) || "التبرع";
+  const charityName = text(charity.name, 120) || "الجمعية";
+  const donorName = text(donor?.name, 100) || "المتبرع";
+  const donorPhone = text(donation.donor_phone, 40) || text(donor?.phone, 40);
+  const charityPhone = text(charity.phone, 40);
+  const volunteerName = text(donation.volunteer_name, 100) ||
+    text(volunteer?.name, 100) || "مندوب الجمعية";
+  const volunteerPhone = text(donation.volunteer_phone, 40) ||
+    text(volunteer?.phone, 40);
+  const address = text(donation.pickup_address, 220) || "غير محدد";
+  const deliveries: Array<{ phone: string; message: string }> = [];
+  const add = (phone: string, message: string) => {
+    if (phone) deliveries.push({ phone, message });
+  };
+
+  switch (status) {
+    case "accepted":
+      add(
+        donorPhone,
+        [
+          `تم قبول تبرعك «${title}» من جمعية ${charityName}.`,
+          "يرجى متابعة التطبيق لمعرفة موعد وطريقة الاستلام.",
+        ].join("\n"),
+      );
+      break;
+    case "rejected": {
+      const reason = text(donation.rejection_reason, 250);
+      add(
+        donorPhone,
+        [
+          `نأسف، تم رفض تبرعك «${title}» من جمعية ${charityName}.`,
+          ...(reason ? [`السبب: ${reason}`] : []),
+          "يمكنك فتح التطبيق لمعرفة التفاصيل أو التواصل مع الجمعية.",
+        ].join("\n"),
+      );
+      break;
+    }
+    case "donor_ready":
+      add(
+        charityPhone,
+        [
+          `أعلن ${donorName} جاهزية التبرع «${title}» للاستلام.`,
+          `عنوان الاستلام: ${address}`,
+          `هاتف المتبرع: ${donorPhone || "غير متاح"}`,
+        ].join("\n"),
+      );
+      break;
+    case "volunteer_assigned":
+      add(
+        donorPhone,
+        [
+          `تم تعيين ${volunteerName} لاستلام تبرعك «${title}» لصالح ${charityName}.`,
+          ...(volunteerPhone ? [`هاتف المندوب: ${volunteerPhone}`] : []),
+          `عنوان الاستلام: ${address}`,
+        ].join("\n"),
+      );
+      add(
+        volunteerPhone,
+        [
+          `تم تكليفك باستلام تبرع «${title}» لصالح ${charityName}.`,
+          `المتبرع: ${donorName}`,
+          `هاتف المتبرع: ${donorPhone || "غير متاح"}`,
+          `عنوان الاستلام: ${address}`,
+        ].join("\n"),
+      );
+      break;
+    case "picked_up_from_donor":
+      add(
+        charityPhone,
+        `تم استلام تبرع «${title}» من ${donorName}، وهو في طريقه للجمعية.`,
+      );
+      add(
+        donorPhone,
+        `تم استلام تبرعك «${title}» من المندوب لتوصيله إلى جمعية ${charityName}.`,
+      );
+      break;
+    case "in_transit":
+      add(
+        charityPhone,
+        `تبرع «${title}» في الطريق إلى الجمعية. المتبرع: ${donorName}.`,
+      );
+      add(
+        donorPhone,
+        `تبرعك «${title}» في الطريق إلى جمعية ${charityName}.`,
+      );
+      break;
+    case "completed":
+      add(
+        donorPhone,
+        `تم تأكيد وصول تبرعك «${title}» إلى جمعية ${charityName}. شكرًا لمساهمتك.`,
+      );
+      break;
+    case "cancelled": {
+      const reason = text(donation.cancellation_reason, 250);
+      const message = [
+        `تم إلغاء التبرع «${title}» المرسل من ${donorName}.`,
+        ...(reason ? [`السبب: ${reason}`] : []),
+      ].join("\n");
+      add(charityPhone, message);
+      add(volunteerPhone, message);
+      break;
+    }
+    case "expired": {
+      const message = `انتهت مهلة متابعة التبرع «${title}» المرسل من ${donorName}.`;
+      add(donorPhone, `انتهت مهلة متابعة تبرعك «${title}» لدى جمعية ${charityName}.`);
+      add(charityPhone, message);
+      break;
+    }
+    case "volunteer_needed":
+      add(
+        charityPhone,
+        `التبرع «${title}» يحتاج إلى مندوب لاستلامه من ${donorName}. عنوان الاستلام: ${address}`,
+      );
+      break;
+    default: {
+      const message = `تم تحديث حالة التبرع «${title}» لدى جمعية ${charityName}. افتح التطبيق لمعرفة التفاصيل.`;
+      add(donorPhone, message);
+      add(charityPhone, message);
+      add(volunteerPhone, message);
+    }
+  }
+  return deliveries;
+}
+
+function deduplicateWhatsAppDeliveries(
+  deliveries: Array<{ phone: string; message: string }>,
+) {
+  const seen = new Set<string>();
+  return deliveries.filter((delivery) => {
+    const normalizedPhone = normalizePhone(delivery.phone);
+    if (!normalizedPhone || seen.has(normalizedPhone)) return false;
+    seen.add(normalizedPhone);
+    return true;
+  });
 }
 
 async function sendWhatsApp(phone: string, message: string) {
   const cleanPhone = normalizePhone(phone);
-  if (!cleanPhone || !serviceRoleKey) return false;
-  const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: anonKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ to: cleanPhone, message }),
-  });
-  await response.text();
-  return response.ok;
+  const cleanMessage = Array.from(message.trim()).slice(0, 950).join("");
+  if (!cleanPhone || !serviceRoleKey || !cleanMessage) return false;
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: anonKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ to: cleanPhone, message: cleanMessage }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    await response.text();
+    return response.ok;
+  } catch (error) {
+    console.error(
+      "whatsapp_delivery_failed",
+      error instanceof Error ? error.name : "unknown",
+    );
+    return false;
+  }
 }
 
-async function sendPush(userId: string, title: string, body: string, data: Record<string, string>) {
-  const { data: devices } = await admin.from("user_devices").select("id, fcm_token").eq("user_id", userId).eq("is_active", true).limit(10);
-  const fallback = devices && devices.length > 0 ? devices : await fallbackDevice(userId);
+async function sendPush(
+  userId: string,
+  title: string,
+  body: string,
+  data: Record<string, string>,
+) {
+  const { data: devices } = await admin
+    .from("user_devices")
+    .select("id, fcm_token")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .limit(10);
+  const fallback = devices && devices.length > 0
+    ? devices
+    : await fallbackDevice(userId);
   if (!fallback || fallback.length === 0) return false;
+
   const accessToken = await googleAccessToken();
   let sent = false;
   for (const device of fallback) {
-    const response = await fetch(`https://fcm.googleapis.com/v1/projects/${Deno.env.get("FIREBASE_PROJECT_ID") ?? "flutter-app-45f07"}/messages:send`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ message: { token: String(device.fcm_token), notification: { title, body }, data, android: { priority: "HIGH" }, apns: { payload: { aps: { sound: "default" } } } } }),
-    });
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${Deno.env.get("FIREBASE_PROJECT_ID") ?? "flutter-app-45f07"}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: {
+            token: String(device.fcm_token),
+            notification: { title, body },
+            data,
+            android: { priority: "HIGH" },
+            apns: { payload: { aps: { sound: "default" } } },
+          },
+        }),
+      },
+    );
     if (response.ok) sent = true;
     await response.text();
   }
@@ -197,7 +554,11 @@ async function sendPush(userId: string, title: string, body: string, data: Recor
 }
 
 async function fallbackDevice(userId: string) {
-  const { data } = await admin.from("users").select("fcm_token").eq("id", userId).maybeSingle();
+  const { data } = await admin
+    .from("users")
+    .select("fcm_token")
+    .eq("id", userId)
+    .maybeSingle();
   return data?.fcm_token ? [{ fcm_token: data.fcm_token }] : [];
 }
 
@@ -205,12 +566,32 @@ async function googleAccessToken() {
   const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT is not configured");
   const account = JSON.parse(raw);
-  const privateKey = await importPKCS8(account.private_key.replace(/\\n/g, "\n"), "RS256");
+  const privateKey = await importPKCS8(
+    account.private_key.replace(/\\n/g, "\n"),
+    "RS256",
+  );
   const now = Math.floor(Date.now() / 1000);
-  const assertion = await new SignJWT({ iss: account.client_email, scope: "https://www.googleapis.com/auth/firebase.messaging", aud: "https://oauth2.googleapis.com/token" }).setProtectedHeader({ alg: "RS256", typ: "JWT" }).setIssuedAt(now).setExpirationTime(now + 3600).sign(privateKey);
-  const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }) });
+  const assertion = await new SignJWT({
+    iss: account.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+  })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(privateKey);
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
   const result = await response.json();
-  if (!response.ok || !result.access_token) throw new Error("google_access_token_failed");
+  if (!response.ok || !result.access_token) {
+    throw new Error("google_access_token_failed");
+  }
   return result.access_token as string;
 }
 

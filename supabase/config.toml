@@ -164,6 +164,11 @@ verify_jwt = false
 [functions.notify-provider-approved]
 verify_jwt = false
 
+# Donation notifications require a valid authenticated user session; the
+# handler also verifies that the caller belongs to the donation.
+[functions.notify-charity-donation-event]
+verify_jwt = true
+
 [functions.send-whatsapp]
 verify_jwt = true
 

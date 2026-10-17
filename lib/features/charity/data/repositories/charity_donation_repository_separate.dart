@@ -23,6 +23,18 @@ class SeparateCharityDonationRepository {
     return text;
   }
 
+  void _ensureRpcSucceeded(dynamic result, {required String fallback}) {
+    if (result == false) throw Exception(fallback);
+    final row = result is Map
+        ? Map<String, dynamic>.from(result)
+        : result is List && result.isNotEmpty && result.first is Map
+        ? Map<String, dynamic>.from(result.first as Map)
+        : null;
+    if (row?['success'] == false) {
+      throw Exception(row?['error']?.toString() ?? fallback);
+    }
+  }
+
   Future<String> _currentUserId() async {
     final id = _client.auth.currentUser?.id;
     if (id == null || id.isEmpty) throw Exception('يجب تسجيل الدخول أولًا');
@@ -499,8 +511,10 @@ class SeparateCharityDonationRepository {
           'p_open_to_volunteers': openToVolunteers,
         },
       );
+      final data = _mapFromRpc(result);
+      _ensureRpcSucceeded(result, fallback: 'تعذر قبول التبرع');
       await _notifyDonationEvent(requestId, 'status');
-      return _mapFromRpc(result);
+      return data;
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -519,8 +533,10 @@ class SeparateCharityDonationRepository {
         'charity_reject_donation',
         params: {'p_request_id': requestId.trim(), 'p_reason': reason?.trim()},
       );
+      final data = _mapFromRpc(result);
+      _ensureRpcSucceeded(result, fallback: 'تعذر رفض التبرع');
       await _notifyDonationEvent(requestId, 'status');
-      return _mapFromRpc(result);
+      return data;
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -548,8 +564,10 @@ class SeparateCharityDonationRepository {
           'p_external_phone': externalPhone?.trim(),
         },
       );
-      await _notifyDonationEvent(requestId, 'status');
-      return _mapFromRpc(result);
+      final data = _mapFromRpc(result);
+      _ensureRpcSucceeded(result, fallback: 'تعذر تعيين المندوب');
+      await _notifyDonationEvent(requestId, 'volunteer_assigned');
+      return data;
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -597,6 +615,7 @@ class SeparateCharityDonationRepository {
       if (data['success'] != true) {
         throw Exception(data['error']?.toString() ?? 'تعذر إلغاء التبرع');
       }
+      await _notifyDonationEvent(requestId, 'status');
       return data;
     } catch (e) {
       throw Exception(_friendly(e));
@@ -637,6 +656,7 @@ class SeparateCharityDonationRepository {
         'volunteer_mark_in_transit',
         params: {'p_request_id': requestId.trim()},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تحديث حالة التبرع');
       await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
@@ -680,6 +700,7 @@ class SeparateCharityDonationRepository {
         'volunteer_deliver_to_charity',
         params: {'p_request_id': requestId.trim()},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تسليم التبرع للجمعية');
       await _notifyDonationEvent(requestId, 'status');
       return _mapFromRpc(result);
     } catch (e) {
@@ -739,13 +760,15 @@ class SeparateCharityDonationRepository {
     required String volunteerId,
   }) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'assign_direct_donation_charity_volunteer',
         params: {
           'p_request_id': requestId.trim(),
           'p_volunteer_id': volunteerId.trim(),
         },
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تعيين المندوب');
+      await _notifyDonationEvent(requestId, 'volunteer_assigned');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -784,10 +807,12 @@ class SeparateCharityDonationRepository {
     required String token,
   }) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'confirm_direct_donation_pickup',
         params: {'p_request_id': requestId, 'p_token': token.trim()},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تأكيد استلام التبرع');
+      await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -799,7 +824,7 @@ class SeparateCharityDonationRepository {
     required String phone,
   }) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'assign_direct_external_representative_v2',
         params: {
           'p_request_id': requestId,
@@ -807,6 +832,8 @@ class SeparateCharityDonationRepository {
           'p_phone': phone.trim(),
         },
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تعيين المندوب');
+      await _notifyDonationEvent(requestId, 'volunteer_assigned');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -820,7 +847,7 @@ class SeparateCharityDonationRepository {
     String? volunteerPhone,
   }) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'assign_direct_donation_volunteer',
         params: {
           'p_request_id': requestId,
@@ -830,6 +857,8 @@ class SeparateCharityDonationRepository {
           'p_volunteer_phone': volunteerPhone,
         },
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تعيين المندوب');
+      await _notifyDonationEvent(requestId, 'volunteer_assigned');
     } catch (e) {
       throw Exception(_friendly(e));
     }
@@ -923,6 +952,7 @@ class SeparateCharityDonationRepository {
               'advance_direct_donation_status',
               params: {'p_request_id': requestId, 'p_next_status': status},
             );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تحديث حالة التبرع');
       if (!isRestaurantDonation) {
         await _notifyDonationEvent(requestId, 'status');
       }
@@ -958,10 +988,11 @@ class SeparateCharityDonationRepository {
 
   Future<void> claimOpenDonation(String requestId) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'volunteer_claim_charity_donation',
         params: {'p_request_id': requestId},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر استلام مهمة التبرع');
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
@@ -970,10 +1001,11 @@ class SeparateCharityDonationRepository {
 
   Future<void> confirmVolunteerDonorPickup(String requestId) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'volunteer_confirm_donor_pickup',
         params: {'p_request_id': requestId},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تأكيد استلام التبرع');
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
@@ -982,10 +1014,11 @@ class SeparateCharityDonationRepository {
 
   Future<void> confirmVolunteerCharityDelivery(String requestId) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'volunteer_confirm_charity_delivery',
         params: {'p_request_id': requestId},
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تأكيد تسليم التبرع');
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));
@@ -1050,7 +1083,6 @@ class SeparateCharityDonationRepository {
       if (data['success'] != true) {
         throw Exception(data['error']?.toString() ?? 'تعذر إنشاء كود المتطوع');
       }
-      await _notifyDonationEvent(requestId, 'status');
       return data['charity_code']?.toString() ?? '';
     } catch (e) {
       throw Exception(_friendly(e));
@@ -1075,7 +1107,7 @@ class SeparateCharityDonationRepository {
     String? charityId,
   }) async {
     try {
-      await _client.rpc(
+      final result = await _client.rpc(
         'confirm_charity_delivery_with_code',
         params: {
           'p_request_id': requestId,
@@ -1083,6 +1115,7 @@ class SeparateCharityDonationRepository {
           'p_charity_id': charityId,
         },
       );
+      _ensureRpcSucceeded(result, fallback: 'تعذر تأكيد استلام الجمعية للتبرع');
       await _notifyDonationEvent(requestId, 'status');
     } catch (e) {
       throw Exception(_friendly(e));

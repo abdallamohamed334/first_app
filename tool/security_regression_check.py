@@ -57,6 +57,8 @@ INSTITUTION_OFFER_POLICY_MIGRATION = ROOT / "supabase/migrations/20261012291000_
 INSTITUTION_TABLE_ACCESS_MIGRATION = ROOT / "supabase/migrations/20261013110000_harden_institution_table_column_access.sql"
 INSTITUTIONS_REPOSITORY = ROOT / "lib/features/institutions/data/repositories/institutions_repository.dart"
 INSTITUTION_OFFERS_REPOSITORY = ROOT / "lib/features/institutions/data/repositories/institution_offers_repository.dart"
+DONATION_NOTIFICATION_FUNCTION = ROOT / "supabase/functions/notify-charity-donation-event/index.ts"
+DONATION_NOTIFICATION_MIGRATION = ROOT / "supabase/migrations/20261017133000_target_direct_charity_notification_recipients.sql"
 
 
 def require(text: str, needle: str, label: str) -> None:
@@ -114,6 +116,10 @@ def main() -> None:
     institution_table_access_migration = INSTITUTION_TABLE_ACCESS_MIGRATION.read_text()
     institutions_repository = INSTITUTIONS_REPOSITORY.read_text()
     institution_offers_repository = INSTITUTION_OFFERS_REPOSITORY.read_text()
+    donation_notification_function = DONATION_NOTIFICATION_FUNCTION.read_text()
+    donation_notification_migration = DONATION_NOTIFICATION_MIGRATION.read_text()
+    donation_notification_function = DONATION_NOTIFICATION_FUNCTION.read_text()
+    donation_notification_migration = DONATION_NOTIFICATION_MIGRATION.read_text()
 
     require(migration, "REVOKE UPDATE ON TABLE public.users", "users update revoke")
     require(migration, "GRANT UPDATE (", "allowlisted users update columns")
@@ -342,6 +348,26 @@ def main() -> None:
     for shared_file in (supabase_service, error_mapper):
         if "import 'dart:io'" in shared_file or 'import "dart:io"' in shared_file:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")
+
+    require(donation_notification_function, "actorCanNotify({", "donation notification actor authorization")
+    require(donation_notification_function, 'Authorization: `Bearer ${serviceRoleKey}`', "server-only WhatsApp forwarding")
+    require(donation_notification_function, 'case "accepted":', "accepted donation WhatsApp routing")
+    require(donation_notification_function, 'تم قبول تبرعك', "Arabic donor acceptance message")
+    require(donation_notification_function, 'تم رفض تبرعك', "Arabic donor rejection message")
+    require(donation_notification_function, 'slice(0, 950)', "WhatsApp message length bound")
+    if '.from("notifications").insert' in donation_notification_function:
+        raise AssertionError("donation Edge Function duplicates the database in-app notification")
+    require(donation_notification_migration, "NEW.status IS NOT DISTINCT FROM OLD.status", "same-status update discriminator")
+    require(donation_notification_function, '["created", "status", "volunteer_assigned"]', "explicit volunteer assignment event")
+    require(donation_notification_function, "default:\n      return false;", "unknown donation notification state rejected")
+    require(charity_repository, "await _notifyDonationEvent(requestId, 'volunteer_assigned');", "assignment event reaches server")
+    require(charity_repository, "_ensureRpcSucceeded(result", "RPC success is checked before notification")
+    require(donation_notification_migration, "NEW.assigned_at IS NOT DISTINCT FROM OLD.assigned_at", "same-status assignment change detection")
+    require(donation_notification_migration, "AFTER INSERT OR UPDATE OF status, assigned_at", "assignment fields fire notification trigger")
+    require(donation_notification_migration, "SET search_path TO 'pg_catalog', 'public'", "safe notification trigger search_path")
+    require(donation_notification_migration, "REVOKE ALL ON FUNCTION public.create_direct_charity_status_notifications()", "trigger function execute revoked")
+    require(donation_notification_migration, "WHEN 'accepted'", "recipient-specific acceptance notification")
+    require(donation_notification_migration, "WHEN 'rejected'", "recipient-specific rejection notification")
 
     print("security regression checks: PASS")
 
