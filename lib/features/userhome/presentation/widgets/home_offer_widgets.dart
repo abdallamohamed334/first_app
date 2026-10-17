@@ -295,17 +295,16 @@ class HomeFoodImage extends StatelessWidget {
 class HomeCommunityOfferCard extends StatelessWidget {
   final Map<String, dynamic> offer;
   final VoidCallback onTap;
-  final bool fullWidth;
 
   const HomeCommunityOfferCard({
     required this.offer,
     required this.onTap,
-  }) : fullWidth = false;
+  });
 
   @override
   Widget build(BuildContext context) {
     final title = offer['title']?.toString() ?? 'عرض بسعر رمزي';
-    final description = offer['description']?.toString() ?? '';
+    final description = offer['description']?.toString().trim() ?? '';
     final category = offer['category_name_ar']?.toString() ??
         offer['category']?.toString() ??
         'أخرى';
@@ -314,199 +313,203 @@ class HomeCommunityOfferCard extends StatelessWidget {
     final image = _communityImage(offer);
     final expiresAt = _parseDate(offer['expires_at']);
 
-    if (fullWidth) {
-      return GestureDetector(
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: HomePalette.cardSoft,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: HomePalette.border, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(
-                  alpha: HomePalette.isDark ? 0.28 : 0.07,
-                ),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
+    return Container(
+      width: 250,
+      decoration: BoxDecoration(
+        color: HomePalette.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: HomePalette.border, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: HomePalette.isDark ? 0.3 : 0.08,
+            ),
+            blurRadius: 18,
+            offset: const Offset(0, 7),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Row(
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 100,
-                height: 100,
-                child: HomeCommunityImage(image: image),
+                height: 142,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    HomeCommunityImage(image: image),
+                    Positioned(
+                      top: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: HomePalette.primaryRed,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: HomePalette.primaryRed.withValues(
+                                alpha: 0.28,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          price,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 112),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.58),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: Text(
+                          category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 46,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.42),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 9,
+                      right: 11,
+                      child: Row(
+                        children: const [
+                          Icon(
+                            Icons.volunteer_activism_rounded,
+                            color: Colors.white,
+                            size: 15,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'من المجتمع',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        price,
-                        style: TextStyle(
-                          color: HomePalette.primaryRed,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: HomePalette.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          height: 1.25,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                       if (description.isNotEmpty) ...[
-                        SizedBox(height: 3),
+                        const SizedBox(height: 5),
                         Text(
                           description,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: HomePalette.textSecondary,
-                            fontSize: 12,
+                            fontSize: 11,
+                            height: 1.25,
                           ),
                         ),
                       ],
-                      SizedBox(height: 6),
+                      const Spacer(),
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: HomePalette.cardSoft,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              category,
-                              style: TextStyle(
-                                color: HomePalette.textSecondary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                           if (distance != null) ...[
-                            SizedBox(width: 8),
-                            Text(
-                              distance,
-                              style: TextStyle(
-                                color: HomePalette.textSecondary,
-                                fontSize: 11,
+                            Icon(
+                              Icons.near_me_rounded,
+                              size: 14,
+                              color: HomePalette.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                distance,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: HomePalette.textSecondary,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ],
+                          ] else
+                            const Spacer(),
+                          if (expiresAt != null)
+                            OfferExpiryHelper.buildBadge(
+                              expiresAt: expiresAt,
+                              compact: true,
+                            ),
                         ],
                       ),
-                      if (expiresAt != null) ...[
-                        SizedBox(height: 6),
-                        OfferExpiryHelper.buildBadge(
-                          expiresAt: expiresAt,
-                          compact: true,
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
             ],
           ),
-        ),
-      );
-    }
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 180,
-        decoration: BoxDecoration(
-          color: HomePalette.cardSoft,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: HomePalette.border, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: HomePalette.isDark ? 0.28 : 0.07,
-              ),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 130,
-              width: double.infinity,
-              child: HomeCommunityImage(image: image),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    price,
-                    style: TextStyle(
-                      color: HomePalette.primaryRed,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  SizedBox(height: 5),
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: HomePalette.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
-                    ),
-                  ),
-                  SizedBox(height: 7),
-                  Text(
-                    category,
-                    style: TextStyle(
-                      color: HomePalette.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (distance != null) ...[
-                    SizedBox(height: 3),
-                    Text(
-                      distance,
-                      style: TextStyle(
-                        color: HomePalette.textSecondary,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
-                  if (expiresAt != null) ...[
-                    SizedBox(height: 6),
-                    OfferExpiryHelper.buildBadge(
-                      expiresAt: expiresAt,
-                      compact: true,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

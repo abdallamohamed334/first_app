@@ -830,29 +830,27 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       brightness: Brightness.light,
       surface: const Color(0xFFF7F8FA),
     );
-    final title = offer['title']?.toString() ?? 'عرض مستخدم';
-    final description = offer['description']?.toString() ?? '';
+    final title = offer['title']?.toString().trim() ?? 'عرض مستخدم';
+    final description = offer['description']?.toString().trim() ?? '';
     final price = (offer['price'] as num?)?.toDouble() ?? 0;
     final images = _images;
 
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: colors,
-      scaffoldBackgroundColor: const Color(0xFFF5F6FB),
+        scaffoldBackgroundColor: const Color(0xFFF6F7F9),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F6FB),
-        extendBody: true,
+        backgroundColor: const Color(0xFFF6F7F9),
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // ─── SliverAppBar
             SliverAppBar(
-              expandedHeight: 430,
+              expandedHeight: 320,
               pinned: true,
               elevation: 0,
               scrolledUnderElevation: 0,
-              backgroundColor: const Color(0xFFF7F8FA),
+              backgroundColor: const Color(0xFF18231F),
               surfaceTintColor: Colors.transparent,
               leading: _roundAppBarButton(
                 Icons.arrow_back_rounded,
@@ -867,446 +865,492 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 collapseMode: CollapseMode.parallax,
-                background: Padding(
-                  padding: const EdgeInsets.only(bottom: 18),
-                  child: _HeroGallery(images: images),
-                ),
+                background: _HeroGallery(images: images),
               ),
             ),
-
-            // ─── المحتوى
             SliverToBoxAdapter(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF5F6FB),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x14000000),
-                      blurRadius: 18,
-                      offset: Offset(0, -6),
+              child: Transform.translate(
+                offset: const Offset(0, -20),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF6F7F9),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(28),
                     ),
-                  ],
-                ),
-                transform: Matrix4.translationValues(0, -22, 0),
-                padding: const EdgeInsets.fromLTRB(20, 26, 20, 124),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const AdBannerCard(),
-                    // ─── Handle
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 5,
-                        margin: const EdgeInsets.only(bottom: 18),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(18, 24, 18, 112),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: .08),
-                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: const Color(0xFFE9ECEF)),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x0C17211D),
+                              blurRadius: 16,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-
-                    // ─── Badge + Price
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 11, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: colors.primary.withValues(alpha: .10),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(_categoryIcon,
-                                  size: 13, color: colors.primary),
-                              const SizedBox(width: 5),
-                              Text(
-                                'عرض $_categoryName',
-                                style: TextStyle(
-                                  color: colors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 11,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.primary.withValues(alpha: .09),
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _categoryIcon,
+                                        size: 15,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _categoryName,
+                                        style: TextStyle(
+                                          color: colors.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Spacer(),
-                        if (price > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 7),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [
-                                colors.primary,
-                                colors.primary.withValues(alpha: .82),
-                              ]),
-                              borderRadius: BorderRadius.circular(30),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors.primary.withValues(alpha: .3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
+                                const Spacer(),
+                                if (offer['status']?.toString() == 'available' ||
+                                    offer['status']?.toString() == 'active')
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEAF6EF),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.circle,
+                                          size: 7,
+                                          color: Color(0xFF218653),
+                                        ),
+                                        SizedBox(width: 6),
+                                        Text(
+                                          'متاح الآن',
+                                          style: TextStyle(
+                                            color: Color(0xFF218653),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                               ],
                             ),
-                            child: Text(
-                              '${price.toStringAsFixed(0)} جنيه',
+                            const SizedBox(height: 13),
+                            Text(
+                              title,
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
+                                color: Color(0xFF1D2924),
+                                fontSize: 23,
+                                height: 1.3,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // ─── العنوان
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Color(0xFF15171A),
-                        fontSize: 26,
-                        height: 1.2,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ─── صاحب العرض (inline)
-                    InkWell(
-                      onTap: _openOwnerProfile,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 15,
-                              backgroundColor:
-                                  colors.primary.withValues(alpha: .12),
-                              backgroundImage: (_ownerAvatar ?? '').isNotEmpty
-                                  ? NetworkImage(_ownerAvatar ?? '')
-                                  : null,
-                              child: (_ownerAvatar ?? '').isEmpty
-                                  ? const Icon(Icons.person_rounded,
-                                      size: 17, color: Color(0xFF87909A))
-                                  : null,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _ownerName.isEmpty ? 'مستخدم Khedma' : _ownerName,
-                              style: const TextStyle(
-                                color: Color(0xFF626B75),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            Icon(Icons.verified_rounded,
-                                size: 16, color: colors.primary),
-                            const Spacer(),
-                            const Icon(Icons.chevron_left_rounded,
-                                color: Color(0xFF9AA1A8)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-
-                    // ─── معلومات العرض
-                    _infoGrid(colors),
-                    const SizedBox(height: 26),
-
-                    // ─── وصف العرض
-                    _premiumSectionTitle('عن العرض', Icons.notes_rounded),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFEDEEF1)),
-                      ),
-                      child: Text(
-                        description.isEmpty ? 'عرض من مستخدم.' : description,
-                        style: const TextStyle(
-                          color: Color(0xFF626B75),
-                          height: 1.8,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ═══════════════════════════════════════════
-                    // ✅ المواصفات الديناميكية
-                    // ═══════════════════════════════════════════
-                    if (_loadingAttributes) ...[
-                      _premiumSectionTitle(_attributesTitle, _categoryIcon),
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFEDEEF1)),
-                        ),
-                        child: Center(
-                          child: SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.2,
-                              color: colors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ] else if (_marketplaceAttributes.isNotEmpty) ...[
-                      _premiumSectionTitle(_attributesTitle, _categoryIcon),
-                      const SizedBox(height: 10),
-                      _attributesCard(colors),
-                      const SizedBox(height: 24),
-                    ],
-
-                    // ─── مكان الاستلام
-                    _premiumSectionTitle(
-                        'مكان الاستلام', Icons.location_on_rounded),
-                    const SizedBox(height: 10),
-                    _locationCard(colors),
-                    const SizedBox(height: 24),
-
-                    // ─── صاحب العرض
-                    _premiumSectionTitle(
-                        'صاحب العرض', Icons.person_outline_rounded),
-                    const SizedBox(height: 10),
-                    _ownerCard(colors),
-                    const SizedBox(height: 22),
-
-                    // ─── نصائح الأمان
-                    _safetyTips(colors),
-                    const SizedBox(height: 26),
-
-                    // ─── التقييمات
-                    _premiumSectionTitle('التقييمات', Icons.star_rounded),
-                    const SizedBox(height: 12),
-
-                    if (!_isOwner)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _addReview,
-                          icon: const Icon(Icons.star_outline_rounded),
-                          label: const Text('أضف تقييمك'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colors.primary,
-                            side: BorderSide(
-                                color: colors.primary.withValues(alpha: .4)),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14)),
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F2F4),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'لا يمكنك تقييم عرضك الخاص.',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
-                        ),
-                      ),
-                    const SizedBox(height: 14),
-
-                    // ─── قائمة التقييمات
-                    FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _reviewsFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        }
-                        if (snapshot.hasError) {
-                          return const Center(
-                            child: Text('تعذر جلب التقييمات'),
-                          );
-                        }
-                        final reviews = snapshot.data ?? [];
-                        if (reviews.isEmpty) {
-                          return Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: const Color(0xFFEDEEF1)),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Column(
+                            const SizedBox(height: 12),
+                            Row(
                               children: [
-                                Icon(Icons.star_border_rounded,
-                                    color: Colors.grey, size: 30),
-                                SizedBox(height: 8),
-                                Text(
-                                  'لا توجد تقييمات بعد، كن أول من يقيّم!',
-                                  style: TextStyle(color: Colors.grey),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 13,
+                                    vertical: 9,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.primary,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Text(
+                                    price > 0
+                                        ? '${price.toStringAsFixed(0)} جنيه'
+                                        : 'سعر رمزي',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 11),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: _openOwnerProfile,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 17,
+                                          backgroundColor: colors.primary
+                                              .withValues(alpha: .1),
+                                          backgroundImage:
+                                              (_ownerAvatar ?? '').isNotEmpty
+                                                  ? NetworkImage(
+                                                      _ownerAvatar ?? '',
+                                                    )
+                                                  : null,
+                                          child: (_ownerAvatar ?? '').isEmpty
+                                              ? Icon(
+                                                  Icons.person_rounded,
+                                                  size: 18,
+                                                  color: colors.primary,
+                                                )
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _ownerName.isEmpty
+                                                ? 'مستخدم Khedma'
+                                                : _ownerName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Color(0xFF53615B),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.chevron_left_rounded,
+                                          color: colors.primary,
+                                          size: 19,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                          );
-                        }
-
-                        return Column(
-                          children: reviews.map((review) {
-                            final user = review['users'] is Map
-                                ? Map<String, dynamic>.from(
-                                    review['users'] as Map)
-                                : <String, dynamic>{};
-                            final reviewerName =
-                                user['name']?.toString() ?? 'مستخدم';
-                            final avatarUrl = user['avatar_url']?.toString();
-                            final rating =
-                                (review['rating'] as num?)?.toInt() ?? 0;
-                            final comment = review['comment']?.toString() ?? '';
-                            final createdAt = DateTime.tryParse(
-                                review['created_at']?.toString() ?? '');
-
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      _infoGrid(colors),
+                      const SizedBox(height: 26),
+                      _premiumSectionTitle('عن العرض', Icons.notes_rounded),
+                      const SizedBox(height: 11),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(17),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: const Color(0xFFE9ECEF)),
+                        ),
+                        child: Text(
+                          description.isEmpty ? 'عرض من مستخدم.' : description,
+                          style: const TextStyle(
+                            color: Color(0xFF53615B),
+                            height: 1.75,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const AdBannerCard(),
+                      const SizedBox(height: 24),
+                      if (_loadingAttributes) ...[
+                        _premiumSectionTitle(_attributesTitle, _categoryIcon),
+                        const SizedBox(height: 11),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE9ECEF)),
+                          ),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: colors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ] else if (_marketplaceAttributes.isNotEmpty) ...[
+                        _premiumSectionTitle(_attributesTitle, _categoryIcon),
+                        const SizedBox(height: 11),
+                        _attributesCard(colors),
+                        const SizedBox(height: 24),
+                      ],
+                      _premiumSectionTitle(
+                        'مكان الاستلام',
+                        Icons.location_on_rounded,
+                      ),
+                      const SizedBox(height: 11),
+                      _locationCard(colors),
+                      const SizedBox(height: 24),
+                      _premiumSectionTitle(
+                        'صاحب العرض',
+                        Icons.person_outline_rounded,
+                      ),
+                      const SizedBox(height: 11),
+                      _ownerCard(colors),
+                      const SizedBox(height: 18),
+                      _safetyTips(colors),
+                      const SizedBox(height: 26),
+                      _premiumSectionTitle('التقييمات', Icons.star_rounded),
+                      const SizedBox(height: 12),
+                      if (!_isOwner)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _addReview,
+                            icon: const Icon(Icons.star_outline_rounded),
+                            label: const Text('أضف تقييمك'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colors.primary,
+                              side: BorderSide(
+                                color: colors.primary.withValues(alpha: .35),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFE9ECEF)),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'لا يمكنك تقييم عرضك الخاص.',
+                            style: TextStyle(
+                              color: Color(0xFF7D8782),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 14),
+                      FutureBuilder<List<Map<String, dynamic>>>(
+                        future: _reviewsFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return const Center(
+                              child: Text('تعذر جلب التقييمات'),
+                            );
+                          }
+                          final reviews = snapshot.data ?? [];
+                          if (reviews.isEmpty) {
                             return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.all(13),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
-                                border:
-                                    Border.all(color: const Color(0xFFEDEEF1)),
+                                border: Border.all(
+                                  color: const Color(0xFFE9ECEF),
+                                ),
                               ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              alignment: Alignment.center,
+                              child: Column(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 18,
-                                    backgroundColor:
-                                        colors.primary.withAlpha(20),
-                                    child:
-                                        avatarUrl == null || avatarUrl.isEmpty
-                                            ? Icon(Icons.person,
-                                                color: colors.primary, size: 20)
-                                            : ClipOval(
-                                                child: Image.network(
-                                                  avatarUrl,
-                                                  width: 36,
-                                                  height: 36,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      Icon(Icons.person,
-                                                          color: colors.primary,
-                                                          size: 20),
-                                                ),
-                                              ),
+                                  Icon(
+                                    Icons.star_border_rounded,
+                                    color: colors.primary.withValues(alpha: .6),
+                                    size: 30,
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                reviewerName,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ),
-                                            if (createdAt != null)
-                                              Text(
-                                                DateFormat('dd/MM/yyyy')
-                                                    .format(createdAt),
-                                                style: const TextStyle(
-                                                  fontSize: 10,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: List.generate(5, (index) {
-                                            return Icon(
-                                              Icons.star_rounded,
-                                              size: 15,
-                                              color: index < rating
-                                                  ? Colors.amber
-                                                  : Colors.grey.shade300,
-                                            );
-                                          }),
-                                        ),
-                                        if (comment.isNotEmpty) ...[
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            comment,
-                                            style: TextStyle(
-                                              fontSize: 12.5,
-                                              height: 1.5,
-                                              color: colors.onSurfaceVariant,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'لا توجد تقييمات بعد، كن أول من يقيّم!',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFF7D8782),
                                     ),
                                   ),
                                 ],
                               ),
                             );
-                          }).toList(),
-                        );
-                      },
-                    ),
-                  ],
+                          }
+
+                          return Column(
+                            children: reviews.map((review) {
+                              final user = review['users'] is Map
+                                  ? Map<String, dynamic>.from(
+                                      review['users'] as Map,
+                                    )
+                                  : <String, dynamic>{};
+                              final reviewerName =
+                                  user['name']?.toString() ?? 'مستخدم';
+                              final avatarUrl = user['avatar_url']?.toString();
+                              final rating =
+                                  (review['rating'] as num?)?.toInt() ?? 0;
+                              final comment =
+                                  review['comment']?.toString() ?? '';
+                              final createdAt = DateTime.tryParse(
+                                review['created_at']?.toString() ?? '',
+                              );
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(17),
+                                  border: Border.all(
+                                    color: const Color(0xFFE9ECEF),
+                                  ),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 19,
+                                      backgroundColor: colors.primary
+                                          .withValues(alpha: .1),
+                                      child: avatarUrl == null ||
+                                              avatarUrl.isEmpty
+                                          ? Icon(
+                                              Icons.person_rounded,
+                                              color: colors.primary,
+                                              size: 20,
+                                            )
+                                          : ClipOval(
+                                              child: Image.network(
+                                                avatarUrl,
+                                                width: 38,
+                                                height: 38,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    Icon(
+                                                  Icons.person_rounded,
+                                                  color: colors.primary,
+                                                  size: 20,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  reviewerName,
+                                                  style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (createdAt != null)
+                                                Text(
+                                                  DateFormat('dd/MM/yyyy')
+                                                      .format(createdAt),
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: Color(0xFF89928D),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: List.generate(
+                                              5,
+                                              (index) => Icon(
+                                                Icons.star_rounded,
+                                                size: 15,
+                                                color: index < rating
+                                                    ? Colors.amber
+                                                    : Colors.grey.shade300,
+                                              ),
+                                            ),
+                                          ),
+                                          if (comment.isNotEmpty) ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              comment,
+                                              style: TextStyle(
+                                                fontSize: 12.5,
+                                                height: 1.5,
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
-
-        // ─── Bottom Bar
         bottomNavigationBar: SafeArea(
           top: false,
           child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            padding: const EdgeInsets.all(9),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF15171A),
-              borderRadius: BorderRadius.circular(22),
-              boxShadow: [
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE7EAE8)),
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: .16),
-                  blurRadius: 22,
-                  offset: const Offset(0, 9),
+                  color: Color(0x18000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
                 ),
               ],
             ),
@@ -1334,11 +1378,12 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 9),
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _fetchingContacts ? null : _openPhone,
@@ -1352,7 +1397,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
