@@ -21,6 +21,17 @@ class SeparateCharityDonationRepository {
     return id;
   }
 
+  Future<void> _notifyDonationCreated(String requestId) async {
+    try {
+      await _client.functions.invoke(
+        'notify-charity-donation-event',
+        body: {'requestId': requestId.trim(), 'event': 'created'},
+      );
+    } catch (_) {
+      // Notification failure must not roll back a donation that was saved.
+    }
+  }
+
   Future<Map<String, dynamic>> createDonation({
     required String charityId,
     required String title,
@@ -56,7 +67,9 @@ class SeparateCharityDonationRepository {
           created_at
         ''')
         .single();
-    return Map<String, dynamic>.from(row);
+    final donation = Map<String, dynamic>.from(row);
+    await _notifyDonationCreated(donation['id']?.toString() ?? '');
+    return donation;
   }
 
   Future<List<Map<String, dynamic>>> getMyDonations() async {

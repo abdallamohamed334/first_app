@@ -135,7 +135,7 @@ Deno.serve(async (request) => {
             "push_delivery_failed",
             error instanceof Error ? error.name : "unknown",
           );
-          return false;
+          return { sent: false, failures: ["firebase_setup_failed"] };
         }
       }),
     );
@@ -162,12 +162,23 @@ Deno.serve(async (request) => {
       ),
     );
 
+    const pushSent = pushResults.filter((result) => result.sent).length;
+    const whatsappSent = whatsappResults.filter((result) => result.sent).length;
+    const pushFailures = [...new Set(pushResults.flatMap((result) => result.failures))];
+    const whatsappFailures = [...new Set(
+      whatsappResults.flatMap((result) => result.sent ? [] : [result.code]),
+    )];
+    const delivered = pushSent + whatsappSent > 0;
+
     return json({
-      success: true,
+      success: delivered,
+      ...(!delivered ? { error: "all_delivery_channels_failed" } : {}),
       recipients: recipients.length,
-      push_sent: pushResults.filter(Boolean).length,
-      whatsapp_sent: whatsappResults.filter(Boolean).length,
-      whatsapp_failed: whatsappResults.filter((sent) => !sent).length,
+      push_sent: pushSent,
+      push_failure_codes: pushFailures,
+      whatsapp_sent: whatsappSent,
+      whatsapp_failed: whatsappResults.filter((result) => !result.sent).length,
+      whatsapp_failure_codes: whatsappFailures,
       status,
     });
   } catch (error) {
@@ -485,7 +496,9 @@ function deduplicateWhatsAppDeliveries(
 async function sendWhatsApp(phone: string, message: string) {
   const cleanPhone = normalizePhone(phone);
   const cleanMessage = Array.from(message.trim()).slice(0, 950).join("");
-  if (!cleanPhone || !serviceRoleKey || !cleanMessage) return false;
+  if (!cleanPhone) return { sent: false, code: "invalid_phone" };
+  if (!serviceRoleKey) return { sent: false, code: "service_role_missing" };
+  if (!cleanMessage) return { sent: false, code: "empty_message" };
   try {
     const response = await fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
       method: "POST",
@@ -497,14 +510,21 @@ async function sendWhatsApp(phone: string, message: string) {
       body: JSON.stringify({ to: cleanPhone, message: cleanMessage }),
       signal: AbortSignal.timeout(10_000),
     });
-    await response.text();
-    return response.ok;
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const code = typeof result?.error === "string"
+        ? result.error.slice(0, 60)
+        : `http_${response.status}`;
+      console.error("whatsapp_delivery_rejected", response.status, code);
+      return { sent: false, code };
+    }
+    return { sent: true, code: "" };
   } catch (error) {
     console.error(
       "whatsapp_delivery_failed",
       error instanceof Error ? error.name : "unknown",
     );
-    return false;
+    return { sent: false, code: "network_error" };
   }
 }
 
@@ -514,43 +534,72 @@ async function sendPush(
   body: string,
   data: Record<string, string>,
 ) {
-  const { data: devices } = await admin
+  const { data: devices, error: deviceError } = await admin
     .from("user_devices")
     .select("id, fcm_token")
     .eq("user_id", userId)
     .eq("is_active", true)
     .limit(10);
+  if (deviceError) return { sent: false, failures: ["device_lookup_failed"] };
   const fallback = devices && devices.length > 0
     ? devices
     : await fallbackDevice(userId);
-  if (!fallback || fallback.length === 0) return false;
-
-  const accessToken = await googleAccessToken();
-  let sent = false;
-  for (const device of fallback) {
-    const response = await fetch(
-      `https://fcm.googleapis.com/v1/projects/${Deno.env.get("FIREBASE_PROJECT_ID") ?? "flutter-app-45f07"}/messages:send`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: {
-            token: String(device.fcm_token),
-            notification: { title, body },
-            data,
-            android: { priority: "HIGH" },
-            apns: { payload: { aps: { sound: "default" } } },
-          },
-        }),
-      },
-    );
-    if (response.ok) sent = true;
-    await response.text();
+  if (!fallback || fallback.length === 0) {
+    return { sent: false, failures: ["no_active_device"] };
   }
-  return sent;
+
+  const { accessToken, projectId } = await googleAccessToken();
+  let sent = false;
+  const failures: string[] = [];
+  for (const device of fallback) {
+    try {
+      const response = await fetch(
+        `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: {
+              token: String(device.fcm_token),
+              notification: { title, body },
+              data,
+              android: { priority: "HIGH" },
+              apns: { payload: { aps: { sound: "default" } } },
+            },
+          }),
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+      if (response.ok) {
+        sent = true;
+      } else {
+        const payload = await response.json().catch(() => ({}));
+        const providerError = payload?.error;
+        const detail = Array.isArray(providerError?.details)
+          ? providerError.details.find(
+            (item: Record<string, unknown>) => typeof item.errorCode === "string",
+          )
+          : null;
+        const code = typeof detail?.errorCode === "string"
+          ? detail.errorCode
+          : typeof providerError?.status === "string"
+          ? providerError.status
+          : `HTTP_${response.status}`;
+        failures.push(code.slice(0, 60));
+        console.error("fcm_delivery_rejected", response.status, code.slice(0, 60));
+      }
+    } catch (error) {
+      failures.push("network_error");
+      console.error(
+        "fcm_delivery_failed",
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
+  }
+  return { sent, failures: [...new Set(failures)] };
 }
 
 async function fallbackDevice(userId: string) {
@@ -566,8 +615,18 @@ async function googleAccessToken() {
   const raw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT");
   if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT is not configured");
   const account = JSON.parse(raw);
+  const projectId = typeof account.project_id === "string"
+    ? account.project_id.trim()
+    : "";
+  if (!/^[a-z0-9-]+$/.test(projectId)) {
+    throw new Error("firebase_project_id_invalid");
+  }
+  const privateKeyPem = typeof account.private_key === "string"
+    ? account.private_key.replace(/\\n/g, "\n")
+    : "";
+  if (!privateKeyPem) throw new Error("firebase_private_key_missing");
   const privateKey = await importPKCS8(
-    account.private_key.replace(/\\n/g, "\n"),
+    privateKeyPem,
     "RS256",
   );
   const now = Math.floor(Date.now() / 1000);
@@ -589,10 +648,10 @@ async function googleAccessToken() {
     }),
   });
   const result = await response.json();
-  if (!response.ok || !result.access_token) {
+  if (!response.ok || typeof result.access_token !== "string") {
     throw new Error("google_access_token_failed");
   }
-  return result.access_token as string;
+  return { accessToken: result.access_token as string, projectId };
 }
 
 function normalizePhone(phone: string) {
