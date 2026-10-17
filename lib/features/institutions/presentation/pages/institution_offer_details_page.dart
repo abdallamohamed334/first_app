@@ -51,17 +51,17 @@ class _InstitutionOfferDetailsPageState
   bool _loadingLimit = true;
 
   // ─── ألوان أساسية ───
-  static const Color _primary = Color(0xFF0B7650);
-  static const Color _primaryDark = Color(0xFF054D34);
-  static const Color _primaryLight = Color(0xFF25B77C);
+  static const Color _primary = Color(0xFFFF2E3B);
+  static const Color _primaryDark = Color(0xFFD8202C);
+  static const Color _primaryLight = Color(0xFFFF6670);
   static const Color _gold = Color(0xFFD4A843);
   static const Color _orange = Color(0xFFE28B00);
-  static const Color _red = Color(0xFFDC4C4C);
+  static const Color _red = Color(0xFFD8202C);
   static const Color _blue = Color(0xFF3679C8);
   static const Color _purple = Color(0xFF7B5EC7);
-  static const Color _ink = Color(0xFF0F2E23);
-  static const Color _inkSoft = Color(0xFF61756D);
-  static const Color _cream = Color(0xFFF7FAF8);
+  static const Color _ink = Color(0xFF1B1D22);
+  static const Color _inkSoft = Color(0xFF68707C);
+  static const Color _cream = Color(0xFFF7F8FA);
 
   @override
   void initState() {
@@ -371,7 +371,7 @@ class _InstitutionOfferDetailsPageState
               ),
               slivers: [
                 SliverAppBar(
-                  expandedHeight: 380,
+                  expandedHeight: 330,
                   pinned: true,
                   stretch: true,
                   backgroundColor: _primaryDark,
@@ -861,7 +861,7 @@ class _InstitutionOfferDetailsPageState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFEEF3F0)),
+        border: Border.all(color: const Color(0xFFE2E6EC)),
         boxShadow: [
           BoxShadow(
             color: _ink.withValues(alpha: 0.04),
@@ -935,7 +935,7 @@ class _InstitutionOfferDetailsPageState
               Container(
                 width: 1,
                 height: 70,
-                color: const Color(0xFFEEF3F0),
+                color: const Color(0xFFE2E6EC),
               ),
               const SizedBox(width: 16),
               Column(
@@ -1234,7 +1234,7 @@ class _InstitutionOfferDetailsPageState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFEEF3F0)),
+        border: Border.all(color: const Color(0xFFE2E6EC)),
         boxShadow: [
           BoxShadow(
             color: _ink.withValues(alpha: 0.04),
@@ -1324,7 +1324,7 @@ class _InstitutionOfferDetailsPageState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFEEF3F0)),
+        border: Border.all(color: const Color(0xFFE2E6EC)),
         boxShadow: [
           BoxShadow(
             color: _ink.withValues(alpha: 0.04),
@@ -1528,7 +1528,7 @@ class _InstitutionOfferDetailsPageState
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFEEF7F3), Color(0xFFE3F2EC)],
+            colors: [Color(0xFFFFF0F1), Color(0xFFFFE2E5)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
@@ -1657,7 +1657,7 @@ class _InstitutionOfferDetailsPageState
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFEEF3F0)),
+            border: Border.all(color: const Color(0xFFE2E6EC)),
             boxShadow: [
               BoxShadow(
                 color: _ink.withValues(alpha: 0.04),
