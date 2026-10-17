@@ -247,6 +247,17 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
         if (state.categoryOffers.isEmpty) {
           return _buildEmptyState(context);
         }
+        final offers = [...state.categoryOffers]
+          ..sort((a, b) {
+            final aDistance = a.distanceMeters;
+            final bDistance = b.distanceMeters;
+            if (aDistance != null && bDistance != null) {
+              return aDistance.compareTo(bDistance);
+            }
+            if (aDistance != null) return -1;
+            if (bDistance != null) return 1;
+            return b.createdAt.compareTo(a.createdAt);
+          });
         return RefreshIndicator(
           color: _primaryRed,
           backgroundColor: _card,
@@ -259,21 +270,16 @@ class _CategoryOffersPageState extends State<CategoryOffersPage> {
                   ),
                 );
           },
-          child: GridView.builder(
+          child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            itemCount: state.categoryOffers.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.68,
-            ),
+            itemCount: offers.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final offer = state.categoryOffers[index];
-              return _DubizzleStyleCard(
+              final offer = offers[index];
+              return _InstitutionCategoryOfferCard(
                 offer: offer,
                 onTap: () => _openOfferDetails(context, offer),
               );
@@ -1718,6 +1724,225 @@ class _SourceBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// FULL-WIDTH INSTITUTION CATEGORY CARD
+// ============================================================================
+
+class _InstitutionCategoryOfferCard extends StatelessWidget {
+  final CategoryOffer offer;
+  final VoidCallback onTap;
+
+  const _InstitutionCategoryOfferCard({
+    required this.offer,
+    required this.onTap,
+  });
+
+  static Color get _card => HomePalette.card;
+  static Color get _cardSoft => HomePalette.cardSoft;
+  static Color get _primaryRed => HomePalette.primaryRed;
+  static Color get _textPrimary => HomePalette.textPrimary;
+  static Color get _textSecondary => HomePalette.textSecondary;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = offer.image?.trim() ?? '';
+    final description = offer.description?.trim() ?? '';
+    final ownerName = offer.ownerName?.trim();
+
+    return Material(
+      color: _card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: 166,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _textSecondary.withValues(alpha: 0.12),
+            ),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: SizedBox(
+                  width: 116,
+                  height: 146,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (imageUrl.isEmpty)
+                        Container(
+                          color: _cardSoft,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.fastfood_rounded,
+                            color: _textSecondary,
+                            size: 32,
+                          ),
+                        )
+                      else
+                        CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: _cardSoft,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: _textSecondary,
+                              size: 28,
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            color: _cardSoft,
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: _textSecondary,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: _OwnerBadge(ownerType: offer.ownerType),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_rounded,
+                          color: _primaryRed,
+                          size: 15,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            offer.distanceDisplay ?? 'المسافة غير متاحة',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: offer.distanceDisplay == null
+                                  ? _textSecondary
+                                  : _primaryRed,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: _textSecondary.withValues(alpha: 0.7),
+                          size: 13,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      offer.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontSize: 11,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.storefront_rounded,
+                          color: _textSecondary,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            ownerName == null || ownerName.isEmpty
+                                ? 'مؤسسة'
+                                : ownerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            offer.priceDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _primaryRed,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        if (offer.originalPriceDisplay != null) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              offer.originalPriceDisplay!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 11,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
