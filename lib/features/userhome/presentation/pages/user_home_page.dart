@@ -87,7 +87,6 @@ const Set<String> _institutionHomeCategorySlugs = {
   'butcher',
   'meat_shop',
 };
-const Set<String> _institutionSurplusSlugs = {'hotel', 'wedding_hall'};
 
 enum _HomeMode { buy, services }
 
@@ -1190,7 +1189,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
         SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
-        SliverToBoxAdapter(child: _buildInstitutionSurplusHomeSection(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -3634,76 +3632,6 @@ class _UserHomePageState extends State<UserHomePage> {
               const SizedBox(height: 14),
               _buildInstitutionSubcategoryStrip(
                   visibleSubcategories, offersByCategory),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInstitutionSurplusHomeSection(UserHomeLoaded state) {
-    final sourceCategories = _nearbyMainCategories.isNotEmpty
-        ? _nearbyMainCategories
-        : state.categories;
-    final root = sourceCategories.cast<Map<String, dynamic>?>().firstWhere(
-          (category) => category?['slug']?.toString() == 'institution-offers',
-          orElse: () => null,
-        );
-    if (root == null) return const SizedBox.shrink();
-
-    final rootId = root['id']?.toString() ?? '';
-    final offersByCategory = <String, List<CategoryOffer>>{};
-    for (final offer in (_nearbyCategoryOffers[rootId] ??
-            const <CategoryOffer>[])
-        .where((offer) => offer.ownerType == 'institution')) {
-      final categoryId = offer.categoryId?.trim();
-      if (categoryId == null || categoryId.isEmpty) continue;
-      offersByCategory.putIfAbsent(categoryId, () => []).add(offer);
-    }
-
-    final surplusCategories = _institutionSubcategories.where((category) {
-      final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
-      return _institutionSurplusSlugs.contains(slug);
-    }).toList(growable: false);
-    if (_loadingNearbyCategoryOffers && surplusCategories.isEmpty) {
-      return _section(
-        title: 'فائض مؤسسات للبيع',
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
-        ),
-      );
-    }
-    if (surplusCategories.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      children: [
-        _section(
-          title: 'فائض مؤسسات للبيع',
-          trailing: Text(
-            'فنادق وقاعات أفراح',
-            style: TextStyle(
-              color: _textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'فائض الطعام المتاح من الفنادق وقاعات الأفراح بسعر رمزي',
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _buildInstitutionSubcategoryStrip(
-                surplusCategories,
-                offersByCategory,
-              ),
             ],
           ),
         ),
