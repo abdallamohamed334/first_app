@@ -16,19 +16,35 @@ class SplashPage extends StatefulWidget {
   State<SplashPage> createState() => _SplashPageState();
 }
 
-class _SplashPageState extends State<SplashPage> {
-  static const _backgroundTop = Color(0xFFF4EEE5);
-  static const _backgroundBottom = Color(0xFFE6D9C8);
-
+class _SplashPageState extends State<SplashPage>
+    with SingleTickerProviderStateMixin {
+  static const _splashBackground = Color(0xFF111111);
   Timer? _retryTimer;
   bool _isNavigating = false;
+  late final AnimationController _logoController;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _logoOpacity;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _navigateToNext();
+    _logoController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    );
+    _logoScale = Tween<double>(begin: 0.72, end: 1).animate(
+      CurvedAnimation(parent: _logoController, curve: Curves.easeOutBack),
+    );
+    _logoOpacity = CurvedAnimation(
+      parent: _logoController,
+      curve: Curves.easeOutCubic,
+    );
+    _logoController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        unawaited(_navigateToNext());
+      }
     });
+    _logoController.forward();
   }
 
   Future<void> _navigateToNext() async {
@@ -92,38 +108,43 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void dispose() {
     _retryTimer?.cancel();
+    _logoController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final logoSize = MediaQuery.sizeOf(context).shortestSide * 0.78;
     return Scaffold(
-      backgroundColor: _backgroundTop,
+      backgroundColor: _splashBackground,
       body: AnnotatedRegion<SystemUiOverlayStyle>(
         value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-          systemNavigationBarColor: _backgroundBottom,
-          systemNavigationBarIconBrightness: Brightness.dark,
+          statusBarColor: _splashBackground,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: _splashBackground,
+          systemNavigationBarIconBrightness: Brightness.light,
         ),
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [_backgroundTop, _backgroundBottom],
-            ),
-          ),
+          color: _splashBackground,
           alignment: Alignment.center,
-          child: Image.asset(
-            'assets/images/khedma_icon.png',
-            width: 112,
-            height: 112,
-            fit: BoxFit.contain,
-            excludeFromSemantics: true,
+          child: FadeTransition(
+            opacity: _logoOpacity,
+            child: ScaleTransition(
+              scale: _logoScale,
+              child: Semantics(
+                label: 'شعار التطبيق',
+                child: Image.asset(
+                  'assets/images/khedma_splash_logo.png',
+                  width: logoSize,
+                  height: logoSize,
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
           ),
         ),
       ),
