@@ -350,7 +350,8 @@ def main() -> None:
             raise AssertionError("shared app code imports dart:io and blocks web compilation")
 
     require(donation_notification_function, "actorCanNotify({", "donation notification actor authorization")
-    require(donation_notification_function, 'Authorization: `Bearer ${serviceRoleKey}`', "server-only WhatsApp forwarding")
+    require(donation_notification_function, 'Authorization: `Bearer ${wapilotToken}`', "server-only WhatsApp provider authorization")
+    require(donation_notification_function, 'const wapilotToken = Deno.env.get("WAPILOT_TOKEN") ?? "";', "server-side WhatsApp provider secret")
     require(donation_notification_function, 'case "accepted":', "accepted donation WhatsApp routing")
     require(donation_notification_function, 'تم قبول تبرعك', "Arabic donor acceptance message")
     require(donation_notification_function, 'تم رفض تبرعك', "Arabic donor rejection message")
