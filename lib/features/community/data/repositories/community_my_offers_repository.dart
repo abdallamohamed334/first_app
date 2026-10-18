@@ -7,10 +7,11 @@ class CommunityMyOffersRepository {
   final SupabaseClient _client;
 
   CommunityMyOffersRepository({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+      : _client = client ?? Supabase.instance.client;
 
-  // ✅ جلب العروض الخاصة بالمستخدم فقط
-  // (بدون فلترة في DB — الفلترة بتحصل في الـ UI)
+  // ✅ جلب العروض المنشورة الخاصة بالمستخدم فقط.
+  // المحاولات التي فشل حفظ مواصفاتها تُعلّم cancelled داخليًا، ولا يجب
+  // عرضها للمستخدم كأنها عروض منشورة أو تستهلك مساحة من قائمته.
   Future<List<Map<String, dynamic>>> getMyOffers() async {
     final user = _client.auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولًا');
@@ -24,6 +25,7 @@ class CommunityMyOffersRepository {
           'phone, whatsapp, category_id, marketplace_category_id, edit_count',
         )
         .eq('owner_id', user.id)
+        .neq('status', 'cancelled')
         .order('created_at', ascending: false)
         .limit(100);
 
@@ -100,8 +102,7 @@ class CommunityMyOffersRepository {
           .createSignedUrl(path, 3600);
     } catch (error) {
       final message = error.toString().toLowerCase();
-      final isMissingObject =
-          message.contains('404') ||
+      final isMissingObject = message.contains('404') ||
           message.contains('not_found') ||
           message.contains('object not found');
       if (!isMissingObject) {

@@ -48,7 +48,7 @@ class CommunityOfferRepository {
     final response = await _client
         .from('community_categories')
         .select(
-          'id, slug, name_ar, name_en, description, parent_id, is_active, sort_order',
+          'id, slug, name_ar, name_en, description, parent_id, icon, is_active, sort_order',
         )
         .eq('is_active', true)
         .order('sort_order')
@@ -285,6 +285,14 @@ class CommunityOfferRepository {
       );
     }
 
+    // Validate against the live category contract before uploading images or
+    // inserting community_offers. This prevents incomplete cancelled rows
+    // when the attribute RPC would reject stale/invalid option IDs.
+    await _validateMarketplaceAttributesBeforeCreate(
+      categoryId: cleanMarketplaceCategoryId,
+      attributes: uniqueMarketplaceAttributes,
+    );
+
     // ==========================================================
     // UPLOAD IMAGES
     // ==========================================================
@@ -454,9 +462,9 @@ class CommunityOfferRepository {
             );
           }
 
-          throw Exception(
-            'تعذر حفظ مواصفات المنتج. لم يتم إنشاء العرض بشكل كامل.',
-          );
+          // Preserve the PostgREST error so the UI can show the exact
+          // rejected attribute/option instead of a misleading generic error.
+          rethrow;
         }
       }
 
@@ -495,6 +503,90 @@ class CommunityOfferRepository {
       }
 
       rethrow;
+    }
+  }
+
+  Future<void> _validateMarketplaceAttributesBeforeCreate({
+    required String? categoryId,
+    required List<Map<String, dynamic>> attributes,
+  }) async {
+    if (categoryId == null || categoryId.isEmpty) {
+      throw Exception('تصنيف Marketplace غير موجود');
+    }
+
+    final links = await _client
+        .from('marketplace_category_attributes')
+        .select('attribute_id, is_required')
+        .eq('category_id', categoryId)
+        .eq('is_for_offer_creation', true)
+        .eq('is_for_display', true);
+    final linkById = <String, Map<String, dynamic>>{
+      for (final row in (links as List).whereType<Map>())
+        row['attribute_id'].toString(): Map<String, dynamic>.from(row),
+    };
+
+    final suppliedIds = attributes
+        .map((row) => row['attribute_id']?.toString().trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final requiredIds = linkById.entries
+        .where((entry) => entry.value['is_required'] == true)
+        .map((entry) => entry.key)
+        .toSet();
+    if (requiredIds.difference(suppliedIds).isNotEmpty) {
+      throw Exception('المواصفات المطلوبة للتصنيف غير مكتملة');
+    }
+    if (suppliedIds.any((id) => !linkById.containsKey(id))) {
+      throw Exception('إحدى مواصفات العرض لا تنتمي إلى التصنيف المختار');
+    }
+    if (suppliedIds.isEmpty) return;
+
+    final attributeRows = await _client
+        .from('marketplace_attributes')
+        .select('id, input_type')
+        .inFilter('id', suppliedIds.toList())
+        .eq('is_active', true);
+    final typeById = <String, String>{
+      for (final row in (attributeRows as List).whereType<Map>())
+        row['id'].toString():
+            row['input_type']?.toString().toLowerCase() ?? 'text',
+    };
+    if (typeById.length != suppliedIds.length) {
+      throw Exception('إحدى مواصفات العرض غير مفعّلة حاليًا');
+    }
+
+    final optionIds = attributes
+        .where(
+          (row) => typeById[row['attribute_id']?.toString()] == 'select',
+        )
+        .map((row) => row['option_id']?.toString().trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (optionIds.isEmpty) {
+      if (attributes.any(
+        (row) => typeById[row['attribute_id']?.toString()] == 'select',
+      )) {
+        throw Exception('يوجد اختيار مطلوب غير محدد');
+      }
+      return;
+    }
+
+    final options = await _client
+        .from('marketplace_attribute_options')
+        .select('id, attribute_id')
+        .inFilter('id', optionIds)
+        .eq('is_active', true);
+    final validOptions = <String, String>{
+      for (final row in (options as List).whereType<Map>())
+        row['id'].toString(): row['attribute_id'].toString(),
+    };
+    for (final row in attributes) {
+      final attributeId = row['attribute_id']?.toString() ?? '';
+      if (typeById[attributeId] != 'select') continue;
+      final optionId = row['option_id']?.toString().trim() ?? '';
+      if (optionId.isEmpty || validOptions[optionId] != attributeId) {
+        throw Exception('الخيار المختار غير صالح للمواصفة');
+      }
     }
   }
 

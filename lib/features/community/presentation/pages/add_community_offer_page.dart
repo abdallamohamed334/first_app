@@ -1477,6 +1477,16 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       if (code == '22p02' || serverText.contains('invalid input syntax')) {
         return 'إحدى القيم الرقمية غير صحيحة. راجع السعر والكمية والخصائص الرقمية.';
       }
+      if (serverText.contains('invalid option')) {
+        return 'الخيار المختار غير صالح لهذه المواصفة. أعد اختيار المواصفة من القائمة الحالية.';
+      }
+      if (serverText.contains('required selection') ||
+          serverText.contains('required category specifications')) {
+        return 'أكمل كل المواصفات المطلوبة للتصنيف قبل النشر.';
+      }
+      if (serverText.contains('attribute is not allowed')) {
+        return 'إحدى المواصفات لا تتبع التصنيف المختار. أعد اختيار التصنيف والمواصفات.';
+      }
       if (serverText.contains('timeout') ||
           serverText.contains('network') ||
           serverText.contains('connection')) {
@@ -1808,8 +1818,19 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             subtitle: 'ارجع خطوة واختار قسمًا آخر.',
           )
         else
-          ...categories
-              .map((category) => _buildWizardCategoryTile(category, colors)),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: categories.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: .96,
+            ),
+            itemBuilder: (_, index) =>
+                _buildWizardCategoryTile(categories[index], colors),
+          ),
       ],
     );
   }
@@ -1821,76 +1842,164 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     final name = category['name_ar']?.toString().trim() ?? 'تصنيف';
     final childCount = _childrenOf(category).length;
     final isRoot = _wizardStep == 0;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Material(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(17),
-        child: InkWell(
-          onTap: isRoot
-              ? () => _selectMainCategory(category)
-              : () => _selectSubcategory(category),
-          borderRadius: BorderRadius.circular(17),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(17),
-              border: Border.all(color: colors.outlineVariant),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colors.primary.withValues(alpha: .10),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(
-                    isRoot ? Icons.folder_open_rounded : Icons.sell_outlined,
-                    color: colors.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: TextStyle(
-                          color: colors.onSurface,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        childCount > 0
-                            ? '$childCount تصنيفات فرعية'
-                            : 'اختيار هذا التصنيف',
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+    return Material(
+      color: colors.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: isRoot
+            ? () => _selectMainCategory(category)
+            : () => _selectSubcategory(category),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: colors.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: .05),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      colors.primary.withValues(alpha: .18),
+                      colors.primary.withValues(alpha: .07),
                     ],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
                   ),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                Icon(
-                  Icons.arrow_back_ios_new_rounded,
+                child: Icon(
+                  _wizardCategoryIcon(category),
                   color: colors.primary,
-                  size: 16,
+                  size: 30,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.onSurface,
+                  fontSize: 13.5,
+                  height: 1.25,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                childCount > 0 ? '$childCount تصنيفات فرعية' : 'اختيار التصنيف',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  IconData _wizardCategoryIcon(Map<String, dynamic> category) {
+    final slug = category['slug']?.toString() ?? '';
+    final icon = category['icon']?.toString() ?? '';
+    const bySlug = <String, IconData>{
+      'mobile-tablets': Icons.smartphone,
+      'mobiles': Icons.smartphone,
+      'tablets': Icons.tablet,
+      'real-estate': Icons.home_work,
+      'cars-parts': Icons.directions_car,
+      'furniture-decor': Icons.chair,
+      'electrical-appliances': Icons.electrical_services,
+      'home-appliances': Icons.kitchen,
+      'computers': Icons.computer,
+      'clothing': Icons.checkroom,
+      'lighting': Icons.lightbulb,
+      'medical-devices': Icons.monitor_heart,
+      'medical-supplies': Icons.medical_services,
+      'institution-offers': Icons.business,
+      'home-restaurants': Icons.restaurant,
+      'agricultural-tools': Icons.agriculture,
+      'equipment': Icons.construction,
+      'professional-equip': Icons.work,
+      'gifts': Icons.card_giftcard,
+    };
+    if (bySlug.containsKey(slug)) return bySlug[slug]!;
+    switch (icon) {
+      case 'smartphone':
+        return Icons.smartphone;
+      case 'tablet':
+        return Icons.tablet;
+      case 'cable':
+        return Icons.cable;
+      case 'headphones':
+        return Icons.headphones;
+      case 'battery_charging_full':
+        return Icons.battery_charging_full;
+      case 'shield':
+        return Icons.shield;
+      case 'watch':
+        return Icons.watch;
+      case 'apartment':
+        return Icons.apartment;
+      case 'directions_car':
+        return Icons.directions_car;
+      case 'local_shipping':
+        return Icons.local_shipping;
+      case 'two_wheeler':
+        return Icons.two_wheeler;
+      case 'bed':
+        return Icons.bed;
+      case 'weekend':
+        return Icons.weekend;
+      case 'table_restaurant':
+        return Icons.table_restaurant;
+      case 'kitchen':
+        return Icons.kitchen;
+      case 'computer':
+        return Icons.computer;
+      case 'laptop':
+        return Icons.laptop;
+      case 'lightbulb':
+        return Icons.lightbulb;
+      case 'construction':
+        return Icons.construction;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'school':
+        return Icons.school;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'cake':
+        return Icons.cake;
+      case 'card_giftcard':
+        return Icons.card_giftcard;
+      case 'checkroom':
+        return Icons.checkroom;
+      case 'agriculture':
+        return Icons.agriculture;
+      case 'category':
+        return Icons.category;
+      default:
+        return _wizardStep == 0 ? Icons.folder_rounded : Icons.sell_outlined;
+    }
   }
 
   Widget _buildAttributesPage(ColorScheme colors) {
