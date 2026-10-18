@@ -90,7 +90,9 @@ class _CommunityMyCharityDonationsPageState
           _message(_statusLabel(status));
         }
       }
-      setState(() => _future = Future.value(rows));
+      setState(() {
+        _future = Future.value(rows);
+      });
     } catch (error) {
       debugPrint('CHARITY DONATION STATUS REFRESH ERROR: $error');
     } finally {
@@ -108,7 +110,9 @@ class _CommunityMyCharityDonationsPageState
 
   Future<void> _showPickupCode(String requestId) async {
     if (_loadingCode) return;
-    setState(() => _loadingCode = true);
+    setState(() {
+      _loadingCode = true;
+    });
     try {
       final code = await _repository.getPickupCode(requestId);
       if (!mounted) return;
@@ -200,7 +204,11 @@ class _CommunityMyCharityDonationsPageState
     } catch (error) {
       if (mounted) _message(_friendlyError(error), error: true);
     } finally {
-      if (mounted) setState(() => _loadingCode = false);
+      if (mounted) {
+        setState(() {
+          _loadingCode = false;
+        });
+      }
     }
   }
 
@@ -227,7 +235,9 @@ class _CommunityMyCharityDonationsPageState
       if (mounted) _message('❌ فشل تأكيد الجاهزية: $e', error: true);
     } finally {
       if (mounted) {
-        setState(() => _markingDonationIds.remove(requestId));
+        setState(() {
+          _markingDonationIds.remove(requestId);
+        });
       }
     }
   }
@@ -882,7 +892,11 @@ class _CommunityMyCharityDonationsPageState
           final activeColor = key == 'volunteer_needed' ? _violet : _accent;
 
           return GestureDetector(
-            onTap: () => setState(() => _filter = key),
+            onTap: () {
+              setState(() {
+                _filter = key;
+              });
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
