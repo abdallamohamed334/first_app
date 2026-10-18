@@ -300,7 +300,25 @@ class BusinessRestaurantRepository {
         'p_images': images,
       },
     );
-    return _map(result);
+    final donation = _map(result);
+    await _notifyDonationCreated(donation);
+    return donation;
+  }
+
+  Future<void> _notifyDonationCreated(Map<String, dynamic> donation) async {
+    final requestId = (donation['request_id'] ?? donation['donation_id'] ??
+            donation['id'])
+        ?.toString()
+        .trim();
+    if (requestId == null || requestId.isEmpty) return;
+    try {
+      await _client.functions.invoke(
+        'notify-charity-donation-event',
+        body: {'requestId': requestId, 'event': 'created'},
+      );
+    } catch (_) {
+      // The donation is already saved; notification failure must not undo it.
+    }
   }
 
   Future<List<String>> uploadCharityDonationImages(List<XFile> images) async {
