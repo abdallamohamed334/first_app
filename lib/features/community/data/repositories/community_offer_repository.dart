@@ -54,7 +54,33 @@ class CommunityOfferRepository {
         .order('sort_order')
         .order('name_ar');
 
-    return List<Map<String, dynamic>>.from(response);
+    final categories = List<Map<String, dynamic>>.from(response);
+    // Community categories are the source of the offer relationship, while
+    // marketplace_categories owns the curated icon for each product branch.
+    // Merge the icon by id/slug so the picker never falls back to a generic
+    // folder icon merely because the community mirror has a null icon.
+    final marketplaceRows = await _client
+        .from('marketplace_categories')
+        .select('id, slug, icon')
+        .eq('is_active', true);
+    final iconsByKey = <String, String>{};
+    for (final row in (marketplaceRows as List).whereType<Map>()) {
+      final icon = row['icon']?.toString().trim() ?? '';
+      if (icon.isEmpty) continue;
+      iconsByKey[row['id']?.toString() ?? ''] = icon;
+      iconsByKey[row['slug']?.toString() ?? ''] = icon;
+    }
+    return categories
+        .map(
+          (category) => {
+            ...category,
+            'icon': (category['icon']?.toString().trim().isNotEmpty == true)
+                ? category['icon']
+                : iconsByKey[category['id']?.toString()] ??
+                    iconsByKey[category['slug']?.toString()],
+          },
+        )
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> getCategories() async {
