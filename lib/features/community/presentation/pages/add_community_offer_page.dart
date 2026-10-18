@@ -93,6 +93,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   bool _isPickingImages = false;
 
   List<Map<String, dynamic>> _categories = const [];
+  int _wizardStep = 0;
+  final List<Map<String, dynamic>> _categoryPath = [];
 
   @override
   void initState() {
@@ -607,6 +609,130 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       marketplaceCategoryId,
       requestId: requestId,
     );
+  }
+
+  List<Map<String, dynamic>> _childrenOf(Map<String, dynamic> category) {
+    final id = category['id']?.toString();
+    if (id == null || id.isEmpty) return const [];
+    final children = _categories
+        .where((item) => item['parent_id']?.toString() == id)
+        .toList();
+    children.sort((a, b) {
+      final orderA = (a['sort_order'] as num?)?.toInt() ?? 0;
+      final orderB = (b['sort_order'] as num?)?.toInt() ?? 0;
+      return orderA.compareTo(orderB);
+    });
+    return children;
+  }
+
+  void _clearSelectedCategory() {
+    _categoryId = null;
+    _categorySlug = null;
+    _categoryNameAr = null;
+    _marketplaceCategoryId = null;
+    _marketplaceAttributes = [];
+    _marketplaceOptions.clear();
+    _optionsLoading.clear();
+    _selectedMarketplaceOptionIds.clear();
+    _selectedMarketplaceValues.clear();
+    _selectedMarketplaceValueTypes.clear();
+    _attributesStatus = 'idle';
+    _isLoadingMarketplaceAttributes = false;
+    _prefillApplied = false;
+  }
+
+  Future<void> _selectMainCategory(Map<String, dynamic> category) async {
+    final children = _childrenOf(category);
+    setState(() {
+      _categoryPath
+        ..clear()
+        ..add(category);
+      _clearSelectedCategory();
+      _wizardStep = 1;
+    });
+    if (children.isEmpty) await _selectLeafCategory(category);
+  }
+
+  Future<void> _selectSubcategory(Map<String, dynamic> category) async {
+    final children = _childrenOf(category);
+    setState(() => _categoryPath.add(category));
+    if (children.isEmpty) await _selectLeafCategory(category);
+  }
+
+  Future<void> _selectLeafCategory(Map<String, dynamic> category) async {
+    await _onCategorySelected(category);
+    if (!mounted) return;
+    setState(() => _wizardStep = 2);
+  }
+
+  void _goBackInWizard() {
+    if (_wizardStep == 3) {
+      setState(() => _wizardStep = 2);
+      return;
+    }
+    if (_wizardStep == 2) {
+      final selectedId = _categoryId;
+      setState(() {
+        if (_categoryPath.isNotEmpty &&
+            _categoryPath.last['id']?.toString() == selectedId) {
+          _categoryPath.removeLast();
+        }
+        _wizardStep = _categoryPath.isEmpty ? 0 : 1;
+      });
+      return;
+    }
+    if (_wizardStep == 1) {
+      setState(() {
+        if (_categoryPath.length > 1) {
+          _categoryPath.removeLast();
+        } else {
+          _categoryPath.clear();
+          _wizardStep = 0;
+        }
+      });
+    }
+  }
+
+  Future<void> _handleBackNavigation() async {
+    if (!_isEditMode && _wizardStep > 0) {
+      _goBackInWizard();
+      return;
+    }
+    if (!_hasUnsavedData()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (await _confirmExit() && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _continueFromAttributes() async {
+    if (_attributesStatus == 'loading' ||
+        _isLoadingMarketplaceAttributes ||
+        _optionsLoading.isNotEmpty) {
+      _showMessage('انتظر حتى يكتمل تحميل خصائص التصنيف');
+      return;
+    }
+    if (_attributesStatus == 'error' ||
+        _attributesStatus == 'missingCategory' ||
+        _attributesStatus == 'idle') {
+      _showMessage('تعذر تحميل خصائص هذا التصنيف. ارجع واختر تصنيفًا آخر.');
+      return;
+    }
+    if (!(_formKey.currentState?.validate() ?? true)) return;
+    final error = _validateMarketplaceAttributes();
+    if (error != null) {
+      _showMessage(error);
+      return;
+    }
+    setState(() => _wizardStep = 3);
+  }
+
+  void _changeWizardCategory() {
+    setState(() {
+      _categoryPath.clear();
+      _clearSelectedCategory();
+      _wizardStep = 0;
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1351,13 +1477,25 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pageTitle = _isEditMode
+        ? 'تعديل العرض'
+        : switch (_wizardStep) {
+            0 => 'اختيار القسم',
+            1 => 'اختيار التصنيف الفرعي',
+            2 => 'خصائص التصنيف',
+            _ => 'بيانات العرض',
+          };
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: PopScope(
-        canPop: !_hasUnsavedData(),
+        canPop: (_isEditMode || _wizardStep == 0) && !_hasUnsavedData(),
         onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
+          if (!_isEditMode && _wizardStep > 0) {
+            _goBackInWizard();
+            return;
+          }
           final shouldPop = await _confirmExit();
           if (shouldPop && mounted) Navigator.of(context).pop();
         },
@@ -1366,7 +1504,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               ? const Color(0xFF101318)
               : const Color(0xFFF7F8FC),
           appBar: AppBar(
-            title: Text(_isEditMode ? 'تعديل العرض' : 'إضافة شيء للبيع'),
+            title: Text(pageTitle),
             centerTitle: true,
             elevation: 0,
             backgroundColor: isDark
@@ -1375,19 +1513,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             foregroundColor: colors.onSurface,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
-              onPressed: () async {
-                if (!_hasUnsavedData()) {
-                  Navigator.of(context).pop();
-                  return;
-                }
-                final shouldPop = await _confirmExit();
-                if (shouldPop && mounted) Navigator.of(context).pop();
-              },
+              onPressed: _handleBackNavigation,
             ),
           ),
           body: _isInitializing
               ? Center(child: CircularProgressIndicator(color: colors.primary))
-              : Form(
+              : _isEditMode
+              ? Form(
                   key: _formKey,
                   child: ListView(
                     physics: const BouncingScrollPhysics(),
@@ -1410,8 +1542,315 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                       _buildSubmitButton(colors),
                     ],
                   ),
+                )
+              : Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: _buildWizardProgress(colors),
+                      ),
+                      Expanded(child: _buildWizardPage(colors)),
+                    ],
+                  ),
                 ),
+          bottomNavigationBar: _isEditMode || _isInitializing
+              ? null
+              : _buildWizardBottomBar(colors),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWizardProgress(ColorScheme colors) {
+    const labels = ['القسم', 'الفرعي', 'الخصائص', 'العرض'];
+    final progress = (_wizardStep + 1) / labels.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'الخطوة ${_wizardStep + 1} من ${labels.length}',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                labels[_wizardStep],
+                style: TextStyle(
+                  color: colors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              backgroundColor: colors.primary.withValues(alpha: .12),
+              color: colors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWizardPage(ColorScheme colors) {
+    if (_wizardStep == 0 || _wizardStep == 1) {
+      return _buildCategorySelectionPage(colors);
+    }
+    if (_wizardStep == 2) return _buildAttributesPage(colors);
+    return _buildOfferDetailsPage(colors);
+  }
+
+  Widget _buildCategorySelectionPage(ColorScheme colors) {
+    final isMainCategoryStep = _wizardStep == 0;
+    final categories = isMainCategoryStep
+        ? _categories
+              .where((category) {
+                final parentId = category['parent_id']?.toString();
+                return parentId == null || parentId.isEmpty;
+              })
+              .toList()
+        : (_categoryPath.isEmpty ? <Map<String, dynamic>>[] : _childrenOf(_categoryPath.last));
+
+    return ListView(
+      key: ValueKey('category-step-$_wizardStep-${_categoryPath.length}'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [colors.primary, colors.primary.withValues(alpha: .78)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isMainCategoryStep ? Icons.category_rounded : Icons.label_rounded,
+                color: colors.onPrimary,
+                size: 30,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isMainCategoryStep ? 'اختار القسم الرئيسي' : 'اختار التصنيف الفرعي',
+                      style: TextStyle(
+                        color: colors.onPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isMainCategoryStep
+                          ? 'ابدأ بالقسم الأقرب للشيء الذي تريد عرضه.'
+                          : 'القسم: ${_categoryPath.map((item) => item['name_ar']?.toString() ?? '').where((name) => name.isNotEmpty).join(' › ')}',
+                      style: TextStyle(
+                        color: colors.onPrimary.withValues(alpha: .86),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (_isLoadingCategories)
+          const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (categories.isEmpty)
+          _attributesStateCard(
+            colors: colors,
+            icon: Icons.category_outlined,
+            iconColor: colors.onSurfaceVariant,
+            title: 'لا توجد تصنيفات هنا',
+            subtitle: 'ارجع خطوة واختار قسمًا آخر.',
+          )
+        else
+          ...categories.map((category) => _buildWizardCategoryTile(category, colors)),
+      ],
+    );
+  }
+
+  Widget _buildWizardCategoryTile(
+    Map<String, dynamic> category,
+    ColorScheme colors,
+  ) {
+    final name = category['name_ar']?.toString().trim() ?? 'تصنيف';
+    final childCount = _childrenOf(category).length;
+    final isRoot = _wizardStep == 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Material(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          onTap: isRoot
+              ? () => _selectMainCategory(category)
+              : () => _selectSubcategory(category),
+          borderRadius: BorderRadius.circular(17),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: .10),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(
+                    isRoot ? Icons.folder_open_rounded : Icons.sell_outlined,
+                    color: colors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          color: colors.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        childCount > 0
+                            ? '$childCount تصنيفات فرعية'
+                            : 'اختيار هذا التصنيف',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: colors.primary,
+                  size: 16,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttributesPage(ColorScheme colors) {
+    return ListView(
+      key: const ValueKey('attribute-step'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _helperBanner(
+          colors,
+          Icons.tune_rounded,
+          'خصائص التصنيف',
+          'املأ المواصفات المناسبة للعنصر؛ الحقول المطلوبة موضحة بعلامة النجمة.',
+        ),
+        const SizedBox(height: 12),
+        if (_categoryId != null) _buildCategoryContext(colors),
+        ..._buildDynamicAttributesSection(colors),
+      ],
+    );
+  }
+
+  Widget _buildOfferDetailsPage(ColorScheme colors) {
+    return ListView(
+      key: const ValueKey('offer-details-step'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      children: [
+        _buildIntro(colors),
+        const SizedBox(height: 14),
+        _buildImages(colors),
+        const SizedBox(height: 14),
+        _buildDetailsCard(colors),
+        const SizedBox(height: 14),
+        _buildLocationCard(colors),
+        const SizedBox(height: 14),
+        _buildExpiryCard(colors),
+        const SizedBox(height: 14),
+        _buildConfirmation(colors),
+      ],
+    );
+  }
+
+  Widget? _buildWizardBottomBar(ColorScheme colors) {
+    if (_wizardStep < 2) return null;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: _wizardStep == 2
+            ? SizedBox(
+                height: 54,
+                child: ElevatedButton.icon(
+                  onPressed: _continueFromAttributes,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('التالي: بيانات العرض'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    foregroundColor: colors.onPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              )
+            : _buildSubmitButton(colors),
       ),
     );
   }
@@ -1770,22 +2209,27 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             Icons.title_rounded,
             requiredField: true,
           ),
-          const SizedBox(height: 12),
-          _buildCategorySelector(colors),
-          if (_categoryId != null) ...[
+          if (_isEditMode) ...[
             const SizedBox(height: 12),
-            _buildCategoryContext(colors),
+            _buildCategorySelector(colors),
+            if (_categoryId != null) ...[
+              const SizedBox(height: 12),
+              _buildCategoryContext(colors),
+            ],
+            if (_categoryId == null) ...[
+              const SizedBox(height: 10),
+              _helperBanner(
+                colors,
+                Icons.touch_app_rounded,
+                'اختار نوع المنتج أولًا',
+                'بعد الاختيار ستظهر لك الحقول المناسبة تلقائيًا مثل الماركة، الحالة، المقاس أو المساحة.',
+              ),
+            ],
+            ..._buildDynamicAttributesSection(colors),
+          ] else ...[
+            const SizedBox(height: 12),
+            _buildSelectedCategorySummary(colors),
           ],
-          if (_categoryId == null) ...[
-            const SizedBox(height: 10),
-            _helperBanner(
-              colors,
-              Icons.touch_app_rounded,
-              'اختار نوع المنتج أولًا',
-              'بعد الاختيار ستظهر لك الحقول المناسبة تلقائيًا مثل الماركة، الحالة، المقاس أو المساحة.',
-            ),
-          ],
-          ..._buildDynamicAttributesSection(colors),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1834,6 +2278,55 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             Icons.lightbulb_outline_rounded,
             'نصيحة لعرض أفضل',
             'البيانات الواضحة والصور الجيدة تساعد الناس على فهم العرض والتواصل معك أسرع.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedCategorySummary(ColorScheme colors) {
+    final categoryPath = _categoryPath
+        .map((category) => category['name_ar']?.toString().trim() ?? '')
+        .where((name) => name.isNotEmpty)
+        .join(' › ');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: .06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.primary.withValues(alpha: .20)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.category_outlined, color: colors.primary, size: 20),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'التصنيف المختار',
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  categoryPath.isEmpty ? _currentCategoryName : categoryPath,
+                  style: TextStyle(
+                    color: colors.onSurface,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _changeWizardCategory,
+            child: const Text('تغيير'),
           ),
         ],
       ),
