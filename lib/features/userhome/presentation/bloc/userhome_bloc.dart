@@ -243,14 +243,15 @@ class UserHomeBloc extends Bloc<UserHomeEvent, UserHomeState> {
       // Rebuild restaurant/institution lists from unique data
       // ------------------------------------------------------
 
+      const foodBusinessTypes = {'restaurant', 'bakery', 'cafe'};
       final uniqueRestaurantOffers = uniqueOffers.where((offer) {
-        return offer.businessType.trim().toLowerCase() == 'restaurant';
+        return foodBusinessTypes.contains(offer.businessType.trim().toLowerCase());
       }).map((offer) {
         return offer.copyWith(source: 'restaurant');
       }).toList(growable: false);
 
       final uniqueInstitutionOffers = uniqueOffers.where((offer) {
-        return offer.businessType.trim().toLowerCase() != 'restaurant';
+        return !foodBusinessTypes.contains(offer.businessType.trim().toLowerCase());
       }).map((offer) {
         return offer.copyWith(source: 'institution');
       }).toList(growable: false);
