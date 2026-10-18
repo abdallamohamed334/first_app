@@ -660,9 +660,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   Future<void> _selectLeafCategory(Map<String, dynamic> category) async {
+    // Show the attributes screen immediately so the user sees an explicit
+    // loading state instead of a blank page while Supabase responds.
+    if (mounted) setState(() => _wizardStep = 2);
     await _onCategorySelected(category);
-    if (!mounted) return;
-    setState(() => _wizardStep = 2);
   }
 
   void _goBackInWizard() {
@@ -692,6 +693,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       });
     }
   }
+
   Future<void> _handleBackNavigation() async {
     if (!_isEditMode && _wizardStep > 0) {
       _goBackInWizard();
@@ -785,7 +787,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       // 1) links من الجدول الصح
       final linksRaw = await client
           .from('marketplace_category_attributes')
-          .select('attribute_id, sort_order, is_required, is_filterable')
+          .select(
+            'attribute_id, sort_order, is_required, is_filterable, '
+            'is_for_offer_creation, is_for_display',
+          )
           .eq('category_id', categoryId);
 
       if (!mounted || requestId != _categoryRequestId) return;
@@ -800,6 +805,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             'sort_order': (row['sort_order'] as num?)?.toInt() ?? 0,
             'is_required': row['is_required'] == true,
             'is_filterable': row['is_filterable'] == true,
+            'is_for_offer_creation': row['is_for_offer_creation'] == true,
+            'is_for_display': row['is_for_display'] == true,
           };
         }
       }
@@ -830,7 +837,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         if (a is! Map) continue;
         final id = a['id']?.toString() ?? '';
         final link = linksById[id];
-        if (link == null) continue;
+        if (link == null ||
+            link['is_for_offer_creation'] != true ||
+            link['is_for_display'] != true) {
+          continue;
+        }
 
         rows.add({
           'id': id,
@@ -883,9 +894,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       });
 
       // 4) options
-      final selectAttrs = filtered
-          .where((a) => a.inputType == 'select')
-          .toList();
+      final selectAttrs =
+          filtered.where((a) => a.inputType == 'select').toList();
 
       if (selectAttrs.isNotEmpty) {
         setState(() {
@@ -1063,7 +1073,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final selectedOptionId = _selectedMarketplaceOptionIds[slug];
       final selectedValue = _selectedMarketplaceValues[slug];
 
-      if (selectedOptionId != null && selectedOptionId.isNotEmpty) {
+      final optionIsValid = selectedOptionId != null &&
+          selectedOptionId.isNotEmpty &&
+          (_marketplaceOptions[slug] ?? const <MarketplaceAttributeOption>[])
+              .any((option) =>
+                  option.id == selectedOptionId &&
+                  option.attributeId == attribute.attributeId);
+
+      if (optionIsValid) {
         payload.add({
           'attribute_id': attribute.attributeId,
           'option_id': selectedOptionId,
@@ -1107,7 +1124,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final value = _selectedMarketplaceValues[attribute.slug];
 
       if (attribute.inputType == 'select') {
-        if (optionId == null || optionId.isEmpty) {
+        final optionIsValid = optionId != null &&
+            optionId.isNotEmpty &&
+            (_marketplaceOptions[attribute.slug] ??
+                    const <MarketplaceAttributeOption>[])
+                .any((option) =>
+                    option.id == optionId &&
+                    option.attributeId == attribute.attributeId);
+        if (!optionIsValid) {
           return 'اختر ${_attributeLabel(attribute)}';
         }
       } else {
@@ -1500,9 +1524,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return 'رقم الهاتف غير صحيح.';
     }
 
-    final detail = rawText
-        .replaceFirst(RegExp(r'^Exception:\s*'), '')
-        .trim();
+    final detail = rawText.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
     if (detail.isNotEmpty && detail != 'Exception') {
       return 'تعذر حفظ العرض بسبب: $detail';
     }
@@ -1576,16 +1598,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           if (shouldPop && mounted) Navigator.of(context).pop();
         },
         child: Scaffold(
-          backgroundColor: isDark
-              ? const Color(0xFF101318)
-              : const Color(0xFFF7F8FC),
+          backgroundColor:
+              isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
           appBar: AppBar(
             title: Text(pageTitle),
             centerTitle: true,
             elevation: 0,
-            backgroundColor: isDark
-                ? const Color(0xFF101318)
-                : const Color(0xFFF7F8FC),
+            backgroundColor:
+                isDark ? const Color(0xFF101318) : const Color(0xFFF7F8FC),
             foregroundColor: colors.onSurface,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
@@ -1595,42 +1615,42 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           body: _isInitializing
               ? Center(child: CircularProgressIndicator(color: colors.primary))
               : _isEditMode
-              ? Form(
-                  key: _formKey,
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
-                    children: [
-                      _buildProgressHeader(colors),
-                      const SizedBox(height: 14),
-                      _buildIntro(colors),
-                      const SizedBox(height: 14),
-                      _buildImages(colors),
-                      const SizedBox(height: 14),
-                      _buildDetailsCard(colors),
-                      const SizedBox(height: 14),
-                      _buildLocationCard(colors),
-                      const SizedBox(height: 14),
-                      _buildExpiryCard(colors),
-                      const SizedBox(height: 14),
-                      _buildConfirmation(colors),
-                      const SizedBox(height: 18),
-                      _buildSubmitButton(colors),
-                    ],
-                  ),
-                )
-              : Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                        child: _buildWizardProgress(colors),
+                  ? Form(
+                      key: _formKey,
+                      child: ListView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
+                        children: [
+                          _buildProgressHeader(colors),
+                          const SizedBox(height: 14),
+                          _buildIntro(colors),
+                          const SizedBox(height: 14),
+                          _buildImages(colors),
+                          const SizedBox(height: 14),
+                          _buildDetailsCard(colors),
+                          const SizedBox(height: 14),
+                          _buildLocationCard(colors),
+                          const SizedBox(height: 14),
+                          _buildExpiryCard(colors),
+                          const SizedBox(height: 14),
+                          _buildConfirmation(colors),
+                          const SizedBox(height: 18),
+                          _buildSubmitButton(colors),
+                        ],
                       ),
-                      Expanded(child: _buildWizardPage(colors)),
-                    ],
-                  ),
-                ),
+                    )
+                  : Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: _buildWizardProgress(colors),
+                          ),
+                          Expanded(child: _buildWizardPage(colors)),
+                        ],
+                      ),
+                    ),
           bottomNavigationBar: _isEditMode || _isInitializing
               ? null
               : _buildWizardBottomBar(colors),
@@ -1640,7 +1660,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   Widget _buildWizardProgress(ColorScheme colors) {
-    const labels = ['القسم', 'الفرعي', 'المواصفات', 'الصور', 'التفاصيل', 'المراجعة'];
+    const labels = [
+      'القسم',
+      'الفرعي',
+      'المواصفات',
+      'الصور',
+      'التفاصيل',
+      'المراجعة'
+    ];
     final progress = (_wizardStep + 1) / labels.length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
@@ -1702,13 +1729,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   Widget _buildCategorySelectionPage(ColorScheme colors) {
     final isMainCategoryStep = _wizardStep == 0;
     final categories = isMainCategoryStep
-        ? _categories
-              .where((category) {
-                final parentId = category['parent_id']?.toString();
-                return parentId == null || parentId.isEmpty;
-              })
-              .toList()
-        : (_categoryPath.isEmpty ? <Map<String, dynamic>>[] : _childrenOf(_categoryPath.last));
+        ? _categories.where((category) {
+            final parentId = category['parent_id']?.toString();
+            return parentId == null || parentId.isEmpty;
+          }).toList()
+        : (_categoryPath.isEmpty
+            ? <Map<String, dynamic>>[]
+            : _childrenOf(_categoryPath.last));
 
     return ListView(
       key: ValueKey('category-step-$_wizardStep-${_categoryPath.length}'),
@@ -1728,7 +1755,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           child: Row(
             children: [
               Icon(
-                isMainCategoryStep ? Icons.category_rounded : Icons.label_rounded,
+                isMainCategoryStep
+                    ? Icons.category_rounded
+                    : Icons.label_rounded,
                 color: colors.onPrimary,
                 size: 30,
               ),
@@ -1738,7 +1767,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isMainCategoryStep ? 'اختار القسم الرئيسي' : 'اختار التصنيف الفرعي',
+                      isMainCategoryStep
+                          ? 'اختار القسم الرئيسي'
+                          : 'اختار التصنيف الفرعي',
                       style: TextStyle(
                         color: colors.onPrimary,
                         fontSize: 17,
@@ -1777,7 +1808,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             subtitle: 'ارجع خطوة واختار قسمًا آخر.',
           )
         else
-          ...categories.map((category) => _buildWizardCategoryTile(category, colors)),
+          ...categories
+              .map((category) => _buildWizardCategoryTile(category, colors)),
       ],
     );
   }
@@ -1950,8 +1982,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
               if (_marketplaceAttributes.isNotEmpty) ...[
                 const Divider(height: 20),
                 ..._marketplaceAttributes.map((attribute) {
-                  final value = _selectedMarketplaceValues[attribute.slug] ?? '';
-                  final optionId = _selectedMarketplaceOptionIds[attribute.slug];
+                  final value =
+                      _selectedMarketplaceValues[attribute.slug] ?? '';
+                  final optionId =
+                      _selectedMarketplaceOptionIds[attribute.slug];
                   final option = _firstWhereOrNull(
                     _marketplaceOptions[attribute.slug] ?? const [],
                     (item) => item.id == optionId,
@@ -1983,9 +2017,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
             children: [
               _reviewRow(colors, 'العنوان', _titleController.text.trim()),
               _reviewRow(colors, 'الكمية', _quantityController.text.trim()),
-              _reviewRow(colors, 'السعر', '${_priceController.text.trim()} جنيه'),
+              _reviewRow(
+                  colors, 'السعر', '${_priceController.text.trim()} جنيه'),
               _reviewRow(colors, 'الوصف', _descriptionController.text.trim()),
-              _reviewRow(colors, 'مكان الاستلام', _locationController.text.trim()),
+              _reviewRow(
+                  colors, 'مكان الاستلام', _locationController.text.trim()),
               _reviewRow(colors, 'الهاتف', _phoneController.text.trim()),
               if (_whatsappController.text.trim().isNotEmpty)
                 _reviewRow(colors, 'واتساب', _whatsappController.text.trim()),
@@ -2087,11 +2123,11 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       ),
     );
   }
+
   Widget _buildProgressHeader(ColorScheme colors) {
     final hasCategory =
         _marketplaceCategoryId != null && _marketplaceCategoryId!.isNotEmpty;
-    final hasDetails =
-        _titleController.text.trim().isNotEmpty &&
+    final hasDetails = _titleController.text.trim().isNotEmpty &&
         _descriptionController.text.trim().isNotEmpty;
     final hasLocation = _lat != null && _lng != null;
 
@@ -2613,19 +2649,18 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   Widget _buildCategoryContext(ColorScheme colors) {
-    final name = _currentCategoryName.isEmpty
-        ? 'التصنيف المختار'
-        : _currentCategoryName;
+    final name =
+        _currentCategoryName.isEmpty ? 'التصنيف المختار' : _currentCategoryName;
     final title = _isCars
         ? 'بيانات السيارة المطلوبة'
         : _isRealEstate
-        ? 'بيانات العقار المطلوبة'
-        : 'بيانات $name';
+            ? 'بيانات العقار المطلوبة'
+            : 'بيانات $name';
     final subtitle = _isCars
         ? 'اكتب تفاصيل السيارة بدقة؛ ستظهر حقول الماركة والموديل والسنة والعداد والحالة حسب التصنيف.'
         : _isRealEstate
-        ? 'أدخل تفاصيل العقار المناسبة للتصنيف حتى يصل عرضك للأشخاص المهتمين.'
-        : 'الحقول التالية متخصصة في $name، ولن تظهر لك متطلبات لا تخص اختيارك.';
+            ? 'أدخل تفاصيل العقار المناسبة للتصنيف حتى يصل عرضك للأشخاص المهتمين.'
+            : 'الحقول التالية متخصصة في $name، ولن تظهر لك متطلبات لا تخص اختيارك.';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -2883,8 +2918,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
   List<Widget> _buildMarketplaceAttributeWidgets() {
     return _marketplaceAttributes.map((attribute) {
-      final options =
-          _marketplaceOptions[attribute.slug] ??
+      final options = _marketplaceOptions[attribute.slug] ??
           const <MarketplaceAttributeOption>[];
 
       final selectedId = _selectedMarketplaceOptionIds[attribute.slug];
@@ -2921,8 +2955,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final safeOptions = uniqueOptions.values.toList();
       final safeSelectedId =
           safeOptions.any((option) => option.id == selectedId)
-          ? selectedId
-          : null;
+              ? selectedId
+              : null;
 
       final isLoadingOptions = _optionsLoading.contains(attribute.slug);
       final hasOptions = safeOptions.isNotEmpty;
@@ -2931,8 +2965,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       final hintText = isLoadingOptions
           ? 'جاري تحميل الخيارات...'
           : hasOptions
-          ? 'اختر ${_attributeLabel(attribute)}'
-          : 'لا توجد خيارات متاحة';
+              ? 'اختر ${_attributeLabel(attribute)}'
+              : 'لا توجد خيارات متاحة';
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2985,7 +3019,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     if (attribute.inputType == 'number' || attribute.inputType == 'decimal') {
       return _MarketplaceNumberField(
-        key: ValueKey('${attribute.slug}:$selectedValue'),
+        key: ValueKey(attribute.slug),
         attribute: attribute,
         initialValue: selectedValue,
         isDecimal: attribute.inputType == 'decimal',
@@ -3002,7 +3036,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     final isItemType = attribute.slug == 'item_type';
     return _MarketplaceTextField(
-      key: ValueKey('${attribute.slug}:$selectedValue'),
+      key: ValueKey(attribute.slug),
       attribute: attribute,
       initialValue: selectedValue,
       decoration: _decoration(
@@ -3224,9 +3258,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                               ? 'تم تحديد الموقع ✅'
                               : 'اختار موقعك على الخريطة',
                           style: TextStyle(
-                            color: hasLocation
-                                ? colors.primary
-                                : colors.onSurface,
+                            color:
+                                hasLocation ? colors.primary : colors.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                           ),
@@ -3582,6 +3615,7 @@ class _MarketplaceNumberField extends StatefulWidget {
 
 class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   late final TextEditingController _controller;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -3594,7 +3628,9 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialValue != widget.initialValue) {
       final value = widget.initialValue ?? '';
-      if (_controller.text != value) _controller.text = value;
+      if (!_focusNode.hasFocus && _controller.text != value) {
+        _controller.text = value;
+      }
     }
   }
 
@@ -3602,6 +3638,7 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
+      focusNode: _focusNode,
       keyboardType: TextInputType.numberWithOptions(decimal: widget.isDecimal),
       textInputAction: TextInputAction.next,
       inputFormatters: [
@@ -3629,6 +3666,7 @@ class _MarketplaceNumberFieldState extends State<_MarketplaceNumberField> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 }
@@ -3656,6 +3694,7 @@ class _MarketplaceTextField extends StatefulWidget {
 
 class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
   late final TextEditingController _controller;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -3668,7 +3707,9 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialValue != widget.initialValue) {
       final value = widget.initialValue ?? '';
-      if (_controller.text != value) _controller.text = value;
+      if (!_focusNode.hasFocus && _controller.text != value) {
+        _controller.text = value;
+      }
     }
   }
 
@@ -3676,6 +3717,7 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: _controller,
+      focusNode: _focusNode,
       textInputAction: TextInputAction.next,
       decoration: widget.decoration,
       onChanged: widget.onChanged,
@@ -3693,6 +3735,7 @@ class _MarketplaceTextFieldState extends State<_MarketplaceTextField> {
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 }
@@ -3797,8 +3840,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     final matchingIds = <String>{};
 
     for (final item in all) {
-      final matches =
-          item.name.toLowerCase().contains(q) ||
+      final matches = item.name.toLowerCase().contains(q) ||
           item.slug.toLowerCase().contains(q) ||
           (item.parentName?.toLowerCase().contains(q) ?? false) ||
           item.fullPath.toLowerCase().contains(q);
@@ -4135,9 +4177,8 @@ class _CategoryTile extends StatelessWidget {
                       item.name,
                       style: TextStyle(
                         fontSize: 13.5,
-                        fontWeight: item.isRoot
-                            ? FontWeight.w900
-                            : FontWeight.w700,
+                        fontWeight:
+                            item.isRoot ? FontWeight.w900 : FontWeight.w700,
                         color: isSelected ? colors.primary : colors.onSurface,
                       ),
                     ),

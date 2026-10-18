@@ -87,16 +87,17 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4EEE5),
+        backgroundColor: colors.surface,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: IconButton(
             onPressed: _loading ? null : _cancel,
-            icon: const Icon(Icons.arrow_forward_rounded, color: _ink),
+            icon: Icon(Icons.arrow_forward_rounded, color: colors.onSurface),
           ),
         ),
         body: SafeArea(
@@ -105,16 +106,23 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
             children: [
               const Icon(Icons.verified_user_rounded, color: _primary, size: 64),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'تأكيد تسجيل الدخول',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: _ink, fontSize: 25, fontWeight: FontWeight.w900),
+                style: TextStyle(
+                  color: colors.onSurface,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
                 'أدخل الكود المكوّن من 6 أرقام الذي زوّدك به فريق Khedma. يتم التحقق منه في قاعدة البيانات فقط؛ لا يُرسل برسالة.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: _ink.withValues(alpha: 0.7), height: 1.6),
+                style: TextStyle(
+                  color: colors.onSurfaceVariant,
+                  height: 1.6,
+                ),
               ),
               const SizedBox(height: 30),
               TextField(
@@ -127,13 +135,19 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
                 maxLength: 6,
                 obscureText: true,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: TextStyle(
+                  color: colors.onSurface,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 4,
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: '••••••',
                   hintStyle: const TextStyle(letterSpacing: 8),
                   errorText: _error,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: colors.surfaceContainerHighest,
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -149,6 +163,7 @@ class _InstitutionOtpVerifyPageState extends State<InstitutionOtpVerifyPage> {
                   onPressed: _loading ? null : _verify,
                   style: FilledButton.styleFrom(
                     backgroundColor: _primary,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   child: _loading

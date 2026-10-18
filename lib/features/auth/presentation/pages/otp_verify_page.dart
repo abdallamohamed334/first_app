@@ -220,10 +220,11 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
   // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: colors.surface,
         resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: LayoutBuilder(
@@ -245,11 +246,11 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                         const SizedBox(height: 24),
                         _buildIcon(),
                         const SizedBox(height: 22),
-                        const Text(
+                        Text(
                           'تحقق من رقمك',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: _darkGreen,
+                            color: colors.onSurface,
                             fontSize: 26,
                             fontWeight: FontWeight.w900,
                           ),
@@ -259,7 +260,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                           'بعتنالك كود مكوّن من 6 أرقام على واتساب',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.black.withValues(alpha: 0.55),
+                              color: colors.onSurfaceVariant,
                             fontSize: 13.5,
                             height: 1.6,
                           ),
@@ -350,14 +351,14 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                                   children: [
                                     Icon(Icons.timer_outlined,
                                         color:
-                                            Colors.black.withValues(alpha: 0.4),
+                                            colors.onSurfaceVariant,
                                         size: 16),
                                     const SizedBox(width: 6),
                                     Text(
                                       'إعادة الإرسال خلال $_timer ثانية',
                                       style: TextStyle(
                                         color:
-                                            Colors.black.withValues(alpha: 0.5),
+                                            colors.onSurfaceVariant,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -391,7 +392,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                           child: Text(
                             'مش وصلك الكود؟ تأكد من رقمك وحاول تاني',
                             style: TextStyle(
-                              color: Colors.black.withValues(alpha: 0.4),
+                              color: colors.onSurfaceVariant,
                               fontSize: 11.5,
                             ),
                           ),
@@ -410,6 +411,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
   }
 
   Widget _buildTopBar() {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -425,8 +427,8 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                 },
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: _darkGreen,
+            backgroundColor: colors.surfaceContainerHighest,
+            foregroundColor: colors.onSurface,
             padding: const EdgeInsets.all(12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -487,6 +489,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
 
   Widget _otpBox(int index) {
     final hasValue = _controllers[index].text.isNotEmpty;
+    final colors = Theme.of(context).colorScheme;
 
     return SizedBox(
       width: 48,
@@ -507,7 +510,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
         decoration: InputDecoration(
           counterText: '',
           filled: true,
-          fillColor: Colors.white,
+          fillColor: colors.surfaceContainerHighest,
           contentPadding: EdgeInsets.zero,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),

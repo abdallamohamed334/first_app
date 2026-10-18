@@ -89,10 +89,11 @@ class _LoginPageState extends State<LoginPage>
   Widget build(BuildContext context) {
     if (_isCheckingAutoLogin) return _buildCheckingScreen();
 
+    final colors = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: colors.surface,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle.dark,
           child: Stack(
@@ -129,14 +130,15 @@ class _LoginPageState extends State<LoginPage>
   // Checking Screen
   // ═══════════════════════════════════════════════════════════
   Widget _buildCheckingScreen() {
+    final colors = Theme.of(context).colorScheme;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: colors.surface,
         body: Stack(
           children: [
             _buildBackground(),
-            const Center(
+            Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -154,7 +156,7 @@ class _LoginPageState extends State<LoginPage>
                   Text(
                     'جاري التحقق من الجلسة...',
                     style: TextStyle(
-                      color: _darkGreen,
+                      color: colors.onSurface,
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
                     ),
@@ -170,12 +172,13 @@ class _LoginPageState extends State<LoginPage>
 
   // خلفية هادئة لا تنافس النموذج أو الشعار.
   Widget _buildBackground() {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFAFA), _bg],
+          colors: [colors.surfaceContainerLow, colors.surface],
         ),
       ),
     );
@@ -185,6 +188,7 @@ class _LoginPageState extends State<LoginPage>
   // Top Bar
   // ═══════════════════════════════════════════════════════════
   Widget _buildTopBar() {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -200,8 +204,8 @@ class _LoginPageState extends State<LoginPage>
                 },
           icon: const Icon(Icons.arrow_forward_rounded),
           style: IconButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: _darkGreen,
+            backgroundColor: colors.surfaceContainerHighest,
+            foregroundColor: colors.onSurface,
             padding: const EdgeInsets.all(12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
@@ -214,7 +218,7 @@ class _LoginPageState extends State<LoginPage>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colors.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(100),
             border: Border.all(color: _cardBorder),
           ),

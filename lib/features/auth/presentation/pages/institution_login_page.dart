@@ -460,10 +460,12 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
   // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: colors.surface,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           value: const SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
@@ -471,11 +473,13 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
             statusBarBrightness: Brightness.light,
           ),
           child: Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [_bg, _bgDark],
+                colors: isDark
+                    ? [colors.surface, colors.surfaceContainerHighest]
+                    : [_bg, _bgDark],
               ),
             ),
             child: SafeArea(
@@ -491,8 +495,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                         child: IconButton(
                           onPressed: () =>
                               context.go(AppRouter.userTypeSelection),
-                          icon: const Icon(Icons.arrow_forward_rounded,
-                              color: _ink),
+                          icon: Icon(Icons.arrow_forward_rounded,
+                              color: colors.onSurface),
                           tooltip: 'رجوع',
                         ),
                       ),
@@ -526,8 +530,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                             ? 'تسجيل دخول الجمعيات'
                             : 'تسجيل دخول المؤسسات',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _ink,
+                        style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 21,
                           fontWeight: FontWeight.w800,
                         ),
@@ -603,6 +607,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                                 controller: _emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 textDirection: TextDirection.ltr,
+                                style: TextStyle(color: colors.onSurface),
                                 decoration: _inputDecoration(
                                   hint: 'institution@example.com',
                                   icon: Icons.mail_outline_rounded,
@@ -627,6 +632,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 textDirection: TextDirection.ltr,
+                                style: TextStyle(color: colors.onSurface),
                                 decoration: _inputDecoration(
                                   hint: _isCharity
                                       ? 'أدخل كود الجمعية'
