@@ -151,9 +151,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   Future<void> _ensureContactsLoaded() async {
     var phone = _offer['phone']?.toString().trim() ?? '';
     var whatsapp = _offer['whatsapp']?.toString().trim() ?? '';
-    final hasOwnerProfile = (_offer['owner_name']?.toString().trim() ?? '')
-            .isNotEmpty &&
-        (_offer['avatar_url']?.toString().trim() ?? '').isNotEmpty;
+    final hasOwnerProfile =
+        (_offer['owner_name']?.toString().trim() ?? '').isNotEmpty &&
+            (_offer['avatar_url']?.toString().trim() ?? '').isNotEmpty;
     if (phone.isNotEmpty && whatsapp.isNotEmpty && hasOwnerProfile) {
       _contactsFetched = true;
       return;
@@ -321,7 +321,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       // 3) نجيب الـ attributes نفسها
       final attributesRaw = await client
           .from('marketplace_attributes')
-            .select('id, slug, name_ar, input_type')
+          .select('id, slug, name_ar, input_type')
           .inFilter('id', attributeIds);
 
       final attributes = (attributesRaw as List)
@@ -528,8 +528,11 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ✅ الوقت
   // ═══════════════════════════════════════════════════════════
   String _timeRemaining() {
+    final listingType = offer['listing_type']?.toString().trim() ?? '';
+    // Legacy/public RPC payloads may omit listing_type. A non-charity
+    // community offer is still governed by the seven-day lifecycle.
     final isWeeklySale = offer['charity_id'] == null &&
-        offer['listing_type']?.toString() == 'symbolic_sale';
+        (listingType.isEmpty || listingType == 'symbolic_sale');
     final expiry = OfferExpiryHelper.effectiveExpiry(
       expiresAt: DateTime.tryParse(offer['expires_at']?.toString() ?? ''),
       createdAt: isWeeklySale
@@ -907,7 +910,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                     vertical: 7,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colors.primary.withValues(alpha: .09),
+                                    color:
+                                        colors.primary.withValues(alpha: .09),
                                     borderRadius: BorderRadius.circular(30),
                                   ),
                                   child: Row(
@@ -931,7 +935,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                   ),
                                 ),
                                 const Spacer(),
-                                if (offer['status']?.toString() == 'available' ||
+                                if (offer['status']?.toString() ==
+                                        'available' ||
                                     offer['status']?.toString() == 'active')
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -1244,29 +1249,29 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                   children: [
                                     CircleAvatar(
                                       radius: 19,
-                                      backgroundColor: colors.primary
-                                          .withValues(alpha: .1),
-                                      child: avatarUrl == null ||
-                                              avatarUrl.isEmpty
-                                          ? Icon(
-                                              Icons.person_rounded,
-                                              color: colors.primary,
-                                              size: 20,
-                                            )
-                                          : ClipOval(
-                                              child: Image.network(
-                                                avatarUrl,
-                                                width: 38,
-                                                height: 38,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    Icon(
+                                      backgroundColor:
+                                          colors.primary.withValues(alpha: .1),
+                                      child:
+                                          avatarUrl == null || avatarUrl.isEmpty
+                                              ? Icon(
                                                   Icons.person_rounded,
                                                   color: colors.primary,
                                                   size: 20,
+                                                )
+                                              : ClipOval(
+                                                  child: Image.network(
+                                                    avatarUrl,
+                                                    width: 38,
+                                                    height: 38,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder:
+                                                        (_, __, ___) => Icon(
+                                                      Icons.person_rounded,
+                                                      color: colors.primary,
+                                                      size: 20,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
@@ -1817,8 +1822,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       children: [
         _infoTile(Icons.inventory_2_rounded, 'الكمية',
             '${offer['quantity'] ?? 0}', colors.primary),
-        _infoTile(
-            Icons.timer_outlined, 'متبقي', _timeRemaining(), Colors.deepOrange),
+        _infoTile(Icons.timer_outlined, 'ينتهي خلال', _timeRemaining(),
+            Colors.deepOrange),
         _infoTile(Icons.schedule_rounded, 'الاستلام قبل',
             offer['pickup_before']?.toString() ?? 'غير محدد', Colors.blue),
         _infoTile(

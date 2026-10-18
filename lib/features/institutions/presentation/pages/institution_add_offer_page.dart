@@ -124,13 +124,16 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
           {'id': 'drink', 'label': 'مشروبات', 'category': 'drink'},
           {'id': 'dairy', 'label': 'ألبان', 'category': 'food'},
         ];
-      case 'butcher':
-      case 'meat_shop':
+      case 'pastry_shop':
         return const [
-          {'id': 'beef', 'label': 'لحوم بقري', 'category': 'meat'},
-          {'id': 'lamb', 'label': 'لحوم ضأن', 'category': 'meat'},
-          {'id': 'poultry', 'label': 'دواجن', 'category': 'meat'},
-          {'id': 'other_meat', 'label': 'أنواع أخرى', 'category': 'meat'},
+          {'id': 'cakes', 'label': 'تورت وحلويات', 'category': 'dessert'},
+          {'id': 'bakery', 'label': 'مخبوزات', 'category': 'bakery'},
+          {
+            'id': 'oriental_sweets',
+            'label': 'حلويات شرقية',
+            'category': 'dessert'
+          },
+          {'id': 'other_sweets', 'label': 'حلويات أخرى', 'category': 'dessert'},
         ];
       case 'bakery':
         return const [
@@ -313,7 +316,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       context: context,
       initialDate: initial != null && initial.isAfter(now) ? initial : now,
       firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(latestAllowed.year, latestAllowed.month, latestAllowed.day),
+      lastDate:
+          DateTime(latestAllowed.year, latestAllowed.month, latestAllowed.day),
       helpText: 'اختر يوم الاستلام',
       cancelText: 'إلغاء',
       confirmText: 'التالي',
@@ -332,7 +336,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     final value = DateTime(selectedDate.year, selectedDate.month,
         selectedDate.day, selectedTime.hour, selectedTime.minute);
     if (value.isBefore(now) || value.isAfter(latestAllowed)) {
-      _showMessage('وقت الاستلام يجب أن يكون خلال الـ 12 ساعة القادمة', error: true);
+      _showMessage('وقت الاستلام يجب أن يكون خلال الـ 12 ساعة القادمة',
+          error: true);
       return null;
     }
     return value;
@@ -420,14 +425,17 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
         (minBookingQuantity == null ||
             minBookingQuantity < 1 ||
             minBookingQuantity > quantity)) {
-      _showMessage('الحد الأدنى للحجز يجب أن يكون بين 1 والكمية المتاحة', error: true);
+      _showMessage('الحد الأدنى للحجز يجب أن يكون بين 1 والكمية المتاحة',
+          error: true);
       return;
     }
-    if (_isBookable && maxBookingText.isNotEmpty &&
+    if (_isBookable &&
+        maxBookingText.isNotEmpty &&
         (maxBookingQuantity == null ||
             maxBookingQuantity < minBookingQuantityToSend ||
             maxBookingQuantity > quantity)) {
-      _showMessage('الحد الأقصى يجب ألا يقل عن الحد الأدنى أو يتجاوز الكمية', error: true);
+      _showMessage('الحد الأقصى يجب ألا يقل عن الحد الأدنى أو يتجاوز الكمية',
+          error: true);
       return;
     }
     if (symbolicPrice == null || symbolicPrice < 0) {
@@ -451,23 +459,19 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     final now = DateTime.now();
     if (_isExpiringSoon &&
         (_productExpiryAt == null || !_productExpiryAt!.isAfter(now))) {
-      _showMessage('تاريخ صلاحية المنتج مطلوب ويجب أن يكون في المستقبل', error: true);
+      _showMessage('تاريخ صلاحية المنتج مطلوب ويجب أن يكون في المستقبل',
+          error: true);
       return;
     }
     if (productWeight != null && productWeight <= 0) {
       _showMessage('الوزن يجب أن يكون أكبر من صفر', error: true);
       return;
     }
-    if (_normalizedInstitutionType == 'butcher' &&
-        (_meatCutController.text.trim().isEmpty || productWeight == null)) {
-      _showMessage('اكتب نوع قطعة اللحم والوزن', error: true);
-      return;
-    }
     final pickupStart = _isBookable && _usePickupWindow ? _pickupStart : null;
-    final pickupEnd = !_isBookable
-        ? null
-        : (_usePickupWindow ? _pickupEnd : _pickupDeadline);
-    if (_isBookable && _usePickupWindow &&
+    final pickupEnd =
+        !_isBookable ? null : (_usePickupWindow ? _pickupEnd : _pickupDeadline);
+    if (_isBookable &&
+        _usePickupWindow &&
         (pickupStart == null || pickupEnd == null)) {
       _showMessage('حدد بداية ونهاية فترة الاستلام', error: true);
       return;
@@ -476,7 +480,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       _showMessage('حدد الموعد النهائي للاستلام', error: true);
       return;
     }
-    if (_isBookable && pickupStart != null && pickupEnd != null &&
+    if (_isBookable &&
+        pickupStart != null &&
+        pickupEnd != null &&
         !pickupEnd.isAfter(pickupStart)) {
       _showMessage('نهاية فترة الاستلام يجب أن تكون بعد بدايتها', error: true);
       return;
@@ -794,7 +800,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                   if (_saving) return;
                   setState(() {
                     _isExpiringSoon = true;
-                    _productExpiryAt ??= DateTime.now().add(const Duration(days: 3));
+                    _productExpiryAt ??=
+                        DateTime.now().add(const Duration(days: 3));
                   });
                 },
               ),
@@ -1433,15 +1440,15 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
   Widget _buildProductSubcategorySection() {
     final options = _productSubcategories;
     if (options.isEmpty) return const SizedBox.shrink();
-    final isButcher =
-        _normalizedInstitutionType == 'butcher' || _normalizedInstitutionType == 'meat_shop';
-    final isBakery = _normalizedInstitutionType == 'bakery';
+    final isBakery = _normalizedInstitutionType == 'bakery' ||
+        _normalizedInstitutionType == 'pastry_shop';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'نوع المنتج',
-          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(
+              color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -1466,24 +1473,6 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
             );
           }).toList(),
         ),
-        if (isButcher) ...[
-          const SizedBox(height: 12),
-          _buildTextField(
-            controller: _meatCutController,
-            label: 'نوع القطعة',
-            hint: 'مثال: مفروم، ستيك، صدور',
-            icon: Icons.restaurant_menu_rounded,
-          ),
-          const SizedBox(height: 12),
-          _buildTextField(
-            controller: _productWeightController,
-            label: 'الوزن بالكيلو (مطلوب)',
-            hint: 'مثال: 1.5',
-            icon: Icons.straighten_rounded,
-            numeric: true,
-            requiredField: false,
-          ),
-        ],
         if (isBakery) ...[
           const SizedBox(height: 12),
           _buildDateField(
@@ -1508,7 +1497,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       children: [
         const Text(
           'حالة التخزين',
-          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(
+              color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -1520,7 +1510,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               avatar: Icon(option.$3, size: 17),
               label: Text(option.$2),
               selected: selected,
-              onSelected: _saving ? null : (_) => setState(() => _storageCondition = option.$1),
+              onSelected: _saving
+                  ? null
+                  : (_) => setState(() => _storageCondition = option.$1),
               selectedColor: _primary,
               labelStyle: TextStyle(
                 color: selected ? Colors.white : _primaryDark,
@@ -1579,9 +1571,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: _saving
-            ? null
-            : () => setState(() => _isBookable = isBookable),
+        onTap: _saving ? null : () => setState(() => _isBookable = isBookable),
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(14),
@@ -1641,7 +1631,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       children: [
         const Text(
           'حدود الحجز',
-          style: TextStyle(color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
+          style: TextStyle(
+              color: _primaryDark, fontSize: 16, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 10),
         Column(
@@ -1792,7 +1783,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               Expanded(
                 child: Text(
                   'طريقة الاستلام: استلام من المحل',
-                  style: TextStyle(color: _primaryDark, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      color: _primaryDark, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -1817,7 +1809,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               label: 'بداية الاستلام',
               value: _pickupStart,
               onTap: () async {
-                final value = await _choosePickupDateTime(initial: _pickupStart);
+                final value =
+                    await _choosePickupDateTime(initial: _pickupStart);
                 if (value != null) setState(() => _pickupStart = value);
               },
               icon: Icons.play_circle_outline_rounded,
@@ -1828,8 +1821,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
               value: _pickupEnd,
               onTap: () async {
                 final value = await _choosePickupDateTime(
-                  initial: _pickupEnd ??
-                      _pickupStart?.add(const Duration(hours: 1)),
+                  initial:
+                      _pickupEnd ?? _pickupStart?.add(const Duration(hours: 1)),
                 );
                 if (value != null) setState(() => _pickupEnd = value);
               },
@@ -2056,5 +2049,4 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       ),
     );
   }
-
 }

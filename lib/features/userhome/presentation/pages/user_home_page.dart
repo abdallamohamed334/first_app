@@ -79,13 +79,13 @@ const Set<String> _homeRestaurantInstitutionTypes = {
 };
 
 /// Slugs used by the institution category browser; nearby offers search all types.
-const Set<String> _institutionCatalogSlugs = UserHomePolicy.institutionCatalogSlugs;
+const Set<String> _institutionCatalogSlugs =
+    UserHomePolicy.institutionCatalogSlugs;
 const Set<String> _institutionHomeCategorySlugs = {
   'grocery',
   'supermarket',
   'bakery',
-  'butcher',
-  'meat_shop',
+  'pastry_shop',
 };
 
 enum _HomeMode { buy, services }
@@ -221,10 +221,9 @@ class _UserHomePageState extends State<UserHomePage> {
         _userLng = lng;
         _userCity =
             (city != null && city.isNotEmpty) ? city : AppConfig.defaultCity;
-        _userGovernorate =
-            (governorate != null && governorate.isNotEmpty)
-                ? governorate
-                : null;
+        _userGovernorate = (governorate != null && governorate.isNotEmpty)
+            ? governorate
+            : null;
         _locationUnavailable = false;
       });
 
@@ -404,9 +403,7 @@ class _UserHomePageState extends State<UserHomePage> {
       final offersById = <String, InstitutionOffer>{};
       for (final offer in offers) {
         final id = offer.id.trim();
-        if (id.isEmpty ||
-            !offer.isActive ||
-            offer.remainingQuantity <= 0) {
+        if (id.isEmpty || !offer.isActive || offer.remainingQuantity <= 0) {
           continue;
         }
         offersById.putIfAbsent(id, () => offer);
@@ -430,7 +427,6 @@ class _UserHomePageState extends State<UserHomePage> {
       setState(() => _loadingInstitutionOffers = false);
     }
   }
-
 
   bool _isHomeRestaurantOffer(InstitutionOffer offer) {
     final type = offer.institutionType?.trim().toLowerCase();
@@ -509,15 +505,14 @@ class _UserHomePageState extends State<UserHomePage> {
               );
       final institutionSubcategories = institutionRoot == null
           ? <Map<String, dynamic>>[]
-              : (await _userHomeRepository.getSubCategories(
-                institutionRoot['id']?.toString() ?? '',
-              ))
+          : (await _userHomeRepository.getSubCategories(
+              institutionRoot['id']?.toString() ?? '',
+            ))
               .where((category) {
-                return _institutionCatalogSlugs.contains(
-                  category['slug']?.toString().trim().toLowerCase(),
-                );
-              })
-              .toList(growable: false);
+              return _institutionCatalogSlugs.contains(
+                category['slug']?.toString().trim().toLowerCase(),
+              );
+            }).toList(growable: false);
       if (institutionRoot != null) {
         // The category RPC is now the single source of truth for nearby
         // marketplace offers. Do not issue a second category query here: the
@@ -548,7 +543,8 @@ class _UserHomePageState extends State<UserHomePage> {
           for (final category in institutionSubcategories) {
             final childId = category['id']?.toString() ?? '';
             if (childId.isEmpty) continue;
-            final treeIds = await _userHomeRepository.getCategoryTreeIds(childId);
+            final treeIds =
+                await _userHomeRepository.getCategoryTreeIds(childId);
             final tree = treeIds.toSet();
             grouped[childId] = institutionOnly
                 .where((offer) => tree.contains(offer.categoryId))
@@ -845,7 +841,8 @@ class _UserHomePageState extends State<UserHomePage> {
     final bool isServices = _homeMode == _HomeMode.services;
 
     final buyCategories = state.categories.where((c) {
-      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c)) return false;
+      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c))
+        return false;
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
         return false;
       }
@@ -1382,7 +1379,8 @@ class _UserHomePageState extends State<UserHomePage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: _blue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
@@ -1427,7 +1425,8 @@ class _UserHomePageState extends State<UserHomePage> {
                       MarkerLayer(
                         markers: providers.map((provider) {
                           return Marker(
-                            point: LatLng(provider.latitude!, provider.longitude!),
+                            point:
+                                LatLng(provider.latitude!, provider.longitude!),
                             width: 42,
                             height: 54,
                             child: GestureDetector(
@@ -1445,7 +1444,9 @@ class _UserHomePageState extends State<UserHomePage> {
                                     width: 36,
                                     height: 36,
                                     decoration: BoxDecoration(
-                                      color: provider.isCompany ? _primaryRed : _blue,
+                                      color: provider.isCompany
+                                          ? _primaryRed
+                                          : _blue,
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: Colors.white,
@@ -1453,7 +1454,8 @@ class _UserHomePageState extends State<UserHomePage> {
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.22),
+                                          color: Colors.black
+                                              .withValues(alpha: 0.22),
                                           blurRadius: 7,
                                           offset: const Offset(0, 3),
                                         ),
@@ -1469,7 +1471,9 @@ class _UserHomePageState extends State<UserHomePage> {
                                   ),
                                   Icon(
                                     Icons.arrow_drop_down_rounded,
-                                    color: provider.isCompany ? _primaryRed : _blue,
+                                    color: provider.isCompany
+                                        ? _primaryRed
+                                        : _blue,
                                     size: 16,
                                   ),
                                 ],
@@ -1602,7 +1606,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
   LatLng _serviceProvidersMapCenter(List<ServiceProvider> providers) {
     final located = providers
-        .where((provider) => provider.latitude != null && provider.longitude != null)
+        .where((provider) =>
+            provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
     if (located.isEmpty) {
       return LatLng(
@@ -1626,7 +1631,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
   double _serviceProvidersMapZoom(List<ServiceProvider> providers) {
     final located = providers
-        .where((provider) => provider.latitude != null && provider.longitude != null)
+        .where((provider) =>
+            provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
     if (located.length < 2) return 12.5;
 
@@ -1829,8 +1835,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
     return Column(
       children: requestedCategories.map((category) {
-        final providers = providersByCategory[category.id] ??
-            const <ServiceProvider>[];
+        final providers =
+            providersByCategory[category.id] ?? const <ServiceProvider>[];
         return _section(
           title: 'الأعلى تقييمًا في ${category.nameAr}',
           trailing: Text(
@@ -2134,8 +2140,11 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildHeader() {
-    final metadata = SupabaseService().client.auth.currentUser?.userMetadata ?? const <String, dynamic>{};
-    final displayName = (metadata['full_name'] ?? metadata['name'] ?? 'Abdalla Mohamed').toString();
+    final metadata = SupabaseService().client.auth.currentUser?.userMetadata ??
+        const <String, dynamic>{};
+    final displayName =
+        (metadata['full_name'] ?? metadata['name'] ?? 'Abdalla Mohamed')
+            .toString();
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
       child: Row(
@@ -2152,10 +2161,17 @@ class _UserHomePageState extends State<UserHomePage> {
                   displayName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w800),
+                  style: TextStyle(
+                      color: _textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 2),
-                Text('أهلاً بيك في Khedma', style: TextStyle(color: _textSecondary, fontSize: 11, fontWeight: FontWeight.w600)),
+                Text('أهلاً بيك في Khedma',
+                    style: TextStyle(
+                        color: _textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -2164,8 +2180,12 @@ class _UserHomePageState extends State<UserHomePage> {
             width: 42,
             height: 42,
             padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(color: _cardSoft, shape: BoxShape.circle, border: Border.all(color: _border)),
-            child: Image.asset('assets/images/khedma_icon.png', fit: BoxFit.cover),
+            decoration: BoxDecoration(
+                color: _cardSoft,
+                shape: BoxShape.circle,
+                border: Border.all(color: _border)),
+            child:
+                Image.asset('assets/images/khedma_icon.png', fit: BoxFit.cover),
           ),
         ],
       ),
@@ -2179,10 +2199,14 @@ class _UserHomePageState extends State<UserHomePage> {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(15),
-        child: SizedBox(width: 48, height: 48, child: Icon(icon, color: _textPrimary, size: 24)),
+        child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, color: _textPrimary, size: 24)),
       ),
     );
   }
+
   Widget _buildHeaderNotificationButton() {
     return Material(
       color: _card,
@@ -2222,8 +2246,10 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildCompanySectionTitle() => _referenceSectionTitle('عروض مؤسسات قريبة منك', 'عرض الكل');
-  Widget _buildStoreCategoriesTitle() => _referenceSectionTitle('أقسام الشراء', null);
+  Widget _buildCompanySectionTitle() =>
+      _referenceSectionTitle('عروض مؤسسات قريبة منك', 'عرض الكل');
+  Widget _buildStoreCategoriesTitle() =>
+      _referenceSectionTitle('أقسام الشراء', null);
   Widget _buildOffersTitle() => _referenceSectionTitle('العروض', 'عرض الكل');
 
   Widget _referenceSectionTitle(String title, String? action) {
@@ -2231,9 +2257,18 @@ class _UserHomePageState extends State<UserHomePage> {
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
       child: Row(
         children: [
-          if (action != null) Text(action, style: TextStyle(color: _primaryRed, fontSize: 13, fontWeight: FontWeight.w800)),
+          if (action != null)
+            Text(action,
+                style: TextStyle(
+                    color: _primaryRed,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800)),
           const Spacer(),
-          Text(title, style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w900)),
+          Text(title,
+              style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900)),
         ],
       ),
     );
@@ -3200,7 +3235,8 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildNearbyServiceProvidersSection() {
     final providers = _nearbyServiceProviders
-        .where((provider) => provider.latitude != null && provider.longitude != null)
+        .where((provider) =>
+            provider.latitude != null && provider.longitude != null)
         .take(20)
         .toList(growable: false);
 
@@ -3391,7 +3427,9 @@ class _UserHomePageState extends State<UserHomePage> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          location.isEmpty ? _userGovernorate ?? _userCity : location,
+                          location.isEmpty
+                              ? _userGovernorate ?? _userCity
+                              : location,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -3578,19 +3616,15 @@ class _UserHomePageState extends State<UserHomePage> {
     }
 
     final seenCategoryKeys = <String>{};
-    final subcategories = _institutionSubcategories
-        .where((category) {
-          final id = category['id']?.toString() ?? '';
-          final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
-          return id.isNotEmpty &&
-              _institutionHomeCategorySlugs.contains(slug);
-        })
-        .where((category) {
-          final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
-          final key = slug == 'meat_shop' ? 'butcher' : slug;
-          return seenCategoryKeys.add(key);
-        })
-        .toList(growable: false);
+    final subcategories = _institutionSubcategories.where((category) {
+      final id = category['id']?.toString() ?? '';
+      final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
+      return id.isNotEmpty && _institutionHomeCategorySlugs.contains(slug);
+    }).where((category) {
+      final slug = category['slug']?.toString().trim().toLowerCase() ?? '';
+      final key = slug;
+      return seenCategoryKeys.add(key);
+    }).toList(growable: false);
 
     if (_loadingNearbyCategoryOffers && subcategories.isEmpty) {
       return _section(
@@ -3664,7 +3698,8 @@ class _UserHomePageState extends State<UserHomePage> {
           final name = category['name_ar']?.toString() ?? 'قسم';
           final slug = category['slug']?.toString() ?? '';
           final offerCount = offersByCategory[id]?.length ?? 0;
-          final accent = [_primaryRed, _orange, _green, _blue, _purple][index % 5];
+          final accent =
+              [_primaryRed, _orange, _green, _blue, _purple][index % 5];
           final hasOffers = offerCount > 0;
 
           return SizedBox(
@@ -3672,91 +3707,92 @@ class _UserHomePageState extends State<UserHomePage> {
             child: Material(
               color: _card,
               borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () => _openSmartCategory(id, name, slug),
-              child: Container(
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: hasOffers ? accent.withValues(alpha: 0.32) : _border,
-                  ),
-                  gradient: LinearGradient(
-                    colors: [
-                      accent.withValues(alpha: hasOffers ? 0.2 : 0.1),
-                      _card,
-                    ],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          _iconFromName(category['icon']?.toString() ?? ''),
-                          color: accent,
-                          size: 26,
-                        ),
-                      ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => _openSmartCategory(id, name, slug),
+                child: Container(
+                  padding: const EdgeInsets.all(13),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color:
+                          hasOffers ? accent.withValues(alpha: 0.32) : _border,
                     ),
-                    const Spacer(),
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        color: _textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                      ),
+                    gradient: LinearGradient(
+                      colors: [
+                        accent.withValues(alpha: hasOffers ? 0.2 : 0.1),
+                        _card,
+                      ],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
                     ),
-                    const SizedBox(height: 7),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          hasOffers ? 'تصفح العروض' : 'اكتشف القسم',
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(20),
+                            color: accent.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(
-                            '$offerCount عرض',
+                          child: Icon(
+                            _iconFromName(category['icon']?.toString() ?? ''),
+                            color: accent,
+                            size: 26,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: _textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            hasOffers ? 'تصفح العروض' : 'اكتشف القسم',
                             style: TextStyle(
                               color: accent,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: accent.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$offerCount عرض',
+                              style: TextStyle(
+                                color: accent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -4347,8 +4383,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) =>
-                              const AddCommunityOfferPage(),
+                          builder: (_) => const AddCommunityOfferPage(),
                         ),
                       );
                     },

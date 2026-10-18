@@ -18,7 +18,8 @@ import 'package:loqma/features/offers/domain/entities/food_offer_status.dart';
 
 class UserInstitutionOffersPage extends StatefulWidget {
   final List<FoodOffer>? offers;
-  /// `commercial` = grocery/supermarket/bakery/butcher,
+
+  /// `commercial` = grocery/supermarket/bakery/pastry_shop,
   /// `surplus` = hotels/wedding halls.
   final String? institutionSection;
 
@@ -302,10 +303,10 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
         data: Theme.of(context).copyWith(
           scaffoldBackgroundColor: _bg,
           colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: _primaryRed,
-            surface: _bg,
-            onSurface: _textPrimary,
-          ),
+                primary: _primaryRed,
+                surface: _bg,
+                onSurface: _textPrimary,
+              ),
         ),
         child: Scaffold(
           backgroundColor: _bg,
@@ -315,78 +316,80 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
                   child: CircularProgressIndicator(color: _primaryRed),
                 )
               : RefreshIndicator(
-                      color: _primaryRed,
-                      backgroundColor: _card,
-                      onRefresh: () async {
-                        await _fetchInstitutionOffers(reset: true);
-                      },
-                      child: CustomScrollView(
-                        physics: BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
-                        slivers: [
-                          SliverToBoxAdapter(child: _buildHeroHeader()),
-                          SliverToBoxAdapter(
-                            child: _buildGovernorateSelector(),
-                          ),
-                          SliverToBoxAdapter(
-                            child: _buildInstitutionTypeFilters(),
-                          ),
-                          SliverToBoxAdapter(child: _buildStatsRow(offers)),
-                          if (offers.isEmpty)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: _buildEmptyState(
-                                message: 'لا توجد عروض في هذا النوع حاليًا',
-                              ),
-                            )
-                          else
-                            SliverPadding(
-                              padding:
-                                  EdgeInsets.fromLTRB(16, 8, 16, 100),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                    final offer = offers[index];
-                                    return Padding(
-                                      padding:
-                                          EdgeInsets.only(bottom: 14),
-                                      child: _InstitutionOfferCard(
-                                        offer: offer,
-                                        index: index,
-                                        onTap: () =>
-                                            _navigateToDetails(context, offer),
-                                      ),
-                                    );
-                                  },
-                                  childCount: offers.length,
-                                ),
-                              ),
-                            ),
-                          if (_hasMore && offers.isNotEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
-                                child: OutlinedButton.icon(
-                                  onPressed: _isLoadingMore ? null : _loadMore,
-                                  icon: _isLoadingMore
-                                      ? SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(strokeWidth: 2),
-                                        )
-                                      : Icon(Icons.expand_more_rounded),
-                                  label: Text(_isLoadingMore ? 'جاري التحميل...' : 'تحميل المزيد'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: _textPrimary,
-                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                  color: _primaryRed,
+                  backgroundColor: _card,
+                  onRefresh: () async {
+                    await _fetchInstitutionOffers(reset: true);
+                  },
+                  child: CustomScrollView(
+                    physics: BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
                     ),
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildHeroHeader()),
+                      SliverToBoxAdapter(
+                        child: _buildGovernorateSelector(),
+                      ),
+                      SliverToBoxAdapter(
+                        child: _buildInstitutionTypeFilters(),
+                      ),
+                      SliverToBoxAdapter(child: _buildStatsRow(offers)),
+                      if (offers.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _buildEmptyState(
+                            message: 'لا توجد عروض في هذا النوع حاليًا',
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final offer = offers[index];
+                                return Padding(
+                                  padding: EdgeInsets.only(bottom: 14),
+                                  child: _InstitutionOfferCard(
+                                    offer: offer,
+                                    index: index,
+                                    onTap: () =>
+                                        _navigateToDetails(context, offer),
+                                  ),
+                                );
+                              },
+                              childCount: offers.length,
+                            ),
+                          ),
+                        ),
+                      if (_hasMore && offers.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(16, 4, 16, 100),
+                            child: OutlinedButton.icon(
+                              onPressed: _isLoadingMore ? null : _loadMore,
+                              icon: _isLoadingMore
+                                  ? SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : Icon(Icons.expand_more_rounded),
+                              label: Text(_isLoadingMore
+                                  ? 'جاري التحميل...'
+                                  : 'تحميل المزيد'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _textPrimary,
+                                side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2)),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
         ),
       ),
     );
@@ -651,7 +654,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       final offerCity = offer.business?['city']?.toString().trim();
       final cities = EgyptLocations.citiesFor(_selectedGovernorate);
       if (_selectedGovernorate != null &&
-          (offerCity == null || offerCity.isEmpty || !cities.contains(offerCity))) {
+          (offerCity == null ||
+              offerCity.isEmpty ||
+              !cities.contains(offerCity))) {
         return false;
       }
       if (widget.institutionSection == 'commercial') {
@@ -659,8 +664,7 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
           'grocery',
           'supermarket',
           'bakery',
-          'butcher',
-          'meat_shop',
+          'pastry_shop',
         }.contains(type);
       }
       if (widget.institutionSection == 'surplus') {
@@ -669,7 +673,8 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
       return true;
     });
 
-    if (_selectedInstitutionType == 'all') return sectionOffers.toList(growable: false);
+    if (_selectedInstitutionType == 'all')
+      return sectionOffers.toList(growable: false);
     return sectionOffers
         .where((offer) => _matchesInstitutionType(
               offer.businessType,
@@ -704,7 +709,8 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
         ),
-        style: TextStyle(color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
+        style: TextStyle(
+            color: _textPrimary, fontSize: 12, fontWeight: FontWeight.w800),
         items: [
           DropdownMenuItem<String>(value: null, child: Text('كل المحافظات')),
           ...EgyptLocations.names.map(
@@ -812,7 +818,8 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
             ),
             SizedBox(height: 8),
             Text(
-              message ?? 'حاليًا لا توجد عروض من المؤسسات\nحاول مرة أخرى لاحقًا',
+              message ??
+                  'حاليًا لا توجد عروض من المؤسسات\nحاول مرة أخرى لاحقًا',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: _textSecondary,
@@ -997,8 +1004,11 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
 
     final pickupStart = raw['pickup_start']?.toString();
     final pickupEnd = raw['pickup_end']?.toString();
-    if (isBookable && pickupStart != null && pickupStart.isNotEmpty &&
-        pickupEnd != null && pickupEnd.isNotEmpty) {
+    if (isBookable &&
+        pickupStart != null &&
+        pickupStart.isNotEmpty &&
+        pickupEnd != null &&
+        pickupEnd.isNotEmpty) {
       try {
         final start = DateTime.parse(pickupStart);
         final end = DateTime.parse(pickupEnd);
@@ -1324,7 +1334,8 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    widget.offer.details?['is_bookable'] == false
+                                    widget.offer.details?['is_bookable'] ==
+                                            false
                                         ? 'عرض التفاصيل'
                                         : 'احجز الآن',
                                     style: TextStyle(

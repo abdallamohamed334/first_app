@@ -7,8 +7,7 @@ class InstitutionOfferPolicy {
     'grocery',
     'supermarket',
     'bakery',
-    'butcher',
-    'meat_shop',
+    'pastry_shop',
   };
 
   static const surplusTypes = <String>{
@@ -44,9 +43,8 @@ class InstitutionOfferPolicy {
         return 'سوبر ماركت';
       case 'bakery':
         return 'مخبز';
-      case 'butcher':
-      case 'meat_shop':
-        return 'جزارة';
+      case 'pastry_shop':
+        return 'محلات الحلويات';
       case 'hotel':
         return 'فندق';
       case 'wedding_hall':
@@ -66,9 +64,8 @@ class InstitutionOfferPolicy {
     switch (normalizeType(value)) {
       case 'bakery':
         return const ['bakery', 'dessert', 'food', 'drink', 'other'];
-      case 'butcher':
-      case 'meat_shop':
-        return const ['meat', 'food', 'other'];
+      case 'pastry_shop':
+        return const ['dessert', 'bakery', 'food', 'drink', 'other'];
       default:
         return const ['food', 'bakery', 'fruit', 'drink', 'other'];
     }

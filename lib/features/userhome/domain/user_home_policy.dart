@@ -6,8 +6,7 @@ class UserHomePolicy {
     'grocery',
     'supermarket',
     'bakery',
-    'butcher',
-    'meat_shop',
+    'pastry_shop',
     'hotel',
     'wedding_hall',
   };
@@ -16,8 +15,7 @@ class UserHomePolicy {
     'grocery',
     'supermarket',
     'bakery',
-    'butcher',
-    'meat_shop',
+    'pastry_shop',
     'hotel',
     'wedding_hall',
   };

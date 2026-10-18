@@ -106,9 +106,10 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
             .where((category) => category['id'] != null)
             .map((category) => <String, String>{
                   'id': category['id'].toString(),
-                  'label': category['name_ar']?.toString().trim().isNotEmpty == true
-                      ? category['name_ar'].toString()
-                      : category['slug'].toString(),
+                  'label':
+                      category['name_ar']?.toString().trim().isNotEmpty == true
+                          ? category['name_ar'].toString()
+                          : category['slug'].toString(),
                 })
             .toList(growable: false),
       ];
@@ -753,7 +754,7 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
           isDark: isDark,
           icon: Icons.shopping_basket_rounded,
           title: 'عروض المؤسسات',
-          subtitle: 'بقالة • سوبر ماركت • جزارة • مخبز',
+          subtitle: 'بقالة • سوبر ماركت • محلات الحلويات • مخبز',
           description: 'منتجات متاحة للشراء بسعر رمزي',
           color: const Color(0xFF0B7650),
           section: 'commercial',

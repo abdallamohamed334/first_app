@@ -10,6 +10,7 @@ import '../../domain/institution_offer_policy.dart';
 import 'institution_offer_details_page.dart';
 
 enum _OfferFilter { active, expired, soldOut }
+
 enum _OfferSection { symbolicSale, institutionSurplus }
 
 class InstitutionOffersPage extends StatefulWidget {
@@ -108,7 +109,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
       if (query.isEmpty) return true;
       return offer.title.toLowerCase().contains(query) ||
           offer.institutionName.toLowerCase().contains(query);
-      }).toList(growable: false);
+    }).toList(growable: false);
   }
 
   bool _matchesSection(InstitutionOffer offer) {
@@ -194,9 +195,11 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                       offer.institutionType,
                     ))
                 .toList(growable: false);
-            final sectionOffers = allOffers.where(_matchesSection).toList(growable: false);
+            final sectionOffers =
+                allOffers.where(_matchesSection).toList(growable: false);
             final locationOffers = _locationFilteredOffers(sectionOffers);
-            final activeCount = _countByFilter(locationOffers, _OfferFilter.active);
+            final activeCount =
+                _countByFilter(locationOffers, _OfferFilter.active);
             final expiredCount =
                 _countByFilter(locationOffers, _OfferFilter.expired);
             final soldOutCount =
@@ -612,7 +615,8 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
               ),
               for (final radius in <double>[5, 15, 25, 50, 0])
                 ChoiceChip(
-                  label: Text(radius == 0 ? 'كل المسافات' : '${radius.toInt()} كم'),
+                  label: Text(
+                      radius == 0 ? 'كل المسافات' : '${radius.toInt()} كم'),
                   selected: _radiusKm == radius,
                   onSelected: (_) => setState(() => _radiusKm = radius),
                   selectedColor: _primary.withValues(alpha: 0.16),
@@ -622,7 +626,9 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                     fontWeight: FontWeight.w800,
                   ),
                   side: BorderSide(
-                    color: _radiusKm == radius ? _primary : const Color(0xFFE2EAE5),
+                    color: _radiusKm == radius
+                        ? _primary
+                        : const Color(0xFFE2EAE5),
                   ),
                 ),
             ],
@@ -705,7 +711,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
             child: _buildSectionTab(
               section: _OfferSection.symbolicSale,
               label: 'شراء رمزي',
-              subtitle: 'بقالة • سوبر ماركت • مخبز • جزارة',
+              subtitle: 'بقالة • سوبر ماركت • مخبز • محلات الحلويات',
               icon: Icons.shopping_basket_rounded,
             ),
           ),
@@ -755,9 +761,19 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: TextStyle(color: selected ? _ink : _inkSoft, fontSize: 11, fontWeight: FontWeight.w900)),
+                  Text(label,
+                      style: TextStyle(
+                          color: selected ? _ink : _inkSoft,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900)),
                   const SizedBox(height: 2),
-                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: selected ? _primary : _inkSoft, fontSize: 8.5, fontWeight: FontWeight.w600)),
+                  Text(subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: selected ? _primary : _inkSoft,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -1234,7 +1250,8 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                         PageView.builder(
                           controller: _pageController,
                           itemCount: images.length,
-                          onPageChanged: (i) => setState(() => _currentImage = i),
+                          onPageChanged: (i) =>
+                              setState(() => _currentImage = i),
                           itemBuilder: (_, i) => Image.network(
                             images[i],
                             fit: BoxFit.cover,
@@ -1262,7 +1279,8 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                         top: 8,
                         right: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 5),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.94),
                             borderRadius: BorderRadius.circular(14),
@@ -1272,7 +1290,11 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                             children: [
                               Icon(_statusIcon, size: 12, color: _statusColor),
                               const SizedBox(width: 3),
-                              Text(_statusLabel, style: TextStyle(color: _statusColor, fontSize: 9, fontWeight: FontWeight.w900)),
+                              Text(_statusLabel,
+                                  style: TextStyle(
+                                      color: _statusColor,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900)),
                             ],
                           ),
                         ),
@@ -1282,16 +1304,28 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                           bottom: 8,
                           right: 8,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                            decoration: BoxDecoration(color: _red, borderRadius: BorderRadius.circular(12)),
-                            child: Text('${offer.discountPercent!.round()}% خصم', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: _red,
+                                borderRadius: BorderRadius.circular(12)),
+                            child: Text(
+                                '${offer.discountPercent!.round()}% خصم',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900)),
                           ),
                         ),
                       if (images.length > 1)
                         Positioned(
                           bottom: 8,
                           left: 8,
-                          child: Text('${_currentImage + 1}/${images.length}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                          child: Text('${_currentImage + 1}/${images.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800)),
                         ),
                     ],
                   ),
@@ -1311,43 +1345,73 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                               offer.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: _ink, fontSize: 16, fontWeight: FontWeight.w900, height: 1.25),
+                              style: const TextStyle(
+                                  color: _ink,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.25),
                             ),
                           ),
                           const SizedBox(width: 5),
-                          const Icon(Icons.chevron_left_rounded, color: _primary, size: 20),
+                          const Icon(Icons.chevron_left_rounded,
+                              color: _primary, size: 20),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        offer.description.trim().isEmpty ? 'عرض متاح من المؤسسة' : offer.description.trim(),
+                        offer.description.trim().isEmpty
+                            ? 'عرض متاح من المؤسسة'
+                            : offer.description.trim(),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: _inkSoft, fontSize: 11.5, height: 1.45),
+                        style: const TextStyle(
+                            color: _inkSoft, fontSize: 11.5, height: 1.45),
                       ),
                       const SizedBox(height: 9),
-                      _detailLine(Icons.storefront_rounded, offer.institutionName),
+                      _detailLine(
+                          Icons.storefront_rounded, offer.institutionName),
                       if (location.isNotEmpty) ...[
                         const SizedBox(height: 5),
                         _detailLine(Icons.location_on_outlined, location),
                       ],
                       if ((offer.pickupLocation ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 5),
-                        _detailLine(Icons.pin_drop_outlined, offer.pickupLocation!.trim()),
+                        _detailLine(Icons.pin_drop_outlined,
+                            offer.pickupLocation!.trim()),
                       ],
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Text('${offer.symbolicPrice.toStringAsFixed(0)} ج.م', style: const TextStyle(color: _primary, fontSize: 18, fontWeight: FontWeight.w900)),
+                          Text('${offer.symbolicPrice.toStringAsFixed(0)} ج.م',
+                              style: const TextStyle(
+                                  color: _primary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900)),
                           if (_hasDiscount) ...[
                             const SizedBox(width: 5),
-                            Text('${offer.originalPrice!.toStringAsFixed(0)} ج.م', style: const TextStyle(color: _inkSoft, fontSize: 10, decoration: TextDecoration.lineThrough)),
+                            Text(
+                                '${offer.originalPrice!.toStringAsFixed(0)} ج.م',
+                                style: const TextStyle(
+                                    color: _inkSoft,
+                                    fontSize: 10,
+                                    decoration: TextDecoration.lineThrough)),
                           ],
                           const Spacer(),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                            decoration: BoxDecoration(color: offer.remainingQuantity > 0 ? _primary.withValues(alpha: 0.09) : _red.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(10)),
-                            child: Text('${offer.remainingQuantity} متبقي', style: TextStyle(color: offer.remainingQuantity > 0 ? _primary : _red, fontSize: 10, fontWeight: FontWeight.w900)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(
+                                color: offer.remainingQuantity > 0
+                                    ? _primary.withValues(alpha: 0.09)
+                                    : _red.withValues(alpha: 0.09),
+                                borderRadius: BorderRadius.circular(10)),
+                            child: Text('${offer.remainingQuantity} متبقي',
+                                style: TextStyle(
+                                    color: offer.remainingQuantity > 0
+                                        ? _primary
+                                        : _red,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900)),
                           ),
                         ],
                       ),
@@ -1357,8 +1421,16 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
                         height: 34,
                         child: ElevatedButton(
                           onPressed: widget.onTap,
-                          style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, elevation: 0, padding: EdgeInsets.zero, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11))),
-                          child: const Text('شاهد التفاصيل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: _primary,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(11))),
+                          child: const Text('شاهد التفاصيل',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w900)),
                         ),
                       ),
                     ],
@@ -1377,7 +1449,14 @@ class _InstitutionOfferCardState extends State<_InstitutionOfferCard> {
       children: [
         Icon(icon, color: _primary, size: 14),
         const SizedBox(width: 5),
-        Expanded(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _inkSoft, fontSize: 10.5, fontWeight: FontWeight.w700))),
+        Expanded(
+            child: Text(value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: _inkSoft,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700))),
       ],
     );
   }

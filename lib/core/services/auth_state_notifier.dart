@@ -15,7 +15,6 @@ class AuthStateNotifier extends ChangeNotifier {
     'pastry_shop',
     'sweets',
     'juice_shop',
-    'butcher',
     'fish_market',
     'poultry_shop',
     'dairy_shop',
@@ -50,8 +49,7 @@ class AuthStateNotifier extends ChangeNotifier {
     bool hasProviderProfile = false,
     dynamic institutionType,
   }) {
-    final storedRole =
-        _normalizeRole(userType) ?? _normalizeRole(fallbackRole);
+    final storedRole = _normalizeRole(userType) ?? _normalizeRole(fallbackRole);
     if (storedRole == null) return 'unknown';
 
     // Provider profiles are the established exception: provider accounts are
@@ -172,7 +170,6 @@ class AuthStateNotifier extends ChangeNotifier {
       case 'pastry_shop':
       case 'sweets':
       case 'juice_shop':
-      case 'butcher':
       case 'fish_market':
       case 'poultry_shop':
       case 'dairy_shop':
