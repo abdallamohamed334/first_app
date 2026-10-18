@@ -15,9 +15,16 @@ class AuthLocalDataSource {
 
   static const Set<String> supportedUserTypes = <String>{
     'user',
+    'provider',
+    'institution',
     'restaurant',
     'business',
     'charity',
+    'hotel',
+    'supermarket',
+    'bakery',
+    'cafe',
+    'company',
   };
 
   Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();

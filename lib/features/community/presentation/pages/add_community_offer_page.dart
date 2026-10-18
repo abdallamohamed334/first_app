@@ -666,8 +666,8 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   void _goBackInWizard() {
-    if (_wizardStep == 3) {
-      setState(() => _wizardStep = 2);
+    if (_wizardStep >= 3) {
+      setState(() => _wizardStep--);
       return;
     }
     if (_wizardStep == 2) {
@@ -692,7 +692,6 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       });
     }
   }
-
   Future<void> _handleBackNavigation() async {
     if (!_isEditMode && _wizardStep > 0) {
       _goBackInWizard();
@@ -725,6 +724,34 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return;
     }
     setState(() => _wizardStep = 3);
+  }
+
+  Future<void> _continueFromImages() async {
+    if (_totalImages == 0) {
+      _showMessage('أضف صورة واحدة على الأقل للعرض');
+      return;
+    }
+    setState(() => _wizardStep = 4);
+  }
+
+  Future<void> _continueFromDetails() async {
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? true)) return;
+    final contactPhone = _phoneController.text.trim();
+    if (!_isValidEgyptianPhone(contactPhone)) {
+      _showMessage('رقم الهاتف غير صحيح (مثال: 01012345678)');
+      return;
+    }
+    final whatsapp = _whatsappController.text.trim();
+    if (whatsapp.isNotEmpty && !_isValidEgyptianPhone(whatsapp)) {
+      _showMessage('رقم الواتساب غير صحيح (مثال: 01012345678)');
+      return;
+    }
+    if (_lat == null || _lng == null) {
+      _showMessage('حدّد مكان الاستلام على الخريطة');
+      return;
+    }
+    setState(() => _wizardStep = 5);
   }
 
   void _changeWizardCategory() {
@@ -1395,7 +1422,48 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   String _friendlyError(Object error) {
-    final text = error.toString().toLowerCase();
+    final rawText = error.toString();
+    final text = rawText.toLowerCase();
+
+    if (error is PostgrestException) {
+      final code = error.code?.toLowerCase() ?? '';
+      final serverText = [
+        error.message,
+        error.details?.toString() ?? '',
+        error.hint?.toString() ?? '',
+      ].join(' ').toLowerCase();
+
+      if (code == '42501' ||
+          serverText.contains('row-level security') ||
+          serverText.contains('permission denied')) {
+        return 'لا تملك صلاحية حفظ العرض. تأكد من تسجيل الدخول ثم حاول مرة أخرى.';
+      }
+      if (code == '23503' || serverText.contains('foreign key')) {
+        return 'بيانات التصنيف أو إحدى الخصائص غير مرتبطة بشكل صحيح. أعد اختيار التصنيف والخصائص ثم حاول مرة أخرى.';
+      }
+      if (code == '23505' || serverText.contains('duplicate')) {
+        return 'هذا العرض أو إحدى بياناته مكررة بالفعل. راجع البيانات وحاول مرة أخرى.';
+      }
+      if (code == '23502' || serverText.contains('not-null')) {
+        return 'هناك بيان أساسي ناقص. راجع العنوان والوصف والكمية والسعر والموقع ثم حاول مرة أخرى.';
+      }
+      if (code == '23514' || serverText.contains('check constraint')) {
+        return 'إحدى القيم غير مقبولة حسب قواعد العرض. راجع السعر والكمية ونوع العرض والخصائص.';
+      }
+      if (code == '22p02' || serverText.contains('invalid input syntax')) {
+        return 'إحدى القيم الرقمية غير صحيحة. راجع السعر والكمية والخصائص الرقمية.';
+      }
+      if (serverText.contains('timeout') ||
+          serverText.contains('network') ||
+          serverText.contains('connection')) {
+        return 'تعذر الاتصال بالخادم أثناء حفظ العرض. تحقق من الإنترنت وحاول مرة أخرى.';
+      }
+
+      final detail = error.message.trim();
+      if (detail.isNotEmpty) {
+        return 'تعذر حفظ العرض بسبب: $detail';
+      }
+    }
 
     if (text.contains('owner location is required') ||
         text.contains('location is required')) {
@@ -1432,7 +1500,13 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return 'رقم الهاتف غير صحيح.';
     }
 
-    return 'تعذر حفظ العرض. راجع البيانات وحاول مرة أخرى.';
+    final detail = rawText
+        .replaceFirst(RegExp(r'^Exception:\s*'), '')
+        .trim();
+    if (detail.isNotEmpty && detail != 'Exception') {
+      return 'تعذر حفظ العرض بسبب: $detail';
+    }
+    return 'تعذر حفظ العرض لسبب غير معروف. حاول مرة أخرى، وإذا تكرر الخطأ تواصل مع الدعم.';
   }
 
   void _showMessage(String message, {bool success = false}) {
@@ -1482,8 +1556,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
         : switch (_wizardStep) {
             0 => 'اختيار القسم',
             1 => 'اختيار التصنيف الفرعي',
-            2 => 'خصائص التصنيف',
-            _ => 'بيانات العرض',
+            2 => 'مواصفات العرض',
+            3 => 'إضافة الصور',
+            4 => 'تفاصيل العرض',
+            _ => 'مراجعة العرض',
           };
 
     return Directionality(
@@ -1564,7 +1640,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   }
 
   Widget _buildWizardProgress(ColorScheme colors) {
-    const labels = ['القسم', 'الفرعي', 'الخصائص', 'العرض'];
+    const labels = ['القسم', 'الفرعي', 'المواصفات', 'الصور', 'التفاصيل', 'المراجعة'];
     final progress = (_wizardStep + 1) / labels.length;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
@@ -1618,7 +1694,9 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       return _buildCategorySelectionPage(colors);
     }
     if (_wizardStep == 2) return _buildAttributesPage(colors);
-    return _buildOfferDetailsPage(colors);
+    if (_wizardStep == 3) return _buildImagesPage(colors);
+    if (_wizardStep == 4) return _buildOfferDetailsPage(colors);
+    return _buildReviewPage(colors);
   }
 
   Widget _buildCategorySelectionPage(ColorScheme colors) {
@@ -1802,29 +1880,184 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     );
   }
 
+  Widget _buildImagesPage(ColorScheme colors) {
+    return ListView(
+      key: const ValueKey('offer-images-step'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _buildIntro(colors),
+        const SizedBox(height: 14),
+        _helperBanner(
+          colors,
+          Icons.photo_camera_back_outlined,
+          'أضف صور العرض',
+          'اختار صورًا واضحة للمنتج. الصورة الأولى ستكون الصورة الرئيسية التي تظهر للناس.',
+        ),
+        const SizedBox(height: 14),
+        _buildImages(colors),
+      ],
+    );
+  }
+
   Widget _buildOfferDetailsPage(ColorScheme colors) {
     return ListView(
       key: const ValueKey('offer-details-step'),
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         _buildIntro(colors),
         const SizedBox(height: 14),
-        _buildImages(colors),
+        _helperBanner(
+          colors,
+          Icons.edit_note_rounded,
+          'كمّل تفاصيل العرض',
+          'اكتب بيانات دقيقة تساعد المهتمين على فهم العرض والتواصل معك بسهولة.',
+        ),
         const SizedBox(height: 14),
         _buildDetailsCard(colors),
         const SizedBox(height: 14),
         _buildLocationCard(colors),
         const SizedBox(height: 14),
         _buildExpiryCard(colors),
+      ],
+    );
+  }
+
+  Widget _buildReviewPage(ColorScheme colors) {
+    return ListView(
+      key: const ValueKey('offer-review-step'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        _buildIntro(colors),
+        const SizedBox(height: 14),
+        _reviewSection(
+          colors,
+          title: 'التصنيف والمواصفات',
+          icon: Icons.category_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _reviewRow(
+                colors,
+                'التصنيف',
+                _categoryPath
+                    .map((item) => item['name_ar']?.toString() ?? '')
+                    .where((name) => name.isNotEmpty)
+                    .join(' › '),
+              ),
+              if (_marketplaceAttributes.isNotEmpty) ...[
+                const Divider(height: 20),
+                ..._marketplaceAttributes.map((attribute) {
+                  final value = _selectedMarketplaceValues[attribute.slug] ?? '';
+                  final optionId = _selectedMarketplaceOptionIds[attribute.slug];
+                  final option = _firstWhereOrNull(
+                    _marketplaceOptions[attribute.slug] ?? const [],
+                    (item) => item.id == optionId,
+                  );
+                  return _reviewRow(
+                    colors,
+                    _attributeLabel(attribute),
+                    option?.labelAr ?? value,
+                  );
+                }),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _reviewSection(
+          colors,
+          title: 'الصور',
+          icon: Icons.photo_library_outlined,
+          child: _buildImages(colors),
+        ),
+        const SizedBox(height: 14),
+        _reviewSection(
+          colors,
+          title: 'بيانات العرض',
+          icon: Icons.assignment_outlined,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _reviewRow(colors, 'العنوان', _titleController.text.trim()),
+              _reviewRow(colors, 'الكمية', _quantityController.text.trim()),
+              _reviewRow(colors, 'السعر', '${_priceController.text.trim()} جنيه'),
+              _reviewRow(colors, 'الوصف', _descriptionController.text.trim()),
+              _reviewRow(colors, 'مكان الاستلام', _locationController.text.trim()),
+              _reviewRow(colors, 'الهاتف', _phoneController.text.trim()),
+              if (_whatsappController.text.trim().isNotEmpty)
+                _reviewRow(colors, 'واتساب', _whatsappController.text.trim()),
+              _reviewRow(colors, 'مدة العرض', 'أسبوع من تاريخ النشر'),
+            ],
+          ),
+        ),
         const SizedBox(height: 14),
         _buildConfirmation(colors),
       ],
     );
   }
 
+  Widget _reviewSection(
+    ColorScheme colors, {
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return _sectionCard(title: title, icon: icon, child: child);
+  }
+
+  Widget _reviewRow(ColorScheme colors, String label, String value) {
+    final cleanValue = value.trim().isEmpty ? 'غير محدد' : value.trim();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 94,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              cleanValue,
+              style: TextStyle(
+                color: colors.onSurface,
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget? _buildWizardBottomBar(ColorScheme colors) {
     if (_wizardStep < 2) return null;
+    final isLastStep = _wizardStep == 5;
+    final label = switch (_wizardStep) {
+      2 => 'التالي: إضافة الصور',
+      3 => 'التالي: تفاصيل العرض',
+      4 => 'التالي: مراجعة العرض',
+      _ => 'نشر العرض',
+    };
+    final onPressed = switch (_wizardStep) {
+      2 => _continueFromAttributes,
+      3 => _continueFromImages,
+      4 => _continueFromDetails,
+      _ => _submit,
+    };
     return SafeArea(
       top: false,
       child: Container(
@@ -1833,13 +2066,14 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
           color: colors.surface,
           border: Border(top: BorderSide(color: colors.outlineVariant)),
         ),
-        child: _wizardStep == 2
-            ? SizedBox(
+        child: isLastStep
+            ? _buildSubmitButton(colors)
+            : SizedBox(
                 height: 54,
                 child: ElevatedButton.icon(
-                  onPressed: _continueFromAttributes,
+                  onPressed: onPressed,
                   icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('التالي: بيانات العرض'),
+                  label: Text(label),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colors.primary,
                     foregroundColor: colors.onPrimary,
@@ -1849,12 +2083,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
                     textStyle: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
-              )
-            : _buildSubmitButton(colors),
+              ),
       ),
     );
   }
-
   Widget _buildProgressHeader(ColorScheme colors) {
     final hasCategory =
         _marketplaceCategoryId != null && _marketplaceCategoryId!.isNotEmpty;

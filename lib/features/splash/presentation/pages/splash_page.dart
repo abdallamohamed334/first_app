@@ -81,6 +81,21 @@ class _SplashPageState extends State<SplashPage>
         return;
       }
 
+      // A locally cached token may remain after its account was deleted from
+      // Supabase (common when resetting a test environment). Do not retry the
+      // splash forever; clear only this invalid local session and continue.
+      if (auth.isResolved && !auth.isLoggedIn) {
+        try {
+          await client.auth.signOut(scope: SignOutScope.local);
+        } catch (error) {
+          debugPrint('Invalid cached session cleanup skipped: $error');
+        }
+        if (!mounted) return;
+        _isNavigating = false;
+        context.go(AppRouter.userTypeSelection);
+        return;
+      }
+
       // Fail closed: keep the simple branded splash visible and retry instead
       // of sending an unresolved session to the wrong workspace.
       debugPrint('Auth session is not resolved yet; retrying splash routing.');

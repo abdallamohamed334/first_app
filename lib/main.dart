@@ -160,6 +160,13 @@ Future<void> _bootstrapApp() async {
       final initialization = _supabaseInitialization ??= Supabase.initialize(
         url: supabaseUrl,
         publishableKey: supabaseAnonKey,
+        authOptions: const FlutterAuthClientOptions(
+          // Keep the authenticated session in platform-local Supabase
+          // storage across app restarts for every account type.
+          persistSession: true,
+          // Refresh access tokens while the user remains signed in.
+          autoRefreshToken: true,
+        ),
       );
       try {
         await initialization.timeout(const Duration(seconds: 5));
@@ -464,6 +471,13 @@ void _attachAuthStateSync() {
 
       if (profile == null) {
         debugPrint('⚠️ [AuthState] no user row for the active session');
+        // The local refresh token can outlive a deleted test account. Remove
+        // that invalid session so Splash does not retry forever on startup.
+        try {
+          await client.auth.signOut(scope: SignOutScope.local);
+        } catch (error) {
+          debugPrint('⚠️ [AuthState] invalid session cleanup skipped: $error');
+        }
         authState.clear();
         return;
       }
