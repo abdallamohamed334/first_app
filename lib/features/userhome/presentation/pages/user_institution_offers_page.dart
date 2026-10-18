@@ -62,9 +62,9 @@ class _UserInstitutionOffersPageState extends State<UserInstitutionOffersPage> {
   Future<void> _loadOffers() async {
     await _loadUserGovernorate();
     if (widget.offers != null && widget.offers!.isNotEmpty) {
-      // ✅ تصفية: فقط عروض المؤسسات (business_type != restaurant)
+      // ✅ تصفية: المصدر يحدد عروض المؤسسات، حتى لو كان نوع المؤسسة restaurant.
       final filtered = widget.offers!
-          .where((offer) => offer.businessType.toLowerCase() != 'restaurant')
+          .where((offer) => offer.source == 'institution')
           .toList();
       setState(() {
         _allOffers = filtered;

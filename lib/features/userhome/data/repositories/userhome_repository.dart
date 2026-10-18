@@ -15,7 +15,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserHomeRepository {
   static const _categoryRequestTimeout = Duration(seconds: 8);
-  static const _foodBusinessTypes = <String>{'restaurant', 'bakery', 'cafe'};
   final SupabaseService _supabaseService;
   Future<Map<String, List<String>>>? _categoryChildrenFuture;
   final Map<String, String> _categorySlugById = <String, String>{};
@@ -157,7 +156,7 @@ class UserHomeRepository {
           final businessType =
               business['business_type']?.toString().toLowerCase() ?? '';
 
-          if (!_foodBusinessTypes.contains(businessType)) {
+          if (businessType != 'restaurant') {
             continue;
           }
 
@@ -286,7 +285,7 @@ class UserHomeRepository {
 
           final baseOffer = FoodOffer.fromJson(json);
 
-          final source = _foodBusinessTypes.contains(businessType)
+          final source = businessType == 'restaurant'
               ? 'restaurant'
               : 'institution';
 
@@ -1038,7 +1037,7 @@ class UserHomeRepository {
 
           final businessType =
               biz['business_type']?.toString().toLowerCase() ?? '';
-          if (!_foodBusinessTypes.contains(businessType)) {
+          if (businessType != 'restaurant') {
             continue;
           }
 
