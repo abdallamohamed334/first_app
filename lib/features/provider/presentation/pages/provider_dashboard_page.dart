@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -341,6 +342,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const AdBannerCard(),
+                          const SizedBox(height: 4),
                           _buildHeader(),
                           const SizedBox(height: 20),
                           _buildVisibilityCard(),

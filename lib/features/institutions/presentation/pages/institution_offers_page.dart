@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 
 import 'package:loqma/core/constants/egypt_locations.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import '../../data/repositories/institution_offers_repository.dart';
 import '../../domain/entities/institution_offer.dart';
 import '../../domain/institution_offer_policy.dart';
@@ -243,6 +244,7 @@ class _InstitutionOffersPageState extends State<InstitutionOffersPage> {
                 // ═══════════════════════════════════════════════
                 // SEARCH + FILTERS
                 // ═══════════════════════════════════════════════
+                const SliverToBoxAdapter(child: AdBannerCard()),
                 SliverToBoxAdapter(
                   child: Transform.translate(
                     offset: const Offset(0, -20),

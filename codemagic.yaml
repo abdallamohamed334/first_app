@@ -63,10 +63,14 @@ workflows:
           xcode-project use-profiles
       - name: Build signed IPA
         script: |
+          if [ -n "${ADMOB_IOS_APP_ID:-}" ]; then
+            /usr/libexec/PlistBuddy -c "Set :GADApplicationIdentifier ${ADMOB_IOS_APP_ID}" ios/Runner/Info.plist
+          fi
           flutter build ipa \
             --release \
             --obfuscate \
-            --split-debug-info=build/ios/symbols
+            --split-debug-info=build/ios/symbols \
+            --dart-define=ADMOB_BANNER_IOS_ID="${ADMOB_BANNER_IOS_ID:-}"
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/symbols/**

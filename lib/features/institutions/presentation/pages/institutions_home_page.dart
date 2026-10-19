@@ -1,6 +1,7 @@
 // lib/features/institutions/presentation/pages/institutions_home_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
 
@@ -373,6 +374,8 @@ class _InstitutionsHomePageState extends State<InstitutionsHomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const AdBannerCard(),
+                    const SizedBox(height: 4),
                     _buildStatsGrid(),
                     const SizedBox(height: 24),
                     _buildSectionTitle(

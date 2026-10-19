@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:loqma/core/services/auth_state_notifier.dart';
@@ -181,6 +183,8 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const AdBannerCard(),
+                          const SizedBox(height: 4),
                           _buildHeaderCard(),
                           const SizedBox(height: 16),
                           _buildMenuSection(),

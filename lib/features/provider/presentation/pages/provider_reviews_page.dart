@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
@@ -116,6 +118,8 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          const AdBannerCard(),
+                          const SizedBox(height: 4),
                           _buildHeader(),
                           const SizedBox(height: 20),
                           _buildRatingSummary(),

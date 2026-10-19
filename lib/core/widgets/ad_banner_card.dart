@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// إعلان واحد غير متطفل يظهر داخل صفحة تفاصيل العرض فقط.
+/// إعلان بانر واحد غير متطفل.
 ///
-/// يتم تمرير معرّفات AdMob عبر --dart-define عند الحاجة، مع استخدام معرّف
-/// Khedma الحقيقي لأندرويد كقيمة افتراضية.
+/// يتم تمرير معرّفات AdMob عبر --dart-define عند الحاجة.
+/// في Debug تستخدم معرّفات Google التجريبية، وفي Release تستخدم المعرفات
+/// التي يتم تمريرها من إعدادات البناء.
 class AdBannerCard extends StatefulWidget {
   const AdBannerCard({super.key});
 
@@ -25,8 +26,9 @@ class _AdBannerCardState extends State<AdBannerCard> {
   );
   static const _iosAdUnitId = String.fromEnvironment(
     'ADMOB_BANNER_IOS_ID',
-    defaultValue: 'ca-app-pub-3940256099942544/2934735716',
+    defaultValue: '',
   );
+  static Future<InitializationStatus>? _initialization;
 
   BannerAd? _banner;
   bool _isLoaded = false;
@@ -48,12 +50,23 @@ class _AdBannerCardState extends State<AdBannerCard> {
         : _androidAdUnitId;
   }
 
+  bool get _isSupportedPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   @override
   void initState() {
     super.initState();
-    // لا نعرض إعلانات iOS حتى يتم توفير App ID وAd Unit حقيقيين من AdMob.
-    // نشر Test IDs داخل نسخة App Store غير مسموح، لذلك تظل الميزة اختيارية.
-    if (kIsWeb || defaultTargetPlatform == TargetPlatform.iOS) return;
+    if (!_isSupportedPlatform) return;
+    // في Release لا نستخدم Test ID على iOS. يجب تمرير المعرف الحقيقي
+    // عبر ADMOB_BANNER_IOS_ID قبل رفع نسخة App Store.
+    if (!kDebugMode &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        _adUnitId.isEmpty) {
+      debugPrint('[Ads] iOS production banner ID is not configured');
+      return;
+    }
     _loadBanner();
   }
 
@@ -65,7 +78,8 @@ class _AdBannerCardState extends State<AdBannerCard> {
         ),
       );
     }
-    await MobileAds.instance.initialize();
+    _initialization ??= MobileAds.instance.initialize();
+    await _initialization;
     if (!mounted) return;
 
     final banner = BannerAd(
