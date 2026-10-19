@@ -828,10 +828,12 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ═══════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    final appColors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = ColorScheme.fromSeed(
       seedColor: _categoryAccent,
-      brightness: Brightness.light,
-      surface: const Color(0xFFF7F8FA),
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      surface: isDark ? appColors.surface : const Color(0xFFF7F8FA),
     );
     final title = offer['title']?.toString().trim() ?? 'عرض مستخدم';
     final description = offer['description']?.toString().trim() ?? '';
@@ -841,10 +843,11 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: colors,
-        scaffoldBackgroundColor: const Color(0xFFF6F7F9),
+        scaffoldBackgroundColor:
+            isDark ? colors.surface : const Color(0xFFF6F7F9),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F7F9),
+        backgroundColor: isDark ? colors.surface : const Color(0xFFF6F7F9),
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
@@ -875,8 +878,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
               child: Transform.translate(
                 offset: const Offset(0, -20),
                 child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF6F7F9),
+                  decoration: BoxDecoration(
+                    color: isDark ? colors.surface : const Color(0xFFF6F7F9),
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -888,9 +891,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: colors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0xFFE9ECEF)),
+                          border: Border.all(color: colors.outlineVariant),
                           boxShadow: const [
                             BoxShadow(
                               color: Color(0x0C17211D),
@@ -972,8 +975,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                             const SizedBox(height: 13),
                             Text(
                               title,
-                              style: const TextStyle(
-                                color: Color(0xFF1D2924),
+                              style: TextStyle(
+                                color: colors.onSurface,
                                 fontSize: 23,
                                 height: 1.3,
                                 fontWeight: FontWeight.w900,
@@ -995,8 +998,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                     price > 0
                                         ? '${price.toStringAsFixed(0)} جنيه'
                                         : 'سعر رمزي',
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colors.onPrimary,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w900,
                                     ),
@@ -1035,8 +1038,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                                 : _ownerName,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Color(0xFF53615B),
+                                            style: TextStyle(
+                                              color: colors.onSurfaceVariant,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
                                             ),
@@ -1065,14 +1068,14 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(17),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: colors.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFE9ECEF)),
+                          border: Border.all(color: colors.outlineVariant),
                         ),
                         child: Text(
                           description.isEmpty ? 'عرض من مستخدم.' : description,
-                          style: const TextStyle(
-                            color: Color(0xFF53615B),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
                             height: 1.75,
                             fontSize: 14,
                           ),
@@ -1088,9 +1091,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFFE9ECEF)),
+                            border: Border.all(color: colors.outlineVariant),
                           ),
                           child: Center(
                             child: SizedBox(
@@ -1152,9 +1155,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: colors.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFE9ECEF)),
+                            border: Border.all(color: colors.outlineVariant),
                           ),
                           alignment: Alignment.center,
                           child: const Text(
@@ -1189,7 +1192,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: colors.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: const Color(0xFFE9ECEF),
@@ -1238,7 +1241,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                 margin: const EdgeInsets.only(bottom: 10),
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: colors.surfaceContainerLow,
                                   borderRadius: BorderRadius.circular(17),
                                   border: Border.all(
                                     color: const Color(0xFFE9ECEF),
@@ -1284,8 +1287,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                               Expanded(
                                                 child: Text(
                                                   reviewerName,
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     fontSize: 14,
+                                                    color: colors.onSurface,
                                                     fontWeight: FontWeight.w800,
                                                   ),
                                                 ),
@@ -1348,7 +1352,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: colors.surfaceContainerLow,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFE7EAE8)),
               boxShadow: const [
@@ -1365,12 +1369,12 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                   child: ElevatedButton.icon(
                     onPressed: _fetchingContacts ? null : _openWhatsApp,
                     icon: _fetchingContacts
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: colors.surfaceContainerLow,
                             ),
                           )
                         : const Icon(Icons.chat_rounded, size: 19),
@@ -1449,8 +1453,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
         const SizedBox(width: 12),
         Text(
           title,
-          style: const TextStyle(
-            color: Color(0xFF20233A),
+          style: TextStyle(
+            color: colors.onSurface,
             fontSize: 19,
             fontWeight: FontWeight.w900,
           ),
@@ -1472,9 +1476,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   Widget _attributesCard(ColorScheme colors) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEDEEF1)),
+        border: Border.all(color: colors.outlineVariant),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .03),
@@ -1508,8 +1512,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(
-                bottom: BorderSide(color: Color(0xFFF2F3F5)),
+            : Border(
+                bottom: BorderSide(
+                    color: colors.outlineVariant.withValues(alpha: .55)),
               ),
       ),
       child: Row(
@@ -1528,8 +1533,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
           Expanded(
             child: Text(
               nameAr,
-              style: const TextStyle(
-                color: Color(0xFF626B75),
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
               ),
@@ -1540,8 +1545,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             child: Text(
               value,
               textAlign: TextAlign.left,
-              style: const TextStyle(
-                color: Color(0xFF15171A),
+              style: TextStyle(
+                color: colors.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
@@ -1652,13 +1657,16 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Colors.white, Color(0xFFFBFBFC)],
+          gradient: LinearGradient(
+            colors: [
+              colors.surfaceContainerLow,
+              colors.surfaceContainerHighest
+            ],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFEDEEF1)),
+          border: Border.all(color: colors.outlineVariant),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .04),
@@ -1682,7 +1690,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
               ),
               child: CircleAvatar(
                 radius: 28,
-                backgroundColor: Colors.white,
+                backgroundColor: colors.surfaceContainerHighest,
                 child: avatar == null || avatar.isEmpty
                     ? Icon(Icons.person, color: colors.primary, size: 32)
                     : ClipOval(
@@ -1750,7 +1758,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_left_rounded, color: Color(0xFF9AA1A8)),
+            Icon(Icons.chevron_left_rounded, color: colors.onSurfaceVariant),
           ],
         ),
       ),
@@ -1795,7 +1803,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             '• يُفضل مقابلة صاحب العرض في مكان عام ومزدحم (مثل المحلات أو الكافيهات) فيها كاميرات مراقبة.\n'
             '• لا تدفع أي مبلغ قبل معاينة المنتج والتأكد من حالته.\n'
             '• لا تشارك أي بيانات حساسة (مثل كلمات المرور أو بيانات البنك) مع أي شخص عبر الواتساب أو الهاتف.\n'
@@ -1803,7 +1811,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             style: TextStyle(
               fontSize: 12,
               height: 1.65,
-              color: Color(0xFF71624B),
+              color: colors.onSurfaceVariant,
             ),
           ),
         ],
@@ -1843,7 +1851,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withAlpha(45)),
         boxShadow: [
