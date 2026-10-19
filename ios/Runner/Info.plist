@@ -34,6 +34,9 @@
 		<string>ar</string>
 		<string>en</string>
 	</array>
+	<!-- The app uses HTTPS/TLS and standard platform crypto only. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Google Mobile Ads requires an iOS application ID at initialization time.
 	     iOS ads remain disabled in AdBannerCard until a production iOS ID is
 	     configured; this official test ID keeps simulator/Appetize builds safe. -->
