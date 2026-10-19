@@ -50,8 +50,7 @@ serve(async (req) => {
       requestedRole === "user" && profile.intent === "user_registration";
     const isProviderRegistration =
       requestedRole === "provider" &&
-      (profile.intent === "provider_registration" ||
-        (typeof profile.categoryId === "string" && profile.categoryId.trim().length > 0));
+      profile.intent === "provider_registration";
     if (!["user", "provider"].includes(requestedRole)) {
       return err("نوع الحساب غير مدعوم", 400);
     }
@@ -83,17 +82,26 @@ serve(async (req) => {
       requestedRole === "provider" &&
       !isProviderRegistration &&
       access?.is_new_user === true;
+    const userLoginWithoutAccount =
+      requestedRole === "user" &&
+      !isUserRegistration &&
+      access?.is_new_user === true;
     if (
       access?.allowed !== true ||
       (isUserRegistration && access?.is_new_user !== true) ||
       (isProviderRegistration && access?.is_new_user !== true) ||
-      providerLoginWithoutAccount
+      providerLoginWithoutAccount ||
+      userLoginWithoutAccount
     ) {
       return err(
         isProviderRegistration
           ? providerRegistrationUnavailable
           : isUserRegistration
           ? userRegistrationUnavailable
+          : userLoginWithoutAccount
+          ? "user_account_not_found: هذا الرقم غير مسجل كمستخدم. أنشئ حسابًا جديدًا أولًا."
+          : access?.reason === "account_type_mismatch"
+          ? "account_type_mismatch: الرقم مرتبط بنوع حساب مختلف. استخدم شاشة الدخول المناسبة."
           : requestedRole === "provider"
           ? "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً."
           : "لا يمكن إكمال تسجيل الدخول بهذا الرقم",
@@ -299,9 +307,9 @@ serve(async (req) => {
         return err("تعذر تحميل ملف مزود الخدمة");
       }
 
-      // Login must never create a partial provider row. Registration carries
-      // categoryId; a login without an existing profile gets a clear response.
-      if (!existingProvider && !profile.categoryId) {
+      // Login must never create a partial provider row. Only an explicit
+      // provider_registration intent may create a missing provider profile.
+      if (!existingProvider && !isProviderRegistration) {
         return err(
           "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.",
           403,

@@ -316,11 +316,22 @@ class ServiceProviderRepository {
       debugPrintStack(stackTrace: stack);
       final rawError = error.toString().toLowerCase();
       if (!isRegistration &&
-          (rawError.contains('status: 403') ||
-              rawError.contains('provider_profile_not_found') ||
+          (rawError.contains('provider_profile_not_found') ||
               rawError.contains('مش مسجل كمزود خدمة'))) {
         return const Left(
-          'الرقم ده مسجل كمستخدم عادي وليس كمزود خدمة. افتح تبويب «حساب جديد» لإنشاء حساب مزود خدمة، أو استخدم رقم مزود خدمة موجود.',
+          'الرقم غير مرتبط بملف مزود خدمة. تأكد من الرقم أو اختر «حساب جديد» إذا كنت تسجل لأول مرة.',
+        );
+      }
+      if (!isRegistration &&
+          (rawError.contains('account_type_mismatch') ||
+              rawError.contains('مستخدم عادي'))) {
+        return const Left(
+          'هذا الرقم مرتبط بحساب مستخدم عادي، وليس بحساب مزود خدمة. استخدم شاشة الدخول المناسبة.',
+        );
+      }
+      if (!isRegistration && rawError.contains('status: 403')) {
+        return const Left(
+          'تعذر التحقق من حساب مزود الخدمة لهذا الرقم. تأكد من الرقم أو تواصل مع الدعم.',
         );
       }
       if (isRegistration &&

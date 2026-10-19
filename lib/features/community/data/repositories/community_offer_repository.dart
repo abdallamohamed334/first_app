@@ -1335,30 +1335,38 @@ class CommunityOfferRepository {
   // ============================================================
 
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
-    final response = await _client
-        .from('users')
-        .select(
-          '''
-          id,
-          name,
-          email,
-          avatar_url,
-          city,
-          address,
-          points,
-          level,
-          is_verified,
-          created_at
-          ''',
-        )
-        .eq('id', userId)
-        .maybeSingle();
+    final profiles = await _getPublicUserProfiles([userId]);
+    return profiles[userId.trim()];
+  }
 
-    if (response == null) {
-      return null;
+  Future<Map<String, Map<String, dynamic>>> _getPublicUserProfiles(
+    List<String> userIds,
+  ) async {
+    final ids = userIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return {};
+
+    try {
+      final response = await _client.rpc(
+        'get_public_user_profiles',
+        params: {'p_user_ids': ids},
+      );
+      if (response is! List) return {};
+
+      final profiles = <String, Map<String, dynamic>>{};
+      for (final row in response) {
+        if (row is! Map) continue;
+        final profile = Map<String, dynamic>.from(row);
+        final id = profile['id']?.toString() ?? '';
+        if (id.isNotEmpty) profiles[id] = profile;
+      }
+      return profiles;
+    } catch (_) {
+      return {};
     }
-
-    return Map<String, dynamic>.from(response);
   }
 
   // ============================================================
@@ -1466,6 +1474,48 @@ class CommunityOfferRepository {
   // ============================================================
   // USER REVIEWS
   // ============================================================
+
+  Future<List<Map<String, dynamic>>> getUserProfileReviews(
+    String userId,
+  ) async {
+    final response = await _client
+        .from('user_reviews')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('created_at', ascending: false);
+    final reviews = List<Map<String, dynamic>>.from(response);
+    final reviewerIds = reviews
+        .map((review) => review['reviewer_id']?.toString() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    final profiles = await _getPublicUserProfiles(reviewerIds);
+
+    for (final review in reviews) {
+      final reviewerId = review['reviewer_id']?.toString() ?? '';
+      review['users'] = profiles[reviewerId];
+    }
+    return reviews;
+  }
+
+  Future<double> getUserProfileAverageRating(String userId) async {
+    final response = await _client
+        .from('user_reviews')
+        .select('rating')
+        .eq('owner_id', userId);
+    final rows = List<Map<String, dynamic>>.from(response);
+    if (rows.isEmpty) return 0.0;
+
+    double total = 0;
+    int count = 0;
+    for (final row in rows) {
+      final value = _toDouble(row['rating']);
+      if (value != null) {
+        total += value;
+        count++;
+      }
+    }
+    return count == 0 ? 0.0 : total / count;
+  }
 
   Future<List<Map<String, dynamic>>> getUserReviews(String userId) async {
     final response = await _client

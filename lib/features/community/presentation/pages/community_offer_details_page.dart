@@ -202,18 +202,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             (_offer['owner_name']?.toString().trim() ?? '').isEmpty ||
             (_offer['avatar_url']?.toString().trim() ?? '').isEmpty)) {
       try {
-        final userData = await Supabase.instance.client
-            .from('users')
-            .select('phone, whatsapp, name, avatar_url, created_at')
-            .eq('id', finalOwnerId)
-            .maybeSingle();
+        final userData = await _repository.getUserProfile(finalOwnerId);
 
         if (userData != null) {
-          final userPhone = userData['phone']?.toString().trim() ?? '';
-          final userWhatsapp = userData['whatsapp']?.toString().trim() ?? '';
-
-          if (phone.isEmpty) phone = userPhone;
-          if (whatsapp.isEmpty) whatsapp = userWhatsapp;
           if ((_offer['owner_name']?.toString().trim() ?? '').isEmpty) {
             _offer['owner_name'] = userData['name']?.toString();
           }

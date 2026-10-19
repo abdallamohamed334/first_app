@@ -100,6 +100,17 @@ serve(async (req) => {
     const providerRegistrationUnavailable =
       "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
     const userRegistrationUnavailable = "الرقم مسجل بالفعل، روح لتسجيل الدخول.";
+    const userLoginWithoutAccount =
+      loginMode === "user" &&
+      !isUserRegistration &&
+      access?.is_new_user === true;
+    if (userLoginWithoutAccount) {
+      console.warn("User login blocked before OTP for an unregistered phone");
+      return errorResponse(
+        "user_account_not_found: هذا الرقم غير مسجل كمستخدم. أنشئ حسابًا جديدًا أولًا.",
+        403,
+      );
+    }
     if (
       loginMode === "provider" &&
       !isProviderRegistration &&
@@ -107,7 +118,7 @@ serve(async (req) => {
     ) {
       console.warn("Provider login blocked before OTP for an unregistered phone");
       return errorResponse(
-        "الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.",
+        "provider_profile_not_found: الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً.",
         403,
       );
     }
@@ -125,6 +136,12 @@ serve(async (req) => {
             ? providerRegistrationUnavailable
             : isUserRegistration
             ? userRegistrationUnavailable
+            : loginMode === "provider" &&
+                access?.reason === "provider_profile_not_found"
+            ? "provider_profile_not_found: الرقم ده مش مسجل كمزود خدمة. اعمل حساب جديد أولاً."
+            : loginMode === "user" &&
+                access?.reason === "account_type_mismatch"
+            ? "account_type_mismatch: الرقم مرتبط بنوع حساب مختلف. استخدم شاشة الدخول المناسبة."
             : "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.",
         }),
         {

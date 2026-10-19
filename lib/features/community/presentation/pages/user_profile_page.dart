@@ -40,14 +40,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _loading = true);
     try {
       _currentUserId = _repository.getCurrentUserId();
 
       final user = await _repository.getUserProfile(widget.userId);
       final offers = await _repository.getUserOffers(widget.userId);
-      final reviews = await _repository.getUserReviews(widget.userId);
-      final avgRating = await _repository.getUserAverageRating(widget.userId);
+      final reviews = await _repository.getUserProfileReviews(widget.userId);
+      final avgRating =
+          await _repository.getUserProfileAverageRating(widget.userId);
 
       for (var i = 0; i < offers.length; i++) {
         final offerId = offers[i]['id'].toString();
@@ -168,13 +170,22 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     comment: comment.isEmpty ? null : comment,
                   );
                   Navigator.pop(dialogContext);
+                  await _loadData();
+                  if (!mounted) return;
                   _snack('تم إضافة التقييم بنجاح', colors.primary);
-                  _loadData();
                 } catch (e) {
                   debugPrint('Error adding review: $e');
                   Navigator.pop(dialogContext);
-                  _snack('لقد قمت بتقييم هذا المستخدم من قبل',
-                      colors.onSurfaceVariant);
+                  final error = e.toString().toLowerCase();
+                  final isDuplicate = error.contains('23505') ||
+                      error.contains('duplicate') ||
+                      error.contains('already reviewed');
+                  _snack(
+                    isDuplicate
+                        ? 'لقد قمت بتقييم هذا المستخدم من قبل'
+                        : 'تعذر إضافة التقييم الآن، حاول مرة أخرى',
+                    colors.onSurfaceVariant,
+                  );
                 }
               },
               child: const Text('إرسال'),

@@ -16,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/core/config/app_config.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/core/services/firebase_messaging_service.dart';
 import 'package:loqma/features/auth/presentation/pages/institution_otp_verify_page.dart';
 import 'package:loqma/features/institutions/domain/entities/institution.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -337,6 +338,7 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
                 isActive: true,
                 authResolved: true,
               );
+              await _initializeFirebaseMessaging();
               if (mounted) context.go(AppRouter.charityHome);
             } catch (_) {
               await client.auth.signOut(scope: SignOutScope.local);
@@ -352,6 +354,14 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _initializeFirebaseMessaging() async {
+    try {
+      await FirebaseMessagingService.instance.initialize();
+    } catch (error) {
+      debugPrint('[FCM] institution login registration skipped: $error');
+    }
   }
 
   Future<void> _loginAsInstitution(SupabaseClient client) async {
@@ -434,6 +444,8 @@ class _InstitutionLoginPageState extends State<InstitutionLoginPage> {
       isActive: true,
       authResolved: true,
     );
+
+    await _initializeFirebaseMessaging();
 
     if (!mounted) return;
 

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/core/services/firebase_messaging_service.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -109,14 +110,14 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
 
     if (!mounted) return;
 
-    result.fold(
-      (err) {
+    await result.fold(
+      (err) async {
         setState(() {
           _verifying = false;
           _errorMessage = err;
         });
       },
-      (data) {
+      (data) async {
         final provider = data['provider'] as Map<String, dynamic>;
         final status = (data['status']?.toString() ??
                 provider['verification_status']?.toString() ??
@@ -141,6 +142,12 @@ class _ProviderOtpVerifyPageState extends State<ProviderOtpVerifyPage> {
           isActive: isActive,
           authResolved: true,
         );
+
+        try {
+          await FirebaseMessagingService.instance.initialize();
+        } catch (error) {
+          debugPrint('[FCM] provider login registration skipped: $error');
+        }
 
         if (!mounted) return;
         setState(() => _verifying = false);

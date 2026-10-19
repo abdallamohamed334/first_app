@@ -31,7 +31,7 @@ class FirebaseMessagingService {
   bool _initialized = false;
 
   static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'loqma_high_importance',
+    'loqma_general_notifications',
     'إشعارات Khedma',
     description: 'إشعارات التبرعات والحجوزات وتحديثات الاستلام',
     importance: Importance.high,
@@ -153,7 +153,7 @@ class FirebaseMessagingService {
       body,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'loqma_high_importance',
+          'loqma_general_notifications',
           'إشعارات Khedma',
           channelDescription: 'إشعارات التبرعات والحجوزات وتحديثات الاستلام',
           importance: Importance.high,
@@ -194,7 +194,30 @@ class FirebaseMessagingService {
           .maybeSingle();
       final type = profile?['user_type']?.toString().trim().toLowerCase();
       final enabled = profile?['notifications_enabled'] != false;
-      if (!enabled || !{'user', 'restaurant', 'charity'}.contains(type)) return;
+      const supportedTypes = {
+        'user',
+        'admin',
+        'provider',
+        'service_provider',
+        'institution',
+        'charity',
+        'restaurant',
+        'business',
+        'hotel',
+        'supermarket',
+        'bakery',
+        'cafe',
+        'company',
+      };
+      if (!enabled || !supportedTypes.contains(type)) return;
+      try {
+        await SupabaseService().upsertFcmDevice(
+          userId: userId,
+          fcmToken: token,
+        );
+      } catch (error) {
+        debugPrint('[FCM] device table upsert failed: ${error.runtimeType}');
+      }
       await client.from('users').update({'fcm_token': token}).eq('id', userId);
     } catch (error) {
       debugPrint('[FCM] token save failed: ${error.runtimeType}');

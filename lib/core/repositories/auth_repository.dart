@@ -74,6 +74,10 @@ class AuthRepository {
   String _friendlyAuthError(Object error) {
     final raw = error.toString().toLowerCase();
 
+    if (raw.contains('user_account_not_found') ||
+        raw.contains('هذا الرقم غير مسجل كمستخدم')) {
+      return 'هذا الرقم غير مسجل كمستخدم. اختر إنشاء حساب جديد أو تحقق من الرقم.';
+    }
     if (raw.contains('user_registration_unavailable') ||
         raw.contains('الرقم مسجل بالفعل')) {
       return 'الرقم مسجل بالفعل. استخدم تسجيل الدخول أو رقمًا آخر.';
