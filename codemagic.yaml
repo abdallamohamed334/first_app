@@ -18,6 +18,7 @@ workflows:
     scripts:
       - name: Install Flutter dependencies
         script: |
+          flutter clean
           flutter pub get
       - name: Install CocoaPods dependencies
         script: |
@@ -25,12 +26,14 @@ workflows:
           pod install --repo-update
       - name: Build unsigned iOS Simulator app
         script: |
-          flutter build ios --simulator --debug
+          flutter build ios --simulator --debug --no-codesign
+          test -d build/ios/iphonesimulator/Runner.app
       - name: Package Appetize upload
         script: |
           mkdir -p artifacts
-          cd build/ios/iphonesimulator
-          zip -r ../../../artifacts/khedma-ios-simulator.zip Runner.app
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/ios/iphonesimulator/Runner.app \
+            artifacts/khedma-ios-simulator.zip
     artifacts:
       - artifacts/khedma-ios-simulator.zip
       - build/ios/iphonesimulator/Runner.app
