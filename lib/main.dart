@@ -761,7 +761,11 @@ Future<bool> _initializeFirebaseSafely() async {
     debugPrint('Firebase initialization failed: $error');
     debugPrintStack(stackTrace: stack);
 
-    return false;
+    // Firebase Core may already be initialized while an optional service
+    // (Remote Config, Analytics, Crashlytics, or Performance) fails. This is
+    // common on iOS simulators/Appetize because Keychain and APNs are absent.
+    // Do not disable FCM/Supabase integration in that case.
+    return Firebase.apps.isNotEmpty;
   }
 }
 
