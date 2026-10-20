@@ -1,148 +1,155 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 
-/// Banner CTA for businesses that want to advertise in Khedma.
-class AdBannerCard extends StatelessWidget {
+/// إعلان Google AdMob بانر واحد غير متطفل.
+///
+/// يستخدم معرّفات Google التجريبية في Debug، ومعرّفات الإنتاج الممررة
+/// عبر ADMOB_BANNER_ANDROID_ID / ADMOB_BANNER_IOS_ID في Release.
+class AdBannerCard extends StatefulWidget {
   const AdBannerCard({super.key});
 
-  static const String _supportPhone = '201286162776';
-  static const String _supportPhoneLocal = '01286162776';
-  static const String _message =
-      'مرحبًا، أريد الاستفسار عن إضافة إعلان في تطبيق خدمة.';
+  @override
+  State<AdBannerCard> createState() => _AdBannerCardState();
+}
 
-  Future<void> _openAdvertisingSupport(BuildContext context) async {
-    final primaryUri = Uri.https(
-      'wa.me',
-      '/$_supportPhone',
-      {'text': _message},
-    );
+class _AdBannerCardState extends State<AdBannerCard> {
+  static const _androidTestAdUnitId =
+      'ca-app-pub-3940256099942544/6300978111';
+  static const _iosTestAdUnitId = 'ca-app-pub-3940256099942544/2934735716';
+  static const _androidAdUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_ANDROID_ID',
+    defaultValue: 'ca-app-pub-7040845911809776/2951369417',
+  );
+  static const _iosAdUnitId = String.fromEnvironment(
+    'ADMOB_BANNER_IOS_ID',
+    defaultValue: '',
+  );
 
-    try {
-      final opened = await launchUrl(
-        primaryUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (opened || !context.mounted) return;
+  static Future<InitializationStatus>? _initialization;
 
-      final fallbackUri = Uri.https(
-        'api.whatsapp.com',
-        '/send',
-        {'phone': _supportPhone, 'text': _message},
-      );
-      final fallbackOpened = await launchUrl(
-        fallbackUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (fallbackOpened || !context.mounted) return;
-    } catch (error) {
-      debugPrint('[AdBannerCard] Could not open WhatsApp: $error');
+  BannerAd? _banner;
+  bool _isLoaded = false;
+
+  String get _adUnitId {
+    if (kDebugMode) {
+      return defaultTargetPlatform == TargetPlatform.iOS
+          ? _iosTestAdUnitId
+          : _androidTestAdUnitId;
     }
 
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'تعذر فتح واتساب. تواصل مع الدعم على $_supportPhoneLocal',
-            textDirection: TextDirection.rtl,
-          ),
-          behavior: SnackBarBehavior.floating,
+    final configured = (defaultTargetPlatform == TargetPlatform.iOS
+            ? dotenv.env['ADMOB_BANNER_IOS_ID']
+            : dotenv.env['ADMOB_BANNER_ANDROID_ID'])
+        ?.trim();
+    if (configured != null && configured.isNotEmpty) return configured;
+
+    return defaultTargetPlatform == TargetPlatform.iOS
+        ? _iosAdUnitId
+        : _androidAdUnitId;
+  }
+
+  bool get _isSupportedPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_isSupportedPlatform) return;
+
+    // لا نستخدم Test ID على iOS في Release بدون إعداد معرف إنتاج.
+    if (!kDebugMode &&
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        _adUnitId.isEmpty) {
+      debugPrint('[Ads] iOS production banner ID is not configured');
+      return;
+    }
+
+    _loadBanner();
+  }
+
+  Future<void> _loadBanner() async {
+    if (kDebugMode) {
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: const ['36B1A66D9CDF208A83ADE52C6181EAB2'],
         ),
       );
+    }
+
+    _initialization ??= MobileAds.instance.initialize();
+    await _initialization;
+    if (!mounted) return;
+
+    final banner = BannerAd(
+      adUnitId: _adUnitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          debugPrint('[Ads] Banner loaded successfully: ${ad.adUnitId}');
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _banner = ad as BannerAd;
+            _isLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          debugPrint(
+            '[Ads] Banner failed to load: ${error.code} ${error.message}',
+          );
+        },
+      ),
+    );
+    banner.load();
+  }
+
+  @override
+  void dispose() {
+    _banner?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    if (kIsWeb || !_isLoaded || _banner == null) {
+      return const SizedBox.shrink();
+    }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      child: Material(
-        color: colors.primary,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: () => _openAdvertisingSupport(context),
-          borderRadius: BorderRadius.circular(20),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  colors.primary,
-                  colors.primary.withValues(alpha: .82),
-                ],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-              child: Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colors.onPrimary.withValues(alpha: .14),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Icon(
-                      Icons.campaign_rounded,
-                      color: colors.onPrimary,
-                      size: 27,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'سيب إعلانك هنا',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                            color: colors.onPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'لو عايز تعلن، تواصل مع دعم خدمة عبر واتساب',
-                          textDirection: TextDirection.rtl,
-                          style: TextStyle(
-                            color: colors.onPrimary.withValues(alpha: .88),
-                            fontSize: 11.5,
-                            height: 1.4,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF25D366),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.chat_rounded,
-                      color: Colors.white,
-                      size: 21,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 22, bottom: 22),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: .42),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor.withValues(alpha: .18)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'إعلان',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-        ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: _banner!.size.width.toDouble(),
+            height: _banner!.size.height.toDouble(),
+            child: AdWidget(ad: _banner!),
+          ),
+        ],
       ),
     );
   }

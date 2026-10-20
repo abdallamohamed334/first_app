@@ -1,5 +1,6 @@
 // lib/features/community/presentation/pages/community_offer_details_page.dart
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -132,7 +133,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   @override
   void didUpdateWidget(covariant CommunityOfferDetailsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.offer, widget.offer)) {
+    final oldId = oldWidget.offer['id']?.toString();
+    final newId = widget.offer['id']?.toString();
+    if (oldId != newId || oldId == null || newId == null) {
       _offer = Map<String, dynamic>.from(widget.offer);
       _contactsFetched = false;
       _resolvedImages = _extractRawImages();
@@ -309,30 +312,28 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
           .toSet()
           .toList();
 
-      // 3) نجيب الـ attributes نفسها
-      final attributesRaw = await client
+      // 3/4) الطلبان مستقلان؛ ننفذهما بالتوازي لتقليل زمن فتح الصفحة.
+      final attributesFuture = client
           .from('marketplace_attributes')
-          .select('id, slug, name_ar, input_type')
+          .select('id, slug, name_ar, input_type, sort_order')
           .inFilter('id', attributeIds);
+      final optionsFuture = optionIds.isEmpty
+          ? Future.value(<Map<String, dynamic>>[])
+          : client
+              .from('marketplace_attribute_options')
+              .select('id, value, label_ar')
+              .inFilter('id', optionIds)
+              .then((rows) => rows
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList());
 
+      final attributesRaw = await attributesFuture;
       final attributes = (attributesRaw as List)
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-
-      // 4) نجيب الـ options لو فيه
-      List<Map<String, dynamic>> options = [];
-      if (optionIds.isNotEmpty) {
-        final optionsRaw = await client
-            .from('marketplace_attribute_options')
-            .select('id, value, label_ar')
-            .inFilter('id', optionIds);
-
-        options = (optionsRaw as List)
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-      }
+      final options = await optionsFuture;
 
       // 5) نبني القائمة النهائية
       final Map<String, Map<String, dynamic>> attributesById = {
@@ -476,9 +477,10 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     if (mounted) setState(() => _refreshingImages = true);
 
     final fresh = <String>[];
-
-    for (final url in rawImages) {
-      final freshUrl = await _regenerateSignedUrl(url);
+    final regeneratedUrls = await Future.wait(
+      rawImages.map(_regenerateSignedUrl),
+    );
+    for (final freshUrl in regeneratedUrls) {
       if (freshUrl.isNotEmpty) fresh.add(freshUrl);
     }
 
@@ -2044,26 +2046,24 @@ class _HeroGalleryState extends State<_HeroGallery> {
             onTap: () => _openFullGallery(index),
             child: Hero(
               tag: 'offer_image_$index',
-              child: Image.network(
-                widget.images[index],
+              child: CachedNetworkImage(
+                imageUrl: widget.images[index],
                 fit: BoxFit.cover,
                 width: double.infinity,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return Container(
-                    color: const Color(0xFFE9EFEC),
-                    alignment: Alignment.center,
-                    child: const SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: Color(0xFF3D765C),
-                      ),
+                fadeInDuration: const Duration(milliseconds: 140),
+                placeholder: (_, __) => Container(
+                  color: const Color(0xFFE9EFEC),
+                  alignment: Alignment.center,
+                  child: const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Color(0xFF3D765C),
                     ),
-                  );
-                },
-                errorBuilder: (_, __, ___) => _placeholder(),
+                  ),
+                ),
+                errorWidget: (_, __, ___) => _placeholder(),
               ),
             ),
           ),
