@@ -1289,6 +1289,7 @@ class SupabaseService {
       final data = <String, dynamic>{
         'name': name,
       };
+      final cleanUserId = userId.trim();
       if (email != null && email.trim().isNotEmpty) {
         data['email'] = email.trim().toLowerCase();
       }
@@ -1315,11 +1316,53 @@ class SupabaseService {
       final response = await adminClient
           .from('users')
           .update(data)
-          .eq('id', userId)
+          .eq('id', cleanUserId)
           .select()
-          .single();
+          .maybeSingle();
 
-      return UserModel.fromJson(response);
+      if (response != null) return UserModel.fromJson(response);
+
+      // An authenticated user may have an Auth identity but a missing
+      // public.users row (for example, after an interrupted account repair).
+      // RLS limits this insert to id == auth.uid(); protected role/status
+      // fields are omitted so database defaults and triggers remain in force.
+      final insertData = <String, dynamic>{
+        ...data,
+        'id': cleanUserId,
+      };
+      final authPhone = client.auth.currentUser?.userMetadata?['phone']
+          ?.toString()
+          .trim();
+      final rawPhone = (authPhone?.isNotEmpty == true ? authPhone : phone)
+          ?.replaceAll(RegExp(r'\D'), '');
+      if (rawPhone != null && rawPhone.isNotEmpty) {
+        final normalizedPhone = rawPhone.startsWith('0')
+            ? '20${rawPhone.substring(1)}'
+            : rawPhone.length == 10
+                ? '20$rawPhone'
+                : rawPhone;
+        insertData['phone'] = normalizedPhone;
+      }
+
+      try {
+        final inserted = await adminClient
+            .from('users')
+            .insert(insertData)
+            .select()
+            .single();
+        return UserModel.fromJson(inserted);
+      } catch (_) {
+        // A concurrent repair may have inserted the same row after the first
+        // update check. Retry the profile update once before surfacing failure.
+        final retried = await adminClient
+            .from('users')
+            .update(data)
+            .eq('id', cleanUserId)
+            .select()
+            .maybeSingle();
+        if (retried != null) return UserModel.fromJson(retried);
+        rethrow;
+      }
     } catch (e) {
       debugPrint('❌ Error updating profile: $e');
       rethrow;

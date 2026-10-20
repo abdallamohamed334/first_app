@@ -14,6 +14,7 @@ class StorageService {
   Future<String?> uploadAvatar({
     required String userId,
     required XFile imageFile,
+    bool persistProfile = true,
   }) async {
     final cleanUserId = userId.trim();
     if (cleanUserId.isEmpty) return null;
@@ -41,6 +42,8 @@ class StorageService {
 
       final baseUrl = _client.storage.from('avatars').getPublicUrl(path);
       final imageUrl = '$baseUrl?v=$stamp';
+      if (!persistProfile) return imageUrl;
+
       final updated = await _client
           .from('users')
           .update({'avatar_url': imageUrl})

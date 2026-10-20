@@ -262,6 +262,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         avatarUrl = await _storage.uploadAvatar(
           userId: widget.user.id,
           imageFile: _avatarFile!,
+          persistProfile: false,
         );
       }
 
