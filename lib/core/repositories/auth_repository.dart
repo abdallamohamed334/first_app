@@ -421,8 +421,13 @@ class AuthRepository {
   Future<Either<String, String>> resendOtp({
     required String phone,
     String loginMode = 'user',
+    bool isRegistration = false,
   }) async {
-    return sendOtp(phone: phone, loginMode: loginMode);
+    return sendOtp(
+      phone: phone,
+      loginMode: loginMode,
+      isRegistration: isRegistration,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════
