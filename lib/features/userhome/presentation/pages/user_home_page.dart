@@ -843,6 +843,9 @@ class _UserHomePageState extends State<UserHomePage> {
     final buyCategories = state.categories.where((c) {
       if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c))
         return false;
+      if (c['slug']?.toString().trim().toLowerCase() == 'institution-offers') {
+        return false;
+      }
       if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
         return false;
       }
@@ -1185,7 +1188,6 @@ class _UserHomePageState extends State<UserHomePage> {
           SliverToBoxAdapter(child: HomeBannerCarousel(banners: state.banners)),
         SliverToBoxAdapter(child: _buildStoreCategoriesTitle()),
         SliverToBoxAdapter(child: _buildMarketplaceCategoriesStrip(state)),
-        SliverToBoxAdapter(child: _buildInstitutionsHomeSection(state)),
         SliverToBoxAdapter(child: _buildOffersTitle()),
         SliverToBoxAdapter(child: _buildNearbyCategorySections(state)),
         SliverToBoxAdapter(child: SizedBox(height: 120)),

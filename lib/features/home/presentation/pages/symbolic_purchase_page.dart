@@ -592,10 +592,6 @@ class _SymbolicPurchasePageState extends State<SymbolicPurchasePage> {
                     const SizedBox(
                       height: 14,
                     ),
-                    _institutionSections(colors, isDark),
-                    const SizedBox(
-                      height: 18,
-                    ),
                     _searchBox(
                       colors,
                       isDark,
