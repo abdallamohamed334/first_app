@@ -65,7 +65,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl.text = widget.user.name ?? '';
+    final savedName = widget.user.name?.trim() ?? '';
+    _nameCtrl.text = savedName == 'مستخدم Khedma' ? '' : savedName;
     _emailCtrl.text = widget.user.email ?? '';
     _phoneCtrl.text = widget.user.phone ?? '';
     _whatsappCtrl.text = widget.user.whatsapp ?? '';
@@ -434,9 +435,13 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       controller: _nameCtrl,
                       hint: 'اكتب اسمك',
                       icon: Icons.person_rounded,
-                      validator: (v) => (v?.trim().length ?? 0) < 3
-                          ? 'الاسم 3 أحرف على الأقل'
-                          : null,
+                      validator: (v) {
+                        final name = v?.trim() ?? '';
+                        if (name.length < 3 || name == 'مستخدم Khedma') {
+                          return 'اكتب اسمك الحقيقي (3 أحرف على الأقل)';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
