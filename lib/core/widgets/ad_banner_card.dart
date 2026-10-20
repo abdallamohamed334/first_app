@@ -31,6 +31,7 @@ class _AdBannerCardState extends State<AdBannerCard> {
 
   BannerAd? _banner;
   bool _isLoaded = false;
+  bool _retriedAfterTransientFailure = false;
 
   String get _adUnitId {
     if (kDebugMode) {
@@ -98,13 +99,24 @@ class _AdBannerCardState extends State<AdBannerCard> {
           setState(() {
             _banner = ad as BannerAd;
             _isLoaded = true;
+            _retriedAfterTransientFailure = false;
           });
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
           debugPrint(
-            '[Ads] Banner failed to load: ${error.code} ${error.message}',
+            '[Ads] Banner failed to load: code=${error.code}, '
+            'domain=${error.domain}, message=${error.message}, '
+            'response=${error.responseInfo}',
           );
+          if (mounted &&
+              !_retriedAfterTransientFailure &&
+              (error.code == 2 || error.code == 3)) {
+            _retriedAfterTransientFailure = true;
+            Future<void>.delayed(const Duration(seconds: 15), () {
+              if (mounted && !_isLoaded) _loadBanner();
+            });
+          }
         },
       ),
     );

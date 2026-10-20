@@ -316,7 +316,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       // 3/4) الطلبان مستقلان؛ ننفذهما بالتوازي لتقليل زمن فتح الصفحة.
       final attributesFuture = client
           .from('marketplace_attributes')
-          .select('id, slug, name_ar, input_type, sort_order')
+          .select('id, slug, name_ar, input_type')
           .inFilter('id', attributeIds);
       final optionsFuture = optionIds.isEmpty
           ? Future.value(<Map<String, dynamic>>[])
@@ -382,16 +382,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
           'name_ar': attr['name_ar']?.toString() ?? '',
           'input_type': attr['input_type']?.toString() ?? '',
           'icon': null,
-          'sort_order': (attr['sort_order'] as num?)?.toInt() ?? 0,
           'value': displayValue,
         });
       }
-
-      result.sort((a, b) {
-        final sa = (a['sort_order'] as num?)?.toInt() ?? 0;
-        final sb = (b['sort_order'] as num?)?.toInt() ?? 0;
-        return sa.compareTo(sb);
-      });
 
       if (!mounted) return;
 
