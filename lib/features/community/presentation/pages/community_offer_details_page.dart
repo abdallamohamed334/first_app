@@ -42,6 +42,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   bool _loadingAttributes = false;
   bool _attributesLoaded = false;
   late Future<List<Map<String, dynamic>>> _reviewsFuture;
+  bool _isReviewDialogOpen = false;
 
   Map<String, dynamic> get offer => _offer;
 
@@ -668,20 +669,27 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   }
 
   Future<void> _addReview() async {
+    if (_isReviewDialogOpen) return;
+
     final offerId = offer['id']?.toString() ?? '';
     if (offerId.isEmpty) {
       _snack('بيانات العرض غير مكتملة', Colors.red);
       return;
     }
 
+    _isReviewDialogOpen = true;
     int selectedRating = 5;
     String comment = '';
+    var isSubmitting = false;
 
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
+          builder: (context, setDialogState) => PopScope(
+            canPop: !isSubmitting,
+            child: AlertDialog(
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
             title: const Text('قيّم تجربتك',
@@ -725,35 +733,69 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.pop(dialogContext),
                 child: const Text('إلغاء'),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12))),
-                onPressed: () async {
-                  try {
-                    await _repository.addReview(
-                      offerId: offerId,
-                      rating: selectedRating,
-                      comment: comment.isEmpty ? null : comment,
-                    );
-                    _reviewsFuture = _loadReviews();
-                    Navigator.pop(dialogContext);
-                    _snack('تم إضافة التقييم بنجاح', Colors.green);
-                    setState(() {});
-                  } catch (e) {
-                    _snack('تعذر إضافة التقييم: $e', Colors.red);
-                  }
-                },
-                child: const Text('إرسال'),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          await _repository.addReview(
+                            offerId: offerId,
+                            rating: selectedRating,
+                            comment: comment.isEmpty ? null : comment,
+                          );
+                          _reviewsFuture = _loadReviews();
+                          Navigator.pop(dialogContext);
+                          _snack('تم إضافة التقييم بنجاح', Colors.green);
+                          if (mounted) setState(() {});
+                        } catch (e) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() => isSubmitting = false);
+                          }
+                          final error = e
+                              .toString()
+                              .replaceFirst('Exception: ', '')
+                              .trim();
+                          if (error.contains(
+                              'لقد قمت بتقييم هذا العرض من قبل')) {
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                            _snack(
+                              'لقد قيّمت هذا العرض من قبل.',
+                              Colors.orange,
+                            );
+                          } else {
+                            _snack(
+                              'تعذر إضافة التقييم: $error',
+                              Colors.red,
+                            );
+                          }
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('إرسال'),
               ),
             ],
+            ),
           ),
         );
       },
     );
+    _isReviewDialogOpen = false;
   }
 
   Future<void> _checkIfOwner() async {
@@ -1104,6 +1146,26 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                         _premiumSectionTitle(_attributesTitle, _categoryIcon),
                         const SizedBox(height: 11),
                         _attributesCard(colors),
+                        const SizedBox(height: 24),
+                      ] else ...[
+                        _premiumSectionTitle(_attributesTitle, _categoryIcon),
+                        const SizedBox(height: 11),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerLow,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: colors.outlineVariant),
+                          ),
+                          child: Text(
+                            'لم تُسجّل مواصفات إضافية لهذا العرض.',
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 24),
                       ],
                       _premiumSectionTitle(
