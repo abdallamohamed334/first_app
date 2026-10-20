@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
@@ -119,14 +118,9 @@ class SupabaseService {
     final cleanUserId = userId.trim();
     if (cleanUserId.isEmpty) return;
 
-    // Push notifications are optional. FirebaseMessaging throws a noisy
-    // [core/no-app] exception when Firebase initialization was unavailable.
-    if (Firebase.apps.isEmpty) {
-      debugPrint('[FCM] Firebase is not ready; skipping device registration');
-      return;
-    }
-
     try {
+      // FcmNotificationService also initializes Firebase when login finishes
+      // before the asynchronous post-launch bootstrap has completed.
       await fcmNotifications.dispose();
       await fcmNotifications.initialize(
         webVapidKey: webVapidKey,

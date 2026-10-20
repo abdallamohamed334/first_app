@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:loqma/firebase_options.dart';
 
 /// Handles Firebase Cloud Messaging without coupling notifications to a page
 /// or to the Supabase repository layer.
@@ -49,7 +50,7 @@ class FcmNotificationService {
     importance: Importance.high,
   );
 
-  /// Must be called after Firebase.initializeApp().
+  /// Safe to call immediately after login; it initializes Firebase if needed.
   ///
   /// [onTokenChanged] should persist the token in the Supabase
   /// `user_devices` table for the currently authenticated user.
@@ -63,6 +64,30 @@ class FcmNotificationService {
     if (_initialized) return;
 
     _onNotificationTap = onNotificationTap;
+
+    // Login can complete before the post-launch Firebase bootstrap finishes.
+    // Initialize Firebase here as well instead of silently losing FCM setup.
+    if (Firebase.apps.isEmpty) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } catch (error, stack) {
+        debugPrint('[FCM] Firebase initialization failed: $error');
+        debugPrintStack(stackTrace: stack);
+        // Release APKs have native google-services resources even when the
+        // optional FIREBASE_ANDROID_API_KEY dart define is absent.
+        if (Firebase.apps.isEmpty) {
+          try {
+            await Firebase.initializeApp();
+          } catch (nativeError, nativeStack) {
+            debugPrint('[FCM] native Firebase initialization failed: $nativeError');
+            debugPrintStack(stackTrace: nativeStack);
+            if (Firebase.apps.isEmpty) return;
+          }
+        }
+      }
+    }
 
     await _requestPermission();
     await _configureLocalNotifications();
@@ -306,7 +331,15 @@ class FcmNotificationService {
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
-    await Firebase.initializeApp();
+    if (Firebase.apps.isEmpty) {
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      } catch (_) {
+        await Firebase.initializeApp();
+      }
+    }
     debugPrint('[FCM] background message id=${message.messageId}');
   } catch (error, stack) {
     debugPrint('[FCM] background handler initialization failed: $error');
