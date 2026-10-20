@@ -100,17 +100,6 @@ serve(async (req) => {
     const providerRegistrationUnavailable =
       "الرقم غير متاح لإنشاء حساب جديد. لو الرقم مسجل بالفعل، روح لتسجيل الدخول أو استخدم رقمًا آخر.";
     const userRegistrationUnavailable = "الرقم مسجل بالفعل، روح لتسجيل الدخول.";
-    const userLoginWithoutAccount =
-      loginMode === "user" &&
-      !isUserRegistration &&
-      access?.is_new_user === true;
-    if (userLoginWithoutAccount) {
-      console.warn("User login blocked before OTP for an unregistered phone");
-      return errorResponse(
-        "user_account_not_found: هذا الرقم غير مسجل كمستخدم. أنشئ حسابًا جديدًا أولًا.",
-        403,
-      );
-    }
     if (
       loginMode === "provider" &&
       !isProviderRegistration &&

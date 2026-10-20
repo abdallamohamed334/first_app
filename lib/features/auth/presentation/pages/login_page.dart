@@ -515,7 +515,10 @@ class _LoginPageState extends State<LoginPage>
     try {
       debugPrint('[Login] sending OTP request');
 
-      final result = await _authRepo.sendOtp(phone: phone);
+      final result = await _authRepo.sendOtp(
+        phone: phone,
+        loginMode: 'user',
+      );
 
       if (!mounted) return;
 

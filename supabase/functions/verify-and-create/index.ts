@@ -82,24 +82,17 @@ serve(async (req) => {
       requestedRole === "provider" &&
       !isProviderRegistration &&
       access?.is_new_user === true;
-    const userLoginWithoutAccount =
-      requestedRole === "user" &&
-      !isUserRegistration &&
-      access?.is_new_user === true;
     if (
       access?.allowed !== true ||
       (isUserRegistration && access?.is_new_user !== true) ||
       (isProviderRegistration && access?.is_new_user !== true) ||
-      providerLoginWithoutAccount ||
-      userLoginWithoutAccount
+      providerLoginWithoutAccount
     ) {
       return err(
         isProviderRegistration
           ? providerRegistrationUnavailable
           : isUserRegistration
           ? userRegistrationUnavailable
-          : userLoginWithoutAccount
-          ? "user_account_not_found: هذا الرقم غير مسجل كمستخدم. أنشئ حسابًا جديدًا أولًا."
           : access?.reason === "account_type_mismatch"
           ? "account_type_mismatch: الرقم مرتبط بنوع حساب مختلف. استخدم شاشة الدخول المناسبة."
           : requestedRole === "provider"
