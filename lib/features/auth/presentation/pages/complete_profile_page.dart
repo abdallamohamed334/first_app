@@ -101,9 +101,14 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   }
 
   void _navigateToHome() {
-    final route = AuthStateNotifier.instance.homeRoute;
-    if (route == null || !AuthStateNotifier.instance.isResolved) {
+    final auth = AuthStateNotifier.instance;
+    final route = auth.homeRoute;
+    if (!auth.isResolved || route == null) {
       _showError('تم الحفظ، لكن الاتصال ضعيف ولم نتمكن من تأكيد الحساب. حاول مرة أخرى.');
+      return;
+    }
+    if (!auth.userProfileComplete) {
+      _showError('لسه في بيانات مطلوبة ما اتحفظتش. راجع الحقول وحاول تاني.');
       return;
     }
     context.go(route);
@@ -262,6 +267,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       await _supabase.updateProfile(
         userId: widget.user.id,
         name: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
         phone: _phoneCtrl.text.trim(),
         whatsapp: _whatsappCtrl.text.trim().isEmpty
             ? null
@@ -275,17 +281,6 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         lat: _lat,
         lng: _lng,
       );
-
-      final emailInput = _emailCtrl.text.trim();
-      if (emailInput.isNotEmpty) {
-        try {
-          await _supabase.client
-              .from('users')
-              .update({'email': emailInput}).eq('id', widget.user.id);
-        } catch (error) {
-          debugPrint('[CompleteProfile] Optional email sync failed: $error');
-        }
-      }
 
       // Re-read the persisted row before routing. This keeps the global auth
       // state aligned with the database and prevents a later refresh from

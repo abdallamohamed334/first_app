@@ -1274,6 +1274,7 @@ class SupabaseService {
   Future<UserModel> updateProfile({
     required String userId,
     required String name,
+    String? email,
     String? phone,
     String? whatsapp,
     String? governorate,
@@ -1288,6 +1289,9 @@ class SupabaseService {
       final data = <String, dynamic>{
         'name': name,
       };
+      if (email != null && email.trim().isNotEmpty) {
+        data['email'] = email.trim().toLowerCase();
+      }
 
       // The phone is the authenticated identity and is intentionally
       // immutable. The database grants profile-field updates but rejects
