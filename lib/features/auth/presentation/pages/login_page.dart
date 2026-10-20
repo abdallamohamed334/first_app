@@ -365,31 +365,61 @@ class _LoginPageState extends State<LoginPage>
   }
 
   // ═══════════════════════════════════════════════════════════
-  // ✅ Back Link (بدل Register Link)
+  // ✅ روابط التسجيل وتغيير نوع الحساب
   // ═══════════════════════════════════════════════════════════
   Widget _buildBackLink() {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
       children: [
-        const Text(
-          'حسابك من نوع تاني؟',
-          style: TextStyle(color: _darkGreen, fontSize: 12.5),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              'أول مرة تستخدم Khedma؟',
+              style: TextStyle(color: _darkGreen, fontSize: 12.5),
+            ),
+            TextButton(
+              onPressed: _isLoading
+                  ? null
+                  : () => context.push('${AppRouter.register}?role=user'),
+              style: TextButton.styleFrom(
+                foregroundColor: _primary,
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'إنشاء حساب جديد',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+              ),
+            ),
+          ],
         ),
-        TextButton(
-          onPressed: _isLoading
-              ? null
-              : () => context.push(AppRouter.userTypeSelection),
-          style: TextButton.styleFrom(
-            foregroundColor: _primary,
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'اختار نوع الحساب',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
-          ),
+        const SizedBox(height: 5),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              'حسابك من نوع تاني؟',
+              style: TextStyle(color: _darkGreen, fontSize: 12.5),
+            ),
+            TextButton(
+              onPressed: _isLoading
+                  ? null
+                  : () => context.push(AppRouter.userTypeSelection),
+              style: TextButton.styleFrom(
+                foregroundColor: _primary,
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'اختار نوع الحساب',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5),
+              ),
+            ),
+          ],
         ),
       ],
     );
