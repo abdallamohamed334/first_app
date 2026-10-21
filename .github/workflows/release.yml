@@ -59,12 +59,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           FIREBASE_ANDROID_API_KEY: ${{ secrets.FIREBASE_ANDROID_API_KEY }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           test -n "$SUPABASE_URL" && test -n "$SUPABASE_ANON_KEY"
           test -n "$FIREBASE_ANDROID_API_KEY"
-          test -n "$SENTRY_DSN" && test -n "$SENTRY_AUTH_TOKEN"
       - name: Restore Android signing material
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -121,7 +118,12 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: khedma
           SENTRY_PROJECT: khedma
-        run: flutter pub run sentry_dart_plugin
+        run: |
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            flutter pub run sentry_dart_plugin
+          else
+            echo "Sentry symbol upload skipped: SENTRY_AUTH_TOKEN is not configured."
+          fi
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
