@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -100,7 +101,10 @@ class _AccountDeletionPageState extends State<AccountDeletionPage> {
         throw Exception(data?['error']?.toString() ?? 'تعذر حذف الحساب');
       }
 
-      await SupabaseService().client.auth.signOut();
+      await SupabaseService()
+          .client
+          .auth
+          .signOut(scope: SignOutScope.local);
       if (mounted) context.go(AppRouter.userTypeSelection);
     } catch (error) {
       if (mounted) _showMessage(_messageFromError(error));
