@@ -309,6 +309,8 @@ class HomeCommunityOfferCard extends StatelessWidget {
         offer['category']?.toString() ??
         'أخرى';
     final price = _formatPrice(offer['price']);
+    final viewsCount =
+        int.tryParse(offer['views_count']?.toString() ?? '') ?? 0;
     final distance = _formatDistance(offer['distance_meters']);
     final image = _communityImage(offer);
     final expiresAt = _parseDate(offer['expires_at']);
@@ -459,6 +461,25 @@ class HomeCommunityOfferCard extends StatelessWidget {
                           height: 1.25,
                           fontWeight: FontWeight.w900,
                         ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 14,
+                            color: HomePalette.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$viewsCount شخص',
+                            style: TextStyle(
+                              color: HomePalette.textSecondary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                       if (description.isNotEmpty) ...[
                         const SizedBox(height: 5),
@@ -724,6 +745,8 @@ class HomeCategoryOfferCard extends StatelessWidget {
         ? (offer.ownerName ?? 'مؤسسة')
         : (offer.ownerName ?? 'عرض من المجتمع');
     final typeLabel = offer.isInstitution ? 'مؤسسة' : 'من المجتمع';
+    final viewsCount =
+        int.tryParse(offer.raw['views_count']?.toString() ?? '') ?? 0;
 
     return SizedBox(
       width: 210,
@@ -891,6 +914,27 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           height: 1.25,
                         ),
                       ),
+                      if (offer.isCommunity) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 13,
+                              color: HomePalette.textSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$viewsCount شخص',
+                              style: TextStyle(
+                                color: HomePalette.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const Spacer(),
                       Row(
                         children: [

@@ -1414,6 +1414,28 @@ class CommunityOfferRepository {
   }
 
   // ============================================================
+  // UNIQUE OFFER VIEWS
+  // ============================================================
+
+  Future<int?> recordOfferView(String offerId) async {
+    if (getCurrentUserId() == null || offerId.trim().isEmpty) return null;
+
+    try {
+      final response = await _client.rpc(
+        'record_community_offer_view',
+        params: {'p_offer_id': offerId.trim()},
+      );
+      if (response is num) return response.toInt();
+      return int.tryParse(response?.toString() ?? '');
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('❌ recordOfferView error: $error');
+      }
+      return null;
+    }
+  }
+
+  // ============================================================
   // IS CURRENT USER OWNER
   // ============================================================
 

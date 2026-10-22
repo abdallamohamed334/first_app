@@ -31,7 +31,9 @@ class _CommunityHomeOffersSectionState
       final rows = await SupabaseService()
           .client
           .from('community_offers')
-          .select('id,title,category,listing_type,price,image,images,status')
+          .select(
+            'id,title,category,listing_type,price,image,images,status,views_count',
+          )
           .eq('status', 'available')
           .neq('listing_type', 'charity_donation')
           .inFilter('category', ['clothing', 'furniture'])
@@ -248,6 +250,7 @@ class _CommunityOfferCard extends StatelessWidget {
     final category = _value('category') == 'furniture' ? 'أثاث' : 'ملابس';
     final sale = _value('listing_type') == 'symbolic_sale';
     final price = num.tryParse(_value('price')) ?? 0;
+    final viewsCount = int.tryParse(_value('views_count')) ?? 0;
     final image = _imageUrl();
 
     return SizedBox(
@@ -309,6 +312,24 @@ class _CommunityOfferCard extends StatelessWidget {
                           fontSize: 14,
                           fontWeight: FontWeight.w900,
                         ),
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.visibility_outlined,
+                            size: 13,
+                            color: Color(0xFF71837C),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$viewsCount شخص',
+                            style: const TextStyle(
+                              color: Color(0xFF71837C),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
                       const Spacer(),
                       Text(

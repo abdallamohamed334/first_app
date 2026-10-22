@@ -794,6 +794,8 @@ class _OfferCard extends StatelessWidget {
     );
 
     final price = _price();
+    final viewsCount =
+        int.tryParse(offer['views_count']?.toString() ?? '') ?? 0;
 
     final images = _getImages();
 
@@ -951,6 +953,26 @@ class _OfferCard extends StatelessWidget {
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.visibility_outlined,
+                          size: 14,
+                          color: Color(0xFF71837C),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$viewsCount شخص',
+                          style: const TextStyle(
+                            color: Color(0xFF71837C),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],

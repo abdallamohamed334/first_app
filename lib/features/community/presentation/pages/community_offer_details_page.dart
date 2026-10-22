@@ -125,6 +125,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     _resolvedImages = _extractRawImages();
     _reviewsFuture = _loadReviews();
 
+    _recordOfferView();
     _checkIfOwner();
     _ensureContactsLoaded();
     _refreshImageUrls();
@@ -143,6 +144,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       _attributesLoaded = false;
       _marketplaceAttributes = [];
       _reviewsFuture = _loadReviews();
+      _recordOfferView();
       _ensureContactsLoaded();
       _refreshImageUrls();
       _loadMarketplaceAttributes();
@@ -152,6 +154,16 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ═══════════════════════════════════════════════════════════
   // ✅ جلب الأرقام
   // ═══════════════════════════════════════════════════════════
+  Future<void> _recordOfferView() async {
+    final offerId = _offer['id']?.toString().trim() ?? '';
+    if (offerId.isEmpty) return;
+
+    final viewsCount = await _repository.recordOfferView(offerId);
+    if (!mounted || viewsCount == null) return;
+
+    setState(() => _offer['views_count'] = viewsCount);
+  }
+
   Future<void> _ensureContactsLoaded() async {
     var phone = _offer['phone']?.toString().trim() ?? '';
     var whatsapp = _offer['whatsapp']?.toString().trim() ?? '';
@@ -866,6 +878,8 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     final title = offer['title']?.toString().trim() ?? 'عرض مستخدم';
     final description = offer['description']?.toString().trim() ?? '';
     final price = (offer['price'] as num?)?.toDouble() ?? 0;
+    final viewsCount =
+        int.tryParse(offer['views_count']?.toString() ?? '') ?? 0;
     final images = _images;
 
     return Theme(
@@ -1080,6 +1094,25 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                         ),
                                       ],
                                     ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 11),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.visibility_outlined,
+                                  size: 17,
+                                  color: colors.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '$viewsCount شخص شاهدوا العرض',
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
