@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$EnvFile = '.env',
-    [string]$KeystorePath = ''
+    [string]$KeystorePath = '',
+    [string]$OutputPath = 'dist\app-release.aab'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -88,4 +89,14 @@ $aab = Join-Path $PSScriptRoot 'build\app\outputs\bundle\release\app-release.aab
 if (-not (Test-Path -LiteralPath $aab)) {
     Stop-Build ("AAB was not created: " + $aab)
 }
-Write-Host ('AAB built successfully: ' + $aab)
+
+if (-not [System.IO.Path]::IsPathRooted($OutputPath)) {
+    $OutputPath = Join-Path $PSScriptRoot $OutputPath
+}
+$outputDirectory = Split-Path -Parent $OutputPath
+if ($outputDirectory -and -not (Test-Path -LiteralPath $outputDirectory)) {
+    New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
+}
+Copy-Item -LiteralPath $aab -Destination $OutputPath -Force
+
+Write-Host ('AAB built successfully: ' + $OutputPath)
