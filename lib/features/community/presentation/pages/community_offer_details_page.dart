@@ -3,7 +3,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:loqma/core/config/app_config.dart';
@@ -101,6 +103,51 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       return 'مواصفات العقار';
     }
     return 'مواصفات $_categoryName';
+  }
+
+  String get _conditionLabel {
+    final raw = (offer['item_condition'] ?? offer['condition'])
+            ?.toString()
+            .trim() ??
+        '';
+    if (raw.isEmpty) return '';
+    const labels = {
+      'new': 'جديد',
+      'brand_new': 'جديد',
+      'like_new': 'شبه جديد',
+      'used': 'مستعمل',
+      'good': 'بحالة جيدة',
+      'fair': 'مقبول',
+      'excellent': 'ممتاز',
+    };
+    return labels[raw.toLowerCase().replaceAll(' ', '_')] ?? raw;
+  }
+
+  String get _listingTypeLabel {
+    final raw = offer['listing_type']?.toString().trim().toLowerCase() ?? '';
+    if (offer['charity_id'] != null || raw == 'donation' || raw == 'charity') {
+      return 'تبرع';
+    }
+    if (raw.contains('exchange') || raw.contains('swap') || raw == 'barter') {
+      return 'للبيع أو التبادل';
+    }
+    return 'للبيع';
+  }
+
+  String _publishedAgo() {
+    final createdAt = DateTime.tryParse(offer['created_at']?.toString() ?? '');
+    if (createdAt == null) return 'تاريخ النشر غير متاح';
+    final elapsed = DateTime.now().difference(createdAt);
+    if (elapsed.isNegative || elapsed.inMinutes < 1) return 'نُشر الآن';
+    if (elapsed.inMinutes < 60) return 'نُشر منذ ${elapsed.inMinutes} دقيقة';
+    if (elapsed.inHours < 24) return 'نُشر منذ ${elapsed.inHours} ساعة';
+    if (elapsed.inDays < 30) return 'نُشر منذ ${elapsed.inDays} يوم';
+    return 'نُشر في ${DateFormat('dd/MM/yyyy').format(createdAt)}';
+  }
+
+  bool get _isDonationOffer {
+    final raw = offer['listing_type']?.toString().trim().toLowerCase() ?? '';
+    return offer['charity_id'] != null || raw == 'donation' || raw == 'charity';
   }
 
   Color get _categoryAccent {
@@ -944,7 +991,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     final appColors = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = ColorScheme.fromSeed(
-      seedColor: _categoryAccent,
+      seedColor: const Color(0xFF003921),
       brightness: isDark ? Brightness.dark : Brightness.light,
       surface: isDark ? appColors.surface : const Color(0xFFF7F8FA),
     );
@@ -959,22 +1006,31 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       data: Theme.of(context).copyWith(
         colorScheme: colors,
         scaffoldBackgroundColor:
-            isDark ? colors.surface : const Color(0xFFF6F7F9),
+            isDark ? colors.surface : const Color(0xFFF3FCF3),
       ),
       child: Scaffold(
-        backgroundColor: isDark ? colors.surface : const Color(0xFFF6F7F9),
+        backgroundColor: isDark ? colors.surface : const Color(0xFFF3FCF3),
         body: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverAppBar(
-              expandedHeight: 320,
+              expandedHeight: 350,
               pinned: true,
               elevation: 0,
               scrolledUnderElevation: 0,
-              backgroundColor: const Color(0xFF18231F),
+              backgroundColor: const Color(0xFF003921),
               surfaceTintColor: Colors.transparent,
+              centerTitle: true,
+              title: const Text(
+                'تفاصيل العرض',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               leading: _roundAppBarButton(
-                Icons.arrow_back_rounded,
+                Icons.arrow_forward_rounded,
                 () => Navigator.pop(context),
               ),
               actions: [
@@ -986,7 +1042,36 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
               ],
               flexibleSpace: FlexibleSpaceBar(
                 collapseMode: CollapseMode.parallax,
-                background: _HeroGallery(images: images),
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _HeroGallery(images: images),
+                    Positioned(
+                      top: 92,
+                      right: 16,
+                      child: Wrap(
+                        spacing: 7,
+                        runSpacing: 6,
+                        children: [
+                          if (_conditionLabel.isNotEmpty)
+                            _heroBadge(
+                              _conditionLabel,
+                              Icons.verified_rounded,
+                              background: Colors.black.withValues(alpha: .62),
+                            ),
+                          _heroBadge(
+                            _listingTypeLabel,
+                            _isDonationOffer
+                                ? Icons.volunteer_activism_rounded
+                                : Icons.swap_horiz_rounded,
+                            background: const Color(0xFFFFDDAF),
+                            foreground: const Color(0xFF442C00),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             SliverToBoxAdapter(
@@ -994,7 +1079,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                 offset: const Offset(0, -20),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isDark ? colors.surface : const Color(0xFFF6F7F9),
+                    color: isDark ? colors.surface : const Color(0xFFF3FCF3),
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
@@ -1102,17 +1187,19 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 13,
-                                    vertical: 9,
+                                    horizontal: 14,
+                                    vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
                                     color: colors.primary,
                                     borderRadius: BorderRadius.circular(14),
                                   ),
                                   child: Text(
-                                    price > 0
-                                        ? '${price.toStringAsFixed(0)} جنيه'
-                                        : 'سعر رمزي',
+                                    _isDonationOffer
+                                        ? 'تبرع مجاني'
+                                        : price > 0
+                                            ? '${price.toStringAsFixed(0)} ج.م'
+                                            : 'سعر رمزي',
                                     style: TextStyle(
                                       color: colors.onPrimary,
                                       fontSize: 16,
@@ -1120,75 +1207,99 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 11),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: _openOwnerProfile,
-                                    borderRadius: BorderRadius.circular(12),
+                                const SizedBox(width: 9),
+                                if (offer['is_negotiable'] == true ||
+                                    offer['negotiable'] == true)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 11,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.secondaryContainer,
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
                                     child: Row(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        CircleAvatar(
-                                          radius: 17,
-                                          backgroundColor: colors.primary
-                                              .withValues(alpha: .1),
-                                          backgroundImage:
-                                              (_ownerAvatar ?? '').isNotEmpty
-                                                  ? NetworkImage(
-                                                      _ownerAvatar ?? '',
-                                                    )
-                                                  : null,
-                                          child: (_ownerAvatar ?? '').isEmpty
-                                              ? Icon(
-                                                  Icons.person_rounded,
-                                                  size: 18,
-                                                  color: colors.primary,
-                                                )
-                                              : null,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            _ownerName.isEmpty
-                                                ? 'مستخدم Khedma'
-                                                : _ownerName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: colors.onSurfaceVariant,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
                                         Icon(
-                                          Icons.chevron_left_rounded,
-                                          color: colors.primary,
-                                          size: 19,
+                                          Icons.sell_outlined,
+                                          size: 14,
+                                          color: colors.onSecondaryContainer,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          'قابل للتفاوض',
+                                          style: TextStyle(
+                                            color: colors.onSecondaryContainer,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
                                       ],
                                     ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 9),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 15,
+                                  color: colors.secondary,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  _publishedAgo(),
+                                  style: TextStyle(
+                                    color: colors.onSurfaceVariant,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 11),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.visibility_outlined,
-                                  size: 17,
-                                  color: colors.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  '$viewsCount شخص شاهدوا العرض',
-                                  style: TextStyle(
-                                    color: colors.onSurfaceVariant,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surfaceContainerLow,
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.visibility_outlined,
+                                    size: 17,
+                                    color: colors.secondary,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '$viewsCount شخص شاهدوا العرض',
+                                    style: TextStyle(
+                                      color: colors.onSurfaceVariant,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (offer['status']?.toString() ==
+                                          'available' ||
+                                      offer['status']?.toString() == 'active')
+                                    Text(
+                                      'طلب نشط',
+                                      style: TextStyle(
+                                        color: colors.secondary,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -1196,27 +1307,56 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       const SizedBox(height: 18),
                       _infoGrid(colors),
                       const SizedBox(height: 26),
-                      _premiumSectionTitle('عن العرض', Icons.notes_rounded),
-                      const SizedBox(height: 11),
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(17),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: colors.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(18),
+                          color: colors.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: colors.outlineVariant),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x0C0D5233),
+                              blurRadius: 16,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          description.isEmpty ? 'عرض من مستخدم.' : description,
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            height: 1.75,
-                            fontSize: 14,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.notes_rounded,
+                                  size: 20,
+                                  color: colors.secondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'تفاصيل العرض',
+                                  style: TextStyle(
+                                    color: colors.primary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              description.isEmpty
+                                  ? 'لم يضف صاحب العرض وصفًا إضافيًا.'
+                                  : description,
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                height: 1.7,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      const AdBannerCard(),
                       const SizedBox(height: 24),
                       if (_loadingAttributes) ...[
                         _premiumSectionTitle(_attributesTitle, _categoryIcon),
@@ -1266,6 +1406,56 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 24),
+                      ],
+                      if (_isDonationOffer) ...[
+                        Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: colors.secondaryContainer.withValues(
+                              alpha: .45,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: colors.secondary.withValues(alpha: .2),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.volunteer_activism_rounded,
+                                color: colors.secondary,
+                                size: 23,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'مبادرة تبرع',
+                                      style: TextStyle(
+                                        color: colors.primary,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'هذا العرض مقدم بدون مقابل. تواصل مع صاحب العرض لترتيب الاستلام.',
+                                      style: TextStyle(
+                                        color: colors.onSurfaceVariant,
+                                        fontSize: 12,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                       ],
                       _premiumSectionTitle(
                         'مكان الاستلام',
@@ -1493,6 +1683,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                           );
                         },
                       ),
+                      const SizedBox(height: 20),
+                      const AdBannerCard(),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -1503,65 +1696,101 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
         bottomNavigationBar: SafeArea(
           top: false,
           child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            padding: const EdgeInsets.all(8),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
             decoration: BoxDecoration(
-              color: colors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE7EAE8)),
+              color: const Color(0xFF003921),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x18000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
+                  color: Color(0x33002111),
+                  blurRadius: 22,
+                  offset: Offset(0, 8),
                 ),
               ],
             ),
             child: Row(
               children: [
                 Expanded(
+                  flex: 5,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isDonationOffer ? 'نوع العرض' : 'السعر المطلوب',
+                        style: const TextStyle(
+                          color: Color(0xFFDCE5DC),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        _isDonationOffer
+                            ? 'تبرع مجاني'
+                            : price > 0
+                                ? '${price.toStringAsFixed(0)} ج.م'
+                                : 'سعر رمزي',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF8EF7C4),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 5,
                   child: ElevatedButton.icon(
                     onPressed: _fetchingContacts ? null : _openWhatsApp,
                     icon: _fetchingContacts
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
+                        ? const SizedBox(
+                            width: 17,
+                            height: 17,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: colors.surfaceContainerLow,
+                              color: Color(0xFF003921),
                             ),
                           )
-                        : const Icon(Icons.chat_rounded, size: 19),
-                    label: const Text('واتساب'),
+                        : const Icon(Icons.chat_rounded, size: 18),
+                    label: Text(
+                      _isDonationOffer ? 'طلب الاستلام' : 'تواصل الآن',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
-                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFF8EF7C4),
+                      foregroundColor: const Color(0xFF002113),
                       disabledBackgroundColor:
-                          const Color(0xFF25D366).withValues(alpha: 0.5),
+                          const Color(0xFF8EF7C4).withValues(alpha: .5),
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(18),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: ElevatedButton.icon(
+                const SizedBox(width: 8),
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: .13),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
                     onPressed: _fetchingContacts ? null : _openPhone,
-                    icon: const Icon(Icons.phone_rounded, size: 19),
-                    label: const Text('اتصال'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colors.primary,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor:
-                          colors.primary.withValues(alpha: 0.5),
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                    tooltip: 'اتصال هاتفي',
+                    icon: const Icon(
+                      Icons.call_rounded,
+                      color: Colors.white,
+                      size: 19,
                     ),
                   ),
                 ),
@@ -1586,6 +1815,45 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       child: IconButton(
         onPressed: onPressed,
         icon: Icon(icon, color: Colors.white, size: 21),
+      ),
+    );
+  }
+
+  Widget _heroBadge(
+    String label,
+    IconData icon, {
+    Color background = const Color(0xA0002111),
+    Color foreground = Colors.white,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1628,82 +1896,63 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ✅ كارت المواصفات
   // ═══════════════════════════════════════════════════════════
   Widget _attributesCard(ColorScheme colors) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: List.generate(_marketplaceAttributes.length, (i) {
-          final attr = _marketplaceAttributes[i];
-          final isLast = i == _marketplaceAttributes.length - 1;
-          return _attributeRow(attr, colors, isLast: isLast);
-        }),
-      ),
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 9,
+      mainAxisSpacing: 9,
+      childAspectRatio: 1.65,
+      children: _marketplaceAttributes
+          .map((attr) => _attributeTile(attr, colors))
+          .toList(growable: false),
     );
   }
 
-  Widget _attributeRow(
-    Map<String, dynamic> attr,
-    ColorScheme colors, {
-    required bool isLast,
-  }) {
+  Widget _attributeTile(Map<String, dynamic> attr, ColorScheme colors) {
     final slug = attr['slug']?.toString() ?? '';
     final nameAr = attr['name_ar']?.toString() ?? '';
     final value = attr['value']?.toString() ?? '';
     final iconData = _iconForAttribute(slug, attr['icon']?.toString());
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : Border(
-                bottom: BorderSide(
-                    color: colors.outlineVariant.withValues(alpha: .55)),
-              ),
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: .55)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: colors.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(iconData, size: 17, color: colors.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              nameAr,
-              style: TextStyle(
-                color: colors.onSurfaceVariant,
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
+          Row(
+            children: [
+              Icon(iconData, size: 15, color: colors.secondary),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  nameAr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                color: colors.onSurface,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
+          const Spacer(),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colors.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              height: 1.2,
             ),
           ),
         ],
@@ -2064,121 +2313,271 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
 
     return InkWell(
       onTap: hasLocation ? _openLocation : null,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: hasLocation
-                ? [
-                    colors.primary.withValues(alpha: .08),
-                    colors.primary.withValues(alpha: .02),
-                  ]
-                : [Colors.grey.shade100, Colors.grey.shade50],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: hasLocation
-                ? colors.primary.withValues(alpha: .35)
-                : Colors.grey.shade300,
-            width: hasLocation ? 1.4 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: hasLocation
-                    ? colors.primary.withValues(alpha: .15)
-                    : Colors.grey.withValues(alpha: .15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.location_on_rounded,
-                color: hasLocation ? colors.primary : Colors.grey,
-                size: 22,
-              ),
+          color: colors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: .7)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0C0D5233),
+              blurRadius: 16,
+              offset: Offset(0, 5),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'مكان الاستلام',
-                    style: TextStyle(
-                      color: colors.onSurfaceVariant,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: colors.secondaryContainer,
+                    borderRadius: BorderRadius.circular(13),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    displayLocation,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colors.onSurface,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                    ),
+                  child: Icon(
+                    Icons.location_on_rounded,
+                    color: colors.secondary,
+                    size: 21,
                   ),
-                  if (hasCoordinates) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      'الدبوس: ${_pickupLatitude!.toStringAsFixed(5)}، ${_pickupLongitude!.toStringAsFixed(5)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'مكان الاستلام',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        displayLocation,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasCoordinates)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.secondaryContainer,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      'موقع محدد',
                       style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        color: colors.onSecondaryContainer,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                  if (hasLocation) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.touch_app_rounded,
-                          size: 12,
-                          color: colors.primary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
+                  ),
+              ],
+            ),
+            const SizedBox(height: 13),
+            _pickupMapPreview(colors),
+            const SizedBox(height: 11),
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.my_location_rounded,
+                        size: 16,
+                        color: colors.secondary,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
                           hasCoordinates
-                              ? 'يفتح دبوس الاستلام المحدد على الخريطة'
-                              : 'اضغط لفتح الموقع على الخريطة',
+                              ? '${_pickupLatitude!.toStringAsFixed(5)}, ${_pickupLongitude!.toStringAsFixed(5)}'
+                              : 'إحداثيات الموقع غير متاحة',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: colors.primary,
-                            fontSize: 10.5,
+                            color: colors.onSurfaceVariant,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace',
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 11,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainer,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 15,
+                        color: colors.primary,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'فتح في الخرائط',
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            if (hasLocation)
-              Icon(
-                Icons.open_in_new_rounded,
-                size: 20,
-                color: colors.primary,
-              ),
           ],
         ),
       ),
     );
   }
+
+  Widget _pickupMapPreview(ColorScheme colors) {
+    if (!_hasPickupCoordinates) {
+      return Container(
+        height: 150,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(19),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.map_outlined, size: 34, color: colors.secondary),
+            const SizedBox(height: 7),
+            Text(
+              'لا توجد نقطة مثبتة على الخريطة',
+              style: TextStyle(
+                color: colors.onSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final point = LatLng(_pickupLatitude!, _pickupLongitude!);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(19),
+      child: SizedBox(
+        height: 170,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            IgnorePointer(
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: point,
+                  initialZoom: 15,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.jood.app',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: point,
+                        width: 48,
+                        height: 48,
+                        alignment: Alignment.bottomCenter,
+                        child: Icon(
+                          Icons.location_on_rounded,
+                          color: colors.primary,
+                          size: 44,
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black38,
+                              blurRadius: 7,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              bottom: 9,
+              right: 9,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: .92),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'موقع صاحب العرض',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 6,
+              bottom: 3,
+              child: Text(
+                '© OpenStreetMap',
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 8,
+                  shadows: [Shadow(color: Colors.white, blurRadius: 4)],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 }
 
 // =====================================================================
