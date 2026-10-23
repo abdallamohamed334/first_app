@@ -164,7 +164,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                           urlTemplate: _mapboxToken.isEmpty
                               ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                               : 'https://api.mapbox.com/styles/v1/$_mapboxStyle/tiles/256/{z}/{x}/{y}@2x?access_token=$_mapboxToken',
-                          userAgentPackageName: 'com.jood.app',
+                          userAgentPackageName: 'com.jood.com',
                           tileProvider: CancellableNetworkTileProvider(),
                           maxZoom: 19,
                         ),

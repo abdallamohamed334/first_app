@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jood.app"
+    namespace = "com.jood.com"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.jood.app"
+        applicationId = "com.jood.com"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode

@@ -49,12 +49,12 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Android: Firebase app registered for com.jood.app.
+  // Android: Firebase app registered for com.jood.com.
   static FirebaseOptions get android => FirebaseOptions(
         // Firebase is optional at startup. If the key is not injected, main()
         // skips Firebase/FCM without blocking Supabase or the auth UI.
         apiKey: _env('FIREBASE_ANDROID_API_KEY'),
-        appId: '1:898976071862:android:2dc21f643a0c8a3c4ae617',
+        appId: '1:898976071862:android:8572454f3a6cb2004ae617',
         messagingSenderId: '898976071862',
         projectId: 'flutter-app-45f07',
         storageBucket: 'flutter-app-45f07.firebasestorage.app',
