@@ -793,6 +793,10 @@ class HomeCategoryOfferCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = _imageUrl();
+    final ownerAvatar = (offer.raw['owner_avatar'] ?? offer.raw['avatar_url'])
+            ?.toString()
+            .trim() ??
+        '';
     final ownerLabel = offer.isInstitution
         ? (offer.ownerName ?? 'مؤسسة')
         : (offer.ownerName ?? 'عرض من المجتمع');
@@ -1019,7 +1023,21 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           Expanded(
                             child: Row(
                               children: [
-                                _OwnerAvatar(url: offer.ownerAvatar, size: 17),
+                                CircleAvatar(
+                                  radius: 9,
+                                  backgroundColor: HomePalette.primaryRed
+                                      .withValues(alpha: .1),
+                                  backgroundImage: ownerAvatar.startsWith('http')
+                                      ? NetworkImage(ownerAvatar)
+                                      : null,
+                                  child: ownerAvatar.startsWith('http')
+                                      ? null
+                                      : Icon(
+                                          Icons.person_rounded,
+                                          size: 11,
+                                          color: HomePalette.primaryRed,
+                                        ),
+                                ),
                                 const SizedBox(width: 5),
                                 Expanded(
                                   child: Text(

@@ -150,21 +150,6 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     return offer['charity_id'] != null || raw == 'donation' || raw == 'charity';
   }
 
-  Color get _categoryAccent {
-    if (_categorySlug.contains('car') || _categorySlug.contains('vehicle')) {
-      return const Color(0xFF315CFF);
-    }
-    if (_categorySlug.contains('mobile') || _categorySlug.contains('phone')) {
-      return const Color(0xFF7B4DFF);
-    }
-    if (_categorySlug.contains('real') ||
-        _categorySlug.contains('property') ||
-        _categorySlug.contains('apartment')) {
-      return const Color(0xFF00897B);
-    }
-    return const Color(0xFFE95D4E);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -1080,7 +1065,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark ? colors.surface : const Color(0xFFF3FCF3),
-                    borderRadius: BorderRadius.vertical(
+                    borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(28),
                     ),
                   ),
