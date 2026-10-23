@@ -60,14 +60,14 @@ class DefaultFirebaseOptions {
         storageBucket: 'flutter-app-45f07.firebasestorage.app',
       );
 
-  // iOS: inject the registered app key at build time; never embed it here.
+  // iOS: Firebase app registered for com.jood.com.
   static FirebaseOptions get ios => FirebaseOptions(
         apiKey: _env('FIREBASE_IOS_API_KEY'),
-        appId: '1:898976071862:ios:0d0c6c27d8fc9eed4ae617',
+        appId: '1:898976071862:ios:f58bf2e12f7debd74ae617',
         messagingSenderId: '898976071862',
         projectId: 'flutter-app-45f07',
         storageBucket: 'flutter-app-45f07.firebasestorage.app',
-        iosBundleId: 'com.jood.app',
+        iosBundleId: 'com.jood.com',
       );
 
   // Web: keep the existing Web Firebase app unchanged.
