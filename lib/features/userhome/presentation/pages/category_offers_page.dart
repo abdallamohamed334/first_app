@@ -762,7 +762,7 @@ class _MarketplaceFlowWithOffers extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: 0.58,
+              childAspectRatio: 0.43,
             ),
             itemBuilder: (context, index) {
               final offer = state.offers[index];
@@ -1049,11 +1049,8 @@ class _MarketplaceOfferCard extends StatelessWidget {
   });
 
   static Color get _card => HomePalette.card;
-  static Color get _cardSoft => HomePalette.cardSoft;
-  static Color get _primaryRed => HomePalette.primaryRed;
   static Color get _textPrimary => HomePalette.textPrimary;
   static Color get _textSecondary => HomePalette.textSecondary;
-  static Color _successGreen = Color(0xFF2E7D32);
   static Color _warningOrange = Color(0xFFE28B00);
 
   @override
@@ -1063,19 +1060,25 @@ class _MarketplaceOfferCard extends StatelessWidget {
         : (offer.image != null && offer.image!.isNotEmpty
             ? [offer.image!]
             : <String>[]);
+    final imageBadge = offer.conditionLabel ?? offer.sourceTypeLabel;
+    final hasQuantityInfo =
+        offer.remainingQuantity != null || offer.quantity > 0;
+    final isSoldOut = hasQuantityInfo && offer.isSoldOut;
 
     return GestureDetector(
       onTap: () => _openDetails(context),
       child: Container(
         decoration: BoxDecoration(
           color: _card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Color(0xFF2A2A2A)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: HomePalette.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: Colors.black.withValues(
+                alpha: HomePalette.isDark ? 0.20 : 0.07,
+              ),
+              blurRadius: 14,
+              offset: Offset(0, 5),
             ),
           ],
         ),
@@ -1084,43 +1087,158 @@ class _MarketplaceOfferCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              flex: 6,
+              flex: 7,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   _OfferImagesCarousel(images: images),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.12),
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.48),
+                            ],
+                            stops: const [0, 0.48, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _SourceBadge(sourceType: offer.sourceType),
+                    child: Container(
+                      constraints: BoxConstraints(maxWidth: 110),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        imageBadge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFF26332E),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
                   ),
-                  if (offer.isLowStock)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.favorite_border_rounded,
+                        color: Color(0xFF4C5953),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 9,
+                    bottom: 9,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.76),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            offer.hasPrice
+                                ? Icons.sell_outlined
+                                : Icons.volunteer_activism_outlined,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            offer.hasPrice
+                                ? '${_formatPrice(offer.price!)} ج.م'
+                                : 'تبرع مجاني',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                     Positioned(
-                      top: 8,
-                      left: 8,
+                      right: 9,
+                      bottom: 9,
                       child: Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
+                          horizontal: 9,
+                          vertical: 7,
                         ),
                         decoration: BoxDecoration(
-                          color: _warningOrange,
-                          borderRadius: BorderRadius.circular(8),
+                          color: isSoldOut
+                              ? _warningOrange
+                              : Colors.black.withValues(alpha: 0.76),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.inventory_2_rounded,
+                              isSoldOut
+                                  ? Icons.remove_shopping_cart_outlined
+                                  : offer.isLowStock
+                                      ? Icons.inventory_2_outlined
+                                      : Icons.bolt_rounded,
                               color: Colors.white,
-                              size: 10,
+                              size: 13,
                             ),
-                            SizedBox(width: 3),
+                            SizedBox(width: 4),
                             Text(
-                              'آخر ${offer.availableQuantity}',
+                              isSoldOut
+                                  ? 'نفد'
+                                  : offer.isLowStock
+                                      ? 'آخر ${offer.availableQuantity}'
+                                      : 'متاح الآن',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 9,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -1132,71 +1250,33 @@ class _MarketplaceOfferCard extends StatelessWidget {
               ),
             ),
             Expanded(
-              flex: 7,
+              flex: 3,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(10, 8, 10, 8),
+                padding: EdgeInsets.fromLTRB(11, 9, 11, 9),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        if (offer.hasPrice)
-                          Text(
-                            _formatPrice(offer.price!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: _primaryRed,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          )
-                        else
-                          Text(
-                            'سعر رمزي',
-                            style: TextStyle(
-                              color: _primaryRed,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        SizedBox(width: 3),
-                        if (offer.hasPrice)
-                          Text(
-                            'ج.م',
-                            style: TextStyle(
-                              color: _primaryRed,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 4),
                     Text(
                       offer.title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: _textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        height: 1.22,
                       ),
                     ),
-                    SizedBox(height: 3),
                     if (offer.description != null &&
                         offer.description!.isNotEmpty)
                       Text(
                         offer.description!,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: _textSecondary,
-                          fontSize: 10,
-                          height: 1.3,
+                          fontSize: 10.5,
+                          height: 1.25,
                         ),
                       ),
                     Spacer(),
@@ -1222,57 +1302,42 @@ class _MarketplaceOfferCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                    Row(
-                      children: [
-                        if (offer.pickupLocation != null &&
-                            offer.pickupLocation!.isNotEmpty)
+                    if ((offer.pickupLocation ?? '').isNotEmpty ||
+                        offer.distanceDisplay != null)
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 13,
+                            color: _textSecondary,
+                          ),
+                          SizedBox(width: 3),
                           Expanded(
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_rounded,
-                                  size: 10,
-                                  color: _textSecondary,
-                                ),
-                                SizedBox(width: 2),
-                                Expanded(
-                                  child: Text(
-                                    offer.pickupLocation!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: _textSecondary,
-                                      fontSize: 9,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (offer.conditionLabel != null)
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _successGreen.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: _successGreen.withValues(alpha: 0.3),
-                              ),
-                            ),
                             child: Text(
-                              offer.conditionLabel!,
+                              (offer.pickupLocation ?? '').isNotEmpty
+                                  ? offer.pickupLocation!
+                                  : 'الموقع قريب منك',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: _successGreen,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w800,
+                                color: _textSecondary,
+                                fontSize: 10,
                               ),
                             ),
                           ),
-                      ],
-                    ),
+                          if (offer.distanceDisplay != null) ...[
+                            SizedBox(width: 4),
+                            Text(
+                              offer.distanceDisplay!,
+                              style: TextStyle(
+                                color: _textSecondary,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                   ],
                 ),
               ),

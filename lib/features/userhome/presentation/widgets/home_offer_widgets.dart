@@ -308,6 +308,10 @@ class HomeCommunityOfferCard extends StatelessWidget {
     final category = offer['category_name_ar']?.toString() ??
         offer['category']?.toString() ??
         'أخرى';
+    final condition = offer['item_condition']?.toString().trim();
+    final imageBadge = condition != null && condition.isNotEmpty
+        ? condition
+        : category;
     final price = _formatPrice(offer['price']);
     final viewsCount =
         int.tryParse(offer['views_count']?.toString() ?? '') ?? 0;
@@ -340,40 +344,91 @@ class HomeCommunityOfferCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                height: 142,
+                height: 215,
                 width: double.infinity,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     HomeCommunityImage(image: image),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.12),
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.50),
+                              ],
+                              stops: const [0, 0.48, 1],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(13),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.18),
+                              blurRadius: 9,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.sell_outlined,
+                              color: Colors.white,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              price,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     Positioned(
                       top: 10,
                       left: 10,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 7,
-                        ),
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: HomePalette.primaryRed,
-                          borderRadius: BorderRadius.circular(14),
+                          color: Colors.white.withValues(alpha: 0.96),
+                          shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: HomePalette.primaryRed.withValues(
-                                alpha: 0.28,
-                              ),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 9,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
-                        child: Text(
-                          price,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        child: const Icon(
+                          Icons.favorite_border_rounded,
+                          color: Color(0xFF4C5953),
+                          size: 21,
                         ),
                       ),
                     ),
@@ -381,21 +436,28 @@ class HomeCommunityOfferCard extends StatelessWidget {
                       top: 10,
                       right: 10,
                       child: Container(
-                        constraints: const BoxConstraints(maxWidth: 112),
+                        constraints: const BoxConstraints(maxWidth: 125),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 11,
+                          vertical: 7,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.58),
-                          borderRadius: BorderRadius.circular(30),
+                          color: Colors.white.withValues(alpha: 0.96),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.10),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Text(
-                          category,
+                          imageBadge,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFF26332E),
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
                           ),
@@ -403,43 +465,36 @@ class HomeCommunityOfferCard extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 46,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.42),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
                       bottom: 9,
                       right: 11,
-                      child: Row(
-                        children: const [
-                          Icon(
-                            Icons.volunteer_activism_rounded,
-                            color: Colors.white,
-                            size: 15,
-                          ),
-                          SizedBox(width: 5),
-                          Text(
-                            'من المجتمع',
-                            style: TextStyle(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(
+                              Icons.bolt_rounded,
                               color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                              size: 15,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 5),
+                            Text(
+                              'عرض التفاصيل',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -447,7 +502,7 @@ class HomeCommunityOfferCard extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                  padding: const EdgeInsets.fromLTRB(13, 9, 13, 9),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -463,26 +518,8 @@ class HomeCommunityOfferCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.visibility_outlined,
-                            size: 14,
-                            color: HomePalette.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$viewsCount شخص',
-                            style: TextStyle(
-                              color: HomePalette.textSecondary,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
                       if (description.isNotEmpty) ...[
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 4),
                         Text(
                           description,
                           maxLines: 2,
@@ -497,6 +534,21 @@ class HomeCommunityOfferCard extends StatelessWidget {
                       const Spacer(),
                       Row(
                         children: [
+                          Icon(
+                            Icons.visibility_outlined,
+                            size: 13,
+                            color: HomePalette.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$viewsCount شخص',
+                            style: TextStyle(
+                              color: HomePalette.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
                           if (distance != null) ...[
                             Icon(
                               Icons.near_me_rounded,
