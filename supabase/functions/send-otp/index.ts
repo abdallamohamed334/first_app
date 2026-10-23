@@ -137,9 +137,11 @@ serve(async (req) => {
       );
     }
 
-    // Play review access is restricted to one pre-existing ordinary user.
-    // Both values are server-side Supabase Function secrets. Keep rate limits,
-    // the single-use database challenge, and the normal verifier in place.
+    // Play review access is restricted to one configured ordinary-user phone.
+    // The normal user login flow may create its profile after OTP verification,
+    // so first-time onboarding remains possible for this reviewer phone only.
+    // Both values are server-side secrets; rate limits, the single-use
+    // challenge, and the normal verifier remain in place.
     const reviewPhoneSecret = Deno.env.get("PLAY_REVIEW_PHONE")?.trim() ?? "";
     const reviewCodeSecret = Deno.env.get("PLAY_REVIEW_OTP")?.trim() ?? "";
     const reviewPhone = reviewPhoneSecret
@@ -151,11 +153,8 @@ serve(async (req) => {
       reviewPhone !== null &&
       cleanPhone === reviewPhone;
 
-    if (
-      isPlayReviewLogin &&
-      (access?.is_new_user !== false || !/^\d{6}$/.test(reviewCodeSecret))
-    ) {
-      console.warn("Play review login is not configured for an existing user");
+    if (isPlayReviewLogin && !/^\d{6}$/.test(reviewCodeSecret)) {
+      console.warn("Play review OTP code is not configured");
       return errorResponse("تعذر تهيئة دخول المراجعة", 503);
     }
 
