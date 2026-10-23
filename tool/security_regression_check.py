@@ -299,6 +299,14 @@ def main() -> None:
     require(send_otp_function, '"check_phone_access"', "server-side OTP issuance role check")
     require(send_otp_function, '"create_otp_challenge"', "atomic OTP challenge creation")
     require(send_otp_function, "لا يمكن إرسال كود لهذا الرقم. تأكد من نوع الحساب ورقم الهاتف.", "non-enumerating OTP rejection")
+    require(send_otp_function, 'Deno.env.get("PLAY_REVIEW_PHONE")', "server-only Play reviewer phone")
+    require(send_otp_function, 'Deno.env.get("PLAY_REVIEW_OTP")', "server-only Play reviewer code")
+    require(send_otp_function, 'requestedPurpose === "login"', "review OTP limited to login purpose")
+    require(send_otp_function, 'loginMode === "user"', "review OTP limited to ordinary users")
+    require(send_otp_function, 'access?.is_new_user !== false', "review OTP requires an existing account")
+    require(send_otp_function, '"Play review OTP challenge created; WhatsApp delivery skipped"', "review OTP not exposed or sent to arbitrary phones")
+    require(send_otp_function, '"consume_otp_rate_limit"', "review OTP remains rate limited")
+    require(send_otp_function, '"create_otp_challenge"', "review OTP uses expiring single-use challenge")
     provider_login_guard = (
         'loginMode === "provider" &&\n'
         '      !isProviderRegistration &&\n'

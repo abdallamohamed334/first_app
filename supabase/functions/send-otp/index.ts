@@ -29,9 +29,6 @@ serve(async (req) => {
   if (req.method !== "POST") {
     return errorResponse("طريقة الطلب غير صحيحة", 405);
   }
-  if (!WAPILOT_TOKEN) {
-    return errorResponse("خدمة إرسال كود التحقق غير مهيأة", 503);
-  }
 
   try {
     const body = await req.json();
@@ -140,9 +137,37 @@ serve(async (req) => {
       );
     }
 
+    // Play review access is restricted to one pre-existing ordinary user.
+    // Both values are server-side Supabase Function secrets. Keep rate limits,
+    // the single-use database challenge, and the normal verifier in place.
+    const reviewPhoneSecret = Deno.env.get("PLAY_REVIEW_PHONE")?.trim() ?? "";
+    const reviewCodeSecret = Deno.env.get("PLAY_REVIEW_OTP")?.trim() ?? "";
+    const reviewPhone = reviewPhoneSecret
+      ? normalizeEgyptianPhone(reviewPhoneSecret)
+      : null;
+    const isPlayReviewLogin =
+      requestedPurpose === "login" &&
+      loginMode === "user" &&
+      reviewPhone !== null &&
+      cleanPhone === reviewPhone;
+
+    if (
+      isPlayReviewLogin &&
+      (access?.is_new_user !== false || !/^\d{6}$/.test(reviewCodeSecret))
+    ) {
+      console.warn("Play review login is not configured for an existing user");
+      return errorResponse("تعذر تهيئة دخول المراجعة", 503);
+    }
+
+    if (!isPlayReviewLogin && !WAPILOT_TOKEN) {
+      return errorResponse("خدمة إرسال كود التحقق غير مهيأة", 503);
+    }
+
     const random = new Uint32Array(1);
     crypto.getRandomValues(random);
-    const code = String(random[0] % 1_000_000).padStart(6, "0");
+    const code = isPlayReviewLogin
+      ? reviewCodeSecret
+      : String(random[0] % 1_000_000).padStart(6, "0");
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     const { data: challenge, error: challengeError } = await supabase.rpc(
@@ -164,6 +189,21 @@ serve(async (req) => {
           ? "انتظر دقيقة قبل طلب كود جديد"
           : "تعذر تجهيز كود التحقق",
         challenge?.reason === "cooldown" ? 429 : 500,
+      );
+    }
+
+    if (isPlayReviewLogin) {
+      console.log("Play review OTP challenge created; WhatsApp delivery skipped");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "تم تجهيز كود دخول المراجعة",
+          phone: cleanPhone,
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
