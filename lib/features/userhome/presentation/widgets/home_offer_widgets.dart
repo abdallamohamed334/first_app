@@ -797,6 +797,10 @@ class HomeCategoryOfferCard extends StatelessWidget {
         ? (offer.ownerName ?? 'مؤسسة')
         : (offer.ownerName ?? 'عرض من المجتمع');
     final typeLabel = offer.isInstitution ? 'مؤسسة' : 'من المجتمع';
+    final rawCondition = offer.raw['item_condition']?.toString().trim();
+    final imageBadge = rawCondition != null && rawCondition.isNotEmpty
+        ? rawCondition
+        : (offer.categoryName ?? typeLabel);
     final viewsCount =
         int.tryParse(offer.raw['views_count']?.toString() ?? '') ?? 0;
 
@@ -819,7 +823,7 @@ class HomeCategoryOfferCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SizedBox(
-                height: 134,
+                height: 215,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -855,17 +859,19 @@ class HomeCategoryOfferCard extends StatelessWidget {
                             ),
                           ),
                     Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.18),
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.42),
-                            ],
-                            stops: const [0, 0.45, 1],
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.12),
+                                Colors.transparent,
+                                Colors.black.withValues(alpha: 0.48),
+                              ],
+                              stops: const [0, 0.48, 1],
+                            ),
                           ),
                         ),
                       ),
@@ -879,15 +885,17 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.94),
+                          color: Colors.white.withValues(alpha: 0.96),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          typeLabel,
+                          imageBadge,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: HomePalette.primaryRed,
+                            color: Color(0xFF26332E),
                             fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),
@@ -896,48 +904,73 @@ class HomeCategoryOfferCard extends StatelessWidget {
                       top: 10,
                       left: 10,
                       child: Container(
-                        width: 34,
-                        height: 34,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.42),
+                          color: Colors.white.withValues(alpha: 0.96),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                         ),
-                        child: const Icon(Icons.bookmark_border_rounded, color: Colors.white, size: 19),
+                        child: const Icon(
+                          Icons.favorite_border_rounded,
+                          color: Color(0xFF4C5953),
+                          size: 21,
+                        ),
                       ),
                     ),
-                    if (offer.hasPrice)
-                      Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: HomePalette.primaryRed,
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: Text(
-                            offer.priceDisplay,
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
-                          ),
+                    Positioned(
+                      left: 10,
+                      bottom: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
                         ),
-                      ),
-                    if (offer.distanceDisplay != null)
-                      Positioned(
-                        bottom: 9,
-                        right: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.location_on_rounded,
-                              size: 13,
+                              Icons.sell_outlined,
                               color: Colors.white,
+                              size: 14,
                             ),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 5),
                             Text(
-                              offer.distanceDisplay!,
+                              offer.priceDisplay,
                               style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      right: 10,
+                      bottom: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.bolt_rounded,
+                                color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'عرض التفاصيل',
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
@@ -946,12 +979,13 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           ],
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -966,18 +1000,73 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           height: 1.25,
                         ),
                       ),
-                      if (offer.isCommunity) ...[
+                      if ((offer.description ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 4),
-                        Row(
-                          children: [
+                        Text(
+                          offer.description!.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: HomePalette.textSecondary,
+                            fontSize: 10,
+                            height: 1.25,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                _OwnerAvatar(url: offer.ownerAvatar, size: 17),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    ownerLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: HomePalette.textSecondary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (offer.isCommunity) ...[
+                            const SizedBox(width: 6),
                             Icon(
                               Icons.visibility_outlined,
                               size: 13,
                               color: HomePalette.textSecondary,
                             ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '$viewsCount',
+                              style: TextStyle(
+                                color: HomePalette.textSecondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (offer.distanceDisplay != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 13,
+                              color: HomePalette.textSecondary,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              '$viewsCount شخص',
+                              offer.distanceDisplay!,
                               style: TextStyle(
                                 color: HomePalette.textSecondary,
                                 fontSize: 10,
@@ -987,44 +1076,6 @@ class HomeCategoryOfferCard extends StatelessWidget {
                           ],
                         ),
                       ],
-                      const Spacer(),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              ownerLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: HomePalette.textSecondary,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: HomePalette.primaryRed.withValues(
-                                alpha: 0.10,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              offer.priceDisplay,
-                              style: TextStyle(
-                                color: HomePalette.primaryRed,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),

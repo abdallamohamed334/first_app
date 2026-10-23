@@ -3873,7 +3873,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: offers.isEmpty
           ? _emptyMini(Icons.inventory_2_outlined, 'لا توجد عروض قريبة حاليًا')
           : SizedBox(
-              height: 252,
+              height: 350,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
