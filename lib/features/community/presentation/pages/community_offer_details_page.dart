@@ -128,6 +128,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     _recordOfferView();
     _checkIfOwner();
     _ensureContactsLoaded();
+    _ensurePickupLocationLoaded();
     _refreshImageUrls();
     _loadMarketplaceAttributes();
   }
@@ -146,6 +147,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
       _reviewsFuture = _loadReviews();
       _recordOfferView();
       _ensureContactsLoaded();
+      _ensurePickupLocationLoaded();
       _refreshImageUrls();
       _loadMarketplaceAttributes();
     }
@@ -162,6 +164,71 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
     if (!mounted || viewsCount == null) return;
 
     setState(() => _offer['views_count'] = viewsCount);
+  }
+
+  double? _toCoordinate(dynamic value) {
+    final coordinate = value is num
+        ? value.toDouble()
+        : double.tryParse(value?.toString().trim() ?? '');
+    return coordinate != null && coordinate.isFinite ? coordinate : null;
+  }
+
+  double? get _pickupLatitude =>
+      _toCoordinate(offer['latitude'] ?? offer['lat']);
+
+  double? get _pickupLongitude =>
+      _toCoordinate(offer['longitude'] ?? offer['lng']);
+
+  bool get _hasPickupCoordinates {
+    final latitude = _pickupLatitude;
+    final longitude = _pickupLongitude;
+    return latitude != null &&
+        longitude != null &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+  }
+
+  Future<void> _ensurePickupLocationLoaded() async {
+    final offerId = offer['id']?.toString().trim() ?? '';
+    if (offerId.isEmpty) return;
+
+    final address = offer['pickup_location']?.toString().trim() ?? '';
+    if (address.isNotEmpty && _hasPickupCoordinates) return;
+
+    try {
+      final data = await Supabase.instance.client
+          .from('community_offers')
+          .select('pickup_location, latitude, longitude')
+          .eq('id', offerId)
+          .maybeSingle();
+
+      if (data == null || !mounted) return;
+
+      final fetchedAddress = data['pickup_location']?.toString().trim() ?? '';
+      final fetchedLatitude = _toCoordinate(data['latitude']);
+      final fetchedLongitude = _toCoordinate(data['longitude']);
+      final needsUpdate =
+          (address.isEmpty && fetchedAddress.isNotEmpty) ||
+          (_pickupLatitude == null && fetchedLatitude != null) ||
+          (_pickupLongitude == null && fetchedLongitude != null);
+      if (!needsUpdate) return;
+
+      setState(() {
+        if (address.isEmpty && fetchedAddress.isNotEmpty) {
+          _offer['pickup_location'] = fetchedAddress;
+        }
+        if (_pickupLatitude == null && fetchedLatitude != null) {
+          _offer['latitude'] = fetchedLatitude;
+        }
+        if (_pickupLongitude == null && fetchedLongitude != null) {
+          _offer['longitude'] = fetchedLongitude;
+        }
+      });
+    } catch (error) {
+      debugPrint('❌ [Details] load pickup map point error: $error');
+    }
   }
 
   Future<void> _ensureContactsLoaded() async {
@@ -832,18 +899,24 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ═══════════════════════════════════════════════════════════
   Future<void> _openLocation() async {
     final locationText = offer['pickup_location']?.toString().trim() ?? '';
+    final latitude = _pickupLatitude;
+    final longitude = _pickupLongitude;
+    final hasCoordinates = _hasPickupCoordinates;
+    final mapQuery = hasCoordinates
+        ? '${latitude!.toStringAsFixed(6)},${longitude!.toStringAsFixed(6)}'
+        : locationText;
 
-    if (locationText.isEmpty) {
+    if (mapQuery.isEmpty) {
       _snack('لا يوجد مكان استلام محدد', Colors.orange);
       return;
     }
 
-    final geoUri = Uri.parse(
-      'geo:0,0?q=${Uri.encodeComponent(locationText)}',
-    );
+    final geoUri = hasCoordinates
+        ? Uri.parse('geo:$mapQuery?q=$mapQuery')
+        : Uri.parse('geo:0,0?q=${Uri.encodeComponent(mapQuery)}');
 
     final googleMapsUri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(locationText)}',
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(mapQuery)}',
     );
 
     try {
@@ -1981,7 +2054,13 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
   // ═══════════════════════════════════════════════════════════
   Widget _locationCard(ColorScheme colors) {
     final location = offer['pickup_location']?.toString().trim() ?? '';
-    final hasLocation = location.isNotEmpty;
+    final hasCoordinates = _hasPickupCoordinates;
+    final hasLocation = location.isNotEmpty || hasCoordinates;
+    final displayLocation = location.isNotEmpty
+        ? location
+        : hasCoordinates
+            ? 'الموقع الذي حدده صاحب العرض على الخريطة'
+            : 'غير محدد';
 
     return InkWell(
       onTap: hasLocation ? _openLocation : null,
@@ -2040,7 +2119,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    hasLocation ? location : 'غير محدد',
+                    displayLocation,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -2050,6 +2129,19 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                       height: 1.3,
                     ),
                   ),
+                  if (hasCoordinates) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      'الدبوس: ${_pickupLatitude!.toStringAsFixed(5)}، ${_pickupLongitude!.toStringAsFixed(5)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   if (hasLocation) ...[
                     const SizedBox(height: 6),
                     Row(
@@ -2061,7 +2153,9 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'اضغط لفتح الخريطة',
+                          hasCoordinates
+                              ? 'يفتح دبوس الاستلام المحدد على الخريطة'
+                              : 'اضغط لفتح الموقع على الخريطة',
                           style: TextStyle(
                             color: colors.primary,
                             fontSize: 10.5,
