@@ -54,7 +54,7 @@ class _SharedServiceProviderPageState extends State<SharedServiceProviderPage> {
   @override
   Widget build(BuildContext context) {
     if (_provider != null) {
-      return ServiceProviderDetailsPage(provider: _provider);
+      return ServiceProviderDetailsPage(provider: _provider!);
     }
     return Scaffold(
       appBar: AppBar(title: const Text('بروفايل مقدم الخدمة')),
