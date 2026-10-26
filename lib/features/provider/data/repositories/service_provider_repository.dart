@@ -757,13 +757,8 @@ class ServiceProviderRepository {
   }) async {
     try {
       const allowedTypes = {'profile', 'cover', 'portfolio'};
-      const allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
       if (!allowedTypes.contains(type)) {
         return const Left('نوع الصورة غير صحيح');
-      }
-      final ext = imagePath.split('.').last.toLowerCase();
-      if (!allowedExtensions.contains(ext)) {
-        return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
       }
       final fileName =
           '$userId/${type}_${DateTime.now().millisecondsSinceEpoch}.webp';
@@ -774,11 +769,16 @@ class ServiceProviderRepository {
       if (!await file.exists()) {
         return const Left('ملف الصورة غير موجود');
       }
-      if (await file.length() > 10 * 1024 * 1024) {
-        return const Left('حجم الصورة يجب ألا يتجاوز 10 ميجابايت');
+      // Gallery providers use different extensions. Decode the image bytes
+      // instead of rejecting a valid selection because of its filename.
+      if (await file.length() > 30 * 1024 * 1024) {
+        return const Left('الصورة كبيرة جدًا. اختر صورة أصغر من فضلك.');
       }
 
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      if (encoded.length > 10 * 1024 * 1024) {
+        return const Left('تعذر تجهيز الصورة بالحجم المناسب. جرّب صورة أصغر.');
+      }
       const contentType = 'image/webp';
       await _client.storage.from('provider-images').uploadBinary(
             fileName,
@@ -809,22 +809,21 @@ class ServiceProviderRepository {
   }) async {
     try {
       const allowedSides = {'front', 'back'};
-      const allowedExtensions = {'jpg', 'jpeg', 'png', 'webp'};
       if (!allowedSides.contains(side)) {
         return const Left('نوع البطاقة غير صحيح');
       }
-      final ext = imagePath.split('.').last.toLowerCase();
-      if (!allowedExtensions.contains(ext)) {
-        return const Left('يسمح برفع صور JPG أو PNG أو WEBP فقط');
-      }
       final file = File(imagePath);
       if (!await file.exists()) return const Left('ملف الصورة غير موجود');
-      if (await file.length() > 10 * 1024 * 1024) {
-        return const Left('حجم صورة البطاقة يجب ألا يتجاوز 10 ميجابايت');
+      // Convert selected image bytes to WebP, regardless of source suffix.
+      if (await file.length() > 30 * 1024 * 1024) {
+        return const Left('الصورة كبيرة جدًا. اختر صورة أصغر من فضلك.');
       }
       final path =
           '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.webp';
       final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      if (encoded.length > 10 * 1024 * 1024) {
+        return const Left('تعذر تجهيز الصورة بالحجم المناسب. جرّب صورة أصغر.');
+      }
       const contentType = 'image/webp';
       await _client.storage.from('provider-documents').uploadBinary(
             path,
