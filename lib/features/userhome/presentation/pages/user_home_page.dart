@@ -122,6 +122,8 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
   List<ServiceProvider> _nearbyServiceProviders = [];
+  Map<String, List<ServiceProvider>> _topRatedProvidersByCategory = {};
+  bool _loadingTopRatedProviders = false;
   bool _loadingNearbySymbolicProviders = false;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
@@ -290,6 +292,7 @@ class _UserHomePageState extends State<UserHomePage> {
             .take(10)
             .toList();
       });
+      _loadTopRatedProvidersByCategory();
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
     } finally {
@@ -469,6 +472,7 @@ class _UserHomePageState extends State<UserHomePage> {
       final cats = await _serviceCategoriesRepository.listCategories();
       if (!mounted) return;
       setState(() => _serviceCategories = cats);
+      if (_userGovernorate != null) _loadTopRatedProvidersByCategory();
     } catch (e) {
       debugPrint('❌ loadServiceCategories error: $e');
       if (!mounted) return;
@@ -476,6 +480,60 @@ class _UserHomePageState extends State<UserHomePage> {
     } finally {
       if (!mounted) return;
       setState(() => _loadingServiceCategories = false);
+    }
+  }
+
+  Future<void> _loadTopRatedProvidersByCategory() async {
+    final governorate = _userGovernorate?.trim();
+    if (_loadingTopRatedProviders || governorate == null || governorate.isEmpty) {
+      return;
+    }
+
+    if (mounted) setState(() => _loadingTopRatedProviders = true);
+    try {
+      var categories = _serviceCategories;
+      if (categories.isEmpty) {
+        categories = await _serviceCategoriesRepository.listCategories();
+        if (!mounted) return;
+        setState(() => _serviceCategories = categories);
+      }
+
+      final results = <String, List<ServiceProvider>>{};
+      // Keep requests bounded while querying each category independently so
+      // the top-rated results for one trade cannot be crowded out by another.
+      for (var start = 0; start < categories.length; start += 6) {
+        final batch = categories.skip(start).take(6).toList(growable: false);
+        final batchResults = await Future.wait(batch.map((category) async {
+          try {
+            final providers = await _serviceProvidersRepository.listByCategory(
+              categoryId: category.id,
+              governorate: governorate,
+              limit: 10,
+            );
+            final sameGovernorate = providers
+                .where((provider) =>
+                    provider.governorate?.trim() == governorate)
+                .toList(growable: false);
+            return MapEntry(category.id, sameGovernorate);
+          } catch (error) {
+            debugPrint(
+              '⚠️ [Home] top-rated providers failed for ${category.slug}: $error',
+            );
+            return MapEntry(category.id, const <ServiceProvider>[]);
+          }
+        }));
+        for (final result in batchResults) {
+          results[result.key] = result.value;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() => _topRatedProvidersByCategory = results);
+    } catch (error) {
+      debugPrint('❌ [Home] top-rated providers error: $error');
+      if (mounted) setState(() => _topRatedProvidersByCategory = {});
+    } finally {
+      if (mounted) setState(() => _loadingTopRatedProviders = false);
     }
   }
 
@@ -1216,7 +1274,6 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
-        SliverToBoxAdapter(child: _buildHomeServiceCategoriesCarousel()),
         SliverToBoxAdapter(child: _buildAutoTopRatedServiceCategorySections()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1763,147 +1820,87 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Widget _buildAutoTopRatedServiceCategorySections() {
-    if (_userGovernorate == null) {
+    if (_serviceCategories.isEmpty && _loadingServiceCategories) {
       return _section(
-        title: 'مقدمو الخدمات الأعلى تقييمًا',
+        title: 'الأعلى تقييمًا في كل الخدمات',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
+    if (_serviceCategories.isEmpty) {
+      return _section(
+        title: 'الأعلى تقييمًا في كل الخدمات',
+        child: _emptyMini(Icons.handyman_rounded, 'مفيش خدمات متاحة دلوقتي'),
+      );
+    }
+
+    final governorate = _userGovernorate?.trim();
+    if (governorate == null || governorate.isEmpty) {
+      return _section(
+        title: 'الأعلى تقييمًا في كل الخدمات',
         child: _emptyMini(
           Icons.location_city_rounded,
-          'أضف محافظتك في الملف الشخصي لعرض مقدمي الخدمة منها',
-        ),
-      );
-    }
-    if (_loadingServiceCategories && _serviceCategories.isEmpty) {
-      return _section(
-        title: 'مقدمو الخدمات في $_userGovernorate',
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          'أضف محافظتك في الملف الشخصي عشان نعرض لك مزودي الخدمة القريبين',
         ),
       );
     }
 
-    final providersByCategory = <String, List<ServiceProvider>>{};
-    for (final provider in _nearbyServiceProviders) {
-      if (provider.governorate?.trim() != _userGovernorate) continue;
-      providersByCategory
-          .putIfAbsent(provider.categoryId, () => <ServiceProvider>[])
-          .add(provider);
-    }
-    for (final providers in providersByCategory.values) {
-      providers.sort((a, b) {
-        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
-        if (byRating != 0) return byRating;
-        return b.totalReviews.compareTo(a.totalReviews);
-      });
-    }
-
-    // Keep the home service sections focused on the requested trades.
-    const requestedOrder = [
-      'plumbing',
-      'satellite',
-      'electrical',
-      'painting',
-      'cooling',
-      'tiles',
-    ];
-    final requestedCategories = <ServiceCategory>[];
-    for (final key in requestedOrder) {
-      for (final category in _serviceCategories) {
-        if (_homeServiceCategoryGroup(category) == key) {
-          requestedCategories.add(category);
-          break;
-        }
-      }
-    }
-
-    if (requestedCategories.isEmpty) {
-      return _section(
-        title: 'مقدمو الخدمات في $_userGovernorate',
-        child: _emptyMini(
-          Icons.handyman_rounded,
-          'الأقسام المطلوبة مش متاحة حاليًا',
-        ),
-      );
-    }
-    if (_loadingNearbySymbolicProviders && _nearbyServiceProviders.isEmpty) {
-      return _section(
-        title: 'أفضل مقدمي الخدمة في $_userGovernorate',
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-        ),
-      );
-    }
-
+    final loading = _loadingTopRatedProviders &&
+        _topRatedProvidersByCategory.isEmpty;
     return Column(
-      children: requestedCategories.map((category) {
-        final providers =
-            providersByCategory[category.id] ?? const <ServiceProvider>[];
-        return _section(
-          title: 'الأعلى تقييمًا في ${category.nameAr}',
+      children: [
+        _section(
+          title: 'الأعلى تقييمًا في كل الخدمات',
           trailing: Text(
-            _userGovernorate!,
+            governorate,
             style: TextStyle(
               color: _textSecondary,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
           ),
-          child: providers.isEmpty
-              ? _emptyMini(
-                  Icons.handyman_rounded,
-                  'لا يوجد مقدمو خدمة في المحافظة دي حاليًا',
+          child: loading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 )
-              : _buildServiceProviderCards(providers.take(10).toList()),
+              : const SizedBox.shrink(),
+        ),
+        ..._serviceCategories.map((category) {
+          final providers = List<ServiceProvider>.of(
+            _topRatedProvidersByCategory[category.id] ?? const [],
+          )..sort((a, b) {
+              final byRating = b.ratingAvg.compareTo(a.ratingAvg);
+              if (byRating != 0) return byRating;
+              return b.totalReviews.compareTo(a.totalReviews);
+            });
+
+          final categoryState = loading
+              ? const SizedBox.shrink()
+              : providers.isEmpty
+                  ? _emptyMini(
+                      Icons.handyman_rounded,
+                      'لسه مفيش مقدم خدمة مسجل في $governorate',
+                    )
+                  : _buildServiceProviderCards(providers.take(10).toList());
+
+        return _section(
+          title: 'الأعلى تقييمًا في ${category.nameAr}',
+          trailing: Text(
+            governorate,
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: categoryState,
         );
-      }).toList(growable: false),
+        }),
+      ],
     );
-  }
-
-  String? _homeServiceCategoryGroup(ServiceCategory category) {
-    final slug = category.slug.trim().toLowerCase().replaceAll('_', '-');
-    final name = category.nameAr.trim().toLowerCase();
-
-    if (slug.contains('plumb') ||
-        name.contains('سباك') ||
-        name.contains('أدوات صحية')) {
-      return 'plumbing';
-    }
-    if (slug.contains('satellite') ||
-        slug.contains('receiver') ||
-        slug.contains('dish') ||
-        name.contains('دش') ||
-        name.contains('رسيفر') ||
-        name.contains('ريسيفر')) {
-      return 'satellite';
-    }
-    if (slug.contains('electric') ||
-        name.contains('كهربا') ||
-        name.contains('كهرباء')) {
-      return 'electrical';
-    }
-    if (slug.contains('paint') ||
-        name.contains('دهان') ||
-        name.contains('نقاش')) {
-      return 'painting';
-    }
-    if (slug.contains('air-condition') ||
-        slug.contains('aircondition') ||
-        slug.contains('cooling') ||
-        slug.contains('refrigerat') ||
-        slug.contains('hvac') ||
-        name.contains('تكييف') ||
-        name.contains('تبريد')) {
-      return 'cooling';
-    }
-    if (slug.contains('ceramic') ||
-        slug.contains('tile') ||
-        slug.contains('flooring') ||
-        name.contains('سيراميك') ||
-        name.contains('بلاط')) {
-      return 'tiles';
-    }
-    return null;
   }
 
   Widget _buildServiceCategoryTile(ServiceCategory cat) {

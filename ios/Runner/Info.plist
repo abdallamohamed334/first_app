@@ -50,6 +50,17 @@
 	<string>نستخدم الصور فقط عند اختيارك صورة لملفك أو عرضك. We use your photo library only when you choose a profile or offer image.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>نحفظ الصور في معرضك فقط عند طلبك ذلك. We save images to your library only when you request it.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.jood.com</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>khedma</string>
+			</array>
+		</dict>
+	</array>
 
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

@@ -461,6 +461,44 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     );
   }
 
+  void _showNeedImage(String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: const Text('صورة الاحتياج'),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  );
+                },
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.white70,
+                  size: 52,
+                ),
+              ),
+            ),
+          ),
+        ),
+        fullscreenDialog: true,
+      ),
+    );
+  }
+
   Widget _buildNeedHero() {
     final need = _need!;
     final title = need['title']?.toString() ?? 'احتياج';
@@ -490,22 +528,28 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
         children: [
           if (imageUrl != null && imageUrl.trim().isNotEmpty)
             Positioned.fill(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _showNeedImage(imageUrl),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
               ),
             ),
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    _primaryDark.withValues(alpha: 0.30),
-                    _primaryDark.withValues(alpha: 0.96),
-                  ],
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      _primaryDark.withValues(alpha: 0.30),
+                      _primaryDark.withValues(alpha: 0.96),
+                    ],
+                  ),
                 ),
               ),
             ),

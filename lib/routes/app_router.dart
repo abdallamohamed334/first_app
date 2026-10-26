@@ -42,6 +42,7 @@ import '../core/services/supabase_service.dart';
 import '../features/volunteer/presentation/pages/volunteer_leaderboard_page.dart';
 import '../features/donation/presentation/pages/offer_details_page.dart';
 import '../features/charity/presentation/pages/charities_page.dart';
+import '../features/services/presentation/pages/shared_service_provider_page.dart';
 
 // ⚠️ للتوافق مع الأدوار القديمة
 import '../features/business/restaurant/presentation/pages/business_restaurant_page.dart';
@@ -91,6 +92,7 @@ class AppRouter {
   static const String allOffers = '/all-offers';
   static const String charities = '/charities';
   static const String offerDetails = '/offer/:id';
+  static const String sharedServiceProvider = '/service-provider/:id';
   static const String placeholder = '/placeholder';
 
   // ⚠️ Legacy
@@ -125,7 +127,8 @@ class AppRouter {
         terms,
       };
 
-      final isPublic = publicRoutes.contains(loc);
+      final isPublic = publicRoutes.contains(loc) ||
+          loc.startsWith('/service-provider/');
 
       if (loc == sentryDebugTest && SentryTestPage.isEnabled) return null;
 
@@ -304,6 +307,14 @@ class AppRouter {
         path: splash,
         name: 'splash',
         builder: (context, state) => const SplashPage(),
+      ),
+
+      GoRoute(
+        path: sharedServiceProvider,
+        name: 'shared-service-provider',
+        builder: (context, state) => SharedServiceProviderPage(
+          providerId: state.pathParameters['id'] ?? '',
+        ),
       ),
 
       // ─────────────────────────────────────────────

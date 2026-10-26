@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:loqma/features/services/data/repositories/service_categories_repository.dart';
+import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
 
@@ -26,6 +28,53 @@ class ServiceProvidersMapPage extends StatefulWidget {
 class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   final _mapController = MapController();
   ServiceProvider? _selected;
+  List<ServiceCategory> _categories = const [];
+  String? _selectedCategoryId;
+  bool _loadingCategories = true;
+  bool _mapReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await ServiceCategoriesRepository().listCategories();
+      if (mounted) setState(() => _categories = categories);
+    } catch (error) {
+      debugPrint('⚠️ [ServiceProvidersMap] categories error: $error');
+    } finally {
+      if (mounted) setState(() => _loadingCategories = false);
+    }
+  }
+
+  List<ServiceProvider> get _filteredProviders {
+    final categoryId = _selectedCategoryId;
+    if (categoryId == null) return widget.providers;
+    return widget.providers
+        .where((provider) => provider.categoryId == categoryId)
+        .toList(growable: false);
+  }
+
+  void _selectCategory(String? categoryId) {
+    setState(() {
+      _selectedCategoryId = categoryId;
+      _selected = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) return;
+      final located = _filteredProviders
+          .where((p) => p.latitude != null && p.longitude != null)
+          .toList(growable: false);
+      final center = _providersMapCenter(
+        located,
+        LatLng(widget.latitude, widget.longitude),
+      );
+      _mapController.move(center, _providersMapZoom(located));
+    });
+  }
 
   Color get _surface => Theme.of(context).colorScheme.surface;
   Color get _text => Theme.of(context).colorScheme.onSurface;
@@ -34,7 +83,8 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final points = widget.providers
+    final providers = _filteredProviders;
+    final points = providers
         .where((provider) => provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
     final center = _providersMapCenter(points, LatLng(widget.latitude, widget.longitude));
@@ -54,7 +104,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
               padding: const EdgeInsetsDirectional.only(end: 16),
               child: Center(
                 child: Text(
-                  '${widget.providers.length} مقدم',
+                  '${points.length} مقدم',
                   style: TextStyle(
                     color: _muted,
                     fontSize: 11,
@@ -65,114 +115,201 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
             ),
           ],
         ),
-        body: Column(
+        body: Stack(
           children: [
-            SizedBox(
-              height: 390,
-              child: Stack(
+            Positioned.fill(
+              child: FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: initialZoom,
+                  onMapReady: () => _mapReady = true,
+                  onTap: (_, __) => setState(() => _selected = null),
+                ),
                 children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: center,
-                      initialZoom: initialZoom,
-                      onTap: (_, __) => setState(() => _selected = null),
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.khedma.app',
-                      ),
-                      MarkerLayer(
-                        markers: widget.providers
-                            .where((p) => p.latitude != null && p.longitude != null)
-                            .map((provider) {
-                          final selected = _selected?.id == provider.id;
-                          return Marker(
-                            point: LatLng(provider.latitude!, provider.longitude!),
-                            width: selected ? 58 : 48,
-                            height: selected ? 70 : 62,
-                            child: GestureDetector(
-                              onTap: () => setState(() => _selected = provider),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: selected ? 48 : 40,
-                                    height: selected ? 48 : 40,
-                                    decoration: BoxDecoration(
-                                      color: selected
-                                          ? const Color(0xFFE31C25)
-                                          : const Color(0xFF3679C8),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 3),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.25),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.khedma.app',
+                  ),
+                  MarkerLayer(
+                    markers: points.map((provider) {
+                      final selected = _selected?.id == provider.id;
+                      return Marker(
+                        point: LatLng(provider.latitude!, provider.longitude!),
+                        width: selected ? 58 : 48,
+                        height: selected ? 70 : 62,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selected = provider),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: selected ? 48 : 40,
+                                height: selected ? 48 : 40,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? const Color(0xFFE31C25)
+                                      : const Color(0xFF3679C8),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
                                     ),
-                                    child: Icon(
-                                      provider.isCompany
-                                          ? Icons.business_rounded
-                                          : Icons.handyman_rounded,
-                                      color: Colors.white,
-                                      size: selected ? 23 : 19,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    color: selected
-                                        ? const Color(0xFFE31C25)
-                                        : const Color(0xFF3679C8),
-                                    size: 20,
-                                  ),
-                                ],
+                                  ],
+                                ),
+                                child: Icon(
+                                  provider.isCompany
+                                      ? Icons.business_rounded
+                                      : Icons.handyman_rounded,
+                                  color: Colors.white,
+                                  size: selected ? 23 : 19,
+                                ),
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    top: 14,
-                    right: 14,
-                    child: _mapPill(
-                      icon: Icons.location_on_rounded,
-                      label: widget.city,
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 14,
-                    left: 14,
-                    child: FloatingActionButton.small(
-                      heroTag: 'service-map-center',
-                      backgroundColor: _surface,
-                      foregroundColor: const Color(0xFF3679C8),
-                      onPressed: () => _mapController.move(center, initialZoom),
-                      child: const Icon(Icons.my_location_rounded),
-                    ),
+                              Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: selected
+                                    ? const Color(0xFFE31C25)
+                                    : const Color(0xFF3679C8),
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _selected == null
-                    ? _buildMapHint()
-                    : SingleChildScrollView(
-                        key: ValueKey(_selected!.id),
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-                        child: _buildProviderCard(_selected!),
-                      ),
+            Positioned(
+              top: 8,
+              left: 8,
+              right: 8,
+              child: Material(
+                color: _surface.withValues(alpha: 0.96),
+                borderRadius: BorderRadius.circular(20),
+                elevation: 3,
+                child: _buildCategoryFilter(),
               ),
             ),
+            Positioned(
+              top: 78,
+              right: 14,
+              child: _mapPill(
+                icon: Icons.location_on_rounded,
+                label: widget.city,
+              ),
+            ),
+            Positioned(
+              bottom: _selected == null ? 16 : 142,
+              left: 14,
+              child: FloatingActionButton.small(
+                heroTag: 'service-map-center',
+                backgroundColor: _surface,
+                foregroundColor: const Color(0xFF3679C8),
+                onPressed: () => _mapController.move(center, initialZoom),
+                child: const Icon(Icons.my_location_rounded),
+              ),
+            ),
+            if (points.isEmpty)
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.all(44),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _surface.withValues(alpha: 0.96),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black12, blurRadius: 8),
+                    ],
+                  ),
+                  child: Text(
+                    _selectedCategoryId == null
+                        ? 'لا يوجد مقدمو خدمة بموقع مسجل في منطقتك حاليًا'
+                        : 'لا يوجد مقدمو خدمة لهذا النوع على الخريطة حاليًا',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _text,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            if (_selected != null)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: _buildProviderCard(_selected!),
+                ),
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    if (_loadingCategories && _categories.isEmpty) {
+      return const SizedBox(
+        height: 58,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    const selectedColor = Color(0xFF3679C8);
+    return SizedBox(
+      height: 62,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _categories.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final isAll = index == 0;
+          final category = isAll ? null : _categories[index - 1];
+          final selected = isAll
+              ? _selectedCategoryId == null
+              : _selectedCategoryId == category!.id;
+          return ChoiceChip(
+            selected: selected,
+            onSelected: (_) => _selectCategory(category?.id),
+            selectedColor: selectedColor,
+            backgroundColor: _surface,
+            side: BorderSide(
+              color: selected ? selectedColor : _muted.withValues(alpha: 0.25),
+            ),
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isAll && category?.icon?.isNotEmpty == true) ...[
+                  Text(category!.icon!),
+                  const SizedBox(width: 5),
+                ] else if (isAll) ...[
+                  const Icon(Icons.apps_rounded, size: 16),
+                  const SizedBox(width: 5),
+                ],
+                Text(isAll ? 'كل الخدمات' : category!.nameAr),
+              ],
+            ),
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : _text,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+            showCheckmark: false,
+          );
+        },
       ),
     );
   }
@@ -234,31 +371,6 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
           const SizedBox(width: 4),
           Text(label, style: TextStyle(color: _text, fontSize: 11, fontWeight: FontWeight.w800)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMapHint() {
-    return Center(
-      key: const ValueKey('map-hint'),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.touch_app_rounded, color: const Color(0xFF3679C8), size: 38),
-            const SizedBox(height: 10),
-            Text(
-              'اضغط على أي علامة في الخريطة',
-              style: TextStyle(color: _text, fontSize: 15, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              'هتظهر بيانات مقدم الخدمة هنا',
-              style: TextStyle(color: _muted, fontSize: 12),
-            ),
-          ],
-        ),
       ),
     );
   }
