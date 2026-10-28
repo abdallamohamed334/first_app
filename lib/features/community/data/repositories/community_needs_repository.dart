@@ -203,18 +203,19 @@ class CommunityNeedsRepository {
 
       final need = Map<String, dynamic>.from(needResponse);
 
-      // ✅ 2) جلب بيانات صاحب الاحتياج (query منفصل)
+      // ✅ 2) جلب بيانات صاحب الاحتياج من الـ public profile RPC.
+      // الاستعلام المباشر على users قد يرجع صفًا فارغًا لمستخدم آخر بسبب RLS.
       final requesterId = need['requester_id']?.toString();
       if (requesterId != null && requesterId.isNotEmpty) {
         try {
-          final userResponse = await _client
-              .from('users')
-              .select('id, name, avatar_url, city, phone')
-              .eq('id', requesterId)
-              .maybeSingle();
-
-          if (userResponse != null) {
-            need['users'] = Map<String, dynamic>.from(userResponse);
+          final profiles = await _client.rpc(
+            'get_public_user_profiles',
+            params: {'p_user_ids': [requesterId]},
+          );
+          if (profiles is List && profiles.isNotEmpty) {
+            final profile = Map<String, dynamic>.from(profiles.first as Map);
+            profile['city'] = need['city'];
+            need['users'] = profile;
           }
         } catch (userError) {
           debugPrint('⚠️ Failed to load requester: $userError');
