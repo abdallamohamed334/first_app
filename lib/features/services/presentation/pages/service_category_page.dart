@@ -22,6 +22,7 @@ class ServiceCategoryPage extends StatefulWidget {
 
 class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   final _repository = ServiceProvidersRepository();
+  final _providerCodeController = TextEditingController();
 
   // ── Location and rating sort
   String? _governorate;
@@ -32,6 +33,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   List<String> _availableGovernorates = [];
   List<String> _availableCities = [];
   bool _loading = true;
+  bool _searchingByCode = false;
   String? _error;
   int _providersRequestGeneration = 0;
   int _citiesRequestGeneration = 0;
@@ -54,6 +56,37 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   void initState() {
     super.initState();
     _loadGovernoratesAndProviders();
+  }
+
+  @override
+  void dispose() {
+    _providerCodeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchProviderByCode() async {
+    final code = _providerCodeController.text.trim();
+    if (code.isEmpty || _searchingByCode) return;
+
+    FocusScope.of(context).unfocus();
+    setState(() => _searchingByCode = true);
+    final provider = await _repository.getByProviderCode(code);
+    if (!mounted) return;
+    setState(() => _searchingByCode = false);
+
+    if (provider == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('مش لاقيين صنايعي بالكود ده')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ServiceProviderDetailsPage(provider: provider),
+      ),
+    );
   }
 
   /// Loads available governorates and service providers on first display.
@@ -243,6 +276,8 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _providerCodeSearchBox(),
+          const SizedBox(height: 12),
           if (_availableGovernorates.isNotEmpty) _locationFilters(),
           if (_availableGovernorates.isNotEmpty) const SizedBox(height: 10),
           Row(
@@ -325,6 +360,97 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _providerCodeSearchBox() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: _blue.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _blue.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.qr_code_rounded, color: _blue, size: 18),
+              SizedBox(width: 7),
+              Text(
+                'معاك كود صنايعي؟',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'اكتب الكود علشان تفتح بروفايله وتقيّمه',
+            style: TextStyle(color: _textSecondary, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _providerCodeController,
+                  textCapitalization: TextCapitalization.characters,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _searchProviderByCode(),
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'مثال: KHD-000001',
+                    hintStyle: const TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
+                    filled: true,
+                    fillColor: _card,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 11,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: _searchingByCode ? null : _searchProviderByCode,
+                style: IconButton.styleFrom(
+                  backgroundColor: _blue,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _blue.withValues(alpha: 0.35),
+                ),
+                icon: _searchingByCode
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.search_rounded),
+              ),
+            ],
+          ),
         ],
       ),
     );

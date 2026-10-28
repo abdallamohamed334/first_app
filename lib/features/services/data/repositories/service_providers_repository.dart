@@ -222,6 +222,25 @@ class ServiceProvidersRepository {
     }
   }
 
+  /// البحث العام عن مقدم خدمة بالكود الذي يرسله للعميل.
+  Future<ServiceProvider?> getByProviderCode(String code) async {
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return null;
+
+    try {
+      final row = await _client
+          .from('published_service_provider_cards')
+          .select('provider_code, $_publicProviderColumns')
+          .eq('provider_code', normalized)
+          .maybeSingle();
+      if (row == null) return null;
+      return ServiceProvider.fromMap(Map<String, dynamic>.from(row));
+    } catch (e) {
+      debugPrint('❌ getByProviderCode error: $e');
+      return null;
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════
   // جلب تقييمات مقدم الخدمة
   // ═══════════════════════════════════════════════════════════

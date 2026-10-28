@@ -336,6 +336,27 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
             ],
           ),
 
+          if ((_provider?['provider_code']?.toString().trim() ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: _blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _blue.withValues(alpha: 0.25)),
+              ),
+              child: Text(
+                'كود التقييم: ${_provider?['provider_code']}',
+                style: const TextStyle(
+                  color: _blue,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+
           // Category chip
           if (catName.isNotEmpty) ...[
             const SizedBox(height: 8),

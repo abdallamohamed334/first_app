@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 class ServiceProvider {
   final String id;
+  final String? providerCode;
   final String userId;
   final String categoryId;
   final String? categoryName;
@@ -66,6 +67,7 @@ class ServiceProvider {
 
   const ServiceProvider({
     required this.id,
+    this.providerCode,
     required this.userId,
     required this.categoryId,
     this.categoryName,
@@ -135,6 +137,7 @@ class ServiceProvider {
 
     return ServiceProvider(
       id: map['id']?.toString() ?? '',
+      providerCode: map['provider_code']?.toString(),
       userId: map['user_id']?.toString() ?? '',
       categoryId: map['category_id']?.toString() ?? '',
       categoryName: map['category_name']?.toString(),

@@ -2,21 +2,18 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../domain/entities/service_provider.dart';
 
-/// Builds a public HTTPS link so recipients without the app can still open a
-/// web fallback page. Android App Links/iOS Universal Links open the same
-/// route in the installed app when the domain is configured for the release.
+/// Shares the provider's short code. It works from WhatsApp without a domain,
+/// because the recipient searches for the code inside the Khedma app.
 class ProviderProfileShareService {
   ProviderProfileShareService._();
 
-  static const publicBaseUrl = 'https://khedma.app';
-
-  static Uri profileUri(String providerId) => Uri.parse(
-        '$publicBaseUrl/service-provider/${Uri.encodeComponent(providerId)}',
-      );
-
   static Future<void> share({required ServiceProvider provider}) async {
-    final uri = profileUri(provider.id);
-    final message = 'شوف ${provider.displayName} على تطبيق خدمة\n$uri';
-    await Share.share(message, subject: 'رابط تقييم مقدم الخدمة');
+    final code = provider.providerCode?.trim();
+    if (code == null || code.isEmpty) {
+      throw StateError('Provider code is missing');
+    }
+    final message = 'قيّم مقدم الخدمة ${provider.displayName} على تطبيق خدمة\n'
+        'افتح التطبيق وابحث باستخدام الكود: $code';
+    await Share.share(message, subject: 'كود تقييم مقدم الخدمة');
   }
 }
