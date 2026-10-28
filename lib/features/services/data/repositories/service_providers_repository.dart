@@ -8,7 +8,7 @@ import 'package:loqma/features/services/domain/entities/service_review.dart';
 class ServiceProvidersRepository {
   final _client = SupabaseService().client;
   static const _publicProviderColumns = '''
-    id, category_id, provider_type, display_name, bio,
+    id, provider_code, category_id, provider_type, display_name, bio,
     experience_years, skills, profile_image_url, cover_image_url,
     portfolio_images, governorate, city, address, service_areas, available_days, latitude, longitude,
     max_distance_km, pricing_type, price_from, price_currency,
@@ -229,8 +229,8 @@ class ServiceProvidersRepository {
 
     try {
       final row = await _client
-          .from('published_service_provider_cards')
-          .select('provider_code, $_publicProviderColumns')
+          .from('published_service_providers')
+          .select(_publicProviderColumns)
           .eq('provider_code', normalized)
           .maybeSingle();
       if (row == null) return null;

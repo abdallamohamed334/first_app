@@ -54,6 +54,7 @@ import 'package:loqma/features/userhome/presentation/widgets/home_banner_carouse
 import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_need_widgets.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_offer_widgets.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_provider_code_search.dart';
 import 'package:loqma/features/userhome/presentation/widgets/user_home_navigation_widgets.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -1154,6 +1155,7 @@ class _UserHomePageState extends State<UserHomePage> {
         if (_locationUnavailable)
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildProviderCodeSearch()),
         SliverToBoxAdapter(child: _buildModeSwitcher()),
         if (state.banners.isNotEmpty)
           SliverToBoxAdapter(child: HomeBannerCarousel(banners: state.banners)),
@@ -1185,11 +1187,29 @@ class _UserHomePageState extends State<UserHomePage> {
         if (_locationUnavailable)
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
+        SliverToBoxAdapter(child: _buildProviderCodeSearch()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildAutoTopRatedServiceCategorySections()),
         SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
+    );
+  }
+
+  Widget _buildProviderCodeSearch() {
+    return HomeProviderCodeSearch(
+      onSearch: (code) async {
+        final provider =
+            await _serviceProvidersRepository.getByProviderCode(code);
+        if (provider == null || !mounted) return false;
+
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ServiceProviderDetailsPage(provider: provider),
+          ),
+        );
+        return true;
+      },
     );
   }
 
