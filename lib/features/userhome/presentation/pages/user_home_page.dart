@@ -1992,7 +1992,7 @@ class _UserHomePageState extends State<UserHomePage> {
       case 'appliances':
         return Icons.kitchen_rounded;
       case 'water_heaters':
-        return Icons.water_heater_rounded;
+        return Icons.water_drop_rounded;
       case 'satellite':
         return Icons.satellite_alt_rounded;
       case 'locks':
