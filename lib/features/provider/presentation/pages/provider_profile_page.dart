@@ -9,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
+import 'package:loqma/features/services/domain/entities/service_provider.dart';
+import 'package:loqma/features/services/presentation/services/provider_profile_share_service.dart';
 import 'package:loqma/routes/app_router.dart';
 
 class ProviderProfilePage extends StatefulWidget {
@@ -28,6 +30,7 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
   static const _inkSoft = Color(0xFF315A45);
   static const _cardBg = Colors.white;
   static const _orange = Color(0xFFE28B00);
+  static const _green = Color(0xFF2E9B5C);
   static const _red = Color(0xFFD64545);
 
   final _repo = ServiceProviderRepository();
@@ -53,6 +56,24 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
         _loading = false;
       }),
     );
+  }
+
+  Future<void> _shareRatingLink() async {
+    final provider = _provider;
+    final providerId = provider?['id']?.toString().trim() ?? '';
+    if (providerId.isEmpty) return;
+
+    try {
+      await ProviderProfileShareService.share(
+        provider: ServiceProvider.fromMap(provider!),
+      );
+    } catch (error) {
+      debugPrint('❌ [ProviderProfileShare] $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح قائمة المشاركة، حاول مرة أخرى')),
+      );
+    }
   }
 
   // ══════════════════════════════════════════════════════════
@@ -429,6 +450,14 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
             subtitle: 'شوف بروفايلك زي ما المستخدم بيشوفه',
             color: _primary,
             onTap: () => context.push(AppRouter.providerPublicProfile),
+          ),
+          _divider(),
+          _menuItem(
+            icon: Icons.share_rounded,
+            title: 'مشاركة رابط التقييم',
+            subtitle: 'ابعت رابط بروفايلك للعميل على واتساب',
+            color: _green,
+            onTap: _shareRatingLink,
           ),
           _divider(),
           _menuItem(

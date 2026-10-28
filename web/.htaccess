@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Keep real files (including Flutter assets) untouched.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Let GoRouter resolve /service-provider/<id> and other client-side routes.
+RewriteRule ^ index.html [L]

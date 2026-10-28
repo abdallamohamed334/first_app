@@ -2,12 +2,12 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/domain/entities/service_review.dart';
 import 'package:loqma/features/services/presentation/widgets/rating_sheet.dart';
+import 'package:loqma/features/services/presentation/services/provider_profile_share_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceProviderDetailsPage extends StatefulWidget {
@@ -26,7 +26,6 @@ class ServiceProviderDetailsPage extends StatefulWidget {
 class _ServiceProviderDetailsPageState
     extends State<ServiceProviderDetailsPage> {
   final _repository = ServiceProvidersRepository();
-  static const _shareChannel = MethodChannel('com.jood.com/share');
 
   // ✅ نحتفظ بالـ provider في state عشان نقدر نحدّثه
   late ServiceProvider _provider;
@@ -170,20 +169,11 @@ class _ServiceProviderDetailsPageState
   }
 
   Future<void> _shareProviderProfile() async {
-    final provider = _provider;
-    final link = Uri(
-      scheme: 'khedma',
-      path: '/service-provider/${provider.id}',
-    ).toString();
-    final message = 'شوف ${provider.displayName} على تطبيق خدمة\n$link';
-
     try {
-      await _shareChannel.invokeMethod<void>('shareText', {'text': message});
-    } on PlatformException catch (error) {
-      debugPrint('❌ [ProviderShare] ${error.code}: ${error.message}');
+      await ProviderProfileShareService.share(provider: _provider);
+    } catch (error) {
+      debugPrint('❌ [ProviderShare] $error');
       _snack('تعذر فتح قائمة المشاركة، حاول مرة أخرى');
-    } on MissingPluginException {
-      _snack('حدّث التطبيق لتفعيل مشاركة البروفايل');
     }
   }
 
@@ -1752,7 +1742,7 @@ class _ServiceProviderDetailsPageState
         onPressed: _openRatingSheet,
         icon: const Icon(Icons.star_rounded, size: 20),
         label: const Text(
-          'قيّم الخدمة',
+          'قيّم مقدم الخدمة',
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
         ),
         style: ElevatedButton.styleFrom(

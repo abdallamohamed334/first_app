@@ -57,6 +57,7 @@ dependencies:
 
   # Media, maps, and links
   carousel_slider: ^5.0.0
+  share_plus: ^10.1.4
   flutter_svg: ^2.0.10+1
   image_picker: ^1.1.2
   flutter_image_compress: ^2.5.1

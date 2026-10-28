@@ -34,6 +34,7 @@ import 'features/splash/presentation/bloc/splash_bloc.dart';
 
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
+import 'core/services/provider_deep_link_service.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/sentry_service.dart';
 import 'core/config/app_config.dart';
@@ -871,11 +872,31 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  final _providerDeepLinkService = ProviderDeepLinkService();
+
   @override
   void initState() {
     super.initState();
 
     ThemeNotifier.isDarkMode.value = widget.initialIsDarkMode;
+    unawaited(_startProviderDeepLinks());
+  }
+
+  Future<void> _startProviderDeepLinks() async {
+    await _providerDeepLinkService.start(
+      onProviderPath: (path) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          AppRouter.router.go(path);
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    unawaited(_providerDeepLinkService.dispose());
+    super.dispose();
   }
 
   @override
