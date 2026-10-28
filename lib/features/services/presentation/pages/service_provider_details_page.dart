@@ -57,10 +57,22 @@ class _ServiceProviderDetailsPageState
   static const double _avatarSize = 108;
   static const double _headerOverlapReserve = 64;
 
+  static final _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-'
+    r'[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+  );
+
+  bool get _isPersistedProvider => _uuidPattern.hasMatch(_provider.id.trim());
+
   @override
   void initState() {
     super.initState();
     _provider = widget.provider;
+    if (!_isPersistedProvider) {
+      _loadingReviews = false;
+      _checkingMyReview = false;
+      return;
+    }
     _loadReviews();
   }
 
@@ -69,14 +81,16 @@ class _ServiceProviderDetailsPageState
   // ═══════════════════════════════════════════════════════════
   Future<void> _reloadAll() async {
     // 1) جيب بيانات المزود المحدّثة
-    try {
-      final fresh = await _repository.getById(_provider.id);
-      if (!mounted) return;
-      if (fresh != null) {
-        setState(() => _provider = fresh);
+    if (_isPersistedProvider) {
+      try {
+        final fresh = await _repository.getById(_provider.id);
+        if (!mounted) return;
+        if (fresh != null) {
+          setState(() => _provider = fresh);
+        }
+      } catch (e) {
+        debugPrint('❌ _reloadAll provider error: $e');
       }
-    } catch (e) {
-      debugPrint('❌ _reloadAll provider error: $e');
     }
 
     // 2) أعد تحميل التقييمات
@@ -88,6 +102,14 @@ class _ServiceProviderDetailsPageState
   // ═══════════════════════════════════════════════════════════
   Future<void> _loadReviews() async {
     if (!mounted) return;
+    if (!_isPersistedProvider) {
+      setState(() {
+        _reviews = [];
+        _loadingReviews = false;
+        _checkingMyReview = false;
+      });
+      return;
+    }
     setState(() => _loadingReviews = true);
 
     try {
@@ -111,6 +133,10 @@ class _ServiceProviderDetailsPageState
   // ✅ فحص تقييم المستخدم الحالي
   // ═══════════════════════════════════════════════════════════
   Future<void> _checkMyReview() async {
+    if (!_isPersistedProvider) {
+      if (mounted) setState(() => _checkingMyReview = false);
+      return;
+    }
     final user = SupabaseService().client.auth.currentUser;
     if (user == null) {
       if (mounted) setState(() => _checkingMyReview = false);
@@ -142,6 +168,10 @@ class _ServiceProviderDetailsPageState
   // ✅ فتح شيت التقييم
   // ═══════════════════════════════════════════════════════════
   Future<void> _openRatingSheet() async {
+    if (!_isPersistedProvider) {
+      _snack('التقييم متاح لمقدمي الخدمات المسجلين فقط');
+      return;
+    }
     final user = SupabaseService().client.auth.currentUser;
     if (user == null) {
       if (!mounted) return;
