@@ -238,7 +238,10 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Future<void> _loadNearbySymbolicProviders() async {
-    if (_loadingNearbySymbolicProviders || _userGovernorate == null) {
+    if (_loadingNearbySymbolicProviders ||
+        _userLat == null ||
+        _userLng == null ||
+        (_userGovernorate == null && _userCity.trim().isEmpty)) {
       return;
     }
     if (mounted) setState(() => _loadingNearbySymbolicProviders = true);
@@ -250,19 +253,17 @@ class _UserHomePageState extends State<UserHomePage> {
       );
       if (!mounted) return;
 
-      final sameGovernorate = providers
-          .where((provider) =>
-              _userGovernorate != null &&
-              provider.governorate?.trim() == _userGovernorate)
+      final sameArea = providers
+          .where((provider) {
+            final governorate = _userGovernorate?.trim();
+            if (governorate != null && governorate.isNotEmpty) {
+              return provider.governorate?.trim() == governorate;
+            }
+            return provider.city?.trim() == _userCity.trim();
+          })
           .toList();
 
-      sameGovernorate.sort((a, b) {
-        final byRating = b.ratingAvg.compareTo(a.ratingAvg);
-        if (byRating != 0) return byRating;
-        return b.totalReviews.compareTo(a.totalReviews);
-      });
-
-      final nearbyForMap = sameGovernorate.where((provider) {
+      final nearbyProviders = sameArea.where((provider) {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null ||
@@ -287,13 +288,13 @@ class _UserHomePageState extends State<UserHomePage> {
             )));
 
       setState(() {
-        _nearbyServiceProviders = sameGovernorate;
-        _nearbySymbolicProviders = nearbyForMap
+        _nearbyServiceProviders = nearbyProviders;
+        _nearbySymbolicProviders = nearbyProviders
             .where((provider) => provider.isSymbolic)
             .take(10)
             .toList();
       });
-      _loadTopRatedProvidersByCategory();
+      _loadNearbyProvidersByCategory();
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
     } finally {
@@ -473,7 +474,9 @@ class _UserHomePageState extends State<UserHomePage> {
       final cats = await _serviceCategoriesRepository.listCategories();
       if (!mounted) return;
       setState(() => _serviceCategories = cats);
-      if (_userGovernorate != null) _loadTopRatedProvidersByCategory();
+      if (_userGovernorate != null || _userCity.trim().isNotEmpty) {
+        _loadNearbyProvidersByCategory();
+      }
     } catch (e) {
       debugPrint('❌ loadServiceCategories error: $e');
       if (!mounted) return;
@@ -484,54 +487,45 @@ class _UserHomePageState extends State<UserHomePage> {
     }
   }
 
-  Future<void> _loadTopRatedProvidersByCategory() async {
-    final governorate = _userGovernorate?.trim();
-    if (_loadingTopRatedProviders || governorate == null || governorate.isEmpty) {
+  Future<void> _loadNearbyProvidersByCategory() async {
+    if (_loadingTopRatedProviders ||
+        _userLat == null ||
+        _userLng == null ||
+        _nearbyServiceProviders.isEmpty) {
       return;
     }
 
     if (mounted) setState(() => _loadingTopRatedProviders = true);
     try {
-      var categories = _serviceCategories;
-      if (categories.isEmpty) {
-        categories = await _serviceCategoriesRepository.listCategories();
-        if (!mounted) return;
-        setState(() => _serviceCategories = categories);
-      }
-
       final results = <String, List<ServiceProvider>>{};
-      // Keep requests bounded while querying each category independently so
-      // the top-rated results for one trade cannot be crowded out by another.
-      for (var start = 0; start < categories.length; start += 6) {
-        final batch = categories.skip(start).take(6).toList(growable: false);
-        final batchResults = await Future.wait(batch.map((category) async {
-          try {
-            final providers = await _serviceProvidersRepository.listByCategory(
-              categoryId: category.id,
-              governorate: governorate,
-              limit: 10,
-            );
-            final sameGovernorate = providers
-                .where((provider) =>
-                    provider.governorate?.trim() == governorate)
-                .toList(growable: false);
-            return MapEntry(category.id, sameGovernorate);
-          } catch (error) {
-            debugPrint(
-              '⚠️ [Home] top-rated providers failed for ${category.slug}: $error',
-            );
-            return MapEntry(category.id, const <ServiceProvider>[]);
-          }
-        }));
-        for (final result in batchResults) {
-          results[result.key] = result.value;
-        }
+      for (final provider in _nearbyServiceProviders) {
+        final distance = _distanceKm(
+          _userLat!,
+          _userLng!,
+          provider.latitude!,
+          provider.longitude!,
+        );
+        if (distance > _AppFeatures.nearbyRadiusKm) continue;
+        results.putIfAbsent(provider.categoryId, () => []).add(provider);
+      }
+      for (final providers in results.values) {
+        providers.sort((a, b) => _distanceKm(
+              _userLat!,
+              _userLng!,
+              a.latitude!,
+              a.longitude!,
+            ).compareTo(_distanceKm(
+              _userLat!,
+              _userLng!,
+              b.latitude!,
+              b.longitude!,
+            )));
       }
 
       if (!mounted) return;
       setState(() => _topRatedProvidersByCategory = results);
     } catch (error) {
-      debugPrint('❌ [Home] top-rated providers error: $error');
+      debugPrint('❌ [Home] nearby providers error: $error');
       if (mounted) setState(() => _topRatedProvidersByCategory = {});
     } finally {
       if (mounted) setState(() => _loadingTopRatedProviders = false);
@@ -1189,7 +1183,7 @@ class _UserHomePageState extends State<UserHomePage> {
         SliverToBoxAdapter(child: _buildHeader()),
         SliverToBoxAdapter(child: _buildProviderCodeSearch()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
-        SliverToBoxAdapter(child: _buildAutoTopRatedServiceCategorySections()),
+        SliverToBoxAdapter(child: _buildNearbyServiceCategorySections()),
         SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
@@ -1756,10 +1750,10 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildAutoTopRatedServiceCategorySections() {
+  Widget _buildNearbyServiceCategorySections() {
     if (_serviceCategories.isEmpty && _loadingServiceCategories) {
       return _section(
-        title: 'مقدمو الخدمات حسب التخصص',
+        title: 'الأقرب لك',
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
@@ -1768,18 +1762,21 @@ class _UserHomePageState extends State<UserHomePage> {
     }
     if (_serviceCategories.isEmpty) {
       return _section(
-        title: 'مقدمو الخدمات حسب التخصص',
+        title: 'الأقرب لك',
         child: _emptyMini(Icons.handyman_rounded, 'مفيش خدمات متاحة دلوقتي'),
       );
     }
 
     final governorate = _userGovernorate?.trim();
-    if (governorate == null || governorate.isEmpty) {
+    final locationLabel = (governorate != null && governorate.isNotEmpty)
+        ? governorate
+        : _userCity.trim();
+    if (_userLat == null || _userLng == null || locationLabel.isEmpty) {
       return _section(
-        title: 'مقدمو الخدمات حسب التخصص',
+        title: 'الأقرب لك',
         child: _emptyMini(
-          Icons.location_city_rounded,
-          'أضف محافظتك في الملف الشخصي عشان نعرض لك مزودي الخدمة القريبين',
+          Icons.my_location_rounded,
+          'حدد موقعك عشان نعرض لك مزودي الخدمة القريبين فعلاً',
         ),
       );
     }
@@ -1789,9 +1786,9 @@ class _UserHomePageState extends State<UserHomePage> {
     return Column(
       children: [
         _section(
-          title: 'مقدمو الخدمات حسب التخصص',
+          title: 'الأقرب لك',
           trailing: Text(
-            governorate,
+            locationLabel,
             style: TextStyle(
               color: _textSecondary,
               fontSize: 11,
@@ -1808,25 +1805,21 @@ class _UserHomePageState extends State<UserHomePage> {
         ..._serviceCategories.map((category) {
           final providers = List<ServiceProvider>.of(
             _topRatedProvidersByCategory[category.id] ?? const [],
-          )..sort((a, b) {
-              final byRating = b.ratingAvg.compareTo(a.ratingAvg);
-              if (byRating != 0) return byRating;
-              return b.totalReviews.compareTo(a.totalReviews);
-            });
+          );
 
           final categoryState = loading
               ? const SizedBox.shrink()
               : providers.isEmpty
                   ? _emptyMini(
                       Icons.handyman_rounded,
-                      'لسه مفيش مقدم خدمة مسجل في $governorate',
+                      'لسه مفيش مقدم خدمة قريب منك في $locationLabel',
                     )
                   : _buildServiceProviderCards(providers.take(10).toList());
 
         return _section(
-          title: 'الأعلى تقييمًا في ${category.nameAr}',
+          title: 'الأقرب لك في ${category.nameAr}',
           trailing: Text(
-            governorate,
+            locationLabel,
             style: TextStyle(
               color: _textSecondary,
               fontSize: 11,
@@ -3228,7 +3221,7 @@ class _UserHomePageState extends State<UserHomePage> {
         .toList(growable: false);
 
     return _section(
-      title: 'مقدمو الخدمات في محافظتك',
+      title: 'الأقرب لك',
       trailing: _loadingNearbySymbolicProviders
           ? const SizedBox(
               width: 16,
@@ -3246,7 +3239,7 @@ class _UserHomePageState extends State<UserHomePage> {
       child: providers.isEmpty
           ? _emptyMini(
               Icons.handyman_rounded,
-              'لا يوجد مقدمو خدمات متاحون في محافظتك حاليًا',
+              'لا يوجد مقدمو خدمات قريبون منك حاليًا',
             )
           : _buildServiceProviderCards(providers),
     );

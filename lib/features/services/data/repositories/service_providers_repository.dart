@@ -90,12 +90,12 @@ class ServiceProvidersRepository {
     }
   }
 
-  /// مقدمو الخدمات في محافظة المستخدم، مرتبين بالأعلى تقييمًا.
-  /// تُفلتر الإحداثيات لاحقًا فقط عند بناء الخريطة.
+  /// Fetch a broad area pool; the home screen applies the user's exact
+  /// coordinates and sorts by Haversine distance afterward.
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     String? governorate,
-    int limit = 100,
+    int limit = 500,
   }) async {
     try {
       final cleanCity = city.trim();
@@ -109,8 +109,7 @@ class ServiceProvidersRepository {
         query = query.eq('city', cleanCity);
       }
       final rows = await query
-          .order('rating_avg', ascending: false)
-          .order('total_reviews', ascending: false)
+          .order('updated_at', ascending: false)
           .limit(limit);
 
       return (rows as List)
