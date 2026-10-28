@@ -18,7 +18,7 @@ void main() {
       ),
     );
 
-    expect(find.text('حدّد موقعك علشان نعرض العروض والخدمات القريبة منك.'),
+    expect(find.text('حدّد موقعك علشان نعرض مقدمي الخدمات القريبين منك.'),
         findsOneWidget);
     await tester.tap(find.text('تحديد'));
     expect(tapped, isTrue);
@@ -41,7 +41,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('الأقسام'));
+    await tester.tap(find.text('الخدمات'));
     expect(selected, 1);
     await tester.tap(find.text('حسابي'));
     expect(selected, 4);

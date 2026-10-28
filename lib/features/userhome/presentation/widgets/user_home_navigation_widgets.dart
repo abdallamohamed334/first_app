@@ -33,7 +33,7 @@ class UserHomeLocationNotice extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'حدّد موقعك علشان نعرض العروض والخدمات القريبة منك.',
+            'حدّد موقعك علشان نعرض مقدمي الخدمات القريبين منك.',
                   style: TextStyle(
                     color: textPrimaryColor,
                     fontSize: 12,
