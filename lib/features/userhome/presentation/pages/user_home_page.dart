@@ -1138,6 +1138,7 @@ class _UserHomePageState extends State<UserHomePage> {
           child: KeyedSubtree(
             key: const ValueKey<_HomeMode>(_HomeMode.services),
             child: _buildServicesContent(),
+          ),
         ),
       ),
     );
