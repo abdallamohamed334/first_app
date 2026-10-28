@@ -787,8 +787,8 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   child: _highlightValue(
                     Icons.handshake_rounded,
                     'نوع الطلب',
-                    'مساعدة',
-                    'مجتمعية',
+                    'طلب خدمة',
+                    'مطلوبة',
                     _amber,
                   ),
                 ),

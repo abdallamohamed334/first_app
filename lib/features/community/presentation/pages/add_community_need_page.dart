@@ -173,7 +173,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'اختار نوع الاحتياج',
+                    'اختار قسم الخدمة',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -273,7 +273,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     try {
       final rows = await SupabaseService()
           .client
-          .from('community_need_categories')
+          .from('service_categories')
           .select('slug, name_ar, icon')
           .eq('is_active', true)
           .order('sort_order');
@@ -526,7 +526,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                         child: Icon(
                           _isEditMode
                               ? Icons.edit_rounded
-                              : Icons.volunteer_activism_rounded,
+                              : Icons.handyman_rounded,
                           color: Colors.white,
                           size: 22,
                         ),
@@ -538,8 +538,8 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                           children: [
                             Text(
                               _isEditMode
-                                  ? 'عدّل احتياجك'
-                                  : 'قولنا إنت محتاج إيه',
+                                  ? 'عدّل احتياج الخدمة'
+                                  : 'اطلب الخدمة اللي محتاجها',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 21,
@@ -551,7 +551,7 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
                             Text(
                               _isEditMode
                                   ? 'أي تعديل هيتطبق فورًا'
-                                  : 'هنوصّل احتياجك للناس اللي تقدر تساعد',
+                                  : 'عرّف مقدمي الخدمات بالخدمة اللي محتاجها',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,
@@ -697,13 +697,13 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
   Widget _buildDetailsSection() {
     return _buildCard(
       icon: Icons.edit_note_rounded,
-      title: 'تفاصيل الاحتياج',
+      title: 'تفاصيل احتياج الخدمة',
       subtitle: 'اكتب بوضوح إنت محتاج إيه',
       child: Column(
         children: [
           _buildField(
             controller: _titleController,
-            label: 'عنوان الاحتياج',
+            label: 'الخدمة اللي محتاجها',
             hint: 'مثال: محتاج ترابيزة سوفا',
             icon: Icons.title_rounded,
             required: true,

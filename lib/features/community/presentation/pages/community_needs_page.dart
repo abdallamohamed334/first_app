@@ -133,7 +133,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
     try {
       final rows = await SupabaseService()
           .client
-          .from('community_need_categories')
+          .from('service_categories')
           .select('slug, name_ar, icon')
           .eq('is_active', true)
           .order('sort_order');
@@ -377,7 +377,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'احتياجات المجتمع',
+                              'احتياجات الخدمات',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 22,
@@ -387,7 +387,7 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
                             ),
                             SizedBox(height: 3),
                             Text(
-                              'ساعد باهتمام، وخلّي أثرَك يوصل',
+                              'اطلب الخدمة المناسبة من مقدمي الخدمات',
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 12,

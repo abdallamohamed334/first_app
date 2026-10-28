@@ -23,7 +23,6 @@ import 'package:loqma/features/community/presentation/pages/add_community_need_p
 import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_needs_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_offer_details_page.dart';
-import 'package:loqma/features/community/presentation/pages/community_tracking_page.dart';
 import 'package:loqma/features/community/presentation/pages/my_community_needs_page.dart';
 import 'package:loqma/features/institutions/data/repositories/institution_offers_repository.dart';
 import 'package:loqma/features/institutions/domain/entities/institution_offer.dart';
@@ -117,7 +116,7 @@ class _UserHomePageState extends State<UserHomePage> {
   bool _loadingNeeds = false;
 
   // ✅ وضع الهوم + كاتيجوريز الخدمات
-  _HomeMode _homeMode = _HomeMode.buy;
+  _HomeMode _homeMode = _HomeMode.services;
   List<ServiceCategory> _serviceCategories = [];
   bool _loadingServiceCategories = false;
   List<ServiceProvider> _nearbySymbolicProviders = [];
@@ -708,7 +707,7 @@ class _UserHomePageState extends State<UserHomePage> {
             return _buildUnauthenticated();
           }
           if (state is UserHomeError) return _buildError(state.message);
-          if (state is UserHomeLoaded) return _buildLoadedHome(state);
+          if (state is UserHomeLoaded) return _buildLoadedHome();
           return const HomeLoading();
         },
       ),
@@ -859,7 +858,7 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildLoadedHome(UserHomeLoaded state) {
+  Widget _buildLoadedHome() {
     return Scaffold(
       backgroundColor: _bg,
       body: IndexedStack(
@@ -870,13 +869,13 @@ class _UserHomePageState extends State<UserHomePage> {
           }
           switch (index) {
             case 0:
-              return _buildHomeContent(state);
+              return _buildHomeContent();
             case 1:
-              return _buildCategoriesContent(state);
+              return _buildCategoriesContent();
             case 2:
               return const CommunityNeedsPage();
             case 3:
-              return const CommunityTrackingPage();
+              return const MyCommunityNeedsPage();
             case 4:
               return const ProfilePage();
             default:
@@ -895,21 +894,7 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildCategoriesContent(UserHomeLoaded state) {
-    final bool isServices = _homeMode == _HomeMode.services;
-
-    final buyCategories = state.categories.where((c) {
-      if (_isHiddenCategory(c) || _isGroceryOrSupermarketCategory(c))
-        return false;
-      if (c['slug']?.toString().trim().toLowerCase() == 'institution-offers') {
-        return false;
-      }
-      if (!_AppFeatures.showRestaurants && _isRestaurantCategory(c)) {
-        return false;
-      }
-      return true;
-    }).toList();
-
+  Widget _buildCategoriesContent() {
     final serviceCats = _serviceCategories;
 
     return SafeArea(
@@ -929,26 +914,21 @@ class _UserHomePageState extends State<UserHomePage> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: isServices
-                            ? [_blue, _purple]
-                            : [_primaryRed, _primaryRedDark],
+                        colors: [_blue, _purple],
                         begin: Alignment.topRight,
                         end: Alignment.bottomLeft,
                       ),
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: (isServices ? _blue : _primaryRed)
-                              .withValues(alpha: 0.3),
+                          color: _blue.withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 5),
                         ),
                       ],
                     ),
                     child: Icon(
-                      isServices
-                          ? Icons.handyman_rounded
-                          : Icons.grid_view_rounded,
+                      Icons.handyman_rounded,
                       color: Colors.white,
                       size: 22,
                     ),
@@ -960,7 +940,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          isServices ? 'خدمات Khedma' : 'أقسام Khedma',
+                          'أقسام الخدمات',
                           style: TextStyle(
                             color: _textPrimary,
                             fontSize: 21,
@@ -970,9 +950,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         ),
                         SizedBox(height: 3),
                         Text(
-                          isServices
-                              ? 'محترفين في كل المجالات'
-                              : 'تصفح كل فئات الشراء',
+                          'اختار الخدمة اللي محتاجها',
                           style: TextStyle(
                             color: _textSecondary,
                             fontSize: 12,
@@ -986,44 +964,7 @@ class _UserHomePageState extends State<UserHomePage> {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: _card,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _border, width: 1),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildCategoriesSwitcherTile(
-                        mode: _HomeMode.buy,
-                        iconAsset: 'assets/icons/flaticon/shopping-basket.png',
-                        label: 'أقسام الشراء',
-                        count: buyCategories.length,
-                        color: _primaryRed,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: _buildCategoriesSwitcherTile(
-                        mode: _HomeMode.services,
-                        iconAsset: 'assets/icons/flaticon/repair-shop.png',
-                        label: 'أقسام الخدمات',
-                        count: serviceCats.length,
-                        color: _blue,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (isServices)
-            serviceCats.isEmpty
+          serviceCats.isEmpty
                 ? SliverFillRemaining(
                     hasScrollBody: false,
                     child: _buildServiceCategoriesEmpty(),
@@ -1045,34 +986,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         childCount: serviceCats.length,
                       ),
                     ),
-                  )
-          else
-            buyCategories.isEmpty
-                ? SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _buildCategoriesEmpty(),
-                  )
-                : SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.92,
-                      ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          return _buildCategoryTile(
-                              buyCategories[index], state);
-                        },
-                        childCount: buyCategories.length,
-                      ),
-                    ),
                   ),
-          if (isServices)
-            SliverToBoxAdapter(child: _buildNearbyServiceProvidersSection()),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -1201,7 +1115,7 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
-  Widget _buildHomeContent(UserHomeLoaded state) {
+  Widget _buildHomeContent() {
     return SafeArea(
       child: RefreshIndicator(
         color: _primaryRed,
@@ -1222,11 +1136,8 @@ class _UserHomePageState extends State<UserHomePage> {
             ),
           ),
           child: KeyedSubtree(
-            key: ValueKey<_HomeMode>(_homeMode),
-            child: _homeMode == _HomeMode.buy
-                ? _buildBuyContent(state)
-                : _buildServicesContent(),
-          ),
+            key: const ValueKey<_HomeMode>(_HomeMode.services),
+            child: _buildServicesContent(),
         ),
       ),
     );
@@ -1272,9 +1183,9 @@ class _UserHomePageState extends State<UserHomePage> {
         if (_locationUnavailable)
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
-        SliverToBoxAdapter(child: _buildModeSwitcher()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildAutoTopRatedServiceCategorySections()),
+        SliverToBoxAdapter(child: _buildNeedsSection()),
         SliverToBoxAdapter(child: SizedBox(height: 120)),
       ],
     );
@@ -3915,7 +3826,7 @@ class _UserHomePageState extends State<UserHomePage> {
     final visible = _communityNeeds.take(10).toList(growable: false);
 
     return _section(
-      title: 'الناس محتاجة 🙏',
+      title: 'احتياجات الخدمات',
       trailing: GestureDetector(
         onTap: () {
           Navigator.of(context).push(
@@ -4025,7 +3936,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'شوف الناس محتاجة إيه',
+                        'خدمة محتاجها؟',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -4034,7 +3945,7 @@ class _UserHomePageState extends State<UserHomePage> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'ممكن تكون عندك الحاجة اللي بتدور عليها',
+                        'انشر احتياجك عشان يوصلك مقدمو الخدمة',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 12,
@@ -4301,7 +4212,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   const Icon(Icons.add_rounded, color: Colors.white, size: 21),
                   const SizedBox(width: 6),
                   const Text(
-                    'أضف مشاركة',
+                    'أضف احتياج',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -4352,7 +4263,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   ),
                   SizedBox(height: 6),
                   Text(
-                    'اختار من الخيارات',
+                    'انشر احتياجك في الخدمات',
                     style: TextStyle(
                       fontSize: 12.5,
                       color: _textSecondary,
@@ -4360,39 +4271,10 @@ class _UserHomePageState extends State<UserHomePage> {
                   ),
                   SizedBox(height: 22),
                   HomeAddActionTile(
-                    icon: Icons.volunteer_activism_rounded,
-                    title: 'أتبرع بحاجة',
-                    subtitle: 'عندي حاجة عايز أتبرع بيها لجمعية',
-                    color: _green,
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const AddCharityDonationPage()),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  HomeAddActionTile(
-                    icon: Icons.sell_rounded,
-                    title: 'أضيف حاجة للبيع',
-                    subtitle: 'عندي حاجة عايز أبيعها',
-                    color: _orange,
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const AddCommunityOfferPage(),
-                        ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 12),
-                  HomeAddActionTile(
                     icon: Icons.volunteer_activism_outlined,
-                    title: 'أنا محتاج حاجة',
-                    subtitle: 'محتاج حاجة معينة، ياريت حد يساعدني',
-                    color: _primaryRed,
+                    title: 'انشر احتياج خدمة',
+                    subtitle: 'اكتب الخدمة اللي محتاجها وخلي مقدمي الخدمة يلاقوك',
+                    color: _blue,
                     onTap: () {
                       Navigator.of(sheetContext).pop();
                       Navigator.of(context).push(

@@ -430,9 +430,9 @@ class _FeaturePreview extends StatelessWidget {
 
   Widget get _previewHeader {
     final data = switch (index) {
-      0 => ('عروض قريبة منك', Icons.storefront_rounded),
+      0 => ('خدمات قريبة منك', Icons.handyman_rounded),
       1 => ('مقدمو الخدمات', Icons.handyman_rounded),
-      _ => ('التبرعات والاحتياجات', Icons.volunteer_activism_rounded),
+      _ => ('احتياجات الخدمات', Icons.assignment_rounded),
     };
 
     return Row(
@@ -461,18 +461,18 @@ class _FeaturePreview extends StatelessWidget {
         return Column(
           children: [
             _InfoTile(
-              icon: Icons.restaurant_rounded,
-              title: 'فائض طعام من مؤسسة قريبة',
-              subtitle: 'تفاصيل العرض • متاح الآن',
+              icon: Icons.content_cut_rounded,
+              title: 'خياط محترف قريب منك',
+              subtitle: 'تصفّح التخصص والتقييمات',
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                _smallChip('وجبات'),
+                _smallChip('خياطة'),
                 const SizedBox(width: 6),
-                _smallChip('مخبوزات'),
+                _smallChip('صيانة'),
                 const SizedBox(width: 6),
-                _smallChip('عروض مؤسسات'),
+                _smallChip('خدمات منزلية'),
               ],
             ),
           ],
@@ -525,9 +525,9 @@ class _FeaturePreview extends StatelessWidget {
         return Column(
           children: [
             _InfoTile(
-              icon: Icons.volunteer_activism_rounded,
-              title: 'تبرّع لجمعية أو اطلب احتياجًا',
-              subtitle: 'كل الخطوات واضحة داخل التطبيق',
+              icon: Icons.assignment_rounded,
+              title: 'اطلب خدمة تحتاجها',
+              subtitle: 'وصّل احتياجك لمقدمي الخدمات',
             ),
             const SizedBox(height: 9),
             Row(
@@ -536,7 +536,7 @@ class _FeaturePreview extends StatelessWidget {
                 const SizedBox(width: 6),
                 const Expanded(
                   child: Text(
-                    'تابع حالة الطلب حتى الاستلام',
+                    'تابع احتياجاتك المنشورة بسهولة',
                     style: TextStyle(
                       color: _muted,
                       fontSize: 11,

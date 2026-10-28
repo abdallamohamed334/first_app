@@ -3,7 +3,6 @@ import '../../../../core/models/user_model.dart';
 
 class ProfileHeader extends StatelessWidget {
   final UserModel user;
-  final int points;
   final VoidCallback onEditPressed;
   final VoidCallback onAvatarPressed;
   final bool isUploading;
@@ -11,7 +10,6 @@ class ProfileHeader extends StatelessWidget {
   const ProfileHeader({
     super.key,
     required this.user,
-    required this.points,
     required this.onEditPressed,
     required this.onAvatarPressed,
     this.isUploading = false,
@@ -108,29 +106,6 @@ class ProfileHeader extends StatelessWidget {
               Icon(Icons.verified_rounded, color: colors.primary, size: 21),
             ],
           ],
-        ),
-        const SizedBox(height: 7),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-          decoration: BoxDecoration(
-            color: colors.primary.withAlpha(20),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.stars_rounded, size: 17, color: colors.primary),
-              const SizedBox(width: 5),
-              Text(
-                '$points نقطة • ${user.type.displayName}',
-                style: TextStyle(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
         ),
       ],
     );

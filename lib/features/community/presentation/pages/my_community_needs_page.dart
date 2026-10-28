@@ -355,7 +355,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
         scrolledUnderElevation: 0.5,
         centerTitle: true,
         title: const Text(
-          'احتياجاتي',
+          'احتياجاتي المنشورة',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             fontSize: 17,
@@ -393,7 +393,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                     ),
                     const SizedBox(width: 10),
                     const Text(
-                      'احتياجاتي',
+                      'احتياجاتي المنشورة',
                       style: TextStyle(
                         color: _darkGreen,
                         fontSize: 16,
@@ -627,7 +627,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
               color: Colors.white.withValues(alpha: 0.16),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.volunteer_activism_rounded,
+            child: const Icon(Icons.handyman_rounded,
                 color: Colors.white, size: 23),
           ),
           const SizedBox(width: 12),
@@ -639,7 +639,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                     style: TextStyle(color: Colors.white, fontSize: 14,
                         fontWeight: FontWeight.w900)),
                 SizedBox(height: 4),
-                Text('تابع من يساعدك وحدّث طلبك بسهولة',
+                Text('تابع احتياجات خدماتك وحدّثها بسهولة',
                     style: TextStyle(color: Colors.white70, fontSize: 11.5,
                         fontWeight: FontWeight.w600)),
               ],
@@ -675,7 +675,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
             children: [
               Icon(
                 isActive
-                    ? Icons.volunteer_activism_outlined
+                    ? Icons.handyman_outlined
                     : Icons.timer_off_outlined,
                 color: _green.withValues(alpha: 0.4),
                 size: 60,
@@ -1135,7 +1135,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.volunteer_activism_outlined,
+                Icons.handyman_outlined,
                 color: _green,
                 size: 42,
               ),
@@ -1281,7 +1281,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.volunteer_activism_rounded, color: _green, size: 38),
+          const Icon(Icons.handyman_rounded, color: _green, size: 38),
           const SizedBox(height: 6),
           Text(categoryName, style: const TextStyle(color: _green, fontSize: 11, fontWeight: FontWeight.w800)),
         ],

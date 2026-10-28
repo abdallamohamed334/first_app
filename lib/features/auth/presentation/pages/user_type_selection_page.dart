@@ -56,7 +56,7 @@ class UserTypeSelectionPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 7),
                     const Text(
-                      'اختار نوع حسابك عشان نفتح لك المساحة المناسبة.',
+                      'اختار حسابك عشان تلاقي الخدمة المناسبة أو تعرض خدمتك.',
                       textAlign: TextAlign.right,
                       style: TextStyle(
                         color: _muted,
@@ -78,7 +78,7 @@ class UserTypeSelectionPage extends StatelessWidget {
                       icon: Icons.person_outline_rounded,
                       title: 'مستخدم عادي',
                       description:
-                          'تصفّح العروض القريبة، واطلب خدمة أو احتياجًا من المجتمع.',
+                      'ابحث عن مقدمي الخدمات القريبين وانشر احتياجك للخدمة.',
                       onTap: () => context.go(AppRouter.login),
                     ),
                     const SizedBox(height: 11),
@@ -86,16 +86,8 @@ class UserTypeSelectionPage extends StatelessWidget {
                       icon: Icons.handyman_outlined,
                       title: 'مقدّم خدمة',
                       description:
-                          'اعرض خدماتك وتابع طلبات العملاء من مساحة واحدة.',
+                      'اعرض خدماتك واستقبل طلبات العملاء من مكان واحد.',
                       onTap: () => context.push(AppRouter.providerAuth),
-                    ),
-                    const SizedBox(height: 11),
-                    _AccountTypeCard(
-                      icon: Icons.domain_outlined,
-                      title: 'مؤسسة أو جمعية',
-                      description:
-                          'انشر العروض والفائض، أو استقبل التبرعات وادِر الطلبات.',
-                      onTap: () => context.push(AppRouter.institutionLogin),
                     ),
                     const SizedBox(height: 20),
                     Container(

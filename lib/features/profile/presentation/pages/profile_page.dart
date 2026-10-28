@@ -10,7 +10,6 @@ import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
 import 'package:loqma/features/auth/presentation/pages/login_page.dart';
-import 'package:loqma/features/community/presentation/pages/customer_reviews_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:loqma/routes/app_router.dart';
 
@@ -20,7 +19,6 @@ import '../bloc/profile_state.dart';
 
 import '../widgets/profile_header.dart';
 import '../widgets/profile_stats.dart';
-import '../widgets/profile_achievements.dart';
 import '../widgets/profile_info_card.dart';
 import '../widgets/profile_settings_list.dart';
 import '../widgets/profile_edit_dialog.dart';
@@ -169,7 +167,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 20),
                       child: ProfileHeader(
                         user: state.user,
-                        points: state.points,
                         onEditPressed: () => _showEditDialog(
                           context,
                           state.user,
@@ -185,16 +182,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 22),
 
                   ProfileStats(
-                    mealsReceived: state.mealsSaved,
-                    points: state.points,
-                    donations: state.deliveriesCount,
                     memberSince: state.user.createdAt.year.toString(),
                   ),
-
-                  if (state.user.isUser) ...[
-                    const SizedBox(height: 18),
-                    _buildCustomerReviewsAction(context, state.user),
-                  ],
 
                   const SizedBox(height: 22),
 
@@ -207,12 +196,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildLocationAction(
                     context,
                     state.user,
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  ProfileAchievements(
-                    achievements: _getAchievements(state),
                   ),
 
                   const SizedBox(height: 22),
@@ -277,7 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 28),
 
                   Text(
-                    'Khedma • إنقاذ الطعام يبدأ بخطوة',
+                    'Khedma • خدمات أقرب لحياتك',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: colors.onSurfaceVariant,
@@ -301,56 +284,6 @@ class _ProfilePageState extends State<ProfilePage> {
             'تعذر تحميل بيانات الملف الشخصي',
           );
         },
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // Customer Reviews
-  // ═══════════════════════════════════════════════════════════
-
-  Widget _buildCustomerReviewsAction(BuildContext context, UserModel user) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Card(
-      elevation: 0,
-      color: colors.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: colors.outlineVariant),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: colors.primary.withValues(alpha: 0.12),
-          child: Icon(Icons.star_rounded, color: colors.primary),
-        ),
-        title: Text(
-          'تقييمات العملاء',
-          style: TextStyle(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        subtitle: Text(
-          'آراء الزوار الذين قيّموا عروضك',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-        ),
-        trailing: Icon(
-          Icons.chevron_left_rounded,
-          color: colors.onSurfaceVariant,
-        ),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => CustomerReviewsPage(
-              userId: user.id,
-              userName: user.name,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -584,31 +517,4 @@ class _ProfilePageState extends State<ProfilePage> {
         );
   }
 
-  List<String> _getAchievements(
-    ProfileLoaded state,
-  ) {
-    final result = <String>[];
-
-    if (state.mealsSaved >= 1) {
-      result.add('أول وجبة منقذة');
-    }
-
-    if (state.mealsSaved >= 10) {
-      result.add('10 وجبات منقذة');
-    }
-
-    if (state.points >= 100) {
-      result.add('100 نقطة');
-    }
-
-    if (state.deliveriesCount >= 1) {
-      result.add('أول توصيل');
-    }
-
-    if (state.user.level >= 3) {
-      result.add('متطوع محترف');
-    }
-
-    return result;
-  }
 }
