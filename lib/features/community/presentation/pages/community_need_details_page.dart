@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 
 class CommunityNeedDetailsPage extends StatefulWidget {
   final String needId;
@@ -22,19 +23,25 @@ class CommunityNeedDetailsPage extends StatefulWidget {
 class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
   final _repository = CommunityNeedsRepository();
 
-  // ─────────────── هوية بصرية جديدة للصفحة ───────────────
-  static const _primary = Color(0xFF191919);
-  static const _primaryDark = Color(0xFF050505);
-  static const _primarySoft = Color(0xFFF0ECF7);
-  static const _bg = Color(0xFFF8F7FA);
-  static const _ink = Color(0xFF171717);
-  static const _muted = Color(0xFF77727D);
-  static const _border = Color(0xFFE9E6ED);
-  static const _amber = Color(0xFFDC9A34);
-  static const _blue = Color(0xFF6C4DB3);
-  static const _green = Color(0xFF2E9B68);
-  static const _whatsapp = Color(0xFF25D366);
-  static const _danger = Color(0xFFC1503F);
+  // ألوان الصفحة تتبع لوحة التطبيق وتتغير تلقائيًا مع الوضع الداكن.
+  bool get _isDark => HomePalette.isDark;
+  ColorScheme get _scheme => Theme.of(context).colorScheme;
+  Color get _primary => HomePalette.primaryRed;
+  Color get _primaryDark =>
+      _isDark ? const Color(0xFF3B1116) : const Color(0xFF9E1720);
+  Color get _primarySoft => _primary.withValues(alpha: _isDark ? 0.20 : 0.10);
+  Color get _bg => HomePalette.bg;
+  Color get _card => HomePalette.card;
+  Color get _ink => HomePalette.textPrimary;
+  Color get _muted => HomePalette.textSecondary;
+  Color get _border => HomePalette.border;
+  Color get _amber =>
+      _isDark ? const Color(0xFFFFC96B) : const Color(0xFF9A6400);
+  Color get _blue => _scheme.secondary;
+  Color get _green =>
+      _isDark ? const Color(0xFF77D7A2) : const Color(0xFF20845B);
+  Color get _whatsapp => const Color(0xFF25D366);
+  Color get _danger => _scheme.error;
 
   // ─────────────── الحالة ───────────────
   bool _loading = true;
@@ -112,7 +119,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       await _loadNeed();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
               '✅ تم تحديث الاحتياج بنجاح',
               textDirection: TextDirection.rtl,
@@ -277,7 +284,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: _danger),
             SizedBox(width: 8),
@@ -337,7 +344,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             color: _primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.check_circle_rounded,
             color: _primary,
             size: 32,
@@ -406,7 +413,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
           scrolledUnderElevation: 0,
           centerTitle: false,
           titleSpacing: 18,
-          title: const Text(
+          title: Text(
             'تفاصيل الاحتياج',
             style: TextStyle(
               color: _ink,
@@ -424,7 +431,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
           ],
         ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator(color: _blue))
+            ? Center(child: CircularProgressIndicator(color: _blue))
             : (_errorMessage != null || _need == null)
                 ? _buildErrorState()
                 : _buildContent(),
@@ -561,7 +568,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
               children: [
                 Row(
                   children: [
-                    _heroIcon(Icons.volunteer_activism_rounded),
+        _heroIcon(Icons.handyman_rounded),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -701,13 +708,13 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                 ? Image.network(
                     avatar,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, __, ___) => Icon(
                       Icons.person_rounded,
                       color: _blue,
                       size: 28,
                     ),
                   )
-                : const Icon(
+                : Icon(
                     Icons.person_rounded,
                     color: _blue,
                     size: 28,
@@ -718,7 +725,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'صاحب الاحتياج',
                   style: TextStyle(
                     color: _muted,
@@ -731,7 +738,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _ink,
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
@@ -758,7 +765,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(18, 18, 18, 12),
             child: Text(
               'عن الاحتياج',
@@ -797,7 +804,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
           ),
           if (description.isNotEmpty || address.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Divider(height: 1, color: _border),
+            Divider(height: 1, color: _border),
             if (description.isNotEmpty)
               _detailBlock(Icons.notes_rounded, 'الوصف', description),
             if (address.isNotEmpty)
@@ -835,7 +842,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _muted,
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -855,7 +862,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                       ),
                       TextSpan(
                         text: ' $suffix',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _muted,
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -895,7 +902,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _muted,
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -904,7 +911,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _ink,
                     fontSize: 13.5,
                     height: 1.45,
@@ -931,9 +938,9 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.insights_rounded, color: _blue, size: 21),
+              Icon(Icons.insights_rounded, color: _blue, size: 21),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'التفاعل على الاحتياج',
                   style: TextStyle(
@@ -945,7 +952,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
               ),
               Text(
                 '$contactCount تواصل',
-                style: const TextStyle(
+                style: TextStyle(
                   color: _blue,
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
@@ -995,7 +1002,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _muted,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -1039,7 +1046,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
               isExpired && status == 'active'
                   ? 'الاحتياج انتهى ولم يعد متاحًا للتواصل.'
                   : 'الاحتياج غير متاح حاليًا للتواصل.',
-              style: const TextStyle(
+              style: TextStyle(
                 color: _danger,
                 fontSize: 12,
                 height: 1.4,
@@ -1065,7 +1072,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
         children: [
           _softIcon(Icons.shield_outlined, _amber),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'خليك حريص في التعاملات: اتفقوا في مكان عام، ومتشاركش بياناتك البنكية أو كلمات المرور.',
               style: TextStyle(
@@ -1088,7 +1095,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _card,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: _border),
         boxShadow: [
@@ -1166,7 +1173,8 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _card,
+          border: Border(top: BorderSide(color: _border)),
           boxShadow: [
             BoxShadow(
               color: _primaryDark.withValues(alpha: 0.08),
@@ -1213,15 +1221,15 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             width: 36,
             height: 36,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: _primarySoft,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_circle_rounded,
+            child: Icon(Icons.check_circle_rounded,
                 color: _primary, size: 18),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'ده احتياجك — الاحتياج ده مقفول دلوقتي.',
               style: TextStyle(
@@ -1281,7 +1289,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _primary,
-                    side: const BorderSide(color: _primary, width: 1.3),
+                    side: BorderSide(color: _primary, width: 1.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1302,7 +1310,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: _danger,
-                    side: const BorderSide(color: _danger, width: 1.3),
+                    side: BorderSide(color: _danger, width: 1.3),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1375,7 +1383,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
                 color: _danger.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.cloud_off_rounded,
                 color: _danger,
                 size: 38,
@@ -1385,7 +1393,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
             Text(
               _errorMessage ?? 'تعذر التحميل',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _ink,
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
@@ -1480,7 +1488,7 @@ class _CommunityNeedDetailsPageState extends State<CommunityNeedDetailsPage> {
     return Container(
       height: 178,
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [_primary, _primaryDark],
           begin: Alignment.topRight,

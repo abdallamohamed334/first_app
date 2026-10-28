@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:loqma/routes/app_router.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 
 import '../bloc/onboarding_bloc.dart';
 
@@ -14,11 +15,12 @@ class OnboardingPage extends StatefulWidget {
 }
 
 class _OnboardingPageState extends State<OnboardingPage> {
-  static const _background = Color(0xFFF7F8FA);
-  static const _primary = Color(0xFFFF2E3B);
-  static const _ink = Color(0xFF1B1D22);
-  static const _muted = Color(0xFF68707C);
-  static const _border = Color(0xFFE2E6EC);
+  bool get _isDark => HomePalette.isDark;
+  Color get _background => HomePalette.bg;
+  Color get _primary => HomePalette.primaryRed;
+  Color get _ink => HomePalette.textPrimary;
+  Color get _muted => HomePalette.textSecondary;
+  Color get _border => HomePalette.border;
 
   @override
   void initState() {
@@ -60,14 +62,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return Scaffold(
       backgroundColor: _background,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [Color(0xFFFFF8F8), _background],
+            colors: [_primary.withValues(alpha: _isDark ? 0.08 : 0.03), _background],
           ),
         ),
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 30,
             height: 30,
@@ -95,17 +97,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEEF0),
+                    color: _primary.withValues(alpha: _isDark ? 0.18 : 0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.wifi_off_rounded,
                     color: _primary,
                     size: 30,
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Text(
+                Text(
                   'تعذر تحميل التطبيق',
                   style: TextStyle(
                     color: _ink,
@@ -117,7 +119,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _muted,
                     fontSize: 14,
                     height: 1.6,
@@ -128,8 +130,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   onPressed: () => context
                       .read<OnboardingBloc>()
                       .add(const OnboardingStarted()),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('إعادة المحاولة'),
+                  icon: Icon(Icons.refresh_rounded),
+                  label: Text('إعادة المحاولة'),
                   style: FilledButton.styleFrom(
                     backgroundColor: _primary,
                     foregroundColor: Colors.white,
@@ -156,11 +158,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return Scaffold(
       backgroundColor: _background,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
-            colors: [Color(0xFFFFFAFA), _background],
+            colors: [_primary.withValues(alpha: _isDark ? 0.08 : 0.03), _background],
           ),
         ),
         child: SafeArea(
@@ -194,7 +196,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             page.title,
                             key: ValueKey('${state.currentIndex}-title'),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _ink,
                               fontSize: 25,
                               height: 1.3,
@@ -209,7 +211,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                             page.subtitle,
                             key: ValueKey('${state.currentIndex}-subtitle'),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _muted,
                               fontSize: 14.5,
                               height: 1.65,
@@ -243,7 +245,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ),
         const SizedBox(width: 9),
-        const Text(
+        Text(
           'Khedma',
           style: TextStyle(
             color: _ink,
@@ -260,7 +262,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             foregroundColor: _muted,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          child: const Text(
+          child: Text(
             'تخطي',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
@@ -280,7 +282,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           height: 7,
           margin: const EdgeInsets.symmetric(horizontal: 3),
           decoration: BoxDecoration(
-            color: isActive ? _primary : const Color(0xFFD5D9DF),
+            color: isActive ? _primary : _border,
             borderRadius: BorderRadius.circular(10),
           ),
         );
@@ -313,7 +315,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           children: [
             Text(
               state.isLastPage ? 'اختيار نوع الحساب' : 'التالي',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -337,10 +339,14 @@ class _FeaturePreview extends StatelessWidget {
 
   final int index;
 
-  static const _primary = Color(0xFFFF2E3B);
-  static const _ink = Color(0xFF1B1D22);
-  static const _muted = Color(0xFF68707C);
-  static const _border = Color(0xFFE7E9ED);
+  bool get _isDark => HomePalette.isDark;
+  Color get _background => HomePalette.bg;
+  Color get _card => HomePalette.card;
+  Color get _soft => HomePalette.cardSoft;
+  Color get _primary => HomePalette.primaryRed;
+  Color get _ink => HomePalette.textPrimary;
+  Color get _muted => HomePalette.textSecondary;
+  Color get _border => HomePalette.border;
 
   @override
   Widget build(BuildContext context) {
@@ -349,10 +355,10 @@ class _FeaturePreview extends StatelessWidget {
       height: 272,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [Color(0xFFFFF0F1), Color(0xFFF1F2F5)],
+          colors: [_primary.withValues(alpha: _isDark ? 0.14 : 0.08), _background],
         ),
         borderRadius: BorderRadius.circular(25),
       ),
@@ -361,7 +367,7 @@ class _FeaturePreview extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _card,
             borderRadius: BorderRadius.circular(19),
             border: Border.all(color: _border),
             boxShadow: const [
@@ -388,7 +394,7 @@ class _FeaturePreview extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
+                  Text(
                     'Khedma',
                     style: TextStyle(
                       color: _ink,
@@ -403,10 +409,10 @@ class _FeaturePreview extends StatelessWidget {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF4F5F7),
+                      color: _soft,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
+                    child: Text(
                       'من التطبيق',
                       style: TextStyle(
                         color: _muted,
@@ -442,7 +448,7 @@ class _FeaturePreview extends StatelessWidget {
             data.$1,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: _ink,
               fontSize: 14,
               fontWeight: FontWeight.w800,
@@ -488,9 +494,9 @@ class _FeaturePreview extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Icon(Icons.place_outlined, color: _muted, size: 16),
+                Icon(Icons.place_outlined, color: _muted, size: 16),
                 const SizedBox(width: 5),
-                const Text(
+                Text(
                   'اختيار حسب الموقع',
                   style: TextStyle(
                     color: _muted,
@@ -503,7 +509,7 @@ class _FeaturePreview extends StatelessWidget {
                   width: 62,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFDADD),
+                    color: _primary.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Align(
@@ -532,9 +538,9 @@ class _FeaturePreview extends StatelessWidget {
             const SizedBox(height: 9),
             Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: _primary, size: 16),
+                Icon(Icons.check_circle_rounded, color: _primary, size: 16),
                 const SizedBox(width: 6),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'تابع احتياجاتك المنشورة بسهولة',
                     style: TextStyle(
@@ -544,7 +550,7 @@ class _FeaturePreview extends StatelessWidget {
                     ),
                   ),
                 ),
-                const Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
+                Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
               ],
             ),
           ],
@@ -557,14 +563,14 @@ class _FeaturePreview extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F6F8),
+          color: HomePalette.cardSoft,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             color: _muted,
             fontSize: 9.5,
             fontWeight: FontWeight.w600,
@@ -586,9 +592,9 @@ class _InfoTile extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  static const _primary = Color(0xFFFF2E3B);
-  static const _ink = Color(0xFF1B1D22);
-  static const _muted = Color(0xFF68707C);
+  Color get _primary => HomePalette.primaryRed;
+  Color get _ink => HomePalette.textPrimary;
+  Color get _muted => HomePalette.textSecondary;
 
   @override
   Widget build(BuildContext context) {
@@ -596,9 +602,9 @@ class _InfoTile extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
+        color: HomePalette.cardSoft,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE7E9ED)),
+        border: Border.all(color: HomePalette.border),
       ),
       child: Row(
         children: [
@@ -606,7 +612,7 @@ class _InfoTile extends StatelessWidget {
             width: 39,
             height: 39,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE8EA),
+              color: HomePalette.primaryRed.withValues(alpha: HomePalette.isDark ? 0.20 : 0.10),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: _primary, size: 21),
@@ -620,7 +626,7 @@ class _InfoTile extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _ink,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -631,7 +637,7 @@ class _InfoTile extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: _muted,
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
@@ -641,7 +647,7 @@ class _InfoTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
+          Icon(Icons.chevron_left_rounded, color: _muted, size: 19),
         ],
       ),
     );

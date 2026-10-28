@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -1317,6 +1318,10 @@ class _UserHomePageState extends State<UserHomePage> {
         .toList(growable: false);
     final center = _serviceProvidersMapCenter(providers);
     final zoom = _serviceProvidersMapZoom(providers);
+    final mapProviders = <ServiceProvider>[
+      ...providers,
+      ..._debugMapProviderFixtures(center),
+    ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1358,7 +1363,7 @@ class _UserHomePageState extends State<UserHomePage> {
                   border: Border.all(color: _blue.withValues(alpha: 0.22)),
                 ),
                 child: Text(
-                  '${providers.length} مقدم',
+                  '${mapProviders.length} مقدم',
                   style: TextStyle(
                     color: _blue,
                     fontSize: 11,
@@ -1394,7 +1399,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         userAgentPackageName: 'com.khedma.app',
                       ),
                       MarkerLayer(
-                        markers: providers.map((provider) {
+                        markers: mapProviders.map((provider) {
                           return Marker(
                             point:
                                 LatLng(provider.latitude!, provider.longitude!),
@@ -1472,7 +1477,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         label: 'جاري تحميل مقدمي الخدمة',
                       ),
                     ),
-                  if (providers.isEmpty && !_loadingNearbySymbolicProviders)
+                  if (mapProviders.isEmpty && !_loadingNearbySymbolicProviders)
                     Center(
                       child: Container(
                         margin: const EdgeInsets.all(52),
@@ -1496,7 +1501,7 @@ class _UserHomePageState extends State<UserHomePage> {
                         ),
                       ),
                     ),
-                  if (providers.isNotEmpty)
+                  if (mapProviders.isNotEmpty)
                     Positioned(
                       bottom: 11,
                       left: 11,
@@ -1508,7 +1513,7 @@ class _UserHomePageState extends State<UserHomePage> {
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => ServiceProvidersMapPage(
-                                providers: providers,
+                                providers: mapProviders,
                                 latitude: center.latitude,
                                 longitude: center.longitude,
                                 city: _userGovernorate ?? _userCity,
@@ -1734,7 +1739,7 @@ class _UserHomePageState extends State<UserHomePage> {
   Widget _buildAutoTopRatedServiceCategorySections() {
     if (_serviceCategories.isEmpty && _loadingServiceCategories) {
       return _section(
-        title: 'الأعلى تقييمًا في كل الخدمات',
+        title: 'مقدمو الخدمات حسب التخصص',
         child: const Padding(
           padding: EdgeInsets.symmetric(vertical: 24),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
@@ -1743,7 +1748,7 @@ class _UserHomePageState extends State<UserHomePage> {
     }
     if (_serviceCategories.isEmpty) {
       return _section(
-        title: 'الأعلى تقييمًا في كل الخدمات',
+        title: 'مقدمو الخدمات حسب التخصص',
         child: _emptyMini(Icons.handyman_rounded, 'مفيش خدمات متاحة دلوقتي'),
       );
     }
@@ -1751,7 +1756,7 @@ class _UserHomePageState extends State<UserHomePage> {
     final governorate = _userGovernorate?.trim();
     if (governorate == null || governorate.isEmpty) {
       return _section(
-        title: 'الأعلى تقييمًا في كل الخدمات',
+        title: 'مقدمو الخدمات حسب التخصص',
         child: _emptyMini(
           Icons.location_city_rounded,
           'أضف محافظتك في الملف الشخصي عشان نعرض لك مزودي الخدمة القريبين',
@@ -1764,7 +1769,7 @@ class _UserHomePageState extends State<UserHomePage> {
     return Column(
       children: [
         _section(
-          title: 'الأعلى تقييمًا في كل الخدمات',
+          title: 'مقدمو الخدمات حسب التخصص',
           trailing: Text(
             governorate,
             style: TextStyle(
@@ -1921,11 +1926,59 @@ class _UserHomePageState extends State<UserHomePage> {
     );
   }
 
+
+  List<ServiceProvider> _debugMapProviderFixtures(LatLng center) {
+    if (!kDebugMode || _serviceCategories.isEmpty) return const [];
+
+    const fixtures = <(String, String, double, double, double, int)>[
+      ('tailoring', 'خياط تجريبي — اختبار محلي', 0.0020, 0.0015, 4.8, 12),
+      ('computer_repair', 'صيانة كمبيوتر — اختبار محلي', -0.0015, 0.0022, 4.7, 9),
+      ('plumbing', 'سباك تجريبي — اختبار محلي', 0.0011, -0.0025, 4.6, 8),
+      ('electricity', 'كهربائي تجريبي — اختبار محلي', -0.0022, -0.0011, 4.9, 15),
+      ('barber', 'حلاق تجريبي — اختبار محلي', 0.0030, -0.0010, 4.5, 6),
+    ];
+    final categoriesBySlug = {
+      for (final category in _serviceCategories)
+        category.slug.trim().toLowerCase(): category,
+    };
+    final samples = <ServiceProvider>[];
+
+    for (final fixture in fixtures) {
+      final category = categoriesBySlug[fixture.$1];
+      if (category == null) continue;
+      samples.add(
+        ServiceProvider(
+          id: 'debug-map-${fixture.$1}',
+          userId: 'debug-map-user-${fixture.$1}',
+          categoryId: category.id,
+          categoryName: category.nameAr,
+          categoryIcon: category.icon,
+          categorySlug: category.slug,
+          displayName: fixture.$2,
+          bio: 'بيانات محلية للاختبار فقط؛ لا تُحفظ في قاعدة البيانات.',
+          governorate: _userGovernorate ?? 'الغربية',
+          city: _userCity,
+          address: 'موقع تجريبي قريب منك',
+          latitude: center.latitude + fixture.$3,
+          longitude: center.longitude + fixture.$4,
+          ratingAvg: fixture.$5,
+          totalReviews: fixture.$6,
+          verificationStatus: 'approved',
+          isActive: true,
+          isAvailable: true,
+          ownerName: 'عينة للاختبار',
+        ),
+      );
+    }
+    return samples;
+  }
+
   IconData _serviceIconFromSlug(String slug) {
     switch (slug.trim().toLowerCase()) {
       case 'plumbing':
         return Icons.plumbing_rounded;
       case 'electricity':
+      case 'electrical':
         return Icons.electrical_services_rounded;
       case 'painting':
         return Icons.format_paint_rounded;
@@ -1934,87 +1987,105 @@ class _UserHomePageState extends State<UserHomePage> {
       case 'aluminum':
         return Icons.window_rounded;
       case 'air_conditioning':
+      case 'ac':
         return Icons.ac_unit_rounded;
       case 'appliances':
         return Icons.kitchen_rounded;
       case 'water_heaters':
-        return Icons.water_drop_rounded;
+        return Icons.water_heater_rounded;
       case 'satellite':
         return Icons.satellite_alt_rounded;
       case 'locks':
         return Icons.lock_rounded;
       case 'moving':
-      case 'transportation':
-      case 'delivery':
       case 'packaging':
-        return Icons.local_shipping_rounded;
+        return Icons.inventory_2_rounded;
+      case 'transportation':
+        return Icons.directions_bus_rounded;
+      case 'delivery':
+        return Icons.delivery_dining_rounded;
       case 'furniture_assembly':
         return Icons.chair_rounded;
       case 'cleaning':
-      case 'professional_cleaning':
         return Icons.cleaning_services_rounded;
+      case 'professional_cleaning':
+        return Icons.auto_awesome_rounded;
       case 'pest_control':
-        return Icons.bug_report_rounded;
+        return Icons.pest_control_rounded;
       case 'gardening':
+      case 'garden':
+        return Icons.yard_rounded;
       case 'agriculture':
-        return Icons.grass_rounded;
+        return Icons.agriculture_rounded;
       case 'waterproofing':
+        return Icons.water_damage_rounded;
       case 'construction':
         return Icons.construction_rounded;
       case 'gypsum_board':
       case 'interior_design':
-      case 'decoration':
         return Icons.architecture_rounded;
+      case 'decoration':
+        return Icons.palette_rounded;
       case 'tiles':
-        return Icons.grid_view_rounded;
+        return Icons.grid_4x4_rounded;
       case 'welding':
         return Icons.local_fire_department_rounded;
       case 'car_mechanic':
-      case 'car_bodywork':
-      case 'car_inspection':
+      case 'maintenance':
         return Icons.build_rounded;
       case 'car_electrician':
         return Icons.battery_charging_full_rounded;
       case 'car_ac':
-        return Icons.ac_unit_rounded;
+        return Icons.device_thermostat_rounded;
+      case 'car_bodywork':
+        return Icons.car_crash_rounded;
       case 'car_wash':
         return Icons.local_car_wash_rounded;
       case 'tires':
         return Icons.tire_repair_rounded;
-      case 'car':
-      case 'real_estate':
-        return Icons.directions_car_rounded;
+      case 'car_inspection':
+        return Icons.fact_check_rounded;
       case 'mobile_repair':
         return Icons.smartphone_rounded;
       case 'computer_repair':
-      case 'software_services':
-      case 'networking':
         return Icons.computer_rounded;
+      case 'software_services':
+      case 'it':
+        return Icons.code_rounded;
       case 'cameras_security':
-      case 'photography':
-        return Icons.camera_alt_rounded;
+      case 'security':
+        return Icons.security_rounded;
       case 'graphic_design':
-        return Icons.brush_rounded;
-      case 'beauty_salon':
-        return Icons.spa_rounded;
+        return Icons.design_services_rounded;
+      case 'photography':
+        return Icons.photo_camera_rounded;
       case 'barber':
         return Icons.content_cut_rounded;
       case 'tailoring':
         return Icons.checkroom_rounded;
       case 'laundry':
         return Icons.local_laundry_service_rounded;
-      case 'massage':
-        return Icons.self_improvement_rounded;
       case 'fitness':
         return Icons.fitness_center_rounded;
-      case 'nutrition':
-      case 'catering':
-        return Icons.restaurant_rounded;
       case 'private_tutoring':
+      case 'tutoring':
         return Icons.menu_book_rounded;
       case 'languages':
       case 'translation':
         return Icons.translate_rounded;
+      case 'event_planning':
+        return Icons.event_available_rounded;
+      case 'printing':
+        return Icons.print_rounded;
+      case 'veterinary':
+      case 'pet_care':
+        return Icons.pets_rounded;
+      case 'beauty':
+      case 'beauty_salon':
+        return Icons.spa_rounded;
+      case 'nutrition':
+      case 'catering':
+        return Icons.restaurant_rounded;
       case 'accounting':
         return Icons.receipt_long_rounded;
       case 'legal_consulting':
@@ -2025,26 +2096,11 @@ class _UserHomePageState extends State<UserHomePage> {
         return Icons.campaign_rounded;
       case 'recruitment':
         return Icons.groups_rounded;
-      case 'event_planning':
-        return Icons.celebration_rounded;
-      case 'printing':
-        return Icons.print_rounded;
-      case 'pet_care':
-      case 'veterinary':
-        return Icons.pets_rounded;
-      case 'security':
-      case 'insurance':
-        return Icons.shield_rounded;
+      case 'car':
+      case 'real_estate':
+        return Icons.directions_car_rounded;
       case 'other':
-        return Icons.add_circle_outline_rounded;
-      case 'maintenance':
-      case 'it':
-      case 'garden':
-      case 'tutoring':
-      case 'beauty':
-      case 'ac':
-      case 'electrical':
-        return Icons.handyman_rounded;
+        return Icons.more_horiz_rounded;
       default:
         return Icons.handyman_rounded;
     }

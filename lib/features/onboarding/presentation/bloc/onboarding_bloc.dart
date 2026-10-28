@@ -91,25 +91,25 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
   List<OnboardingPageData> _getPages() {
     return const [
       OnboardingPageData(
-        title: 'عروض وفائض قريب منك',
+        title: 'كل الخدمات في مكان واحد',
         subtitle:
-            'تصفّح عروض المؤسسات وفائض الطعام المتاح في نطاقك، واختر ما يناسبك.',
-        imageUrl: 'assets/images/onboarding_food.png',
-        icon: Icons.storefront_rounded,
-      ),
-      OnboardingPageData(
-        title: 'خدمات تناسب احتياجك',
-        subtitle:
-            'استكشف مقدّمي الخدمات حسب التخصص والمحافظة، واطّلع على التفاصيل قبل الطلب.',
+            'اكتشف مقدمي خدمات قريبين منك، من الخياطين وفنيي صيانة الكمبيوتر إلى الخدمات المنزلية.',
         imageUrl: 'assets/images/khedma_icon.png',
         icon: Icons.handyman_rounded,
       ),
       OnboardingPageData(
-        title: 'شارك الخير وتابع طلبك',
+        title: 'اختَر مقدم الخدمة الأنسب',
         subtitle:
-            'قدّم احتياجًا للمجتمع أو تبرّع لجمعية، وتابع حالة الطلب حتى الاستلام.',
-        imageUrl: 'assets/images/onboarding_impact.png',
-        icon: Icons.volunteer_activism_rounded,
+            'قارن التخصصات والتقييمات والموقع، واطّلع على تفاصيل مقدم الخدمة قبل التواصل.',
+        imageUrl: 'assets/images/khedma_icon.png',
+        icon: Icons.location_searching_rounded,
+      ),
+      OnboardingPageData(
+        title: 'انشر احتياجك للخدمة',
+        subtitle:
+            'اكتب الخدمة التي تحتاجها، واستقبل تواصل مقدمي الخدمات وتابع احتياجك بسهولة.',
+        imageUrl: 'assets/images/khedma_icon.png',
+        icon: Icons.assignment_rounded,
       ),
     ];
   }

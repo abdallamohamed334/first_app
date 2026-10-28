@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 import 'package:loqma/features/community/presentation/pages/community_need_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/add_community_need_page.dart';
+import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 
 enum _NeedSort { newest, oldest, urgent }
 
@@ -26,16 +27,27 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
   final _repository = CommunityNeedsRepository();
   late TabController _tabController;
 
-  // ─────────────── الألوان ───────────────
-  static const _green = Color(0xFF0B7650);
-  static const _greenSoft = Color(0xFFE8F5EE);
-  static const _darkGreen = Color(0xFF0F2E23);
-  static const _background = Color(0xFFF5F9F7);
-  static const _red = Color(0xFFB54747);
-  static const _blue = Color(0xFF3679C8);
-  static const _orange = Color(0xFFE28B00);
-  static const _muted = Color(0xFF71837C);
-  static const _border = Color(0xFFE8F1EC);
+  // الألوان مشتركة مع الرئيسية وتتكيّف مع الوضع الداكن.
+  bool get _isDark => HomePalette.isDark;
+  ColorScheme get _scheme => Theme.of(context).colorScheme;
+  Color get _primary => HomePalette.primaryRed;
+  Color get _primaryDark =>
+      _isDark ? const Color(0xFF45131A) : const Color(0xFFB81F2A);
+  Color get _primarySoft => _primary.withValues(alpha: _isDark ? 0.20 : 0.10);
+  Color get _green =>
+      _isDark ? const Color(0xFF77D7A2) : const Color(0xFF20845B);
+  Color get _greenSoft =>
+      _green.withValues(alpha: _isDark ? 0.20 : 0.10);
+  Color get _darkGreen => HomePalette.textPrimary;
+  Color get _background => HomePalette.bg;
+  Color get _card => HomePalette.card;
+  Color get _cardSoft => HomePalette.cardSoft;
+  Color get _red => _scheme.error;
+  Color get _blue => _scheme.secondary;
+  Color get _orange =>
+      _isDark ? const Color(0xFFFFC96B) : const Color(0xFF9A6400);
+  Color get _muted => HomePalette.textSecondary;
+  Color get _border => HomePalette.border;
 
   // ─────────────── الحالة ───────────────
   bool _loading = true;
@@ -101,7 +113,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       await _loadNeeds();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
               '✅ تم تحديث الاحتياج بنجاح',
               textDirection: TextDirection.rtl,
@@ -124,7 +136,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: _red),
             SizedBox(width: 8),
@@ -156,7 +168,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             '✅ تم إلغاء الاحتياج',
             textDirection: TextDirection.rtl,
@@ -171,7 +183,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       debugPrint('❌ cancelNeed error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
               'تعذر إلغاء الاحتياج',
               textDirection: TextDirection.rtl,
@@ -194,7 +206,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.visibility_off_rounded, color: _red),
             SizedBox(width: 8),
@@ -233,7 +245,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             '✅ تم الإخفاء من عندك',
             textDirection: TextDirection.rtl,
@@ -349,7 +361,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _card,
         foregroundColor: _darkGreen,
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -387,12 +399,12 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                       width: 4,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: _green,
+                        color: _primary,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       'احتياجاتي المنشورة',
                       style: TextStyle(
                         color: _darkGreen,
@@ -465,7 +477,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           _loadNeeds();
         }
       },
-      backgroundColor: _green,
+      backgroundColor: _primary,
       foregroundColor: Colors.white,
       elevation: 3,
       icon: const Icon(Icons.add_rounded),
@@ -503,7 +515,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           ),
           if (selected) ...[
             const Spacer(),
-            const Icon(Icons.check_rounded, size: 16, color: _green),
+            Icon(Icons.check_rounded, size: 16, color: _green),
           ],
         ],
       ),
@@ -512,7 +524,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: _green));
+      return Center(child: CircularProgressIndicator(color: _primary));
     }
 
     if (_errorMessage != null) {
@@ -533,18 +545,18 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
           margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _border),
           ),
           child: TabBar(
             controller: _tabController,
             indicator: BoxDecoration(
-              color: _green,
+              color: _primary,
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: _green.withValues(alpha: 0.3),
+                  color: _primary.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),
@@ -604,8 +616,8 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_darkGreen, _green],
+        gradient: LinearGradient(
+          colors: [_primaryDark, _primary],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -677,13 +689,13 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                 isActive
                     ? Icons.handyman_outlined
                     : Icons.timer_off_outlined,
-                color: _green.withValues(alpha: 0.4),
+                color: _primary.withValues(alpha: 0.45),
                 size: 60,
               ),
               const SizedBox(height: 16),
               Text(
                 isActive ? 'مفيش احتياجات نشطة' : 'مفيش احتياجات منتهية',
-                style: const TextStyle(
+                style: TextStyle(
                   color: _darkGreen,
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -735,7 +747,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
-        color: Colors.white,
+        color: _card,
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -813,7 +825,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                               title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: _darkGreen,
                                 fontSize: 15.5,
                                 fontWeight: FontWeight.w900,
@@ -823,7 +835,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(Icons.local_offer_rounded,
+                                Icon(Icons.local_offer_rounded,
                                     size: 12, color: _muted),
                                 const SizedBox(width: 4),
                                 Flexible(
@@ -831,7 +843,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                     categoryName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: _muted,
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w700,
@@ -856,7 +868,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                 color: _green.withValues(alpha: 0.2),
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.edit_rounded,
                               color: _green,
                               size: 16,
@@ -875,7 +887,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                 color: _red.withValues(alpha: 0.2),
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.delete_outline_rounded,
                               color: _red,
                               size: 16,
@@ -895,7 +907,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                 color: _red.withValues(alpha: 0.25),
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.visibility_off_rounded,
                               color: _red,
                               size: 18,
@@ -952,7 +964,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                   color: _blue.withValues(alpha: 0.12),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.people_alt_rounded,
                                   color: _blue,
                                   size: 17,
@@ -962,7 +974,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                               Expanded(
                                 child: Text(
                                   '$contactCount شخص تواصلوا معاك',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: _blue,
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w900,
@@ -986,7 +998,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                       : Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FBF9),
+                            color: _cardSoft,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Row(
@@ -998,14 +1010,14 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                   color: _muted.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.people_outline_rounded,
                                   color: _muted,
                                   size: 17,
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   'لسه محدش تواصل معاك',
                                   style: TextStyle(
@@ -1015,7 +1027,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                                   ),
                                 ),
                               ),
-                              const Icon(Icons.chevron_left_rounded,
+                              Icon(Icons.chevron_left_rounded,
                                   color: _muted, size: 18),
                             ],
                           ),
@@ -1095,7 +1107,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _cardSoft,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -1130,18 +1142,18 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
               width: 90,
               height: 90,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: _greenSoft,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.handyman_outlined,
                 color: _green,
                 size: 42,
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'مفيش احتياجات لسه',
               style: TextStyle(
                 color: _darkGreen,
@@ -1150,7 +1162,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'ابدأ بنشر احتياجك الأول',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -1180,7 +1192,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
                 color: _red.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.cloud_off_rounded,
                 color: _red,
                 size: 38,
@@ -1190,7 +1202,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
             Text(
               _errorMessage ?? 'تعذر التحميل',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _darkGreen,
                 fontSize: 15,
                 fontWeight: FontWeight.w900,
@@ -1202,7 +1214,7 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('إعادة المحاولة'),
               style: FilledButton.styleFrom(
-                backgroundColor: _green,
+                backgroundColor: _primary,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -1270,9 +1282,9 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
     return Container(
       width: double.infinity,
       height: 148,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_greenSoft, Color(0xFFD6EFE3)],
+          colors: [_primarySoft, _cardSoft],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
@@ -1281,9 +1293,9 @@ class _MyCommunityNeedsPageState extends State<MyCommunityNeedsPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.handyman_rounded, color: _green, size: 38),
+          Icon(Icons.handyman_rounded, color: _primary, size: 38),
           const SizedBox(height: 6),
-          Text(categoryName, style: const TextStyle(color: _green, fontSize: 11, fontWeight: FontWeight.w800)),
+          Text(categoryName, style: TextStyle(color: _primary, fontSize: 11, fontWeight: FontWeight.w800)),
         ],
       ),
     );
