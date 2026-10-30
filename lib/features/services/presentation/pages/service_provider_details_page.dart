@@ -8,6 +8,7 @@ import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/domain/entities/service_review.dart';
 import 'package:loqma/features/services/presentation/widgets/rating_sheet.dart';
 import 'package:loqma/features/services/presentation/services/provider_profile_share_service.dart';
+import 'package:loqma/features/provider/data/repositories/service_job_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceProviderDetailsPage extends StatefulWidget {
@@ -26,6 +27,7 @@ class ServiceProviderDetailsPage extends StatefulWidget {
 class _ServiceProviderDetailsPageState
     extends State<ServiceProviderDetailsPage> {
   final _repository = ServiceProvidersRepository();
+  final _jobsRepository = ServiceJobRepository();
 
   // ✅ نحتفظ بالـ provider في state عشان نقدر نحدّثه
   late ServiceProvider _provider;
@@ -346,6 +348,9 @@ class _ServiceProviderDetailsPageState
                         ),
                         const SizedBox(height: 18),
                       ],
+
+                      _buildCompletedJobsSection(),
+                      const SizedBox(height: 18),
 
                       // ── الفروع
                       if (p.isCompany && p.branches.isNotEmpty) ...[
@@ -1328,6 +1333,110 @@ class _ServiceProviderDetailsPageState
   // ═══════════════════════════════════════════════════════════
   // Branches
   // ═══════════════════════════════════════════════════════════
+  Widget _buildCompletedJobsSection() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _jobsRepository.publicCompletions(_provider.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildSection(
+            title: 'الأعمال المنفذة',
+            icon: Icons.handyman_rounded,
+            child: const Padding(
+              padding: EdgeInsets.all(12),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        final jobs = snapshot.data ?? const <Map<String, dynamic>>[];
+        if (jobs.isEmpty) return const SizedBox.shrink();
+        final confirmed = jobs.where((job) => job['status'] == 'confirmed').length;
+        return _buildSection(
+          title: 'الأعمال المنفذة',
+          icon: Icons.handyman_rounded,
+          trailing: '$confirmed مؤكدة',
+          child: Column(
+            children: jobs.map(_buildPublicCompletedJob).toList(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPublicCompletedJob(Map<String, dynamic> job) {
+    final status = job['status']?.toString() ?? 'unconfirmed';
+    final paths = (job['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+    final executed = DateTime.tryParse(job['executed_on']?.toString() ?? '');
+    final date = executed == null ? '—' : '${executed.day}/${executed.month}/${executed.year}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(date, style: const TextStyle(color: _textSecondary, fontSize: 12))),
+              Text(
+                status == 'confirmed' ? 'مؤكدة من العميل ✓' : 'غير مؤكدة',
+                style: TextStyle(
+                  color: status == 'confirmed' ? Colors.greenAccent : Colors.orangeAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(job['description']?.toString() ?? '', style: const TextStyle(color: _textPrimary, height: 1.4)),
+          if (paths.isNotEmpty && job['photos_hidden'] != true) ...[
+            const SizedBox(height: 9),
+            SizedBox(
+              height: 78,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: paths.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 7),
+                itemBuilder: (_, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(_jobsRepository.imageUrl(paths[index]), width: 78, height: 78, fit: BoxFit.cover),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  try {
+                    await _jobsRepository.requestAction(completionId: job['id'].toString(), actionType: 'delete_photos', reason: 'طلب العميل حذف الصور');
+                    if (mounted) _snack('تم تسجيل طلب حذف الصور');
+                  } catch (_) {
+                    if (mounted) _snack('سجّل دخولك لإرسال الطلب');
+                  }
+                },
+                icon: const Icon(Icons.delete_outline, size: 17),
+                label: const Text('طلب حذف الصور'),
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  try {
+                    await _jobsRepository.requestAction(completionId: job['id'].toString(), actionType: 'report', reason: 'إبلاغ عن شغلانة منشورة');
+                    if (mounted) _snack('تم إرسال البلاغ للمراجعة');
+                  } catch (_) {
+                    if (mounted) _snack('سجّل دخولك لإرسال البلاغ');
+                  }
+                },
+                icon: const Icon(Icons.flag_outlined, size: 17),
+                label: const Text('إبلاغ'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBranches(ServiceProvider p) {
     return Column(
       children: p.branches.asMap().entries.map<Widget>((entry) {

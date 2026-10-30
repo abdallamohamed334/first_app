@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
+import 'provider_service_jobs_page.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/services/provider_profile_share_service.dart';
 import 'package:loqma/routes/app_router.dart';
@@ -479,6 +480,17 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
             subtitle: 'ابعت رابط بروفايلك للعميل على واتساب',
             color: _green,
             onTap: _shareRatingLink,
+          ),
+          _divider(),
+          _menuItem(
+            icon: Icons.handyman_rounded,
+            title: 'الأعمال المنفذة',
+            subtitle: 'الصور والتاريخ وعدد الشغلانات المؤكدة',
+            color: _primary,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ProviderServiceJobsPage()),
+            ),
           ),
           _divider(),
           _menuItem(

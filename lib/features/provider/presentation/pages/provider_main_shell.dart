@@ -11,6 +11,7 @@ import 'package:loqma/routes/app_router.dart';
 import 'provider_dashboard_page.dart';
 import 'provider_reviews_page.dart';
 import 'provider_profile_page.dart';
+import 'provider_service_jobs_page.dart';
 
 class ProviderMainShell extends StatefulWidget {
   const ProviderMainShell({super.key});
@@ -32,6 +33,7 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
   late final List<Widget> _pages = const <Widget>[
     ProviderDashboardPage(),
     ProviderReviewsPage(),
+    ProviderServiceJobsPage(),
     ProviderProfilePage(),
   ];
 
@@ -131,7 +133,8 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
                   children: [
                     _navItem(0, Icons.home_rounded, 'الرئيسية'),
                     _navItem(1, Icons.star_rounded, 'التقييمات'),
-                    _navItem(2, Icons.person_rounded, 'حسابي'),
+                    _navItem(2, Icons.task_alt_rounded, 'الشغلانات'),
+                    _navItem(3, Icons.person_rounded, 'حسابي'),
                   ],
                 ),
               ),

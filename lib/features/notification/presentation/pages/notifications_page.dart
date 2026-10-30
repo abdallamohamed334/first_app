@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:loqma/features/donation/presentation/pages/offer_details_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_my_requests_page.dart';
 import 'package:loqma/core/services/supabase_service.dart';
+import 'package:loqma/features/services/presentation/widgets/rating_sheet.dart';
 import '../bloc/notification_bloc.dart';
 import '../bloc/notification_event.dart';
 import '../bloc/notification_state.dart';
@@ -148,6 +149,50 @@ class _NotificationsPageState extends State<NotificationsPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تعذر حذف الإشعار. حاول مرة أخرى.')),
+      );
+    }
+  }
+
+  Future<void> _respondToServiceJob(
+    BuildContext context,
+    AppNotification notification,
+    String response,
+  ) async {
+    final completionId = notification.referenceId;
+    if (completionId == null) return;
+    try {
+      final client = SupabaseService().client;
+      final result = await client.rpc(
+        'respond_service_job_completion',
+        params: {'p_completion_id': completionId, 'p_response': response},
+      );
+      if (!context.mounted) return;
+      context.read<NotificationBloc>().add(LoadNotifications(widget.userId));
+      if (result.toString() != 'confirmed' || response != 'confirmed') return;
+
+      final completion = await client
+          .from('service_job_completions')
+          .select('provider_id, service_providers(display_name)')
+          .eq('id', completionId)
+          .maybeSingle();
+      if (!context.mounted || completion == null) return;
+      final provider = completion['service_providers'];
+      final providerName = provider is Map
+          ? provider['display_name']?.toString() ?? 'مقدم الخدمة'
+          : 'مقدم الخدمة';
+      await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => RatingSheet(
+          providerId: completion['provider_id'].toString(),
+          providerName: providerName,
+          userId: widget.userId,
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
       );
     }
   }
@@ -300,6 +345,14 @@ class _NotificationsPageState extends State<NotificationsPage>
                         }
                         _handleNotificationTap(context, notification);
                       },
+                      onConfirm: notification.referenceType == 'service_job_completion' &&
+                              notification.title.startsWith('هل تمت هذه الشغلانة')
+                          ? () => _respondToServiceJob(context, notification, 'confirmed')
+                          : null,
+                      onDispute: notification.referenceType == 'service_job_completion' &&
+                              notification.title.startsWith('هل تمت هذه الشغلانة')
+                          ? () => _respondToServiceJob(context, notification, 'disputed')
+                          : null,
                     ),
                   );
                 },
@@ -318,11 +371,15 @@ class _NotificationsPageState extends State<NotificationsPage>
 class NotificationCard extends StatelessWidget {
   final AppNotification notification;
   final VoidCallback onTap;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onDispute;
 
   const NotificationCard({
     super.key,
     required this.notification,
     required this.onTap,
+    this.onConfirm,
+    this.onDispute,
   });
 
   @override
@@ -458,6 +515,37 @@ class NotificationCard extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (onConfirm != null || onDispute != null) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              if (onConfirm != null)
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: onConfirm,
+                                    icon: const Icon(Icons.check_rounded, size: 18),
+                                    label: const Text('تأكيد'),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.green.shade700,
+                                    ),
+                                  ),
+                                ),
+                              if (onConfirm != null && onDispute != null)
+                                const SizedBox(width: 8),
+                              if (onDispute != null)
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: onDispute,
+                                    icon: const Icon(Icons.flag_outlined, size: 18),
+                                    label: const Text('اعتراض'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
