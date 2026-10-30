@@ -21,9 +21,16 @@ class ServiceCategoryIcons {
   static IconData getIcon(String? iconName) {
     switch (iconName?.toLowerCase().trim()) {
       case 'plumbing':
+      case '🔧':
         return Icons.plumbing_rounded;
       case 'electrical':
+      case 'electricity':
+      case '⚡':
         return Icons.electrical_services_rounded;
+      case 'screen_maintenance':
+      case 'screens':
+      case '📺':
+        return Icons.tv_rounded;
       case 'carpentry':
         return Icons.handyman_rounded;
       case 'painting':
@@ -51,7 +58,12 @@ class ServiceCategoryIcons {
       case 'garden':
         return Icons.yard_rounded;
       case 'moving':
+      case 'transportation':
+      case '🚚':
         return Icons.local_shipping_rounded;
+      case 'daily_wage':
+      case '🧰':
+        return Icons.engineering_rounded;
       case 'construction':
         return Icons.engineering_rounded;
       case 'other':
@@ -65,9 +77,16 @@ class ServiceCategoryIcons {
   static Color getColor(String? iconName) {
     switch (iconName?.toLowerCase().trim()) {
       case 'plumbing':
+      case '🔧':
         return _blue;
       case 'electrical':
+      case 'electricity':
+      case '⚡':
         return const Color(0xFFFFB300);
+      case 'screen_maintenance':
+      case 'screens':
+      case '📺':
+        return _teal;
       case 'carpentry':
         return _brown;
       case 'painting':
@@ -95,7 +114,12 @@ class ServiceCategoryIcons {
       case 'garden':
         return const Color(0xFF2E7D32);
       case 'moving':
+      case 'transportation':
+      case '🚚':
         return _orange;
+      case 'daily_wage':
+      case '🧰':
+        return _purple;
       case 'construction':
         return const Color(0xFFFF6B35);
       case 'other':

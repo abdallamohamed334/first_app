@@ -2398,9 +2398,16 @@ class _ServiceProviderDetailsPageState
   IconData _iconFromName(String name) {
     switch (name) {
       case 'plumbing':
+      case '🔧':
         return Icons.plumbing_rounded;
       case 'electrical':
+      case 'electricity':
+      case '⚡':
         return Icons.electrical_services_rounded;
+      case 'screen_maintenance':
+      case 'screens':
+      case '📺':
+        return Icons.tv_rounded;
       case 'carpentry':
         return Icons.handyman_rounded;
       case 'painting':
@@ -2428,7 +2435,12 @@ class _ServiceProviderDetailsPageState
       case 'garden':
         return Icons.grass_rounded;
       case 'moving':
+      case 'transportation':
+      case '🚚':
         return Icons.local_shipping_rounded;
+      case 'daily_wage':
+      case '🧰':
+        return Icons.engineering_rounded;
       case 'construction':
         return Icons.construction_rounded;
       default:
