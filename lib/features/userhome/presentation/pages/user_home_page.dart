@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -1335,10 +1334,7 @@ class _UserHomePageState extends State<UserHomePage> {
         .toList(growable: false);
     final center = _serviceProvidersMapCenter(providers);
     final zoom = _serviceProvidersMapZoom(providers);
-    final mapProviders = <ServiceProvider>[
-      ...providers,
-      ..._debugMapProviderFixtures(center),
-    ];
+    final mapProviders = providers;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1942,54 +1938,6 @@ class _UserHomePageState extends State<UserHomePage> {
       ),
     );
   }
-
-
-  List<ServiceProvider> _debugMapProviderFixtures(LatLng center) {
-    if (!kDebugMode || _serviceCategories.isEmpty) return const [];
-
-    const fixtures = <(String, String, double, double, double, int)>[
-      ('tailoring', 'خياط تجريبي — اختبار محلي', 0.0020, 0.0015, 4.8, 12),
-      ('computer_repair', 'صيانة كمبيوتر — اختبار محلي', -0.0015, 0.0022, 4.7, 9),
-      ('plumbing', 'سباك تجريبي — اختبار محلي', 0.0011, -0.0025, 4.6, 8),
-      ('electricity', 'كهربائي تجريبي — اختبار محلي', -0.0022, -0.0011, 4.9, 15),
-      ('barber', 'حلاق تجريبي — اختبار محلي', 0.0030, -0.0010, 4.5, 6),
-    ];
-    final categoriesBySlug = {
-      for (final category in _serviceCategories)
-        category.slug.trim().toLowerCase(): category,
-    };
-    final samples = <ServiceProvider>[];
-
-    for (final fixture in fixtures) {
-      final category = categoriesBySlug[fixture.$1];
-      if (category == null) continue;
-      samples.add(
-        ServiceProvider(
-          id: 'debug-map-${fixture.$1}',
-          userId: 'debug-map-user-${fixture.$1}',
-          categoryId: category.id,
-          categoryName: category.nameAr,
-          categoryIcon: category.icon,
-          categorySlug: category.slug,
-          displayName: fixture.$2,
-          bio: 'بيانات محلية للاختبار فقط؛ لا تُحفظ في قاعدة البيانات.',
-          governorate: _userGovernorate ?? 'الغربية',
-          city: _userCity,
-          address: 'موقع تجريبي قريب منك',
-          latitude: center.latitude + fixture.$3,
-          longitude: center.longitude + fixture.$4,
-          ratingAvg: fixture.$5,
-          totalReviews: fixture.$6,
-          verificationStatus: 'approved',
-          isActive: true,
-          isAvailable: true,
-          ownerName: 'عينة للاختبار',
-        ),
-      );
-    }
-    return samples;
-  }
-
   IconData _serviceIconFromSlug(String slug) {
     switch (slug.trim().toLowerCase()) {
       case 'plumbing':
