@@ -135,6 +135,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                   MarkerLayer(
                     markers: points.map((provider) {
                       final selected = _selected?.id == provider.id;
+                      final markerColor = _categoryColor(provider.categorySlug);
                       return Marker(
                         point: LatLng(provider.latitude!, provider.longitude!),
                         width: selected ? 58 : 48,
@@ -148,11 +149,14 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                                 width: selected ? 48 : 40,
                                 height: selected ? 48 : 40,
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? const Color(0xFFE31C25)
-                                      : const Color(0xFF3679C8),
+                                  color: markerColor,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 3),
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF202833)
+                                        : Colors.white,
+                                    width: selected ? 3.5 : 2.5,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.25),
@@ -161,19 +165,14 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                                     ),
                                   ],
                                 ),
-                                child: Icon(
-                                  provider.isCompany
-                                      ? Icons.business_rounded
-                                      : Icons.handyman_rounded,
-                                  color: Colors.white,
-                                  size: selected ? 23 : 19,
+                                child: _categoryMarkerSymbol(
+                                  provider,
+                                  selected: selected,
                                 ),
                               ),
                               Icon(
                                 Icons.arrow_drop_down_rounded,
-                                color: selected
-                                    ? const Color(0xFFE31C25)
-                                    : const Color(0xFF3679C8),
+                                color: markerColor,
                                 size: 20,
                               ),
                             ],
@@ -197,7 +196,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
               ),
             ),
             Positioned(
-              top: 78,
+              top: 112,
               right: 14,
               child: _mapPill(
                 icon: Icons.location_on_rounded,
@@ -260,59 +259,198 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   }
 
   Widget _buildCategoryFilter() {
-    if (_loadingCategories && _categories.isEmpty) {
-      return const SizedBox(
-        height: 58,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    const selectedColor = Color(0xFF3679C8);
-    return SizedBox(
-      height: 62,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: _categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final isAll = index == 0;
-          final category = isAll ? null : _categories[index - 1];
-          final selected = isAll
-              ? _selectedCategoryId == null
-              : _selectedCategoryId == category!.id;
-          return ChoiceChip(
-            selected: selected,
-            onSelected: (_) => _selectCategory(category?.id),
-            selectedColor: selectedColor,
-            backgroundColor: _surface,
-            side: BorderSide(
-              color: selected ? selectedColor : _muted.withValues(alpha: 0.25),
-            ),
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isAll && category?.icon?.isNotEmpty == true) ...[
-                  Text(category!.icon!),
-                  const SizedBox(width: 5),
-                ] else if (isAll) ...[
-                  const Icon(Icons.apps_rounded, size: 16),
-                  const SizedBox(width: 5),
-                ],
-                Text(isAll ? 'كل الخدمات' : category!.nameAr),
+    final totalProviders = _countMappableProviders(null);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+      decoration: BoxDecoration(
+        color: _surface.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 17, color: _muted),
+              const SizedBox(width: 6),
+              Text(
+                'فلترة حسب التخصص',
+                style: TextStyle(
+                  color: _text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_countMappableProviders(_selectedCategoryId)} من $totalProviders',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (_selectedCategoryId != null) ...[
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () => _selectCategory(null),
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('مسح'),
+                ),
               ],
-            ),
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : _text,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-            showCheckmark: false,
-          );
-        },
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 39,
+            child: _loadingCategories && _categories.isEmpty
+                ? const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _categories.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    itemBuilder: (context, index) {
+                      final isAll = index == 0;
+                      final category = isAll ? null : _categories[index - 1];
+                      final selected = isAll
+                          ? _selectedCategoryId == null
+                          : _selectedCategoryId == category!.id;
+                      final count = _countMappableProviders(category?.id);
+                      return ChoiceChip(
+                        selected: selected,
+                        onSelected: (_) => _selectCategory(
+                          selected && !isAll ? null : category?.id,
+                        ),
+                        selectedColor: const Color(0xFF3679C8),
+                        backgroundColor: _surface,
+                        side: BorderSide(
+                          color: selected
+                              ? const Color(0xFF3679C8)
+                              : _muted.withValues(alpha: 0.25),
+                        ),
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isAll && category?.icon?.isNotEmpty == true) ...[
+                              Text(category!.icon!, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 4),
+                            ] else if (isAll) ...[
+                              const Icon(Icons.apps_rounded, size: 15),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(isAll ? 'الكل' : category!.nameAr),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$count',
+                              style: TextStyle(
+                                color: selected ? Colors.white70 : _muted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        labelStyle: TextStyle(
+                          color: selected ? Colors.white : _text,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        showCheckmark: false,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
+  }
+
+  int _countMappableProviders(String? categoryId) => widget.providers
+      .where((provider) =>
+          provider.latitude != null &&
+          provider.longitude != null &&
+          (categoryId == null || provider.categoryId == categoryId))
+      .length;
+
+  Widget _categoryMarkerSymbol(
+    ServiceProvider provider, {
+    required bool selected,
+  }) {
+    final size = selected ? 23.0 : 20.0;
+    switch (provider.categoryIcon?.trim()) {
+      case '🔧':
+      case '⚡':
+      case '📺':
+      case '🚚':
+      case '🧰':
+        return Center(
+          child: Text(
+            provider.categoryIcon!.trim(),
+            style: TextStyle(fontSize: size, height: 1),
+          ),
+        );
+      default:
+        return Icon(
+          _iconForCategorySlug(provider.categorySlug),
+          color: Colors.white,
+          size: size,
+        );
+    }
+  }
+
+  Color _categoryColor(String? slug) {
+    switch (slug) {
+      case 'plumbing':
+        return const Color(0xFF2388D1);
+      case 'electricity':
+      case 'electrical':
+        return const Color(0xFFE2A400);
+      case 'screen_maintenance':
+      case 'screens':
+        return const Color(0xFF7950B7);
+      case 'transportation':
+      case 'moving':
+        return const Color(0xFF168A72);
+      case 'daily_wage':
+        return const Color(0xFFE76831);
+      default:
+        return const Color(0xFF3679C8);
+    }
+  }
+
+  IconData _iconForCategorySlug(String? slug) {
+    switch (slug) {
+      case 'plumbing':
+        return Icons.plumbing_rounded;
+      case 'electricity':
+      case 'electrical':
+        return Icons.electrical_services_rounded;
+      case 'screen_maintenance':
+      case 'screens':
+        return Icons.tv_rounded;
+      case 'transportation':
+      case 'moving':
+        return Icons.local_shipping_rounded;
+      case 'daily_wage':
+        return Icons.engineering_rounded;
+      default:
+        return Icons.handyman_rounded;
+    }
   }
 
   LatLng _providersMapCenter(
