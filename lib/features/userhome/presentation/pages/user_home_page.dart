@@ -3120,7 +3120,7 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       ),
       child: SizedBox(
-        height: 248,
+        height: 286,
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -3137,6 +3137,8 @@ class _UserHomePageState extends State<UserHomePage> {
             return HomeNearbySymbolicProviderCard(
               provider: provider,
               distanceKm: distance,
+              onCall: _callProvider,
+              onWhatsapp: _whatsappProvider,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => ServiceProviderDetailsPage(
@@ -3261,6 +3263,18 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildServiceProviderCard(ServiceProvider provider) {
     final profileImage = provider.profileImageUrl?.trim();
+    final phone = provider.phone?.trim();
+    final whatsapp = provider.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
     final location = [
       provider.city?.trim(),
       provider.governorate?.trim() ?? _userGovernorate,
@@ -3446,25 +3460,24 @@ class _UserHomePageState extends State<UserHomePage> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      if (provider.phone?.trim().isNotEmpty == true)
+                      if (callNumber != null)
                         Expanded(
                           child: _providerContactButton(
                             icon: Icons.phone_rounded,
                             label: 'اتصل',
                             color: _green,
-                            onTap: () => _callProvider(provider.phone!),
+                            onTap: () => _callProvider(callNumber),
                           ),
                         ),
-                      if (provider.phone?.trim().isNotEmpty == true &&
-                          provider.whatsapp?.trim().isNotEmpty == true)
+                      if (callNumber != null && whatsappNumber != null)
                         const SizedBox(width: 8),
-                      if (provider.whatsapp?.trim().isNotEmpty == true)
+                      if (whatsappNumber != null)
                         Expanded(
                           child: _providerContactButton(
                             icon: Icons.chat_rounded,
                             label: 'واتساب',
                             color: const Color(0xFF25D366),
-                            onTap: () => _whatsappProvider(provider.whatsapp!),
+                            onTap: () => _whatsappProvider(whatsappNumber),
                           ),
                         ),
                     ],

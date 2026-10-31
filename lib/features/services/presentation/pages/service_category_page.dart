@@ -465,6 +465,18 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     final isFree = p.isFree;
     final isSymbolic = p.isSymbolic;
     final isVerified = p.isVerified;
+    final phone = p.phone?.trim();
+    final whatsapp = p.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -742,28 +754,25 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                 Row(
                   children: [
                     // اتصل
-                    if (p.phone != null && p.phone!.isNotEmpty)
+                    if (callNumber != null)
                       Expanded(
                         child: _actionButton(
                           icon: Icons.phone_rounded,
                           label: 'اتصل',
                           color: _green,
-                          onTap: () => _makeCall(p.phone!),
+                          onTap: () => _makeCall(callNumber),
                         ),
                       ),
-                    if (p.phone != null &&
-                        p.phone!.isNotEmpty &&
-                        p.whatsapp != null &&
-                        p.whatsapp!.isNotEmpty)
+                    if (callNumber != null && whatsappNumber != null)
                       const SizedBox(width: 8),
                     // واتساب
-                    if (p.whatsapp != null && p.whatsapp!.isNotEmpty)
+                    if (whatsappNumber != null)
                       Expanded(
                         child: _actionButton(
                           icon: Icons.chat_rounded,
                           label: 'واتساب',
                           color: const Color(0xFF25D366),
-                          onTap: () => _openWhatsapp(p.whatsapp!),
+                          onTap: () => _openWhatsapp(whatsappNumber),
                         ),
                       ),
                   ],

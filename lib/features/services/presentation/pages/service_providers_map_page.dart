@@ -6,6 +6,7 @@ import 'package:loqma/features/services/data/repositories/service_categories_rep
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ServiceProvidersMapPage extends StatefulWidget {
   final List<ServiceProvider> providers;
@@ -204,7 +205,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
               ),
             ),
             Positioned(
-              bottom: _selected == null ? 16 : 142,
+              bottom: _selected == null ? 16 : 198,
               left: 14,
               child: FloatingActionButton.small(
                 heroTag: 'service-map-center',
@@ -376,6 +377,18 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   }
 
   Widget _buildProviderCard(ServiceProvider provider) {
+    final phone = provider.phone?.trim();
+    final whatsapp = provider.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
     return Material(
       color: _surface,
       borderRadius: BorderRadius.circular(22),
@@ -453,6 +466,33 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                         ],
                       ],
                     ),
+                    if (callNumber != null || whatsappNumber != null) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          if (callNumber != null)
+                            Expanded(
+                              child: _contactButton(
+                                icon: Icons.phone_rounded,
+                                label: 'اتصل',
+                                color: const Color(0xFF0B7650),
+                                onTap: () => _makeCall(callNumber),
+                              ),
+                            ),
+                          if (callNumber != null && whatsappNumber != null)
+                            const SizedBox(width: 8),
+                          if (whatsappNumber != null)
+                            Expanded(
+                              child: _contactButton(
+                                icon: Icons.chat_rounded,
+                                label: 'واتساب',
+                                color: const Color(0xFF25D366),
+                                onTap: () => _openWhatsapp(whatsappNumber),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -461,6 +501,57 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         ),
       ),
     );
+  }
+
+  Widget _contactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _makeCall(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    } catch (_) {}
+  }
+
+  Future<void> _openWhatsapp(String phone) async {
+    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '20${cleaned.substring(1)}';
+    } else if (!cleaned.startsWith('20') && cleaned.length == 10) {
+      cleaned = '20$cleaned';
+    }
+    final uri = Uri.parse('https://wa.me/$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
   }
 
   Widget _providerImage(ServiceProvider provider) {

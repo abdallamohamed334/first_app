@@ -160,16 +160,32 @@ class HomeNearbySymbolicProviderCard extends StatelessWidget {
   final ServiceProvider provider;
   final double distanceKm;
   final VoidCallback onTap;
+  final Future<void> Function(String) onCall;
+  final Future<void> Function(String) onWhatsapp;
 
   const HomeNearbySymbolicProviderCard({
     required this.provider,
     required this.distanceKm,
     required this.onTap,
+    required this.onCall,
+    required this.onWhatsapp,
   });
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = provider.profileImageUrl;
+    final phone = provider.phone?.trim();
+    final whatsapp = provider.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
     final distanceLabel = distanceKm < 1
         ? '${(distanceKm * 1000).round()} متر'
         : '${distanceKm.toStringAsFixed(1)} كم';
@@ -295,11 +311,73 @@ class HomeNearbySymbolicProviderCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (callNumber != null || whatsappNumber != null) ...[
+                      const SizedBox(height: 9),
+                      Row(
+                        children: [
+                          if (callNumber != null)
+                            Expanded(
+                              child: _providerContactButton(
+                                icon: Icons.phone_rounded,
+                                label: 'اتصل',
+                                color: const Color(0xFF0B7650),
+                                onTap: () => onCall(callNumber),
+                              ),
+                            ),
+                          if (callNumber != null && whatsappNumber != null)
+                            const SizedBox(width: 7),
+                          if (whatsappNumber != null)
+                            Expanded(
+                              child: _providerContactButton(
+                                icon: Icons.chat_rounded,
+                                label: 'واتساب',
+                                color: const Color(0xFF25D366),
+                                onTap: () => onWhatsapp(whatsappNumber),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _providerContactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: color.withValues(alpha: 0.32)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ),
     );
