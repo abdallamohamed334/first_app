@@ -8,7 +8,7 @@ import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/domain/entities/service_review.dart';
 import 'package:loqma/features/services/presentation/widgets/rating_sheet.dart';
 import 'package:loqma/features/services/presentation/services/provider_profile_share_service.dart';
-import 'package:loqma/features/provider/data/repositories/service_job_repository.dart';
+import 'package:loqma/features/provider/data/repositories/provider_completed_work_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceProviderDetailsPage extends StatefulWidget {
@@ -27,7 +27,7 @@ class ServiceProviderDetailsPage extends StatefulWidget {
 class _ServiceProviderDetailsPageState
     extends State<ServiceProviderDetailsPage> {
   final _repository = ServiceProvidersRepository();
-  final _jobsRepository = ServiceJobRepository();
+  final _completedWorkRepository = ProviderCompletedWorkRepository();
 
   // ✅ نحتفظ بالـ provider في state عشان نقدر نحدّثه
   late ServiceProvider _provider;
@@ -1335,7 +1335,7 @@ class _ServiceProviderDetailsPageState
   // ═══════════════════════════════════════════════════════════
   Widget _buildCompletedJobsSection() {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _jobsRepository.publicCompletions(_provider.id),
+      future: _completedWorkRepository.listForProvider(_provider.id),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildSection(
@@ -1347,25 +1347,41 @@ class _ServiceProviderDetailsPageState
             ),
           );
         }
+        if (snapshot.hasError) {
+          return _buildSection(
+            title: 'الأعمال المنفذة',
+            icon: Icons.handyman_rounded,
+            child: const Text('تعذر تحميل الأعمال المنفذة حاليًا', style: TextStyle(color: _textSecondary)),
+          );
+        }
         final jobs = snapshot.data ?? const <Map<String, dynamic>>[];
-        if (jobs.isEmpty) return const SizedBox.shrink();
-        final confirmed = jobs.where((job) => job['status'] == 'confirmed').length;
+        if (jobs.isEmpty) {
+          return _buildSection(
+            title: 'الأعمال المنفذة',
+            icon: Icons.handyman_rounded,
+            child: const Text('لم يضف مزود الخدمة أعمالًا منفذة بعد', style: TextStyle(color: _textSecondary)),
+          );
+        }
         return _buildSection(
           title: 'الأعمال المنفذة',
           icon: Icons.handyman_rounded,
-          trailing: '$confirmed مؤكدة',
+          trailing: '${jobs.length} عمل',
           child: Column(
-            children: jobs.map(_buildPublicCompletedJob).toList(),
+            children: jobs.map(_buildPublicCompletedWork).toList(),
           ),
         );
       },
     );
   }
 
-  Widget _buildPublicCompletedJob(Map<String, dynamic> job) {
-    final status = job['status']?.toString() ?? 'unconfirmed';
-    final paths = (job['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
-    final executed = DateTime.tryParse(job['executed_on']?.toString() ?? '');
+  Widget _buildPublicCompletedWork(Map<String, dynamic> work) {
+    final paths = (work['photo_paths'] as List?)
+            ?.map((item) => item.toString())
+            .where((path) => path.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final amount = work['amount'];
+    final executed = DateTime.tryParse(work['executed_on']?.toString() ?? '');
     final date = executed == null ? '—' : '${executed.day}/${executed.month}/${executed.year}';
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1375,19 +1391,16 @@ class _ServiceProviderDetailsPageState
           Row(
             children: [
               Expanded(child: Text(date, style: const TextStyle(color: _textSecondary, fontSize: 12))),
-              Text(
-                status == 'confirmed' ? 'مؤكدة من العميل ✓' : 'غير مؤكدة',
-                style: TextStyle(
-                  color: status == 'confirmed' ? Colors.greenAccent : Colors.orangeAccent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+              if (amount != null)
+                Text(
+                  '${_formatCompletedWorkAmount(amount)} ج.م',
+                  style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.w900),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(job['description']?.toString() ?? '', style: const TextStyle(color: _textPrimary, height: 1.4)),
-          if (paths.isNotEmpty && job['photos_hidden'] != true) ...[
+          Text(work['description']?.toString() ?? '', style: const TextStyle(color: _textPrimary, height: 1.4)),
+          if (paths.isNotEmpty) ...[
             const SizedBox(height: 9),
             SizedBox(
               height: 78,
@@ -1397,44 +1410,33 @@ class _ServiceProviderDetailsPageState
                 separatorBuilder: (_, __) => const SizedBox(width: 7),
                 itemBuilder: (_, index) => ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(_jobsRepository.imageUrl(paths[index]), width: 78, height: 78, fit: BoxFit.cover),
+                  child: Image.network(
+                    _completedWorkRepository.imageUrl(paths[index]),
+                    width: 78,
+                    height: 78,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 78,
+                      height: 78,
+                      color: _cardSoft,
+                      child: const Icon(Icons.broken_image_outlined, color: _textSecondary),
+                    ),
+                  ),
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 7),
-          Wrap(
-            spacing: 8,
-            children: [
-              TextButton.icon(
-                onPressed: () async {
-                  try {
-                    await _jobsRepository.requestAction(completionId: job['id'].toString(), actionType: 'delete_photos', reason: 'طلب العميل حذف الصور');
-                    if (mounted) _snack('تم تسجيل طلب حذف الصور');
-                  } catch (_) {
-                    if (mounted) _snack('سجّل دخولك لإرسال الطلب');
-                  }
-                },
-                icon: const Icon(Icons.delete_outline, size: 17),
-                label: const Text('طلب حذف الصور'),
-              ),
-              TextButton.icon(
-                onPressed: () async {
-                  try {
-                    await _jobsRepository.requestAction(completionId: job['id'].toString(), actionType: 'report', reason: 'إبلاغ عن شغلانة منشورة');
-                    if (mounted) _snack('تم إرسال البلاغ للمراجعة');
-                  } catch (_) {
-                    if (mounted) _snack('سجّل دخولك لإرسال البلاغ');
-                  }
-                },
-                icon: const Icon(Icons.flag_outlined, size: 17),
-                label: const Text('إبلاغ'),
-              ),
-            ],
-          ),
         ],
       ),
     );
+  }
+
+  String _formatCompletedWorkAmount(dynamic amount) {
+    final parsed = double.tryParse(amount.toString());
+    if (parsed == null) return amount.toString();
+    return parsed == parsed.roundToDouble()
+        ? parsed.toStringAsFixed(0)
+        : parsed.toStringAsFixed(2);
   }
 
   Widget _buildBranches(ServiceProvider p) {

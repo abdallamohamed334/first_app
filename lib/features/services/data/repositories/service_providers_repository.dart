@@ -95,7 +95,7 @@ class ServiceProvidersRepository {
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     String? governorate,
-    int limit = 500,
+    int limit = 100,
   }) async {
     try {
       final cleanCity = city.trim();
