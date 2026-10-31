@@ -100,7 +100,8 @@ class UserHomePage extends StatefulWidget {
   State<UserHomePage> createState() => _UserHomePageState();
 }
 
-class _UserHomePageState extends State<UserHomePage> {
+class _UserHomePageState extends State<UserHomePage>
+    with WidgetsBindingObserver {
   final InstitutionOffersRepository _institutionOffersRepository =
       InstitutionOffersRepository();
   final UserHomeRepository _userHomeRepository = UserHomeRepository(
@@ -164,6 +165,7 @@ class _UserHomePageState extends State<UserHomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -183,7 +185,21 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refreshNearbyProvidersAfterResume();
+    }
+  }
+
+  Future<void> _refreshNearbyProvidersAfterResume() async {
+    await _loadUserLocation();
+    if (!mounted || _userLat == null || _userLng == null) return;
+    await _loadNearbySymbolicProviders();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
