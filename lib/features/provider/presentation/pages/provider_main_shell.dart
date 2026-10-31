@@ -133,7 +133,7 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
                   children: [
                     _navItem(0, Icons.home_rounded, 'الرئيسية'),
                     _navItem(1, Icons.star_rounded, 'التقييمات'),
-                    _navItem(2, Icons.task_alt_rounded, 'الشغلانات'),
+                    _navItem(2, Icons.task_alt_rounded, 'أعمالي المنفذة'),
                     _navItem(3, Icons.person_rounded, 'حسابي'),
                   ],
                 ),

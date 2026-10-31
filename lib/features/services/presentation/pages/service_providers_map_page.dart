@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,18 +8,21 @@ import 'package:loqma/features/services/data/repositories/service_categories_rep
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ServiceProvidersMapPage extends StatefulWidget {
   final List<ServiceProvider> providers;
-  final double userLatitude;
-  final double userLongitude;
+  final double latitude;
+  final double longitude;
+  final double radiusKm;
   final String city;
 
   const ServiceProvidersMapPage({
     super.key,
     required this.providers,
-    required this.userLatitude,
-    required this.userLongitude,
+    required this.latitude,
+    required this.longitude,
+    required this.radiusKm,
     required this.city,
   });
 
@@ -65,10 +70,21 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     }
   }
 
+  List<ServiceProvider> get _nearbyProviders => widget.providers
+      .where((provider) {
+        final lat = provider.latitude;
+        final lng = provider.longitude;
+        if (lat == null || lng == null) return false;
+        return _distanceKm(widget.latitude, widget.longitude, lat, lng) <=
+            widget.radiusKm;
+      })
+      .toList(growable: false);
+
   List<ServiceProvider> get _filteredProviders {
     final categoryId = _selectedCategoryId;
-    if (categoryId == null) return widget.providers;
-    return widget.providers
+    final nearby = _nearbyProviders;
+    if (categoryId == null) return nearby;
+    return nearby
         .where((provider) => provider.categoryId == categoryId)
         .toList(growable: false);
   }
@@ -83,12 +99,12 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       final located = _filteredProviders
           .where((p) => p.latitude != null && p.longitude != null)
           .toList(growable: false);
-      final center = _providersMapCenter(
-        located,
-        LatLng(widget.userLatitude, widget.userLongitude),
+      final userLocation = LatLng(widget.latitude, widget.longitude);
+      final center = _providersMapCenter(located, userLocation);
+      _mapController.move(
+        center,
+        _providersMapZoom(located, include: userLocation),
       );
-      final userLocation = LatLng(widget.userLatitude, widget.userLongitude);
-      _mapController.move(center, _providersMapZoom(located, userLocation));
     });
   }
 
@@ -103,9 +119,9 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     final points = providers
         .where((provider) => provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    final userLocation = LatLng(widget.userLatitude, widget.userLongitude);
+    final userLocation = LatLng(widget.latitude, widget.longitude);
     final center = _providersMapCenter(points, userLocation);
-    final initialZoom = _providersMapZoom(points, userLocation);
+    final initialZoom = _providersMapZoom(points, include: userLocation);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -154,8 +170,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                     ],
                   ),
                   MarkerLayer(
-                    markers: points.map((provider) {
+                    markers: [
+                      ...points.map((provider) {
                       final selected = _selected?.id == provider.id;
+                      final markerColor = _categoryColor(provider.categorySlug);
                       return Marker(
                         point: LatLng(provider.latitude!, provider.longitude!),
                         width: selected ? 58 : 48,
@@ -169,11 +187,14 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                                 width: selected ? 48 : 40,
                                 height: selected ? 48 : 40,
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? const Color(0xFFE31C25)
-                                      : const Color(0xFF3679C8),
+                                  color: markerColor,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 3),
+                                  border: Border.all(
+                                    color: selected
+                                        ? const Color(0xFF202833)
+                                        : Colors.white,
+                                    width: selected ? 3.5 : 2.5,
+                                  ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.25),
@@ -182,53 +203,43 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                                     ),
                                   ],
                                 ),
-                                child: Icon(
-                                  provider.isCompany
-                                      ? Icons.business_rounded
-                                      : Icons.handyman_rounded,
-                                  color: Colors.white,
-                                  size: selected ? 23 : 19,
+                                child: _categoryMarkerSymbol(
+                                  provider,
+                                  selected: selected,
                                 ),
                               ),
                               Icon(
                                 Icons.arrow_drop_down_rounded,
-                                color: selected
-                                    ? const Color(0xFFE31C25)
-                                    : const Color(0xFF3679C8),
+                                color: markerColor,
                                 size: 20,
                               ),
                             ],
                           ),
                         ),
                       );
-                    }).toList(),
-                  ),
-                  MarkerLayer(
-                    markers: [
+                      }),
                       Marker(
                         point: userLocation,
-                        width: 48,
-                        height: 48,
+                        width: 30,
+                        height: 34,
                         child: Container(
+                          alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: const Color(0xFF1677D2),
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: const Color(0xFF3679C8),
-                              width: 3,
-                            ),
+                            border: Border.all(color: Colors.white, width: 3),
                             boxShadow: const [
                               BoxShadow(
                                 color: Colors.black26,
-                                blurRadius: 8,
+                                blurRadius: 7,
                                 offset: Offset(0, 3),
                               ),
                             ],
                           ),
                           child: const Icon(
                             Icons.my_location_rounded,
-                            color: Color(0xFF3679C8),
-                            size: 22,
+                            color: Colors.white,
+                            size: 15,
                           ),
                         ),
                       ),
@@ -249,7 +260,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
               ),
             ),
             Positioned(
-              top: 78,
+              top: 112,
               right: 14,
               child: _mapPill(
                 icon: Icons.location_on_rounded,
@@ -257,7 +268,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
               ),
             ),
             Positioned(
-              bottom: _selected == null ? 16 : 142,
+              bottom: _selected == null ? 16 : 198,
               left: 14,
               child: FloatingActionButton.small(
                 heroTag: 'service-map-center',
@@ -313,70 +324,221 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
 
   Widget _buildCategoryFilter() {
     if (_categoriesError != null && _categories.isEmpty) {
-      return SizedBox(
-        height: 62,
-        child: Center(
-          child: TextButton.icon(
-            onPressed: _loadingCategories ? null : _loadCategories,
-            icon: const Icon(Icons.refresh_rounded, size: 17),
-            label: Text(_categoriesError!),
-          ),
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: _surface.withValues(alpha: 0.98),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: TextButton.icon(
+          onPressed: _loadingCategories ? null : _loadCategories,
+          icon: const Icon(Icons.refresh_rounded, size: 17),
+          label: Text(_categoriesError!),
         ),
       );
     }
-    if (_loadingCategories && _categories.isEmpty) {
-      return const SizedBox(
-        height: 58,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-
-    const selectedColor = Color(0xFF3679C8);
-    return SizedBox(
-      height: 62,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: _categories.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final isAll = index == 0;
-          final category = isAll ? null : _categories[index - 1];
-          final selected = isAll
-              ? _selectedCategoryId == null
-              : _selectedCategoryId == category!.id;
-          return ChoiceChip(
-            selected: selected,
-            onSelected: (_) => _selectCategory(category?.id),
-            selectedColor: selectedColor,
-            backgroundColor: _surface,
-            side: BorderSide(
-              color: selected ? selectedColor : _muted.withValues(alpha: 0.25),
-            ),
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isAll && category?.icon?.isNotEmpty == true) ...[
-                  Text(category!.icon!),
-                  const SizedBox(width: 5),
-                ] else if (isAll) ...[
-                  const Icon(Icons.apps_rounded, size: 16),
-                  const SizedBox(width: 5),
-                ],
-                Text(isAll ? 'كل الخدمات' : category!.nameAr),
+    final totalProviders = _countMappableProviders(null);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+      decoration: BoxDecoration(
+        color: _surface.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune_rounded, size: 17, color: _muted),
+              const SizedBox(width: 6),
+              Text(
+                'فلترة حسب التخصص',
+                style: TextStyle(
+                  color: _text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${_countMappableProviders(_selectedCategoryId)} من $totalProviders',
+                style: TextStyle(
+                  color: _muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (_selectedCategoryId != null) ...[
+                const SizedBox(width: 4),
+                TextButton(
+                  onPressed: () => _selectCategory(null),
+                  style: TextButton.styleFrom(
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('مسح'),
+                ),
               ],
-            ),
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : _text,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-            showCheckmark: false,
-          );
-        },
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 39,
+            child: _loadingCategories && _categories.isEmpty
+                ? const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: _categories.length + 1,
+                    separatorBuilder: (_, __) => const SizedBox(width: 7),
+                    itemBuilder: (context, index) {
+                      final isAll = index == 0;
+                      final category = isAll ? null : _categories[index - 1];
+                      final selected = isAll
+                          ? _selectedCategoryId == null
+                          : _selectedCategoryId == category!.id;
+                      final count = _countMappableProviders(category?.id);
+                      return ChoiceChip(
+                        selected: selected,
+                        onSelected: (_) => _selectCategory(
+                          selected && !isAll ? null : category?.id,
+                        ),
+                        selectedColor: const Color(0xFF3679C8),
+                        backgroundColor: _surface,
+                        side: BorderSide(
+                          color: selected
+                              ? const Color(0xFF3679C8)
+                              : _muted.withValues(alpha: 0.25),
+                        ),
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isAll && category?.icon?.isNotEmpty == true) ...[
+                              Text(category!.icon!, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 4),
+                            ] else if (isAll) ...[
+                              const Icon(Icons.apps_rounded, size: 15),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(isAll ? 'الكل' : category!.nameAr),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$count',
+                              style: TextStyle(
+                                color: selected ? Colors.white70 : _muted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        labelStyle: TextStyle(
+                          color: selected ? Colors.white : _text,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        showCheckmark: false,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
+  }
+
+  int _countMappableProviders(String? categoryId) => _nearbyProviders
+      .where((provider) =>
+          (categoryId == null || provider.categoryId == categoryId))
+      .length;
+
+  double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
+    const radiansPerDegree = math.pi / 180;
+    final latitudeDelta = (lat2 - lat1) * radiansPerDegree;
+    final longitudeDelta = (lng2 - lng1) * radiansPerDegree;
+    final a = math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
+        math.cos(lat1 * radiansPerDegree) *
+            math.cos(lat2 * radiansPerDegree) *
+            math.sin(longitudeDelta / 2) *
+            math.sin(longitudeDelta / 2);
+    return 12742 * math.asin(math.sqrt(a.clamp(0.0, 1.0)));
+  }
+
+  Widget _categoryMarkerSymbol(
+    ServiceProvider provider, {
+    required bool selected,
+  }) {
+    final size = selected ? 23.0 : 20.0;
+    switch (provider.categoryIcon?.trim()) {
+      case '🔧':
+      case '⚡':
+      case '📺':
+      case '🚚':
+      case '🧰':
+        return Center(
+          child: Text(
+            provider.categoryIcon!.trim(),
+            style: TextStyle(fontSize: size, height: 1),
+          ),
+        );
+      default:
+        return Icon(
+          _iconForCategorySlug(provider.categorySlug),
+          color: Colors.white,
+          size: size,
+        );
+    }
+  }
+
+  Color _categoryColor(String? slug) {
+    switch (slug) {
+      case 'plumbing':
+        return const Color(0xFF2388D1);
+      case 'electricity':
+      case 'electrical':
+        return const Color(0xFFE2A400);
+      case 'screen_maintenance':
+      case 'screens':
+        return const Color(0xFF7950B7);
+      case 'transportation':
+      case 'moving':
+        return const Color(0xFF168A72);
+      case 'daily_wage':
+        return const Color(0xFFE76831);
+      default:
+        return const Color(0xFF3679C8);
+    }
+  }
+
+  IconData _iconForCategorySlug(String? slug) {
+    switch (slug) {
+      case 'plumbing':
+        return Icons.plumbing_rounded;
+      case 'electricity':
+      case 'electrical':
+        return Icons.electrical_services_rounded;
+      case 'screen_maintenance':
+      case 'screens':
+        return Icons.tv_rounded;
+      case 'transportation':
+      case 'moving':
+        return Icons.local_shipping_rounded;
+      case 'daily_wage':
+        return Icons.engineering_rounded;
+      default:
+        return Icons.handyman_rounded;
+    }
   }
 
   LatLng _providersMapCenter(
@@ -384,10 +546,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     LatLng fallback,
   ) {
     if (providers.isEmpty) return fallback;
-    var minLat = providers.first.latitude!;
-    var maxLat = minLat;
-    var minLng = providers.first.longitude!;
-    var maxLng = minLng;
+    var minLat = math.min(providers.first.latitude!, fallback.latitude);
+    var maxLat = math.max(providers.first.latitude!, fallback.latitude);
+    var minLng = math.min(providers.first.longitude!, fallback.longitude);
+    var maxLng = math.max(providers.first.longitude!, fallback.longitude);
     for (final provider in providers.skip(1)) {
       minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
       maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
@@ -398,18 +560,23 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   }
 
   double _providersMapZoom(
-    List<ServiceProvider> providers,
-    LatLng userLocation,
-  ) {
-    var minLat = userLocation.latitude;
+    List<ServiceProvider> providers, {
+    LatLng? include,
+  }) {
+    final locations = <LatLng>[
+      if (include != null) include,
+      ...providers.map((provider) => LatLng(provider.latitude!, provider.longitude!)),
+    ];
+    if (locations.length < 2) return 12.5;
+    var minLat = locations.first.latitude;
     var maxLat = minLat;
-    var minLng = userLocation.longitude;
+    var minLng = locations.first.longitude;
     var maxLng = minLng;
-    for (final provider in providers) {
-      minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
-      maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
-      minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
-      maxLng = maxLng > provider.longitude! ? maxLng : provider.longitude!;
+    for (final location in locations.skip(1)) {
+      minLat = minLat < location.latitude ? minLat : location.latitude;
+      maxLat = maxLat > location.latitude ? maxLat : location.latitude;
+      minLng = minLng < location.longitude ? minLng : location.longitude;
+      maxLng = maxLng > location.longitude ? maxLng : location.longitude;
     }
     final span = (maxLat - minLat) > (maxLng - minLng)
         ? maxLat - minLat
@@ -434,7 +601,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: const Color(0xFFE31C25), size: 15),
+          const Icon(Icons.location_on_rounded, color: Color(0xFFE31C25), size: 15),
           const SizedBox(width: 4),
           Text(label, style: TextStyle(color: _text, fontSize: 11, fontWeight: FontWeight.w800)),
         ],
@@ -443,6 +610,18 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   }
 
   Widget _buildProviderCard(ServiceProvider provider) {
+    final phone = provider.phone?.trim();
+    final whatsapp = provider.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
     return Material(
       color: _surface,
       borderRadius: BorderRadius.circular(22),
@@ -520,6 +699,33 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                         ],
                       ],
                     ),
+                    if (callNumber != null || whatsappNumber != null) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          if (callNumber != null)
+                            Expanded(
+                              child: _contactButton(
+                                icon: Icons.phone_rounded,
+                                label: 'اتصل',
+                                color: const Color(0xFF0B7650),
+                                onTap: () => _makeCall(callNumber),
+                              ),
+                            ),
+                          if (callNumber != null && whatsappNumber != null)
+                            const SizedBox(width: 8),
+                          if (whatsappNumber != null)
+                            Expanded(
+                              child: _contactButton(
+                                icon: Icons.chat_rounded,
+                                label: 'واتساب',
+                                color: const Color(0xFF25D366),
+                                onTap: () => _openWhatsapp(whatsappNumber),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -528,6 +734,57 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         ),
       ),
     );
+  }
+
+  Widget _contactButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 15),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w900)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _makeCall(String phone) async {
+    final cleaned = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) await launchUrl(uri);
+    } catch (_) {}
+  }
+
+  Future<void> _openWhatsapp(String phone) async {
+    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '20${cleaned.substring(1)}';
+    } else if (!cleaned.startsWith('20') && cleaned.length == 10) {
+      cleaned = '20$cleaned';
+    }
+    final uri = Uri.parse('https://wa.me/$cleaned');
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
   }
 
   Widget _providerImage(ServiceProvider provider) {

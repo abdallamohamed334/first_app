@@ -100,7 +100,7 @@ class ServiceProvidersRepository {
     double? latitude,
     double? longitude,
     double radiusKm = 70,
-    int limit = 500,
+    int limit = 100,
   }) async {
     try {
       final cleanCity = city.trim();

@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
 
-import 'package:loqma/features/provider/data/repositories/service_job_repository.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:loqma/features/provider/data/repositories/provider_completed_work_repository.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
-import 'complete_service_job_page.dart';
 
 class ProviderServiceJobsPage extends StatefulWidget {
   const ProviderServiceJobsPage({super.key});
@@ -13,15 +15,16 @@ class ProviderServiceJobsPage extends StatefulWidget {
 
 class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
   final _providerRepository = ServiceProviderRepository();
-  final _jobsRepository = ServiceJobRepository();
+  final _workRepository = ProviderCompletedWorkRepository();
   bool _loading = true;
   String? _error;
-  List<Map<String, dynamic>> _requests = [];
-  List<Map<String, dynamic>> _completions = [];
+  String? _providerId;
+  String? _ownerUserId;
+  List<Map<String, dynamic>> _works = [];
 
-  static const _blue = Color(0xFF3679C8);
   static const _green = Color(0xFF0B7650);
   static const _ink = Color(0xFF123F31);
+  static const _blue = Color(0xFF3679C8);
 
   @override
   void initState() {
@@ -30,10 +33,12 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     final result = await _providerRepository.getCurrentProvider();
     if (!mounted) return;
     await result.fold(
@@ -42,14 +47,29 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
         _error = error;
       }),
       (provider) async {
-        final providerId = provider['id'].toString();
+        final providerId = provider['id']?.toString();
+        final ownerUserId = provider['user_id']?.toString();
+        if (providerId == null || providerId.isEmpty) {
+          setState(() {
+            _loading = false;
+            _error = 'تعذر تحديد حساب مزود الخدمة';
+          });
+          return;
+        }
+        if (ownerUserId == null || ownerUserId.isEmpty) {
+          setState(() {
+            _loading = false;
+            _error = 'تعذر تحديد صاحب حساب مزود الخدمة';
+          });
+          return;
+        }
         try {
-          final requests = await _jobsRepository.acceptedRequests(providerId);
-          final completions = await _jobsRepository.providerCompletions(providerId);
+          final works = await _workRepository.listForProvider(providerId);
           if (!mounted) return;
           setState(() {
-            _requests = requests;
-            _completions = completions;
+            _providerId = providerId;
+            _ownerUserId = ownerUserId;
+            _works = works;
             _loading = false;
           });
         } catch (error) {
@@ -63,16 +83,27 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
     );
   }
 
-  Future<void> _finish(Map<String, dynamic> request) async {
-    final done = await Navigator.push<bool>(
+  Future<void> _addWork() async {
+    final providerId = _providerId;
+    final ownerUserId = _ownerUserId;
+    if (providerId == null || ownerUserId == null) return;
+    final added = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => CompleteServiceJobPage(request: request)),
+      MaterialPageRoute(
+        builder: (_) => _AddCompletedWorkPage(
+          providerId: providerId,
+          ownerUserId: ownerUserId,
+          repository: _workRepository,
+        ),
+      ),
     );
-    if (done == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إرسال الشغلانة للعميل للتأكيد')),
-      );
-      _load();
+    if (added == true && mounted) {
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تمت إضافة العمل إلى أعمالك المنفذة')),
+        );
+      }
     }
   }
 
@@ -82,148 +113,408 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
     return '${parsed.day}/${parsed.month}/${parsed.year}';
   }
 
-  String _status(String status) {
-    switch (status) {
-      case 'confirmed':
-        return 'مؤكدة من العميل ✓';
-      case 'unconfirmed':
-        return 'غير مؤكدة';
-      case 'disputed':
-        return 'محجوبة للمراجعة';
-      default:
-        return 'في انتظار تأكيد العميل';
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'confirmed':
-        return _green;
-      case 'disputed':
-        return Colors.red.shade700;
-      case 'unconfirmed':
-        return Colors.orange.shade800;
-      default:
-        return _blue;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final confirmedCount = _completions.where((row) => row['status'] == 'confirmed').length;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF4F8F6),
         appBar: AppBar(
-          title: const Text('طلبات الخدمة والأعمال'),
-          actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh_rounded))],
+          title: const Text('أعمالي المنفذة'),
+          actions: [
+            IconButton(
+              tooltip: 'تحديث',
+              onPressed: _load,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ],
         ),
+        floatingActionButton: _loading || _providerId == null
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _addWork,
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('إضافة عمل منفذ'),
+              ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Text(_error!))
+                ? _errorView()
                 : RefreshIndicator(
                     onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _counterCard(confirmedCount),
-                        const SizedBox(height: 20),
-                        _sectionTitle('الطلبات المقبولة'),
-                        const SizedBox(height: 8),
-                        if (_requests.isEmpty)
-                          _empty('لا توجد طلبات مقبولة تحتاج إلى إنهاء')
-                        else
-                          ..._requests.map(_requestCard),
-                        const SizedBox(height: 22),
-                        _sectionTitle('الأعمال المنفذة'),
-                        const SizedBox(height: 8),
-                        if (_completions.isEmpty)
-                          _empty('لم تسجل أعمالًا منفذة حتى الآن')
-                        else
-                          ..._completions.map(_completionCard),
-                      ],
-                    ),
+                    child: _works.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(24),
+                            children: const [
+                              SizedBox(height: 90),
+                              Icon(Icons.handyman_outlined,
+                                  size: 58, color: _blue),
+                              SizedBox(height: 14),
+                              Center(
+                                child: Text(
+                                  'لم تضف أعمالًا منفذة بعد',
+                                  style: TextStyle(
+                                    color: _ink,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              Center(
+                                child: Text(
+                                  'أضف صورًا ووصفًا وسعرًا اختياريًا ليظهر العمل في ملفك.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              ),
+                              SizedBox(height: 80),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                            itemCount: _works.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 12),
+                            itemBuilder: (_, index) => _workCard(_works[index]),
+                          ),
                   ),
       ),
     );
   }
 
-  Widget _counterCard(int count) => Card(
-        color: _green.withValues(alpha: 0.08),
+  Widget _errorView() => Center(
         child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              const Icon(Icons.verified_rounded, color: _green, size: 30),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('عدد الشغلانات المؤكدة', style: TextStyle(color: _ink, fontWeight: FontWeight.w800))),
-              Text('$count', style: const TextStyle(color: _green, fontSize: 28, fontWeight: FontWeight.w900)),
-            ],
-          ),
-        ),
-      );
-
-  Widget _sectionTitle(String title) => Text(title, style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w900));
-
-  Widget _empty(String text) => Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(text, style: TextStyle(color: Colors.grey.shade600)));
-
-  Widget _requestCard(Map<String, dynamic> request) => Card(
-        margin: const EdgeInsets.only(bottom: 10),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(request['title']?.toString() ?? 'طلب خدمة', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
-              if ((request['description']?.toString() ?? '').isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(request['description'].toString(), maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
-              const SizedBox(height: 6),
-              Text('تاريخ الطلب: ${_date(request['created_at'])}', style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: () => _finish(request),
-                icon: const Icon(Icons.task_alt_rounded),
-                label: const Text('إنهاء الشغلانة'),
-                style: FilledButton.styleFrom(backgroundColor: _green),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('إعادة المحاولة'),
               ),
             ],
           ),
         ),
       );
 
-  Widget _completionCard(Map<String, dynamic> completion) {
-    final status = completion['status']?.toString() ?? '';
-    final paths = (completion['photo_urls'] as List?)?.map((e) => e.toString()).toList() ?? const <String>[];
+  Widget _workCard(Map<String, dynamic> work) {
+    final paths = (work['photo_paths'] as List?)
+            ?.map((item) => item.toString())
+            .where((path) => path.isNotEmpty)
+            .toList() ??
+        const <String>[];
+    final amount = work['amount'];
+    final amountText = amount == null
+        ? null
+        : '${_formatAmount(amount)} ج.م';
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [Icon(Icons.circle, size: 10, color: _statusColor(status)), const SizedBox(width: 6), Text(_status(status), style: TextStyle(color: _statusColor(status), fontWeight: FontWeight.w800))]),
-            const SizedBox(height: 7),
-            Text(_date(completion['executed_on']), style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-            const SizedBox(height: 6),
-            Text(completion['description']?.toString() ?? '', style: const TextStyle(color: _ink, height: 1.4)),
-            if (paths.isNotEmpty && completion['photos_hidden'] != true) ...[
-              const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.calendar_month_rounded,
+                    size: 17, color: _blue),
+                const SizedBox(width: 6),
+                Text(_date(work['executed_on']),
+                    style: const TextStyle(
+                        color: _ink, fontWeight: FontWeight.w700)),
+                const Spacer(),
+                if (amountText != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _green.withValues(alpha: 0.09),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(amountText,
+                        style: const TextStyle(
+                            color: _green, fontWeight: FontWeight.w900)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(work['description']?.toString() ?? '',
+                style: const TextStyle(color: _ink, height: 1.5)),
+            if (paths.isNotEmpty) ...[
+              const SizedBox(height: 12),
               SizedBox(
-                height: 76,
+                height: 88,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: paths.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (_, index) => ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(_jobsRepository.imageUrl(paths[index]), width: 76, height: 76, fit: BoxFit.cover),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      _workRepository.imageUrl(paths[index]),
+                      width: 88,
+                      height: 88,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 88,
+                        height: 88,
+                        color: Colors.black12,
+                        child: const Icon(Icons.broken_image_outlined),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatAmount(dynamic value) {
+    final parsed = double.tryParse(value.toString());
+    if (parsed == null) return value.toString();
+    return parsed == parsed.roundToDouble()
+        ? parsed.toStringAsFixed(0)
+        : parsed.toStringAsFixed(2);
+  }
+}
+
+class _AddCompletedWorkPage extends StatefulWidget {
+  const _AddCompletedWorkPage({
+    required this.providerId,
+    required this.ownerUserId,
+    required this.repository,
+  });
+
+  final String providerId;
+  final String ownerUserId;
+  final ProviderCompletedWorkRepository repository;
+
+  @override
+  State<_AddCompletedWorkPage> createState() => _AddCompletedWorkPageState();
+}
+
+class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
+  final _descriptionController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _picker = ImagePicker();
+  DateTime _executedOn = DateTime.now();
+  List<XFile> _images = [];
+  List<Uint8List> _previews = [];
+  bool _saving = false;
+
+  static const _green = Color(0xFF0B7650);
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    final selected = await _picker.pickMultiImage(imageQuality: 82);
+    if (!mounted || selected.isEmpty) return;
+    final limited = selected.take(6).toList(growable: false);
+    final previews = <Uint8List>[];
+    for (final image in limited) {
+      previews.add(await image.readAsBytes());
+    }
+    if (!mounted) return;
+    setState(() {
+      _images = limited;
+      _previews = previews;
+    });
+    if (selected.length > 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم اختيار أول 6 صور فقط')),
+      );
+    }
+  }
+
+  Future<void> _chooseDate() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _executedOn,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      helpText: 'اختر تاريخ تنفيذ العمل',
+      confirmText: 'اختيار',
+      cancelText: 'إلغاء',
+    );
+    if (selected != null && mounted) setState(() => _executedOn = selected);
+  }
+
+  Future<void> _submit() async {
+    final description = _descriptionController.text.trim();
+    if (description.isEmpty) {
+      _message('اكتب وصف العمل المنفذ');
+      return;
+    }
+    if (_images.isEmpty) {
+      _message('أضف صورة واحدة على الأقل للعمل المنفذ');
+      return;
+    }
+    if (description.length > 1000) {
+      _message('الوصف يجب ألا يتجاوز 1000 حرف');
+      return;
+    }
+
+    final amountText = _amountController.text.trim().replaceAll(',', '.');
+    final amount = amountText.isEmpty ? null : double.tryParse(amountText);
+    if (amountText.isNotEmpty && (amount == null || amount < 0)) {
+      _message('اكتب مبلغًا صحيحًا أو اتركه فارغًا');
+      return;
+    }
+
+    setState(() => _saving = true);
+    final uploaded = <String>[];
+    try {
+      for (var index = 0; index < _images.length; index++) {
+        uploaded.add(await widget.repository.uploadPhoto(
+          ownerUserId: widget.ownerUserId,
+          image: _images[index],
+          index: index,
+        ));
+      }
+      await widget.repository.create(
+        providerId: widget.providerId,
+        executedOn: _executedOn,
+        description: description,
+        amount: amount,
+        photoPaths: uploaded,
+      );
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      try {
+        await widget.repository.removePhotos(uploaded);
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _message(error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  void _message(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: const Text('إضافة عمل منفذ')),
+        body: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const Text(
+              'سجّل عملًا أنجزته ليظهر للزوار في ملفك الشخصي.',
+              style: TextStyle(color: Colors.black54, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            const Text('تاريخ التنفيذ',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 7),
+            OutlinedButton.icon(
+              onPressed: _saving ? null : _chooseDate,
+              icon: const Icon(Icons.calendar_today_rounded),
+              label: Text(
+                  '${_executedOn.day}/${_executedOn.month}/${_executedOn.year}'),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _descriptionController,
+              maxLength: 1000,
+              maxLines: 5,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                labelText: 'وصف العمل',
+                hintText: 'ما الذي أنجزته؟',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _amountController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'المبلغ (اختياري)',
+                hintText: 'مثال: 500',
+                suffixText: 'ج.م',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('صور العمل (حتى 6 صور)',
+                      style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
+                TextButton.icon(
+                  onPressed: _saving ? null : _pickImages,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: const Text('إضافة صور'),
+                ),
+              ],
+            ),
+            if (_images.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('أضف صورة واحدة على الأقل للعمل المنفذ.',
+                    style: TextStyle(color: Colors.black54)),
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _images.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (_, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.memory(_previews[index], fit: BoxFit.cover),
+                ),
+              ),
+            const SizedBox(height: 26),
+            SizedBox(
+              height: 52,
+              child: FilledButton.icon(
+                onPressed: _saving ? null : _submit,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_circle_outline_rounded),
+                label: Text(_saving ? 'جارٍ الحفظ...' : 'نشر العمل المنفذ'),
+                style: FilledButton.styleFrom(backgroundColor: _green),
+              ),
+            ),
           ],
         ),
       ),

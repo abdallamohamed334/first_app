@@ -5,7 +5,6 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +69,9 @@ class _AppFeatures {
 
   /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
   static const double nearbyRadiusKm = 70.0;
+
+  /// لا نعرض الصنايعية كبعيدين؛ يتم ترتيبهم داخل هذا النطاق من موقع الحساب.
+  static const double serviceProviderNearbyRadiusKm = 25.0;
 }
 
 const Set<String> _homeRestaurantInstitutionTypes = {
@@ -126,7 +128,6 @@ class _UserHomePageState extends State<UserHomePage> {
   Map<String, List<ServiceProvider>> _topRatedProvidersByCategory = {};
   bool _loadingTopRatedProviders = false;
   bool _loadingNearbySymbolicProviders = false;
-  String? _nearbyProvidersError;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
   List<Map<String, dynamic>> _institutionSubcategories = [];
@@ -248,13 +249,12 @@ class _UserHomePageState extends State<UserHomePage> {
     if (mounted) setState(() => _loadingNearbySymbolicProviders = true);
 
     try {
-      if (mounted) setState(() => _nearbyProvidersError = null);
       final providers = await _serviceProvidersRepository.listNearbyProviders(
         city: _userCity,
         governorate: _userGovernorate,
         latitude: _userLat,
         longitude: _userLng,
-        radiusKm: _AppFeatures.nearbyRadiusKm,
+        radiusKm: _AppFeatures.serviceProviderNearbyRadiusKm,
       );
       if (!mounted) return;
 
@@ -279,10 +279,10 @@ class _UserHomePageState extends State<UserHomePage> {
         }
         final maxDistance = provider.maxDistanceKm > 0
             ? math.min(
-                _AppFeatures.nearbyRadiusKm,
+                _AppFeatures.serviceProviderNearbyRadiusKm,
                 provider.maxDistanceKm.toDouble(),
               )
-            : _AppFeatures.nearbyRadiusKm;
+            : _AppFeatures.serviceProviderNearbyRadiusKm;
         return _distanceKm(_userLat!, _userLng!, lat, lng) <= maxDistance;
       }).toList()
         ..sort((a, b) => _distanceKm(
@@ -307,9 +307,6 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadNearbyProvidersByCategory();
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
-      if (mounted) {
-        setState(() => _nearbyProvidersError = 'تعذر تحميل مقدمي الخدمة حاليًا');
-      }
     } finally {
       if (mounted) setState(() => _loadingNearbySymbolicProviders = false);
     }
@@ -518,7 +515,7 @@ class _UserHomePageState extends State<UserHomePage> {
           provider.latitude!,
           provider.longitude!,
         );
-        if (distance > _AppFeatures.nearbyRadiusKm) continue;
+        if (distance > _AppFeatures.serviceProviderNearbyRadiusKm) continue;
         results.putIfAbsent(provider.categoryId, () => []).add(provider);
       }
       for (final providers in results.values) {
@@ -1343,19 +1340,9 @@ class _UserHomePageState extends State<UserHomePage> {
         .where((provider) =>
             provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    final center = _userLat != null && _userLng != null
-        ? LatLng(_userLat!, _userLng!)
-        : _serviceProvidersMapCenter(providers);
-    final zoom = _serviceProvidersMapZoom(
-      providers,
-      _userLat != null && _userLng != null
-          ? LatLng(_userLat!, _userLng!)
-          : null,
-    );
-    final mapProviders = <ServiceProvider>[
-      ...providers,
-      ..._debugMapProviderFixtures(center),
-    ];
+    final center = _serviceProvidersMapCenter(providers);
+    final zoom = _serviceProvidersMapZoom(providers);
+    final mapProviders = providers;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1378,7 +1365,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _userGovernorate ?? 'مقدمو الخدمة في منطقتك',
+                      '${_userGovernorate ?? _userCity} · حتى ${_AppFeatures.serviceProviderNearbyRadiusKm.round()} كم من موقعك المسجّل',
                       style: TextStyle(
                         color: _textSecondary,
                         fontSize: 11,
@@ -1431,11 +1418,6 @@ class _UserHomePageState extends State<UserHomePage> {
                         urlTemplate:
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.khedma.app',
-                      ),
-                      RichAttributionWidget(
-                        attributions: [
-                          TextSourceAttribution('OpenStreetMap contributors'),
-                        ],
                       ),
                       MarkerLayer(
                         markers: mapProviders.map((provider) {
@@ -1497,35 +1479,6 @@ class _UserHomePageState extends State<UserHomePage> {
                           );
                         }).toList(growable: false),
                       ),
-                      if (_userLat != null && _userLng != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: LatLng(_userLat!, _userLng!),
-                              width: 42,
-                              height: 42,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: _blue, width: 3),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 7,
-                                      offset: Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.my_location_rounded,
-                                  color: _blue,
-                                  size: 20,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                     ],
                   ),
                   Positioned(
@@ -1559,8 +1512,7 @@ class _UserHomePageState extends State<UserHomePage> {
                           border: Border.all(color: _border),
                         ),
                         child: Text(
-                          _nearbyProvidersError ??
-                              'لا يوجد مقدمو خدمة بموقع مسجل في المحافظة حاليًا',
+                          'لا يوجد مقدمو خدمة بموقع مسجل في المحافظة حاليًا',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: _textPrimary,
@@ -1581,12 +1533,13 @@ class _UserHomePageState extends State<UserHomePage> {
                           borderRadius: BorderRadius.circular(13),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => ServiceProvidersMapPage(
-                                  providers: mapProviders,
-                                  userLatitude: _userLat ?? center.latitude,
-                                  userLongitude: _userLng ?? center.longitude,
-                                  city: _userGovernorate ?? _userCity,
-                                ),
+                              builder: (_) => ServiceProvidersMapPage(
+                                providers: mapProviders,
+                                latitude: _userLat ?? center.latitude,
+                                longitude: _userLng ?? center.longitude,
+                                radiusKm: _AppFeatures.serviceProviderNearbyRadiusKm,
+                                city: _userGovernorate ?? _userCity,
+                              ),
                             ),
                           ),
                           child: Padding(
@@ -1674,21 +1627,18 @@ class _UserHomePageState extends State<UserHomePage> {
     return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
   }
 
-  double _serviceProvidersMapZoom(
-    List<ServiceProvider> providers, [
-    LatLng? anchor,
-  ]) {
+  double _serviceProvidersMapZoom(List<ServiceProvider> providers) {
     final located = providers
         .where((provider) =>
             provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    if (located.isEmpty) return 12.5;
+    if (located.length < 2) return 12.5;
 
-    var minLat = anchor?.latitude ?? located.first.latitude!;
+    var minLat = located.first.latitude!;
     var maxLat = minLat;
-    var minLng = anchor?.longitude ?? located.first.longitude!;
+    var minLng = located.first.longitude!;
     var maxLng = minLng;
-    for (final provider in located) {
+    for (final provider in located.skip(1)) {
       minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
       maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
       minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
@@ -1996,54 +1946,6 @@ class _UserHomePageState extends State<UserHomePage> {
       ),
     );
   }
-
-
-  List<ServiceProvider> _debugMapProviderFixtures(LatLng center) {
-    if (!kDebugMode || _serviceCategories.isEmpty) return const [];
-
-    const fixtures = <(String, String, double, double, double, int)>[
-      ('tailoring', 'خياط تجريبي — اختبار محلي', 0.0020, 0.0015, 4.8, 12),
-      ('computer_repair', 'صيانة كمبيوتر — اختبار محلي', -0.0015, 0.0022, 4.7, 9),
-      ('plumbing', 'سباك تجريبي — اختبار محلي', 0.0011, -0.0025, 4.6, 8),
-      ('electricity', 'كهربائي تجريبي — اختبار محلي', -0.0022, -0.0011, 4.9, 15),
-      ('barber', 'حلاق تجريبي — اختبار محلي', 0.0030, -0.0010, 4.5, 6),
-    ];
-    final categoriesBySlug = {
-      for (final category in _serviceCategories)
-        category.slug.trim().toLowerCase(): category,
-    };
-    final samples = <ServiceProvider>[];
-
-    for (final fixture in fixtures) {
-      final category = categoriesBySlug[fixture.$1];
-      if (category == null) continue;
-      samples.add(
-        ServiceProvider(
-          id: 'debug-map-${fixture.$1}',
-          userId: 'debug-map-user-${fixture.$1}',
-          categoryId: category.id,
-          categoryName: category.nameAr,
-          categoryIcon: category.icon,
-          categorySlug: category.slug,
-          displayName: fixture.$2,
-          bio: 'بيانات محلية للاختبار فقط؛ لا تُحفظ في قاعدة البيانات.',
-          governorate: _userGovernorate ?? 'الغربية',
-          city: _userCity,
-          address: 'موقع تجريبي قريب منك',
-          latitude: center.latitude + fixture.$3,
-          longitude: center.longitude + fixture.$4,
-          ratingAvg: fixture.$5,
-          totalReviews: fixture.$6,
-          verificationStatus: 'approved',
-          isActive: true,
-          isAvailable: true,
-          ownerName: 'عينة للاختبار',
-        ),
-      );
-    }
-    return samples;
-  }
-
   IconData _serviceIconFromSlug(String slug) {
     switch (slug.trim().toLowerCase()) {
       case 'plumbing':
@@ -3178,7 +3080,7 @@ class _UserHomePageState extends State<UserHomePage> {
         ),
       ),
       child: SizedBox(
-        height: 248,
+        height: 286,
         child: ListView.separated(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           scrollDirection: Axis.horizontal,
@@ -3195,6 +3097,8 @@ class _UserHomePageState extends State<UserHomePage> {
             return HomeNearbySymbolicProviderCard(
               provider: provider,
               distanceKm: distance,
+              onCall: _callProvider,
+              onWhatsapp: _whatsappProvider,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => ServiceProviderDetailsPage(
@@ -3319,6 +3223,18 @@ class _UserHomePageState extends State<UserHomePage> {
 
   Widget _buildServiceProviderCard(ServiceProvider provider) {
     final profileImage = provider.profileImageUrl?.trim();
+    final phone = provider.phone?.trim();
+    final whatsapp = provider.whatsapp?.trim();
+    final callNumber = phone?.isNotEmpty == true
+        ? phone
+        : whatsapp?.isNotEmpty == true
+            ? whatsapp
+            : null;
+    final whatsappNumber = whatsapp?.isNotEmpty == true
+        ? whatsapp
+        : phone?.isNotEmpty == true
+            ? phone
+            : null;
     final location = [
       provider.city?.trim(),
       provider.governorate?.trim() ?? _userGovernorate,
@@ -3504,25 +3420,24 @@ class _UserHomePageState extends State<UserHomePage> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      if (provider.phone?.trim().isNotEmpty == true)
+                      if (callNumber != null)
                         Expanded(
                           child: _providerContactButton(
                             icon: Icons.phone_rounded,
                             label: 'اتصل',
                             color: _green,
-                            onTap: () => _callProvider(provider.phone!),
+                            onTap: () => _callProvider(callNumber),
                           ),
                         ),
-                      if (provider.phone?.trim().isNotEmpty == true &&
-                          provider.whatsapp?.trim().isNotEmpty == true)
+                      if (callNumber != null && whatsappNumber != null)
                         const SizedBox(width: 8),
-                      if (provider.whatsapp?.trim().isNotEmpty == true)
+                      if (whatsappNumber != null)
                         Expanded(
                           child: _providerContactButton(
                             icon: Icons.chat_rounded,
                             label: 'واتساب',
                             color: const Color(0xFF25D366),
-                            onTap: () => _whatsappProvider(provider.whatsapp!),
+                            onTap: () => _whatsappProvider(whatsappNumber),
                           ),
                         ),
                     ],
