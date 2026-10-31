@@ -681,8 +681,15 @@ class ServiceProviderRepository {
       if (latitude != null) data['latitude'] = latitude;
       if (longitude != null) data['longitude'] = longitude;
       if (maxDistanceKm != null) data['max_distance_km'] = maxDistanceKm;
-      if (!profileLocked && pricingType != null)
-        data['pricing_type'] = pricingType;
+      if (!profileLocked && pricingType != null) {
+        // service_pricing_type currently supports only these three values.
+        // Older clients used to send "hourly", which makes the whole update
+        // fail at the Postgres enum cast.
+        data['pricing_type'] = const {'free', 'symbolic', 'market'}
+                .contains(pricingType.trim())
+            ? pricingType.trim()
+            : 'market';
+      }
       if (!profileLocked && priceFrom != null) data['price_from'] = priceFrom;
       if (!profileLocked && acceptsInstallments != null) {
         data['accepts_installments'] = acceptsInstallments;
@@ -800,6 +807,44 @@ class ServiceProviderRepository {
       debugPrint('❌ [Provider] upload error: $error');
       return Left(_friendlyError(error));
     }
+  }
+
+  /// Removes files uploaded as part of a profile save when the database
+  /// update fails. This keeps a retry from leaving duplicate orphan images.
+  Future<void> deleteProviderUploads({
+    List<String> imageUrls = const [],
+    List<String> identityPaths = const [],
+  }) async {
+    try {
+      final imagePaths = imageUrls
+          .map(_providerImagePathFromUrl)
+          .whereType<String>()
+          .where((path) => path.isNotEmpty)
+          .toList();
+      if (imagePaths.isNotEmpty) {
+        await _client.storage.from('provider-images').remove(imagePaths);
+      }
+      final documentPaths = identityPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty)
+          .toList();
+      if (documentPaths.isNotEmpty) {
+        await _client.storage
+            .from('provider-documents')
+            .remove(documentPaths);
+      }
+    } catch (error) {
+      // Cleanup is best-effort; never hide the original save error.
+      debugPrint('⚠️ [Provider] upload cleanup error: $error');
+    }
+  }
+
+  String? _providerImagePathFromUrl(String rawUrl) {
+    final marker = '/provider-images/';
+    final markerIndex = rawUrl.indexOf(marker);
+    if (markerIndex < 0) return null;
+    final path = rawUrl.substring(markerIndex + marker.length).split('?').first;
+    return Uri.decodeComponent(path);
   }
 
   Future<Either<String, String>> uploadProviderIdentityDocument({

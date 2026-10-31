@@ -142,7 +142,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _whatsappCtrl.text = provider['whatsapp']?.toString() ?? '';
           _websiteCtrl.text = provider['website']?.toString() ?? '';
           _priceFromCtrl.text = provider['price_from']?.toString() ?? '';
-          _pricingType = provider['pricing_type']?.toString() ?? 'market';
+          final storedPricing = provider['pricing_type']?.toString().trim();
+          _pricingType = const {'free', 'symbolic', 'market'}
+                  .contains(storedPricing)
+              ? storedPricing
+              : 'market';
           _acceptsInstallments =
               provider['accepts_installments'] as bool? ?? false;
 
@@ -330,6 +334,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
 
     final userId =
         _provider!['user_id']?.toString() ?? _provider!['id'].toString();
+    final uploadedImageUrls = <String>[];
+    final uploadedIdentityPaths = <String>[];
 
     try {
       // ✅ رفع صورة البروفايل
@@ -342,7 +348,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         );
         result.fold(
           (err) => throw Exception(err),
-          (url) => newProfileUrl = url,
+          (url) {
+            newProfileUrl = url;
+            uploadedImageUrls.add(url);
+          },
         );
       }
 
@@ -356,7 +365,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         );
         result.fold(
           (err) => throw Exception(err),
-          (url) => newCoverUrl = url,
+          (url) {
+            newCoverUrl = url;
+            uploadedImageUrls.add(url);
+          },
         );
       }
 
@@ -372,6 +384,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           (err) async => throw Exception(err),
           (url) async {
             uploadedPortfolio.add(url);
+            uploadedImageUrls.add(url);
           },
         );
       }
@@ -392,7 +405,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
             side: 'front',
           );
           front.fold(
-              (err) => throw Exception(err), (path) => idCardFrontPath = path);
+              (err) => throw Exception(err), (path) {
+                idCardFrontPath = path;
+                uploadedIdentityPaths.add(path);
+              });
         }
         if (_newIdCardBack != null) {
           final back = await _repo.uploadProviderIdentityDocument(
@@ -401,7 +417,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
             side: 'back',
           );
           back.fold(
-              (err) => throw Exception(err), (path) => idCardBackPath = path);
+              (err) => throw Exception(err), (path) {
+                idCardBackPath = path;
+                uploadedIdentityPaths.add(path);
+              });
         }
       }
 
@@ -419,7 +438,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         longitude: _longitude,
         serviceAreas: _serviceAreas,
         availableDays: _availableDays,
-        pricingType: _pricingType,
+        pricingType: const {'free', 'symbolic', 'market'}.contains(_pricingType)
+            ? _pricingType
+            : 'market',
         priceFrom: double.tryParse(_priceFromCtrl.text.trim()),
         acceptsInstallments: _acceptsInstallments,
         whatsapp: _whatsappCtrl.text.trim(),
@@ -432,14 +453,18 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         profileLocked: _profileLocked,
       );
 
-      if (!mounted) return;
-
-      result.fold(
-        (err) {
+      await result.fold(
+        (err) async {
+          await _repo.deleteProviderUploads(
+            imageUrls: uploadedImageUrls,
+            identityPaths: uploadedIdentityPaths,
+          );
+          if (!mounted) return;
           setState(() => _saving = false);
           _snack(err, error: true);
         },
-        (updated) {
+        (updated) async {
+          if (!mounted) return;
           setState(() {
             _provider = updated;
             _saving = false;
@@ -451,9 +476,13 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         },
       );
     } catch (e) {
+      await _repo.deleteProviderUploads(
+        imageUrls: uploadedImageUrls,
+        identityPaths: uploadedIdentityPaths,
+      );
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('تعذر رفع الصور: $e', error: true);
+      _snack('تعذر حفظ التعديلات، وتم تنظيف الصور المرفوعة. $e', error: true);
     }
   }
 
@@ -1496,8 +1525,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       ),
       items: const [
         DropdownMenuItem(value: 'market', child: Text('حسب السوق')),
-        DropdownMenuItem(value: 'fixed', child: Text('سعر ثابت')),
-        DropdownMenuItem(value: 'hourly', child: Text('بالساعة')),
+        DropdownMenuItem(value: 'symbolic', child: Text('سعر رمزي')),
         DropdownMenuItem(value: 'free', child: Text('مجاناً')),
       ],
       onChanged:
