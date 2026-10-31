@@ -230,19 +230,25 @@ class _MapPageState extends State<MapPage> {
       final providers = await _providersRepository.listNearbyProviders(
         city: city,
         governorate: governorate,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        radiusKm: 70,
         limit: 100,
       );
       final nearby = providers.where((provider) {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null || lng == null) return false;
-        return _calculateDistance(
+        final distance = _calculateDistance(
               location.latitude,
               location.longitude,
               lat,
               lng,
-            ) <=
-            70;
+            );
+        final maxDistance = provider.maxDistanceKm > 0
+            ? min(70.0, provider.maxDistanceKm.toDouble())
+            : 70.0;
+        return distance <= maxDistance;
       }).toList(growable: false);
       if (!mounted) return;
       setState(() => _providers = nearby);
@@ -525,6 +531,11 @@ class _MapPageState extends State<MapPage> {
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.khedma.app',
+                  ),
+                  RichAttributionWidget(
+                    attributions: [
+                      TextSourceAttribution('OpenStreetMap contributors'),
+                    ],
                   ),
                   if (_providers.isNotEmpty)
                     MarkerLayer(

@@ -1,5 +1,7 @@
 // lib/features/services/data/repositories/service_providers_repository.dart
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
@@ -95,6 +97,9 @@ class ServiceProvidersRepository {
   Future<List<ServiceProvider>> listNearbyProviders({
     required String city,
     String? governorate,
+    double? latitude,
+    double? longitude,
+    double radiusKm = 70,
     int limit = 500,
   }) async {
     try {
@@ -107,6 +112,26 @@ class ServiceProvidersRepository {
         query = query.eq('governorate', cleanGovernorate);
       } else if (cleanCity.isNotEmpty) {
         query = query.eq('city', cleanCity);
+      }
+
+      // Narrow the server result before the client-side Haversine check. The
+      // final distance check still belongs to the caller, but this avoids
+      // downloading an entire governorate when coordinates are available.
+      if (latitude != null &&
+          longitude != null &&
+          latitude >= -90 &&
+          latitude <= 90 &&
+          longitude >= -180 &&
+          longitude <= 180 &&
+          radiusKm > 0) {
+        final latDelta = radiusKm / 111.0;
+        final cosLatitude = math.cos(latitude * math.pi / 180).abs();
+        final lngDelta = radiusKm / (111.0 * math.max(cosLatitude, 0.01));
+        query = query
+            .gte('latitude', math.max(-90, latitude - latDelta))
+            .lte('latitude', math.min(90, latitude + latDelta))
+            .gte('longitude', math.max(-180, longitude - lngDelta))
+            .lte('longitude', math.min(180, longitude + lngDelta));
       }
       final rows = await query
           .order('updated_at', ascending: false)

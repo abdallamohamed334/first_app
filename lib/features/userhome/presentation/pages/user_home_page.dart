@@ -126,6 +126,7 @@ class _UserHomePageState extends State<UserHomePage> {
   Map<String, List<ServiceProvider>> _topRatedProvidersByCategory = {};
   bool _loadingTopRatedProviders = false;
   bool _loadingNearbySymbolicProviders = false;
+  String? _nearbyProvidersError;
   final Map<String, List<CategoryOffer>> _nearbyCategoryOffers = {};
   List<Map<String, dynamic>> _nearbyMainCategories = [];
   List<Map<String, dynamic>> _institutionSubcategories = [];
@@ -247,9 +248,13 @@ class _UserHomePageState extends State<UserHomePage> {
     if (mounted) setState(() => _loadingNearbySymbolicProviders = true);
 
     try {
+      if (mounted) setState(() => _nearbyProvidersError = null);
       final providers = await _serviceProvidersRepository.listNearbyProviders(
         city: _userCity,
         governorate: _userGovernorate,
+        latitude: _userLat,
+        longitude: _userLng,
+        radiusKm: _AppFeatures.nearbyRadiusKm,
       );
       if (!mounted) return;
 
@@ -272,8 +277,13 @@ class _UserHomePageState extends State<UserHomePage> {
             _userLng == null) {
           return false;
         }
-        return _distanceKm(_userLat!, _userLng!, lat, lng) <=
-            _AppFeatures.nearbyRadiusKm;
+        final maxDistance = provider.maxDistanceKm > 0
+            ? math.min(
+                _AppFeatures.nearbyRadiusKm,
+                provider.maxDistanceKm.toDouble(),
+              )
+            : _AppFeatures.nearbyRadiusKm;
+        return _distanceKm(_userLat!, _userLng!, lat, lng) <= maxDistance;
       }).toList()
         ..sort((a, b) => _distanceKm(
               _userLat!,
@@ -297,6 +307,9 @@ class _UserHomePageState extends State<UserHomePage> {
       _loadNearbyProvidersByCategory();
     } catch (e) {
       debugPrint('❌ [Home] nearby symbolic providers error: $e');
+      if (mounted) {
+        setState(() => _nearbyProvidersError = 'تعذر تحميل مقدمي الخدمة حاليًا');
+      }
     } finally {
       if (mounted) setState(() => _loadingNearbySymbolicProviders = false);
     }
@@ -1330,8 +1343,15 @@ class _UserHomePageState extends State<UserHomePage> {
         .where((provider) =>
             provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    final center = _serviceProvidersMapCenter(providers);
-    final zoom = _serviceProvidersMapZoom(providers);
+    final center = _userLat != null && _userLng != null
+        ? LatLng(_userLat!, _userLng!)
+        : _serviceProvidersMapCenter(providers);
+    final zoom = _serviceProvidersMapZoom(
+      providers,
+      _userLat != null && _userLng != null
+          ? LatLng(_userLat!, _userLng!)
+          : null,
+    );
     final mapProviders = <ServiceProvider>[
       ...providers,
       ..._debugMapProviderFixtures(center),
@@ -1412,6 +1432,11 @@ class _UserHomePageState extends State<UserHomePage> {
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.khedma.app',
                       ),
+                      RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution('OpenStreetMap contributors'),
+                        ],
+                      ),
                       MarkerLayer(
                         markers: mapProviders.map((provider) {
                           return Marker(
@@ -1472,6 +1497,35 @@ class _UserHomePageState extends State<UserHomePage> {
                           );
                         }).toList(growable: false),
                       ),
+                      if (_userLat != null && _userLng != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: LatLng(_userLat!, _userLng!),
+                              width: 42,
+                              height: 42,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: _blue, width: 3),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 7,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.my_location_rounded,
+                                  color: _blue,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                   Positioned(
@@ -1505,7 +1559,8 @@ class _UserHomePageState extends State<UserHomePage> {
                           border: Border.all(color: _border),
                         ),
                         child: Text(
-                          'لا يوجد مقدمو خدمة بموقع مسجل في المحافظة حاليًا',
+                          _nearbyProvidersError ??
+                              'لا يوجد مقدمو خدمة بموقع مسجل في المحافظة حاليًا',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: _textPrimary,
@@ -1526,12 +1581,12 @@ class _UserHomePageState extends State<UserHomePage> {
                           borderRadius: BorderRadius.circular(13),
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => ServiceProvidersMapPage(
-                                providers: mapProviders,
-                                latitude: center.latitude,
-                                longitude: center.longitude,
-                                city: _userGovernorate ?? _userCity,
-                              ),
+                                builder: (_) => ServiceProvidersMapPage(
+                                  providers: mapProviders,
+                                  userLatitude: _userLat ?? center.latitude,
+                                  userLongitude: _userLng ?? center.longitude,
+                                  city: _userGovernorate ?? _userCity,
+                                ),
                             ),
                           ),
                           child: Padding(
@@ -1619,18 +1674,21 @@ class _UserHomePageState extends State<UserHomePage> {
     return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
   }
 
-  double _serviceProvidersMapZoom(List<ServiceProvider> providers) {
+  double _serviceProvidersMapZoom(
+    List<ServiceProvider> providers, [
+    LatLng? anchor,
+  ]) {
     final located = providers
         .where((provider) =>
             provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    if (located.length < 2) return 12.5;
+    if (located.isEmpty) return 12.5;
 
-    var minLat = located.first.latitude!;
+    var minLat = anchor?.latitude ?? located.first.latitude!;
     var maxLat = minLat;
-    var minLng = located.first.longitude!;
+    var minLng = anchor?.longitude ?? located.first.longitude!;
     var maxLng = minLng;
-    for (final provider in located.skip(1)) {
+    for (final provider in located) {
       minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
       maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
       minLng = minLng < provider.longitude! ? minLng : provider.longitude!;

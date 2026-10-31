@@ -9,15 +9,15 @@ import 'package:loqma/features/services/presentation/pages/service_provider_deta
 
 class ServiceProvidersMapPage extends StatefulWidget {
   final List<ServiceProvider> providers;
-  final double latitude;
-  final double longitude;
+  final double userLatitude;
+  final double userLongitude;
   final String city;
 
   const ServiceProvidersMapPage({
     super.key,
     required this.providers,
-    required this.latitude,
-    required this.longitude,
+    required this.userLatitude,
+    required this.userLongitude,
     required this.city,
   });
 
@@ -30,6 +30,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   ServiceProvider? _selected;
   List<ServiceCategory> _categories = const [];
   String? _selectedCategoryId;
+  String? _categoriesError;
   bool _loadingCategories = true;
   bool _mapReady = false;
 
@@ -39,12 +40,26 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     _loadCategories();
   }
 
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCategories() async {
     try {
       final categories = await ServiceCategoriesRepository().listCategories();
-      if (mounted) setState(() => _categories = categories);
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+          _categoriesError = null;
+        });
+      }
     } catch (error) {
       debugPrint('⚠️ [ServiceProvidersMap] categories error: $error');
+      if (mounted) {
+        setState(() => _categoriesError = 'تعذر تحميل تصنيفات الخدمات');
+      }
     } finally {
       if (mounted) setState(() => _loadingCategories = false);
     }
@@ -70,9 +85,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
           .toList(growable: false);
       final center = _providersMapCenter(
         located,
-        LatLng(widget.latitude, widget.longitude),
+        LatLng(widget.userLatitude, widget.userLongitude),
       );
-      _mapController.move(center, _providersMapZoom(located));
+      final userLocation = LatLng(widget.userLatitude, widget.userLongitude);
+      _mapController.move(center, _providersMapZoom(located, userLocation));
     });
   }
 
@@ -87,8 +103,9 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     final points = providers
         .where((provider) => provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    final center = _providersMapCenter(points, LatLng(widget.latitude, widget.longitude));
-    final initialZoom = _providersMapZoom(points);
+    final userLocation = LatLng(widget.userLatitude, widget.userLongitude);
+    final center = _providersMapCenter(points, userLocation);
+    final initialZoom = _providersMapZoom(points, userLocation);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -130,6 +147,11 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.khedma.app',
+                  ),
+                  RichAttributionWidget(
+                    attributions: [
+                      TextSourceAttribution('OpenStreetMap contributors'),
+                    ],
                   ),
                   MarkerLayer(
                     markers: points.map((provider) {
@@ -181,6 +203,37 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                       );
                     }).toList(),
                   ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: userLocation,
+                        width: 48,
+                        height: 48,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF3679C8),
+                              width: 3,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.my_location_rounded,
+                            color: Color(0xFF3679C8),
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -210,7 +263,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                 heroTag: 'service-map-center',
                 backgroundColor: _surface,
                 foregroundColor: const Color(0xFF3679C8),
-                onPressed: () => _mapController.move(center, initialZoom),
+                onPressed: () => _mapController.move(userLocation, 13),
                 child: const Icon(Icons.my_location_rounded),
               ),
             ),
@@ -259,6 +312,18 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
   }
 
   Widget _buildCategoryFilter() {
+    if (_categoriesError != null && _categories.isEmpty) {
+      return SizedBox(
+        height: 62,
+        child: Center(
+          child: TextButton.icon(
+            onPressed: _loadingCategories ? null : _loadCategories,
+            icon: const Icon(Icons.refresh_rounded, size: 17),
+            label: Text(_categoriesError!),
+          ),
+        ),
+      );
+    }
     if (_loadingCategories && _categories.isEmpty) {
       return const SizedBox(
         height: 58,
@@ -332,13 +397,15 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
   }
 
-  double _providersMapZoom(List<ServiceProvider> providers) {
-    if (providers.length < 2) return 12.5;
-    var minLat = providers.first.latitude!;
+  double _providersMapZoom(
+    List<ServiceProvider> providers,
+    LatLng userLocation,
+  ) {
+    var minLat = userLocation.latitude;
     var maxLat = minLat;
-    var minLng = providers.first.longitude!;
+    var minLng = userLocation.longitude;
     var maxLng = minLng;
-    for (final provider in providers.skip(1)) {
+    for (final provider in providers) {
       minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
       maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
       minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
@@ -367,7 +434,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on_rounded, color: Color(0xFFE31C25), size: 15),
+          Icon(icon, color: const Color(0xFFE31C25), size: 15),
           const SizedBox(width: 4),
           Text(label, style: TextStyle(color: _text, fontSize: 11, fontWeight: FontWeight.w800)),
         ],
