@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -12,6 +14,7 @@ class ServiceProvidersMapPage extends StatefulWidget {
   final List<ServiceProvider> providers;
   final double latitude;
   final double longitude;
+  final double radiusKm;
   final String city;
 
   const ServiceProvidersMapPage({
@@ -19,6 +22,7 @@ class ServiceProvidersMapPage extends StatefulWidget {
     required this.providers,
     required this.latitude,
     required this.longitude,
+    required this.radiusKm,
     required this.city,
   });
 
@@ -51,10 +55,21 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     }
   }
 
+  List<ServiceProvider> get _nearbyProviders => widget.providers
+      .where((provider) {
+        final lat = provider.latitude;
+        final lng = provider.longitude;
+        if (lat == null || lng == null) return false;
+        return _distanceKm(widget.latitude, widget.longitude, lat, lng) <=
+            widget.radiusKm;
+      })
+      .toList(growable: false);
+
   List<ServiceProvider> get _filteredProviders {
     final categoryId = _selectedCategoryId;
-    if (categoryId == null) return widget.providers;
-    return widget.providers
+    final nearby = _nearbyProviders;
+    if (categoryId == null) return nearby;
+    return nearby
         .where((provider) => provider.categoryId == categoryId)
         .toList(growable: false);
   }
@@ -69,11 +84,12 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       final located = _filteredProviders
           .where((p) => p.latitude != null && p.longitude != null)
           .toList(growable: false);
-      final center = _providersMapCenter(
-        located,
-        LatLng(widget.latitude, widget.longitude),
+      final userLocation = LatLng(widget.latitude, widget.longitude);
+      final center = _providersMapCenter(located, userLocation);
+      _mapController.move(
+        center,
+        _providersMapZoom(located, include: userLocation),
       );
-      _mapController.move(center, _providersMapZoom(located));
     });
   }
 
@@ -88,8 +104,9 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     final points = providers
         .where((provider) => provider.latitude != null && provider.longitude != null)
         .toList(growable: false);
-    final center = _providersMapCenter(points, LatLng(widget.latitude, widget.longitude));
-    final initialZoom = _providersMapZoom(points);
+    final userLocation = LatLng(widget.latitude, widget.longitude);
+    final center = _providersMapCenter(points, userLocation);
+    final initialZoom = _providersMapZoom(points, include: userLocation);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -133,7 +150,8 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                     userAgentPackageName: 'com.khedma.app',
                   ),
                   MarkerLayer(
-                    markers: points.map((provider) {
+                    markers: [
+                      ...points.map((provider) {
                       final selected = _selected?.id == provider.id;
                       final markerColor = _categoryColor(provider.categorySlug);
                       return Marker(
@@ -179,7 +197,33 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                           ),
                         ),
                       );
-                    }).toList(),
+                      }),
+                      Marker(
+                        point: userLocation,
+                        width: 30,
+                        height: 34,
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1677D2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 7,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.my_location_rounded,
+                            color: Colors.white,
+                            size: 15,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -380,12 +424,22 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     );
   }
 
-  int _countMappableProviders(String? categoryId) => widget.providers
+  int _countMappableProviders(String? categoryId) => _nearbyProviders
       .where((provider) =>
-          provider.latitude != null &&
-          provider.longitude != null &&
           (categoryId == null || provider.categoryId == categoryId))
       .length;
+
+  double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
+    const radiansPerDegree = math.pi / 180;
+    final latitudeDelta = (lat2 - lat1) * radiansPerDegree;
+    final longitudeDelta = (lng2 - lng1) * radiansPerDegree;
+    final a = math.sin(latitudeDelta / 2) * math.sin(latitudeDelta / 2) +
+        math.cos(lat1 * radiansPerDegree) *
+            math.cos(lat2 * radiansPerDegree) *
+            math.sin(longitudeDelta / 2) *
+            math.sin(longitudeDelta / 2);
+    return 12742 * math.asin(math.sqrt(a.clamp(0.0, 1.0)));
+  }
 
   Widget _categoryMarkerSymbol(
     ServiceProvider provider, {
@@ -458,10 +512,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     LatLng fallback,
   ) {
     if (providers.isEmpty) return fallback;
-    var minLat = providers.first.latitude!;
-    var maxLat = minLat;
-    var minLng = providers.first.longitude!;
-    var maxLng = minLng;
+    var minLat = math.min(providers.first.latitude!, fallback.latitude);
+    var maxLat = math.max(providers.first.latitude!, fallback.latitude);
+    var minLng = math.min(providers.first.longitude!, fallback.longitude);
+    var maxLng = math.max(providers.first.longitude!, fallback.longitude);
     for (final provider in providers.skip(1)) {
       minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
       maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
@@ -471,17 +525,24 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
     return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
   }
 
-  double _providersMapZoom(List<ServiceProvider> providers) {
-    if (providers.length < 2) return 12.5;
-    var minLat = providers.first.latitude!;
+  double _providersMapZoom(
+    List<ServiceProvider> providers, {
+    LatLng? include,
+  }) {
+    final locations = <LatLng>[
+      if (include != null) include,
+      ...providers.map((provider) => LatLng(provider.latitude!, provider.longitude!)),
+    ];
+    if (locations.length < 2) return 12.5;
+    var minLat = locations.first.latitude;
     var maxLat = minLat;
-    var minLng = providers.first.longitude!;
+    var minLng = locations.first.longitude;
     var maxLng = minLng;
-    for (final provider in providers.skip(1)) {
-      minLat = minLat < provider.latitude! ? minLat : provider.latitude!;
-      maxLat = maxLat > provider.latitude! ? maxLat : provider.latitude!;
-      minLng = minLng < provider.longitude! ? minLng : provider.longitude!;
-      maxLng = maxLng > provider.longitude! ? maxLng : provider.longitude!;
+    for (final location in locations.skip(1)) {
+      minLat = minLat < location.latitude ? minLat : location.latitude;
+      maxLat = maxLat > location.latitude ? maxLat : location.latitude;
+      minLng = minLng < location.longitude ? minLng : location.longitude;
+      maxLng = maxLng > location.longitude ? maxLng : location.longitude;
     }
     final span = (maxLat - minLat) > (maxLng - minLng)
         ? maxLat - minLat

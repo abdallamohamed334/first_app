@@ -70,6 +70,9 @@ class _AppFeatures {
 
   /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
   static const double nearbyRadiusKm = 70.0;
+
+  /// لا نعرض الصنايعية كبعيدين؛ يتم ترتيبهم داخل هذا النطاق من موقع الحساب.
+  static const double serviceProviderNearbyRadiusKm = 25.0;
 }
 
 const Set<String> _homeRestaurantInstitutionTypes = {
@@ -273,7 +276,7 @@ class _UserHomePageState extends State<UserHomePage> {
           return false;
         }
         return _distanceKm(_userLat!, _userLng!, lat, lng) <=
-            _AppFeatures.nearbyRadiusKm;
+            _AppFeatures.serviceProviderNearbyRadiusKm;
       }).toList()
         ..sort((a, b) => _distanceKm(
               _userLat!,
@@ -505,7 +508,7 @@ class _UserHomePageState extends State<UserHomePage> {
           provider.latitude!,
           provider.longitude!,
         );
-        if (distance > _AppFeatures.nearbyRadiusKm) continue;
+        if (distance > _AppFeatures.serviceProviderNearbyRadiusKm) continue;
         results.putIfAbsent(provider.categoryId, () => []).add(provider);
       }
       for (final providers in results.values) {
@@ -1358,7 +1361,7 @@ class _UserHomePageState extends State<UserHomePage> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _userGovernorate ?? 'مقدمو الخدمة في منطقتك',
+                      '${_userGovernorate ?? _userCity} · حتى ${_AppFeatures.serviceProviderNearbyRadiusKm.round()} كم من موقعك المسجّل',
                       style: TextStyle(
                         color: _textSecondary,
                         fontSize: 11,
@@ -1528,8 +1531,9 @@ class _UserHomePageState extends State<UserHomePage> {
                             MaterialPageRoute(
                               builder: (_) => ServiceProvidersMapPage(
                                 providers: mapProviders,
-                                latitude: center.latitude,
-                                longitude: center.longitude,
+                                latitude: _userLat ?? center.latitude,
+                                longitude: _userLng ?? center.longitude,
+                                radiusKm: _AppFeatures.serviceProviderNearbyRadiusKm,
                                 city: _userGovernorate ?? _userCity,
                               ),
                             ),
