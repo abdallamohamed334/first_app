@@ -2,6 +2,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
@@ -1541,6 +1542,7 @@ class _ServiceProviderDetailsPageState
   bool _hasContactInfo(ServiceProvider p) {
     return (p.phone != null && p.phone!.isNotEmpty) ||
         (p.whatsapp != null && p.whatsapp!.isNotEmpty) ||
+        (p.providerCode != null && p.providerCode!.isNotEmpty) ||
         (p.email != null && p.email!.isNotEmpty) ||
         (p.website != null && p.website!.isNotEmpty);
   }
@@ -1548,6 +1550,18 @@ class _ServiceProviderDetailsPageState
   Widget _buildContactInfo(ServiceProvider p) {
     final items = <Widget>[];
 
+    if (p.providerCode != null && p.providerCode!.isNotEmpty) {
+      items.add(_contactRow(
+        icon: Icons.badge_rounded,
+        label: 'كود المزود',
+        value: p.providerCode!,
+        color: _blue,
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: p.providerCode!));
+          _snack('تم نسخ كود مزود الخدمة', isSuccess: true);
+        },
+      ));
+    }
     if (p.phone != null && p.phone!.isNotEmpty) {
       items.add(_contactRow(
         icon: Icons.phone_rounded,
@@ -2195,8 +2209,9 @@ class _ServiceProviderDetailsPageState
   Widget _buildBottomBar(ServiceProvider p) {
     final hasPhone = p.phone != null && p.phone!.isNotEmpty;
     final hasWhatsapp = p.whatsapp != null && p.whatsapp!.isNotEmpty;
+    final hasCode = p.providerCode != null && p.providerCode!.isNotEmpty;
 
-    if (!hasPhone && !hasWhatsapp) {
+    if (!hasPhone && !hasWhatsapp && !hasCode) {
       return const SizedBox.shrink();
     }
 
@@ -2222,6 +2237,22 @@ class _ServiceProviderDetailsPageState
       ),
       child: Row(
         children: [
+          if (hasCode)
+            Expanded(
+              child: _bottomButton(
+                icon: Icons.badge_rounded,
+                label: 'الكود',
+                color: _blue,
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: p.providerCode!),
+                  );
+                  _snack('تم نسخ كود مزود الخدمة', isSuccess: true);
+                },
+              ),
+            ),
+          if (hasCode && (hasPhone || hasWhatsapp))
+            const SizedBox(width: 10),
           if (hasPhone)
             Expanded(
               child: _bottomButton(
