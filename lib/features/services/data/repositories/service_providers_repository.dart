@@ -99,7 +99,7 @@ class ServiceProvidersRepository {
     String? governorate,
     double? latitude,
     double? longitude,
-    double radiusKm = 70,
+    double radiusKm = 200,
     int limit = 100,
   }) async {
     try {

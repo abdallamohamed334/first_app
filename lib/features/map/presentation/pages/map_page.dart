@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:loqma/routes/app_router.dart';
 import 'package:universal_html/html.dart' as html;
 
+import '../../../../core/constants/egypt_locations.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/services/supabase_service.dart';
 import '../../../services/data/repositories/service_providers_repository.dart';
@@ -37,6 +38,7 @@ class _MapPageState extends State<MapPage> {
   bool _isLoggedIn = false;
   bool _isLoadingProviders = false;
   List<ServiceProvider> _providers = const [];
+  String? _selectedGovernorate;
   final ServiceProvidersRepository _providersRepository =
       ServiceProvidersRepository();
 
@@ -227,18 +229,22 @@ class _MapPageState extends State<MapPage> {
 
       final city = userData['city']?.toString().trim() ?? '';
       final governorate = userData['governorate']?.toString().trim();
+      if (_selectedGovernorate == null && governorate?.isNotEmpty == true) {
+        _selectedGovernorate = governorate;
+      }
       final providers = await _providersRepository.listNearbyProviders(
         city: city,
-        governorate: governorate,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        radiusKm: 70,
-        limit: 100,
+        governorate: _selectedGovernorate,
+        latitude: _selectedGovernorate == null ? location.latitude : null,
+        longitude: _selectedGovernorate == null ? location.longitude : null,
+        radiusKm: 200,
+        limit: 500,
       );
       final nearby = providers.where((provider) {
         final lat = provider.latitude;
         final lng = provider.longitude;
         if (lat == null || lng == null) return false;
+        if (_selectedGovernorate != null) return true;
         final distance = _calculateDistance(
               location.latitude,
               location.longitude,
@@ -246,8 +252,8 @@ class _MapPageState extends State<MapPage> {
               lng,
             );
         final maxDistance = provider.maxDistanceKm > 0
-            ? min(70.0, provider.maxDistanceKm.toDouble())
-            : 70.0;
+            ? min(200.0, provider.maxDistanceKm.toDouble())
+            : 200.0;
         return distance <= maxDistance;
       }).toList(growable: false);
       if (!mounted) return;
@@ -323,6 +329,13 @@ class _MapPageState extends State<MapPage> {
         _errorMessage = '❌ تعذر التحقق من الموقع في النظام';
       });
     }
+  }
+
+  Future<void> _selectGovernorate(String? governorate) async {
+    final selected = governorate?.trim();
+    if (selected == null || selected.isEmpty || _currentLocation == null) return;
+    setState(() => _selectedGovernorate = selected);
+    await _loadNearbyProviders(_currentLocation!);
   }
 
   Future<void> _saveLocation() async {
@@ -501,6 +514,43 @@ class _MapPageState extends State<MapPage> {
         ),
         body: Stack(
           children: [
+            Positioned(
+              top: 12,
+              left: 16,
+              right: 16,
+              child: Material(
+                elevation: 5,
+                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                child: DropdownButtonFormField<String>(
+                  value: _selectedGovernorate,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'المحافظة',
+                    prefixIcon: const Icon(Icons.location_city_rounded,
+                        color: Color(0xFF0B7650)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  hint: const Text('اختر المحافظة لعرض مزوديها'),
+                  items: EgyptLocations.names
+                      .map((name) => DropdownMenuItem<String>(
+                            value: name,
+                            child: Text(name),
+                          ))
+                      .toList(growable: false),
+                  onChanged: _isLoadingProviders ? null : _selectGovernorate,
+                ),
+              ),
+            ),
             if (_currentLocation != null)
               FlutterMap(
                 mapController: _mapController,
@@ -631,7 +681,7 @@ class _MapPageState extends State<MapPage> {
                     ),
                   if (_isLoadingProviders)
                     Positioned(
-                      top: 16,
+                      top: 82,
                       right: 16,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -683,7 +733,7 @@ class _MapPageState extends State<MapPage> {
             // ✅ رسالة الحالة
             if (_errorMessage != null && _currentLocation != null)
               Positioned(
-                top: 16,
+                top: 82,
                 left: 16,
                 right: 16,
                 child: Container(
