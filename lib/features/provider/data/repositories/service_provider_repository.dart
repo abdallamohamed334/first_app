@@ -75,6 +75,12 @@ class ServiceProviderRepository {
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
 
+    if (raw.contains('provider_profile_incomplete')) {
+      return 'أكمل بيانات الملف والموقع ومستندات الهوية قبل تفعيل الظهور.';
+    }
+    if (raw.contains('provider_identity_fields_locked')) {
+      return 'لا يمكن تعديل مستندات الهوية أو بيانات الاعتماد الحساسة.';
+    }
     if (raw.contains('provider_phone_immutable')) {
       return 'رقم الهاتف مرتبط بحساب تسجيل الدخول ولا يمكن تغييره من البروفايل.';
     }
@@ -665,23 +671,23 @@ class ServiceProviderRepository {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      if (!profileLocked && displayName != null) {
+      if (displayName != null) {
         data['display_name'] = displayName.trim();
       }
-      if (!profileLocked && bio != null) data['bio'] = bio.trim();
-      if (!profileLocked && experienceYears != null) {
+      if (bio != null) data['bio'] = bio.trim();
+      if (experienceYears != null) {
         data['experience_years'] = experienceYears;
       }
-      if (!profileLocked && skills != null) data['skills'] = skills;
+      if (skills != null) data['skills'] = skills;
       if (city != null) data['city'] = city.trim();
       if (governorate != null) data['governorate'] = governorate.trim();
-      if (!profileLocked && address != null) data['address'] = address.trim();
+      if (address != null) data['address'] = address.trim();
       if (serviceAreas != null) data['service_areas'] = serviceAreas;
       if (availableDays != null) data['available_days'] = availableDays;
       if (latitude != null) data['latitude'] = latitude;
       if (longitude != null) data['longitude'] = longitude;
       if (maxDistanceKm != null) data['max_distance_km'] = maxDistanceKm;
-      if (!profileLocked && pricingType != null) {
+      if (pricingType != null) {
         // service_pricing_type currently supports only these three values.
         // Older clients used to send "hourly", which makes the whole update
         // fail at the Postgres enum cast.
@@ -690,8 +696,8 @@ class ServiceProviderRepository {
             ? pricingType.trim()
             : 'market';
       }
-      if (!profileLocked && priceFrom != null) data['price_from'] = priceFrom;
-      if (!profileLocked && acceptsInstallments != null) {
+      if (priceFrom != null) data['price_from'] = priceFrom;
+      if (acceptsInstallments != null) {
         data['accepts_installments'] = acceptsInstallments;
       }
       if (profileImageUrl != null) {
@@ -700,11 +706,11 @@ class ServiceProviderRepository {
       if (portfolioImages != null) {
         data['portfolio_images'] = portfolioImages;
       }
-      if (!profileLocked && coverImageUrl != null)
+      if (coverImageUrl != null)
         data['cover_image_url'] = coverImageUrl;
-      if (!profileLocked && whatsapp != null)
+      if (whatsapp != null)
         data['whatsapp'] = _cleanPhone(whatsapp);
-      if (!profileLocked && website != null) data['website'] = website.trim();
+      if (website != null) data['website'] = website.trim();
       if (isAvailable != null) data['is_available'] = isAvailable;
       if (availabilityNote != null) {
         data['availability_note'] = availabilityNote.trim();

@@ -319,6 +319,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       _snack('اختار المحافظة والمدينة الأول', error: true);
       return;
     }
+    if (_latitude == null || _longitude == null) {
+      _snack('حدد موقعك على الخريطة قبل حفظ البروفايل', error: true);
+      return;
+    }
     if (_availableDays.isEmpty) {
       _snack('اختار يوم متاح واحد على الأقل', error: true);
       return;
@@ -627,7 +631,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                             setState(() => _skills.remove(value));
                           },
                           color: _blue,
-                          editable: !_profileLocked,
+                          editable: true,
                         ),
                       ],
                     ),
@@ -1043,7 +1047,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           _imageLabel('صورة الغلاف'),
           const SizedBox(height: 8),
           GestureDetector(
-            onTap: _profileLocked ? null : _pickCoverImage,
+            onTap: _pickCoverImage,
             child: Container(
               height: 130,
               decoration: BoxDecoration(
@@ -1335,7 +1339,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   }) {
     return TextField(
       controller: controller,
-      enabled: !_profileLocked && !readOnly,
+      enabled: !readOnly,
       readOnly: readOnly,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
@@ -1528,8 +1532,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         DropdownMenuItem(value: 'symbolic', child: Text('سعر رمزي')),
         DropdownMenuItem(value: 'free', child: Text('مجاناً')),
       ],
-      onChanged:
-          _profileLocked ? null : (v) => setState(() => _pricingType = v),
+      onChanged: (v) => setState(() => _pricingType = v),
     );
   }
 
@@ -1559,7 +1562,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           ),
           Switch(
             value: value,
-            onChanged: _profileLocked ? null : onChanged,
+            onChanged: onChanged,
             activeThumbColor: _primary,
           ),
         ],
