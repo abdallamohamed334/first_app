@@ -354,9 +354,6 @@ Future<void> _applyRealtimeAccountState(
   final suspensionUntil = profile['suspension_until'] is String
       ? DateTime.tryParse(profile['suspension_until'] as String)
       : null;
-  final isActive = profile['is_active'] != false &&
-      (provider == null || provider['is_active'] != false) &&
-      (institution == null || Institution.isAllowedStatus(institutionStatus));
   final profileRole = AuthStateNotifier.resolveRole(
     userType: profile['user_type'],
     fallbackRole: profile['role'],
@@ -367,6 +364,11 @@ Future<void> _applyRealtimeAccountState(
     hasProviderProfile: provider != null,
     institutionType: institution?['institution_type'],
   );
+  final isActive = profile['is_active'] != false &&
+      (resolvedRole != 'provider' ||
+          provider == null ||
+          provider['is_active'] != false) &&
+      (institution == null || Institution.isAllowedStatus(institutionStatus));
 
   authState.setLoggedIn(
     isLoggedIn: true,
@@ -386,7 +388,7 @@ Future<void> _applyRealtimeAccountState(
 }
 
 /// مزامنة الجلسة مع users و service_providers و institutions قبل السماح للـ router بالتوجيه.
-/// users.user_type هو المرجع؛ سجل المؤسسة لا يغيّر دور user، وسجل المزود هو الاستثناء المعتمد.
+/// users.user_type/role هو المرجع؛ السجلات المرتبطة لا تغيّر دور user الصريح.
 void _attachAuthStateSync() {
   if (_authStateSubscription != null) return;
   _authStateSubscription =
@@ -510,7 +512,9 @@ void _attachAuthStateSync() {
           ? DateTime.tryParse(profile['suspension_until'] as String)
           : null;
       final isActive = profile['is_active'] != false &&
-          (provider == null || provider['is_active'] != false) &&
+          (resolvedRole != 'provider' ||
+              provider == null ||
+              provider['is_active'] != false) &&
           (institution == null ||
               Institution.isAllowedStatus(institutionStatus));
 

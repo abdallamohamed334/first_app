@@ -41,8 +41,8 @@ class AuthStateNotifier extends ChangeNotifier {
   };
 
   /// `users.user_type` is authoritative. A linked institution row may refine
-  /// a generic institution/business/company account, but must never change a
-  /// `user` account into an institution session.
+  /// a generic institution/business/company account, but linked provider data
+  /// must never change an explicitly ordinary `user` account into a provider.
   static String resolveRole({
     required dynamic userType,
     dynamic fallbackRole,
@@ -52,10 +52,9 @@ class AuthStateNotifier extends ChangeNotifier {
     final storedRole = _normalizeRole(userType) ?? _normalizeRole(fallbackRole);
     if (storedRole == null) return 'unknown';
 
-    // Provider profiles are the established exception: provider accounts are
-    // represented by a related service_providers row while user_type can stay
-    // `user` in the database.
-    if (storedRole == 'user' && hasProviderProfile) return 'provider';
+    // The explicit account type wins. Do not infer provider access from the
+    // existence of a service_providers row: a stale/partial linked row must
+    // never redirect an ordinary user to the provider application.
     if (storedRole == 'provider') return 'provider';
 
     if (storedRole == 'institution' ||

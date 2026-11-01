@@ -540,8 +540,8 @@ class AuthRepository {
 
   /// يزامن الدور الحقيقي مع AuthStateNotifier.
   ///
-  /// وجود صف في service_providers هو الذي يحدد أن الحساب مزود خدمة؛
-  /// لا نغير users.user_type لأن القيد الحالي لا يسمح بقيمة provider.
+  /// users.user_type/role هو مصدر الدور. وجود صف مزود خدمة وحده لا يغيّر
+  /// حسابًا صُنف صراحةً كمستخدم عادي إلى حساب مزود.
   Future<bool> syncCurrentAuthState({String? userId}) async {
     final id = userId?.trim();
     final authUser =
@@ -606,7 +606,9 @@ class AuthRepository {
           : null;
 
       final active = profile?['is_active'] != false &&
-          (provider == null || provider['is_active'] != false) &&
+          (resolvedRole != 'provider' ||
+              provider == null ||
+              provider['is_active'] != false) &&
           (institution == null ||
               institutionStatus == 'active' ||
               institutionStatus == 'approved');
