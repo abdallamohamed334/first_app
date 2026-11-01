@@ -144,6 +144,37 @@ class CommunityNeedsRepository {
     }
   }
 
+  Future<List<Map<String, dynamic>>> listProviderNeedsByGovernorate({
+    required String governorate,
+    String? categorySlug,
+    String? search,
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final cleanGovernorate = governorate.trim();
+    if (cleanGovernorate.isEmpty) return const [];
+
+    final response = await _client.rpc(
+      'list_provider_community_needs_by_governorate',
+      params: {
+        'p_governorate': cleanGovernorate,
+        'p_need_category': categorySlug,
+        'p_search': search,
+        'p_limit': limit,
+        'p_offset': offset,
+      },
+    );
+
+    if (response is! List) {
+      throw StateError('Unexpected provider community needs response');
+    }
+
+    return response
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+
   /// Uploads a reference image into a user-owned path. Storage policies
   /// validate the first path segment against auth.uid().
   Future<String> uploadNeedImage(XFile image) async {

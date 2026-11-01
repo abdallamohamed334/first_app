@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 import 'package:loqma/features/provider/presentation/utils/service_category_icons.dart';
+import 'package:loqma/features/provider/presentation/pages/provider_community_needs_page.dart';
 import 'package:loqma/routes/app_router.dart';
 
 double? _dashboardDouble(dynamic value) {
@@ -350,6 +351,8 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                           const SizedBox(height: 18),
                           _buildStatsGrid(),
                           const SizedBox(height: 18),
+                          _buildCommunityNeedsShortcut(),
+                          const SizedBox(height: 18),
                           _buildQuickActions(),
                           const SizedBox(height: 18),
                           _buildRatingCard(),
@@ -359,6 +362,94 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
                   ),
           ),
         ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // Community Needs Shortcut
+  // ══════════════════════════════════════════════════════════
+  Widget _buildCommunityNeedsShortcut() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ProviderCommunityNeedsPage(
+                initialGovernorate: _provider?['governorate']?.toString(),
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_primary, Color(0xFF075B3D)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: _primary.withValues(alpha: 0.20),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.location_city_rounded,
+                  color: Colors.white,
+                  size: 25,
+                ),
+              ),
+              const SizedBox(width: 13),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'احتياجات محافظتك',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'شوف طلبات الخدمة المنشورة وتواصل مع أصحابها',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+            ],
+          ),
         ),
       ),
     );
