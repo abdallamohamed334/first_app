@@ -77,10 +77,16 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   @override
   void initState() {
     super.initState();
-    _loadCategories();
-    _loadCities();
-    _loadNeeds(refresh: true);
+    _initializePage();
     _scrollController.addListener(_onScroll);
+  }
+
+  Future<void> _initializePage() async {
+    await _loadUserGovernorate();
+    if (!mounted) return;
+    await Future.wait([_loadCategories(), _loadCities()]);
+    if (!mounted) return;
+    await _loadNeeds(refresh: true);
   }
 
   @override
@@ -104,6 +110,26 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   // ═══════════════════════════════════════════════════════════
   // DATA LOADERS
   // ═══════════════════════════════════════════════════════════
+  Future<void> _loadUserGovernorate() async {
+    try {
+      final user = SupabaseService().client.auth.currentUser;
+      if (user == null) return;
+
+      final row = await SupabaseService()
+          .client
+          .from('users')
+          .select('governorate')
+          .eq('id', user.id)
+          .maybeSingle();
+      final governorate = row?['governorate']?.toString().trim() ?? '';
+      if (governorate.isNotEmpty && mounted) {
+        setState(() => _selectedCity = governorate);
+      }
+    } catch (e) {
+      debugPrint('❌ loadUserGovernorate error: $e');
+    }
+  }
+
   Future<void> _loadCities() async {
     try {
       final rows = await SupabaseService()
@@ -118,6 +144,9 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
         final c = row['city']?.toString().trim() ?? '';
         if (c.isNotEmpty && c != 'null') citiesSet.add(c);
       }
+
+      final selected = _selectedCity?.trim() ?? '';
+      if (selected.isNotEmpty) citiesSet.add(selected);
 
       final sorted = citiesSet.toList()..sort();
       debugPrint('✅ Loaded ${sorted.length} cities');

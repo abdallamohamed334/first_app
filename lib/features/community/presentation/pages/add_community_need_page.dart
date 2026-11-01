@@ -101,7 +101,28 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     super.initState();
 
     if (_isEditMode) _prefillFromInitialData();
+    if (!_isEditMode) _loadUserGovernorate();
     _loadCategories();
+  }
+
+  Future<void> _loadUserGovernorate() async {
+    try {
+      final user = SupabaseService().client.auth.currentUser;
+      if (user == null) return;
+
+      final row = await SupabaseService()
+          .client
+          .from('users')
+          .select('governorate')
+          .eq('id', user.id)
+          .maybeSingle();
+      final governorate = row?['governorate']?.toString().trim() ?? '';
+      if (governorate.isNotEmpty && mounted && _selectedCity == null) {
+        setState(() => _selectedCity = governorate);
+      }
+    } catch (e) {
+      debugPrint('❌ loadUserGovernorate error: $e');
+    }
   }
 
   void _prefillFromInitialData() {
