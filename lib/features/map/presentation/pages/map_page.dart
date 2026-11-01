@@ -39,8 +39,39 @@ class _MapPageState extends State<MapPage> {
   bool _isLoadingProviders = false;
   List<ServiceProvider> _providers = const [];
   String? _selectedGovernorate;
+  LatLng? _selectedGovernorateCenter;
   final ServiceProvidersRepository _providersRepository =
       ServiceProvidersRepository();
+
+  static const Map<String, LatLng> _governorateCenters = {
+    'القاهرة': LatLng(30.0444, 31.2357),
+    'الجيزة': LatLng(30.0131, 31.2089),
+    'القليوبية': LatLng(30.4667, 31.1833),
+    'الإسكندرية': LatLng(31.2001, 29.9187),
+    'البحيرة': LatLng(30.8481, 30.3436),
+    'مطروح': LatLng(31.3543, 27.2373),
+    'دمياط': LatLng(31.4175, 31.8144),
+    'الدقهلية': LatLng(31.0364, 31.3807),
+    'كفر الشيخ': LatLng(31.1107, 30.9388),
+    'الغربية': LatLng(30.8754, 31.0335),
+    'المنوفية': LatLng(30.5972, 30.9876),
+    'الشرقية': LatLng(30.7327, 31.7195),
+    'الإسماعيلية': LatLng(30.5833, 32.2667),
+    'بورسعيد': LatLng(31.2653, 32.3019),
+    'السويس': LatLng(29.9668, 32.5498),
+    'شمال سيناء': LatLng(31.1316, 33.8033),
+    'جنوب سيناء': LatLng(28.5371, 33.4467),
+    'بني سويف': LatLng(29.0661, 31.0994),
+    'الفيوم': LatLng(29.3084, 30.8428),
+    'المنيا': LatLng(28.1099, 30.7503),
+    'أسيوط': LatLng(27.1809, 31.1837),
+    'سوهاج': LatLng(26.5591, 31.6957),
+    'قنا': LatLng(26.1551, 32.7160),
+    'الأقصر': LatLng(25.6872, 32.6396),
+    'أسوان': LatLng(24.0889, 32.8998),
+    'البحر الأحمر': LatLng(27.2579, 33.8116),
+    'الوادي الجديد': LatLng(25.4420, 30.5586),
+  };
 
   @override
   void initState() {
@@ -257,7 +288,12 @@ class _MapPageState extends State<MapPage> {
         return distance <= maxDistance;
       }).toList(growable: false);
       if (!mounted) return;
-      setState(() => _providers = nearby);
+      setState(() {
+        _providers = nearby;
+        if (_selectedGovernorate != null && nearby.isEmpty) {
+          _errorMessage = 'لا يوجد مقدمو خدمة منشورون في محافظة $_selectedGovernorate حاليًا';
+        }
+      });
     } catch (e) {
       debugPrint('⚠️ [MapPage] Failed to load service providers: $e');
     } finally {
@@ -334,7 +370,15 @@ class _MapPageState extends State<MapPage> {
   Future<void> _selectGovernorate(String? governorate) async {
     final selected = governorate?.trim();
     if (selected == null || selected.isEmpty || _currentLocation == null) return;
-    setState(() => _selectedGovernorate = selected);
+    final center = _governorateCenters[selected];
+    setState(() {
+      _selectedGovernorate = selected;
+      _selectedGovernorateCenter = center;
+      _errorMessage = '📍 تم اختيار محافظة $selected';
+    });
+    if (center != null && _mapReady) {
+      _mapController.move(center, 9.8);
+    }
     await _loadNearbyProviders(_currentLocation!);
   }
 
@@ -646,6 +690,66 @@ class _MapPageState extends State<MapPage> {
                         );
                       }).toList(growable: false),
                     ),
+                  if (_selectedGovernorateCenter != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _selectedGovernorateCenter!,
+                          width: 132,
+                          height: 68,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 9,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0B7650),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 7,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.location_city_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _selectedGovernorate ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_drop_down_rounded,
+                                color: Color(0xFF0B7650),
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   if (_selectedLocation != null)
                     MarkerLayer(
                       markers: [
@@ -794,7 +898,15 @@ class _MapPageState extends State<MapPage> {
               right: 16,
               child: FloatingActionButton(
                 heroTag: 'location',
-                onPressed: _isLoading ? null : _getCurrentLocation,
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedGovernorate = null;
+                          _selectedGovernorateCenter = null;
+                        });
+                        _getCurrentLocation();
+                      },
                 mini: true,
                 backgroundColor: Colors.blue,
                 child: _isLoading
