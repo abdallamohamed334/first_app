@@ -2,6 +2,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
@@ -1366,15 +1367,28 @@ class _ServiceProviderDetailsPageState
           title: 'الأعمال المنفذة',
           icon: Icons.handyman_rounded,
           trailing: '${jobs.length} عمل',
-          child: Column(
-            children: jobs.map(_buildPublicCompletedWork).toList(),
+          child: SizedBox(
+            height: 332,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: jobs.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, index) => _buildPublicCompletedWork(
+                jobs[index],
+                index: index,
+              ),
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildPublicCompletedWork(Map<String, dynamic> work) {
+  Widget _buildPublicCompletedWork(
+    Map<String, dynamic> work, {
+    required int index,
+  }) {
     final paths = (work['photo_paths'] as List?)
             ?.map((item) => item.toString())
             .where((path) => path.isNotEmpty)
@@ -1383,44 +1397,179 @@ class _ServiceProviderDetailsPageState
     final amount = work['amount'];
     final executed = DateTime.tryParse(work['executed_on']?.toString() ?? '');
     final date = executed == null ? '—' : '${executed.day}/${executed.month}/${executed.year}';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+    final description = work['description']?.toString().trim() ?? '';
+
+    return Container(
+      width: 276,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF202A36),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _blue.withValues(alpha: 0.38)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Expanded(child: Text(date, style: const TextStyle(color: _textSecondary, fontSize: 12))),
-              if (amount != null)
-                Text(
-                  '${_formatCompletedWorkAmount(amount)} ج.م',
-                  style: const TextStyle(color: Colors.greenAccent, fontSize: 13, fontWeight: FontWeight.w900),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _blue.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: _blue,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              const Expanded(
+                child: Text(
+                  'عمل منفذ',
+                  style: TextStyle(
+                    color: _textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                date,
+                style: const TextStyle(
+                  color: _textSecondary,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(work['description']?.toString() ?? '', style: const TextStyle(color: _textPrimary, height: 1.4)),
-          if (paths.isNotEmpty) ...[
-            const SizedBox(height: 9),
+          const SizedBox(height: 10),
+          if (paths.isNotEmpty)
             SizedBox(
-              height: 78,
+              height: 142,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: paths.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 7),
-                itemBuilder: (_, index) => ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    _completedWorkRepository.imageUrl(paths[index]),
-                    width: 78,
-                    height: 78,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 78,
-                      height: 78,
-                      color: _cardSoft,
-                      child: const Icon(Icons.broken_image_outlined, color: _textSecondary),
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, imageIndex) {
+                  final imageUrl =
+                      _completedWorkRepository.imageUrl(paths[imageIndex]);
+                  return GestureDetector(
+                    onTap: () => _showImage(context, imageUrl),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            width: 178,
+                            height: 142,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              width: 178,
+                              height: 142,
+                              color: _cardSoft,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _blue,
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              width: 178,
+                              height: 142,
+                              color: _cardSoft,
+                              child: const Icon(
+                                Icons.broken_image_outlined,
+                                color: _textSecondary,
+                                size: 30,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 8,
+                          bottom: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.62),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.zoom_in_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  );
+                },
+              ),
+            )
+          else
+            Container(
+              height: 92,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _cardSoft.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.handyman_rounded,
+                color: _blue,
+                size: 34,
+              ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            description.isEmpty ? 'تم تنفيذ هذا العمل بنجاح' : description,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _textPrimary,
+              fontSize: 12,
+              height: 1.45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (amount != null) ...[
+            const Spacer(),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_formatCompletedWorkAmount(amount)} ج.م',
+                  style: const TextStyle(
+                    color: Color(0xFF66D99A),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -1541,6 +1690,7 @@ class _ServiceProviderDetailsPageState
   bool _hasContactInfo(ServiceProvider p) {
     return (p.phone != null && p.phone!.isNotEmpty) ||
         (p.whatsapp != null && p.whatsapp!.isNotEmpty) ||
+        (p.providerCode != null && p.providerCode!.isNotEmpty) ||
         (p.email != null && p.email!.isNotEmpty) ||
         (p.website != null && p.website!.isNotEmpty);
   }
@@ -1548,6 +1698,18 @@ class _ServiceProviderDetailsPageState
   Widget _buildContactInfo(ServiceProvider p) {
     final items = <Widget>[];
 
+    if (p.providerCode != null && p.providerCode!.isNotEmpty) {
+      items.add(_contactRow(
+        icon: Icons.badge_rounded,
+        label: 'كود المزود',
+        value: p.providerCode!,
+        color: _blue,
+        onTap: () async {
+          await Clipboard.setData(ClipboardData(text: p.providerCode!));
+          _snack('تم نسخ كود مزود الخدمة', isSuccess: true);
+        },
+      ));
+    }
     if (p.phone != null && p.phone!.isNotEmpty) {
       items.add(_contactRow(
         icon: Icons.phone_rounded,
@@ -2195,8 +2357,9 @@ class _ServiceProviderDetailsPageState
   Widget _buildBottomBar(ServiceProvider p) {
     final hasPhone = p.phone != null && p.phone!.isNotEmpty;
     final hasWhatsapp = p.whatsapp != null && p.whatsapp!.isNotEmpty;
+    final hasCode = p.providerCode != null && p.providerCode!.isNotEmpty;
 
-    if (!hasPhone && !hasWhatsapp) {
+    if (!hasPhone && !hasWhatsapp && !hasCode) {
       return const SizedBox.shrink();
     }
 
@@ -2222,6 +2385,22 @@ class _ServiceProviderDetailsPageState
       ),
       child: Row(
         children: [
+          if (hasCode)
+            Expanded(
+              child: _bottomButton(
+                icon: Icons.badge_rounded,
+                label: 'الكود',
+                color: _blue,
+                onTap: () async {
+                  await Clipboard.setData(
+                    ClipboardData(text: p.providerCode!),
+                  );
+                  _snack('تم نسخ كود مزود الخدمة', isSuccess: true);
+                },
+              ),
+            ),
+          if (hasCode && (hasPhone || hasWhatsapp))
+            const SizedBox(width: 10),
           if (hasPhone)
             Expanded(
               child: _bottomButton(

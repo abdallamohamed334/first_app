@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/userhome/presentation/widgets/home_palette.dart';
 
@@ -186,6 +187,7 @@ class HomeNearbySymbolicProviderCard extends StatelessWidget {
         : phone?.isNotEmpty == true
             ? phone
             : null;
+    final providerCode = provider.providerCode?.trim();
     final distanceLabel = distanceKm < 1
         ? '${(distanceKm * 1000).round()} متر'
         : '${distanceKm.toStringAsFixed(1)} كم';
@@ -311,28 +313,53 @@ class HomeNearbySymbolicProviderCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (callNumber != null || whatsappNumber != null) ...[
+                    if (callNumber != null ||
+                        whatsappNumber != null ||
+                        providerCode?.isNotEmpty == true) ...[
                       const SizedBox(height: 9),
-                      Row(
+                      Wrap(
+                        spacing: 7,
+                        runSpacing: 7,
                         children: [
-                          if (callNumber != null)
-                            Expanded(
+                          if (providerCode?.isNotEmpty == true)
+                            SizedBox(
+                              width: 92,
                               child: _providerContactButton(
-                                icon: Icons.phone_rounded,
-                                label: 'اتصل',
-                                color: const Color(0xFF0B7650),
-                                onTap: () => onCall(callNumber),
+                                icon: Icons.badge_rounded,
+                                label: 'الكود',
+                                color: const Color(0xFF3679C8),
+                                onTap: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: providerCode!),
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('تم نسخ كود مزود الخدمة'),
+                                      ),
+                                    );
+                                  }
+                                },
                               ),
                             ),
-                          if (callNumber != null && whatsappNumber != null)
-                            const SizedBox(width: 7),
                           if (whatsappNumber != null)
-                            Expanded(
+                            SizedBox(
+                              width: 92,
                               child: _providerContactButton(
                                 icon: Icons.chat_rounded,
                                 label: 'واتساب',
                                 color: const Color(0xFF25D366),
                                 onTap: () => onWhatsapp(whatsappNumber),
+                              ),
+                            ),
+                          if (callNumber != null)
+                            SizedBox(
+                              width: 92,
+                              child: _providerContactButton(
+                                icon: Icons.phone_rounded,
+                                label: 'اتصل',
+                                color: const Color(0xFF0B7650),
+                                onTap: () => onCall(callNumber),
                               ),
                             ),
                         ],

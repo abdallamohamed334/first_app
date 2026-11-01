@@ -75,6 +75,12 @@ class ServiceProviderRepository {
   String _friendlyError(Object error) {
     final raw = error.toString().toLowerCase();
 
+    if (raw.contains('provider_profile_incomplete')) {
+      return 'أكمل بيانات الملف والموقع ومستندات الهوية قبل تفعيل الظهور.';
+    }
+    if (raw.contains('provider_identity_fields_locked')) {
+      return 'لا يمكن تعديل مستندات الهوية أو بيانات الاعتماد الحساسة.';
+    }
     if (raw.contains('provider_phone_immutable')) {
       return 'رقم الهاتف مرتبط بحساب تسجيل الدخول ولا يمكن تغييره من البروفايل.';
     }
@@ -665,26 +671,33 @@ class ServiceProviderRepository {
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
 
-      if (!profileLocked && displayName != null) {
+      if (displayName != null) {
         data['display_name'] = displayName.trim();
       }
-      if (!profileLocked && bio != null) data['bio'] = bio.trim();
-      if (!profileLocked && experienceYears != null) {
+      if (bio != null) data['bio'] = bio.trim();
+      if (experienceYears != null) {
         data['experience_years'] = experienceYears;
       }
-      if (!profileLocked && skills != null) data['skills'] = skills;
+      if (skills != null) data['skills'] = skills;
       if (city != null) data['city'] = city.trim();
       if (governorate != null) data['governorate'] = governorate.trim();
-      if (!profileLocked && address != null) data['address'] = address.trim();
+      if (address != null) data['address'] = address.trim();
       if (serviceAreas != null) data['service_areas'] = serviceAreas;
       if (availableDays != null) data['available_days'] = availableDays;
       if (latitude != null) data['latitude'] = latitude;
       if (longitude != null) data['longitude'] = longitude;
       if (maxDistanceKm != null) data['max_distance_km'] = maxDistanceKm;
-      if (!profileLocked && pricingType != null)
-        data['pricing_type'] = pricingType;
-      if (!profileLocked && priceFrom != null) data['price_from'] = priceFrom;
-      if (!profileLocked && acceptsInstallments != null) {
+      if (pricingType != null) {
+        // service_pricing_type currently supports only these three values.
+        // Older clients used to send "hourly", which makes the whole update
+        // fail at the Postgres enum cast.
+        data['pricing_type'] = const {'free', 'symbolic', 'market'}
+                .contains(pricingType.trim())
+            ? pricingType.trim()
+            : 'market';
+      }
+      if (priceFrom != null) data['price_from'] = priceFrom;
+      if (acceptsInstallments != null) {
         data['accepts_installments'] = acceptsInstallments;
       }
       if (profileImageUrl != null) {
@@ -693,11 +706,11 @@ class ServiceProviderRepository {
       if (portfolioImages != null) {
         data['portfolio_images'] = portfolioImages;
       }
-      if (!profileLocked && coverImageUrl != null)
+      if (coverImageUrl != null)
         data['cover_image_url'] = coverImageUrl;
-      if (!profileLocked && whatsapp != null)
+      if (whatsapp != null)
         data['whatsapp'] = _cleanPhone(whatsapp);
-      if (!profileLocked && website != null) data['website'] = website.trim();
+      if (website != null) data['website'] = website.trim();
       if (isAvailable != null) data['is_available'] = isAvailable;
       if (availabilityNote != null) {
         data['availability_note'] = availabilityNote.trim();
@@ -800,6 +813,44 @@ class ServiceProviderRepository {
       debugPrint('❌ [Provider] upload error: $error');
       return Left(_friendlyError(error));
     }
+  }
+
+  /// Removes files uploaded as part of a profile save when the database
+  /// update fails. This keeps a retry from leaving duplicate orphan images.
+  Future<void> deleteProviderUploads({
+    List<String> imageUrls = const [],
+    List<String> identityPaths = const [],
+  }) async {
+    try {
+      final imagePaths = imageUrls
+          .map(_providerImagePathFromUrl)
+          .whereType<String>()
+          .where((path) => path.isNotEmpty)
+          .toList();
+      if (imagePaths.isNotEmpty) {
+        await _client.storage.from('provider-images').remove(imagePaths);
+      }
+      final documentPaths = identityPaths
+          .map((path) => path.trim())
+          .where((path) => path.isNotEmpty)
+          .toList();
+      if (documentPaths.isNotEmpty) {
+        await _client.storage
+            .from('provider-documents')
+            .remove(documentPaths);
+      }
+    } catch (error) {
+      // Cleanup is best-effort; never hide the original save error.
+      debugPrint('⚠️ [Provider] upload cleanup error: $error');
+    }
+  }
+
+  String? _providerImagePathFromUrl(String rawUrl) {
+    final marker = '/provider-images/';
+    final markerIndex = rawUrl.indexOf(marker);
+    if (markerIndex < 0) return null;
+    final path = rawUrl.substring(markerIndex + marker.length).split('?').first;
+    return Uri.decodeComponent(path);
   }
 
   Future<Either<String, String>> uploadProviderIdentityDocument({

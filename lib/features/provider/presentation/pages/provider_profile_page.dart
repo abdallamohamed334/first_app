@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:loqma/core/widgets/ad_banner_card.dart';
 import 'package:go_router/go_router.dart';
@@ -229,6 +230,8 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
   Widget _buildHeaderCard() {
     final name = _provider?['display_name']?.toString() ?? 'مزود خدمة';
     final phone = _provider?['phone']?.toString() ?? '';
+    final whatsapp = _provider?['whatsapp']?.toString().trim() ?? '';
+    final providerCode = _provider?['provider_code']?.toString().trim() ?? '';
     final email = _provider?['email']?.toString() ?? '';
     final avatar = _provider?['profile_image_url']?.toString();
     final isVerified =
@@ -393,13 +396,47 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
 
           const SizedBox(height: 14),
 
-          // Phone + Email
-          if (phone.isNotEmpty) ...[
-            _contactRow(Icons.phone_rounded, phone),
-            const SizedBox(height: 6),
+          if (providerCode.isNotEmpty || whatsapp.isNotEmpty || phone.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (providerCode.isNotEmpty)
+                  _profileActionButton(
+                    icon: Icons.badge_rounded,
+                    label: 'نسخ الكود',
+                    color: _blue,
+                    onTap: () async {
+                      await Clipboard.setData(ClipboardData(text: providerCode));
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تم نسخ كود مزود الخدمة')),
+                      );
+                    },
+                  ),
+                if (whatsapp.isNotEmpty)
+                  _profileActionButton(
+                    icon: Icons.chat_rounded,
+                    label: 'واتساب',
+                    color: const Color(0xFF25D366),
+                    onTap: () => _openWhatsapp(whatsapp),
+                  ),
+                if (phone.isNotEmpty)
+                  _profileActionButton(
+                    icon: Icons.phone_rounded,
+                    label: 'اتصال',
+                    color: _primary,
+                    onTap: () => _makeCall(phone),
+                  ),
+              ],
+            ),
           ],
-          if (email.isNotEmpty)
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 8),
             _contactRow(Icons.alternate_email_rounded, email),
+          ],
         ],
       ),
     );
@@ -415,6 +452,55 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
         size: 46,
       ),
     );
+  }
+
+  Widget _profileActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 116,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 16, color: color),
+        label: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(color: color.withValues(alpha: 0.35)),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _makeCall(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _openWhatsapp(String phone) async {
+    var cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '20${cleaned.substring(1)}';
+    }
+    final uri = Uri.parse('https://wa.me/$cleaned');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _contactRow(IconData icon, String value) {

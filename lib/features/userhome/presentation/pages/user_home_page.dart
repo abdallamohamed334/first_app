@@ -70,8 +70,8 @@ class _AppFeatures {
   /// نطاق المحافظة التقريبي حول موقع المستخدم (الغربية من طنطا)
   static const double nearbyRadiusKm = 70.0;
 
-  /// لا نعرض الصنايعية كبعيدين؛ يتم ترتيبهم داخل هذا النطاق من موقع الحساب.
-  static const double serviceProviderNearbyRadiusKm = 25.0;
+  /// عرض مزودي الخدمة داخل المحافظة وبنطاق يصل إلى 200 كم.
+  static const double serviceProviderNearbyRadiusKm = 200.0;
 }
 
 const Set<String> _homeRestaurantInstitutionTypes = {
