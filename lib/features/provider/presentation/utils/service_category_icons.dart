@@ -31,6 +31,11 @@ class ServiceCategoryIcons {
       case 'screens':
       case '📺':
         return Icons.tv_rounded;
+      case 'water_filters':
+      case 'water_filter':
+      case 'filters':
+      case '💧':
+        return Icons.water_drop_rounded;
       case 'carpentry':
         return Icons.handyman_rounded;
       case 'painting':
@@ -87,6 +92,11 @@ class ServiceCategoryIcons {
       case 'screens':
       case '📺':
         return _teal;
+      case 'water_filters':
+      case 'water_filter':
+      case 'filters':
+      case '💧':
+        return const Color(0xFF2196F3);
       case 'carpentry':
         return _brown;
       case 'painting':

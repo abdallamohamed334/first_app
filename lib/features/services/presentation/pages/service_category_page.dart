@@ -1055,6 +1055,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
       case 'screens':
       case '📺':
         return Icons.tv_rounded;
+      case 'water_filters':
+      case 'water_filter':
+      case 'filters':
+      case '💧':
+        return Icons.water_drop_rounded;
       case 'carpentry':
         return Icons.handyman_rounded;
       case 'painting':

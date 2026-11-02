@@ -511,6 +511,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       case 'screen_maintenance':
       case 'screens':
         return const Color(0xFF7950B7);
+      case 'water_filters':
+      case 'water_filter':
+      case 'filters':
+        return const Color(0xFF2196F3);
       case 'transportation':
       case 'moving':
         return const Color(0xFF168A72);
@@ -531,6 +535,10 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
       case 'screen_maintenance':
       case 'screens':
         return Icons.tv_rounded;
+      case 'water_filters':
+      case 'water_filter':
+      case 'filters':
+        return Icons.water_drop_rounded;
       case 'transportation':
       case 'moving':
         return Icons.local_shipping_rounded;
