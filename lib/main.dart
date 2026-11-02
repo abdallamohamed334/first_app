@@ -32,6 +32,7 @@ import 'features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/splash/presentation/bloc/splash_bloc.dart';
 import 'features/update/presentation/widgets/app_update_gate.dart';
+import 'features/advertising/presentation/widgets/launch_ad_gate.dart';
 
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
@@ -935,8 +936,10 @@ class _MyAppState extends State<MyApp> {
                 title: 'Khedma',
                 debugShowCheckedModeBanner: false,
                 routerConfig: AppRouter.router,
-                builder: (context, child) => ConnectivityGate(
-                  child: child ?? const SizedBox.shrink(),
+                builder: (context, child) => LaunchAdGate(
+                  child: ConnectivityGate(
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
                 theme: AppTheme.light(),
                 darkTheme: AppTheme.dark(),
