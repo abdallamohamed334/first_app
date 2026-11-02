@@ -117,7 +117,6 @@ class AuthStateNotifier extends ChangeNotifier {
     if (role != 'user') return true;
     final row = profile ?? const <String, dynamic>{};
     final name = row['name']?.toString().trim() ?? '';
-    final email = row['email']?.toString().trim() ?? '';
     final phone = row['phone']?.toString().trim() ?? '';
     final governorate = row['governorate']?.toString().trim() ?? '';
     final city = row['city']?.toString().trim() ?? '';
@@ -128,7 +127,6 @@ class AuthStateNotifier extends ChangeNotifier {
 
     return name.length >= 3 &&
         name != 'مستخدم Khedma' &&
-        email.isNotEmpty &&
         phone.isNotEmpty &&
         governorate.isNotEmpty &&
         city.isNotEmpty &&

@@ -460,8 +460,8 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     _buildLocationField(),
                     const SizedBox(height: 16),
 
-                    // ── الإيميل
-                    _buildLabel('الإيميل *'),
+                    // ── الإيميل (اختياري للمستخدم العادي)
+                    _buildLabel('الإيميل (اختياري)'),
                     _buildField(
                       controller: _emailCtrl,
                       hint: 'example@mail.com',
@@ -469,7 +469,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                       keyboard: TextInputType.emailAddress,
                       validator: (v) {
                         final t = v?.trim() ?? '';
-                        if (t.isEmpty) return 'الإيميل مطلوب';
+                        if (t.isEmpty) return null;
                         if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
                             .hasMatch(t)) {
                           return 'إيميل غير صحيح';
