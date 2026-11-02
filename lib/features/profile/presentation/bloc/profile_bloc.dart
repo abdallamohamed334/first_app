@@ -59,21 +59,20 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         return;
       }
 
-      final results = await Future.wait<Object?>([
-        _supabaseService.getUserTotalPoints(user.id),
-        _supabaseService.getUserDeliveriesCount(user.id),
-        _supabaseService.getUserMealsSaved(user.id),
-        _supabaseService.getUserRewards(user.id),
-        _supabaseService.getUserCompletedTasks(user.id),
-      ]);
+      // بيانات الحساب الأساسية تكفي لفتح الصفحة. لا نحجب البروفايل أثناء
+      // تحميل الإحصائيات والمكافآت الثانوية من عدة جداول.
+      emit(ProfileLoaded(user: user));
 
-      final points = _asInt(results[0]);
-      final deliveries = _asInt(results[1]);
-      final meals = _asInt(results[2]);
-      final rewards = results[3] is List<RewardData>
-          ? results[3] as List<RewardData>
-          : const <RewardData>[];
-      final tasks = _asInt(results[4]);
+      // الإحصائيات كلها تأتي من RPC واحد بدل خمسة استعلامات منفصلة.
+      final stats = await _supabaseService.getUserStats(user.id);
+      final points = _asInt(stats['points']);
+      final deliveries = _asInt(stats['deliveriesCount']);
+      final meals = _asInt(stats['mealsSaved']);
+      final tasks = _asInt(stats['tasksCompleted']);
+      final rewards = await _supabaseService.getUserRewards(
+        user.id,
+        pointsOverride: points,
+      );
 
       emit(ProfileLoaded(
         user: user.copyWith(

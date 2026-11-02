@@ -84,8 +84,10 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
   Future<void> _initializePage() async {
     await _loadUserGovernorate();
     if (!mounted) return;
-    await Future.wait([_loadCategories(), _loadCities()]);
-    if (!mounted) return;
+    // التصنيفات والمدن بيانات مساعدة ولا يجب أن تمنع عرض الاحتياجات إذا
+    // كان أحد استعلاماتها بطيئًا أو تعذر على الهاتف الوصول للشبكة.
+    unawaited(_loadCategories());
+    unawaited(_loadCities());
     await _loadNeeds(refresh: true);
   }
 
@@ -120,7 +122,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
           .from('users')
           .select('governorate')
           .eq('id', user.id)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
       final governorate = row?['governorate']?.toString().trim() ?? '';
       if (governorate.isNotEmpty && mounted) {
         setState(() => _selectedCity = governorate);
@@ -137,7 +140,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
           .from('community_needs')
           .select('city')
           .not('city', 'is', null)
-          .limit(500);
+          .limit(500)
+          .timeout(const Duration(seconds: 10));
 
       final citiesSet = <String>{};
       for (final row in rows) {
@@ -165,7 +169,8 @@ class _CommunityNeedsPageState extends State<CommunityNeedsPage> {
           .from('service_categories')
           .select('slug, name_ar, icon')
           .eq('is_active', true)
-          .order('sort_order');
+          .order('sort_order')
+          .timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
       setState(() => _categories = List<Map<String, dynamic>>.from(rows));

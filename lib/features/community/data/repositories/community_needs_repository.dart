@@ -116,19 +116,21 @@ class CommunityNeedsRepository {
     double radiusKm = 70,
   }) async {
     try {
-      final response = await _client.rpc(
-        'list_community_needs_v2',
-        params: {
-          'p_need_category': categoryId,
-          'p_city': city,
-          'p_search': search,
-          'p_limit': limit,
-          'p_offset': offset,
-          'p_latitude': latitude,
-          'p_longitude': longitude,
-          'p_radius_km': radiusKm,
-        },
-      );
+      final response = await _client
+          .rpc(
+            'list_community_needs_v2',
+            params: {
+              'p_need_category': categoryId,
+              'p_city': city,
+              'p_search': search,
+              'p_limit': limit,
+              'p_offset': offset,
+              'p_latitude': latitude,
+              'p_longitude': longitude,
+              'p_radius_km': radiusKm,
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response is! List) {
         throw StateError('Unexpected community needs response');
@@ -170,7 +172,9 @@ class CommunityNeedsRepository {
 
   Future<List<Map<String, dynamic>>> getMyNeeds() async {
     try {
-      final response = await _client.rpc('list_my_community_needs');
+      final response = await _client
+          .rpc('list_my_community_needs')
+          .timeout(const Duration(seconds: 15));
 
       if (response is! List) {
         throw StateError('Unexpected my community needs response');
@@ -197,7 +201,8 @@ class CommunityNeedsRepository {
           .from('community_needs')
           .select('*')
           .eq('id', needId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 12));
 
       if (needResponse == null) return null;
 
@@ -208,10 +213,12 @@ class CommunityNeedsRepository {
       final requesterId = need['requester_id']?.toString();
       if (requesterId != null && requesterId.isNotEmpty) {
         try {
-          final profiles = await _client.rpc(
-            'get_public_user_profiles',
-            params: {'p_user_ids': [requesterId]},
-          );
+          final profiles = await _client
+              .rpc(
+                'get_public_user_profiles',
+                params: {'p_user_ids': [requesterId]},
+              )
+              .timeout(const Duration(seconds: 8));
           if (profiles is List && profiles.isNotEmpty) {
             final profile = Map<String, dynamic>.from(profiles.first as Map);
             profile['city'] = need['city'];

@@ -235,8 +235,12 @@ class SupabaseService {
     try {
       debugPrint('📌 Looking for user with id: $id');
 
-      final response =
-          await adminClient.from('users').select().eq('id', id).maybeSingle();
+      final response = await adminClient
+          .from('users')
+          .select()
+          .eq('id', id)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 10));
 
       if (response == null) {
         debugPrint('📌 No user found with id: $id');
@@ -246,24 +250,26 @@ class SupabaseService {
       var user = UserModel.fromJson(response);
       final role = user.type.value.toLowerCase();
 
-      // ✅ نبحث دائمًا عن ملف مزود الخدمة.
-      // لا نعتمد على users.user_type لأن الحساب قد يكون user
-      // مع وجود service_providers.verification_status=approved.
+      // ملف مزود الخدمة مطلوب فقط لحسابات المزودين. لا نضيف استعلامًا
+      // إضافيًا للمستخدم العادي، ولا نستنتج دوره من سجل قديم مرتبط به.
       Map<String, dynamic>? provider;
-      try {
-        provider = await adminClient
-            .from('service_providers')
-            .select('id, verification_status, is_active')
-            .eq('user_id', user.id)
-            .maybeSingle();
+      if (role == 'provider') {
+        try {
+          provider = await adminClient
+              .from('service_providers')
+              .select('id, verification_status, is_active')
+              .eq('user_id', user.id)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 8));
 
-        if (provider != null) {
-          user = user.copyWith(
-            serviceProviderId: provider['id']?.toString(),
-          );
+          if (provider != null) {
+            user = user.copyWith(
+              serviceProviderId: provider['id']?.toString(),
+            );
+          }
+        } catch (e) {
+          debugPrint('⚠️ Provider enrichment skipped: $e');
         }
-      } catch (e) {
-        debugPrint('⚠️ Provider enrichment skipped: $e');
       }
 
       if (role == 'institution') {
@@ -272,7 +278,8 @@ class SupabaseService {
               .from('institutions')
               .select('id')
               .eq('user_id', user.id)
-              .maybeSingle();
+              .maybeSingle()
+              .timeout(const Duration(seconds: 8));
 
           if (inst != null) {
             user = user.copyWith(
@@ -518,7 +525,8 @@ class SupabaseService {
           .from('users')
           .select('points')
           .eq('id', userId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
 
       return response?['points'] as int? ?? 0;
     } catch (e) {
@@ -548,7 +556,8 @@ class SupabaseService {
           .from('deliveries')
           .select('id')
           .eq('volunteer_id', userId)
-          .eq('status', 'completed');
+          .eq('status', 'completed')
+          .timeout(const Duration(seconds: 8));
 
       return response.length;
     } catch (e) {
@@ -563,7 +572,8 @@ class SupabaseService {
           .from('donations')
           .select('id')
           .eq('donor_id', userId)
-          .eq('status', 'completed');
+          .eq('status', 'completed')
+          .timeout(const Duration(seconds: 8));
 
       return response.length;
     } catch (e) {
@@ -571,7 +581,8 @@ class SupabaseService {
         final response = await adminClient
             .from('rescued_meals')
             .select('id')
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .timeout(const Duration(seconds: 8));
 
         return response.length;
       } catch (_) {
@@ -586,7 +597,8 @@ class SupabaseService {
           .from('deliveries')
           .select('id')
           .eq('volunteer_id', userId)
-          .eq('status', 'completed');
+          .eq('status', 'completed')
+          .timeout(const Duration(seconds: 8));
 
       return response.length;
     } catch (e) {
@@ -597,7 +609,9 @@ class SupabaseService {
 
   Future<Map<String, dynamic>> getUserStats(String userId) async {
     try {
-      final raw = await client.rpc('get_user_stats', params: {'p_user_id': userId});
+      final raw = await client
+          .rpc('get_user_stats', params: {'p_user_id': userId})
+          .timeout(const Duration(seconds: 10));
       return Map<String, dynamic>.from(raw as Map);
     } catch (e) {
       debugPrint('❌ Error getting user stats: $e');
@@ -611,15 +625,19 @@ class SupabaseService {
     }
   }
 
-  Future<List<RewardData>> getUserRewards(String userId) async {
+  Future<List<RewardData>> getUserRewards(
+    String userId, {
+    int? pointsOverride,
+  }) async {
     try {
-      final points = await getUserTotalPoints(userId);
+      final points = pointsOverride ?? await getUserTotalPoints(userId);
 
       final rewardsResponse = await adminClient
           .from('rewards')
           .select('id, title, description, points_required, image, is_active')
           .eq('is_active', true)
-          .order('points_required', ascending: true);
+          .order('points_required', ascending: true)
+          .timeout(const Duration(seconds: 8));
 
       if (rewardsResponse.isEmpty) return [];
 
