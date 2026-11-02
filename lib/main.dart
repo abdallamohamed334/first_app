@@ -37,6 +37,8 @@ import 'core/services/app_check_service.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/sentry_service.dart';
 import 'core/config/app_config.dart';
+import 'core/services/connectivity_service.dart';
+import 'core/widgets/connectivity_gate.dart';
 // ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
 import 'core/services/auth_state_notifier.dart';
 import 'core/theme/app_theme.dart';
@@ -150,7 +152,11 @@ Future<void> _bootstrapApp() async {
   }
 
   String? startupError;
-  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+  final hasInternet = await ConnectivityService.instance.initialize();
+  if (!hasInternet) {
+    startupError = 'لا يوجد اتصال بالإنترنت. افتح الإنترنت ثم أعد المحاولة.';
+    debugPrint('Startup blocked: no internet connection');
+  } else if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
     startupError =
         'إعدادات الاتصال بالخدمة غير مكتملة. أعد تشغيل التطبيق بعد ضبط '
         'SUPABASE_URL و SUPABASE_ANON_KEY.';
@@ -927,6 +933,9 @@ class _MyAppState extends State<MyApp> {
               title: 'Khedma',
               debugShowCheckedModeBanner: false,
               routerConfig: AppRouter.router,
+              builder: (context, child) => ConnectivityGate(
+                child: child ?? const SizedBox.shrink(),
+              ),
               theme: AppTheme.light(),
               darkTheme: AppTheme.dark(),
               themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
