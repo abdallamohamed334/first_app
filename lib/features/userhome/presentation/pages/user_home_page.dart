@@ -1210,9 +1210,7 @@ class _UserHomePageState extends State<UserHomePage>
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
         if (state.banners.isNotEmpty)
-          SliverToBoxAdapter(
-            child: HomeCompactAdCard(banner: state.banners.first),
-          ),
+          SliverToBoxAdapter(child: HomeBannerCarousel(banners: state.banners)),
         SliverToBoxAdapter(child: _buildProviderCodeSearch()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildNearbyServiceCategorySections()),

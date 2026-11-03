@@ -120,7 +120,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       children: [
         // ✅ السلايدر بتصميم جديد
         SizedBox(
-          height: 250,
+          height: 236,
           child: Stack(
             children: [
               PageView.builder(
