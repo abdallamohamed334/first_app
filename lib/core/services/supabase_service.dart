@@ -119,9 +119,10 @@ class SupabaseService {
     if (cleanUserId.isEmpty) return;
 
     try {
-      // FcmNotificationService also initializes Firebase when login finishes
-      // before the asynchronous post-launch bootstrap has completed.
-      await fcmNotifications.dispose();
+      // Keep one notification service alive for the current session. Repeated
+      // dispose/initialize cycles can reopen Android's permission flow and
+      // recreate native listeners after every auth refresh. Logout performs
+      // the explicit dispose/unregister cleanup.
       await fcmNotifications.initialize(
         webVapidKey: webVapidKey,
         onTokenChanged: (token) => upsertFcmDevice(

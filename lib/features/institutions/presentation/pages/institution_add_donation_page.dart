@@ -65,7 +65,8 @@ class _InstitutionAddDonationPageState
   Future<void> _pickImages() async {
     try {
       final files = await _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: 6,
+        requestFullMetadata: false,
         imageQuality: 82,
         maxWidth: 1200,
         maxHeight: 1200,
@@ -1081,6 +1082,8 @@ class _ImageUploadCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: Image.memory(
+                                cacheWidth: 320,
+                                cacheHeight: 320,
                   images[index],
                   width: 96,
                   height: 96,

@@ -150,7 +150,8 @@ class StorageService {
 
   Future<List<XFile>> pickMultipleImages({int maxCount = 5}) async {
     final images = await ImagePicker().pickMultiImage(
-      requestFullMetadata: false,
+      limit: maxCount,
+        requestFullMetadata: false,
       imageQuality: 80,
       maxWidth: 800,
       maxHeight: 800,

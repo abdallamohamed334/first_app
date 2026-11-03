@@ -344,6 +344,8 @@ class _BusinessRestaurantCreateOfferPageState
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.memory(
+                                cacheWidth: 320,
+                                cacheHeight: 320,
                         snapshot.data!,
                         width: 120,
                         height: 90,

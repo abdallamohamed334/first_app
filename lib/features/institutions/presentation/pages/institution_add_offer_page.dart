@@ -248,7 +248,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     if (_saving) return;
     try {
       final files = await _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: 6,
+        requestFullMetadata: false,
         imageQuality: 84,
         maxWidth: 1200,
         maxHeight: 1200,
@@ -1189,6 +1190,8 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.memory(
+                                cacheWidth: 320,
+                                cacheHeight: 320,
                             _images[index],
                             width: 120,
                             height: 140,

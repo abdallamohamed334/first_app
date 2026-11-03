@@ -328,7 +328,8 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
 
   Future<void> _pickImages() async {
     final selected = await _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: 6,
+        requestFullMetadata: false,
       imageQuality: 82,
       maxWidth: 1200,
       maxHeight: 1200,
@@ -501,6 +502,8 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
                 itemBuilder: (_, index) => ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Image.memory(_previews[index], fit: BoxFit.cover),
+                    cacheWidth: 320,
+                    cacheHeight: 320,
                 ),
               ),
             const SizedBox(height: 26),

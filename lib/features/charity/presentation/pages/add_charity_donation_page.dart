@@ -174,7 +174,8 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     if (remaining <= 0) return;
     try {
       final picked = await _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: remaining,
+        requestFullMetadata: false,
         imageQuality: 82,
         maxWidth: 1200,
         maxHeight: 1200,

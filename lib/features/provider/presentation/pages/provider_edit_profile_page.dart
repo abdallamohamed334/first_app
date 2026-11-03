@@ -297,7 +297,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _withPickerMode<List<XFile>>(
         'portfolio',
         () => _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: 6,
+        requestFullMetadata: false,
           imageQuality: 80,
           maxWidth: 1200,
           maxHeight: 1200,

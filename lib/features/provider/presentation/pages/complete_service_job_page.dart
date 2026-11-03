@@ -35,7 +35,8 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
   Future<void> _pickImages() async {
     try {
       final picked = await _picker.pickMultiImage(
-      requestFullMetadata: false,
+      limit: 6,
+        requestFullMetadata: false,
         imageQuality: 82,
         maxWidth: 1200,
         maxHeight: 1200,
@@ -199,6 +200,8 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.memory(
+                                cacheWidth: 320,
+                                cacheHeight: 320,
                         _previewBytes[index],
                         fit: BoxFit.cover,
                       ),

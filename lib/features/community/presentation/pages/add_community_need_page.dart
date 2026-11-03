@@ -694,8 +694,12 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
           child: hasImage
               ? Stack(fit: StackFit.expand, children: [
                   _selectedImage != null
-                      ? Image.file(File(_selectedImage!.path),
-                          fit: BoxFit.cover)
+                      ? Image.file(
+                          File(_selectedImage!.path),
+                          cacheWidth: 600,
+                          cacheHeight: 600,
+                          fit: BoxFit.cover,
+                        )
                       : Image.network(_existingImageUrl!, fit: BoxFit.cover),
                   Positioned(
                       top: 8,
