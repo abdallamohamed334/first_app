@@ -39,7 +39,6 @@ import 'core/services/supabase_service.dart';
 import 'core/services/sentry_service.dart';
 import 'core/config/app_config.dart';
 import 'core/services/connectivity_service.dart';
-import 'core/widgets/connectivity_gate.dart';
 // ✅ AuthStateNotifier — لمزامنة حالة الدخول مع Supabase
 import 'core/services/auth_state_notifier.dart';
 import 'core/theme/app_theme.dart';
@@ -935,9 +934,6 @@ class _MyAppState extends State<MyApp> {
                 title: 'Khedma',
                 debugShowCheckedModeBanner: false,
                 routerConfig: AppRouter.router,
-                builder: (context, child) => ConnectivityGate(
-                  child: child ?? const SizedBox.shrink(),
-                ),
                 theme: AppTheme.light(),
                 darkTheme: AppTheme.dark(),
                 themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
