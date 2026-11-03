@@ -501,9 +501,12 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
                 ),
                 itemBuilder: (_, index) => ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.memory(_previews[index], fit: BoxFit.cover),
+                  child: Image.memory(
+                    _previews[index],
                     cacheWidth: 320,
                     cacheHeight: 320,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
             const SizedBox(height: 26),
