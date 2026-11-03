@@ -67,6 +67,18 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant HomeBannerCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.banners.length == widget.banners.length) return;
+    _timer?.cancel();
+    _currentPage = 0;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+    _startAutoPlay();
+  }
+
   void _startAutoPlay() {
     if (widget.banners.length <= 1) return;
     _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
@@ -108,7 +120,7 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
       children: [
         // ✅ السلايدر بتصميم جديد
         SizedBox(
-          height: 200,
+          height: 250,
           child: Stack(
             children: [
               PageView.builder(
@@ -173,7 +185,8 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                                   begin: Alignment.bottomCenter,
                                   end: Alignment.topCenter,
                                   colors: [
-                                    Colors.black.withValues(alpha: 0.6),
+                                    Colors.black.withValues(alpha: 0.82),
+                                    Colors.black.withValues(alpha: 0.12),
                                     Colors.transparent,
                                   ],
                                 ),
@@ -214,69 +227,84 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
                                 bottom: 20,
                                 left: 20,
                                 right: 20,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (banner.title != null &&
-                                        banner.title!.isNotEmpty)
-                                      Text(
-                                        banner.title!,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    if (banner.subtitle != null &&
-                                        banner.subtitle!.isNotEmpty)
-                                      const SizedBox(height: 4),
-                                    if (banner.subtitle != null &&
-                                        banner.subtitle!.isNotEmpty)
-                                      Text(
-                                        banner.subtitle!,
-                                        style: TextStyle(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.85),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    // ✅ زر العرض
-                                    const SizedBox(height: 10),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: colors.primary,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        banner.targetUrl == null ||
-                                                banner.targetUrl!.trim().isEmpty
-                                            ? 'إعلان'
-                                            : 'اعرف أكثر',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
+                                child: Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    14,
+                                    12,
+                                    14,
+                                    12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.48),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.18),
                                     ),
-                                  ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (banner.title != null &&
+                                          banner.title!.isNotEmpty)
+                                        Text(
+                                          banner.title!,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      if (banner.subtitle != null &&
+                                          banner.subtitle!.isNotEmpty)
+                                        const SizedBox(height: 4),
+                                      if (banner.subtitle != null &&
+                                          banner.subtitle!.isNotEmpty)
+                                        Text(
+                                          banner.subtitle!,
+                                          style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.85),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      // ✅ زر العرض
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: colors.primary,
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          banner.targetUrl == null ||
+                                                  banner.targetUrl!.trim().isEmpty
+                                              ? 'إعلان'
+                                              : 'اعرف أكثر',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
 
-                            // ✅ مؤشر الصفحات في الأعلى (يمين)
+                            // ✅ مؤشر الصفحات في الأعلى (يسار) بعيدًا عن اسم المعلن
                             if (widget.banners.length > 1)
                               Positioned(
                                 top: 12,
-                                right: 16,
+                                left: 16,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 10,
