@@ -294,7 +294,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         return;
       }
 
-      final picked = await _withPickerMode(
+      final picked = await _withPickerMode<List<XFile>>(
         'portfolio',
         () => _picker.pickMultiImage(
           imageQuality: 80,
@@ -303,7 +303,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
           requestFullMetadata: false,
         ),
       );
-      if (picked.isEmpty || !mounted) return;
+      if (picked == null || picked.isEmpty || !mounted) return;
 
       setState(() {
         _newPortfolioImages.addAll(
