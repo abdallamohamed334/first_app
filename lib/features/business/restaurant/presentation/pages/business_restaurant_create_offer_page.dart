@@ -303,6 +303,7 @@ class _BusinessRestaurantCreateOfferPageState
         source: ImageSource.gallery,
         imageQuality: 84,
         maxWidth: 1400,
+        maxHeight: 1400,
       );
       if (!mounted || image == null) return;
       setState(() {

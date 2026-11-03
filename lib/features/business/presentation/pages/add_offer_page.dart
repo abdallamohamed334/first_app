@@ -56,6 +56,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
       final images = await _imagePicker.pickMultiImage(
         imageQuality: 84,
         maxWidth: 1400,
+        maxHeight: 1400,
       );
       if (!mounted || images.isEmpty) return;
       setState(() => _selectedImages = images);

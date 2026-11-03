@@ -788,7 +788,7 @@ class ServiceProviderRepository {
         return const Left('الصورة كبيرة جدًا. اختر صورة أصغر من فضلك.');
       }
 
-      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      final encoded = await ImageUploadCodec.fromFilePath(file.path);
       if (encoded.length > 10 * 1024 * 1024) {
         return const Left('تعذر تجهيز الصورة بالحجم المناسب. جرّب صورة أصغر.');
       }
@@ -871,7 +871,7 @@ class ServiceProviderRepository {
       }
       final path =
           '$userId/id_card_${side}_${DateTime.now().millisecondsSinceEpoch}.webp';
-      final encoded = await ImageUploadCodec.fromBytes(await file.readAsBytes());
+      final encoded = await ImageUploadCodec.fromFilePath(file.path);
       if (encoded.length > 10 * 1024 * 1024) {
         return const Left('تعذر تجهيز الصورة بالحجم المناسب. جرّب صورة أصغر.');
       }

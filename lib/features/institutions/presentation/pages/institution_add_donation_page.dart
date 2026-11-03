@@ -67,6 +67,7 @@ class _InstitutionAddDonationPageState
       final files = await _picker.pickMultiImage(
         imageQuality: 82,
         maxWidth: 1600,
+        maxHeight: 1600,
       );
       if (files.isEmpty) return;
 

@@ -229,6 +229,7 @@ class _CharityVolunteersManagementPageState
                                 source: ImageSource.gallery,
                                 imageQuality: 82,
                                 maxWidth: 900,
+                                maxHeight: 900,
                               );
                               if (image != null) {
                                 final bytes = await image.readAsBytes();

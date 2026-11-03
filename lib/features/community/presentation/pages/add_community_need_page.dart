@@ -156,7 +156,11 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
 
   Future<void> _pickImage() async {
     final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery, imageQuality: 82, maxWidth: 1600);
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1600,
+      maxHeight: 1600,
+    );
     if (image != null && mounted) setState(() => _selectedImage = image);
   }
 

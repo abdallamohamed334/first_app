@@ -77,6 +77,7 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
         source: ImageSource.gallery,
         imageQuality: 86,
         maxWidth: 1400,
+        maxHeight: 1400,
       );
       if (!mounted || image == null) return;
       setState(() {

@@ -146,6 +146,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         source: source,
         imageQuality: 70,
         maxWidth: 800,
+        maxHeight: 800,
       );
       if (picked == null) return;
       if (!mounted) return;

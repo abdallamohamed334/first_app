@@ -34,7 +34,11 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
 
   Future<void> _pickImages() async {
     try {
-      final picked = await _picker.pickMultiImage(imageQuality: 82);
+      final picked = await _picker.pickMultiImage(
+        imageQuality: 82,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
       if (!mounted || picked.isEmpty) return;
       final selected = picked.take(6).toList(growable: false);
       final previews = <Uint8List>[];
