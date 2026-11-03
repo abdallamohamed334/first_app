@@ -114,7 +114,14 @@ Future<void> _bootstrapApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   _installGlobalErrorHandlers();
-  await ImagePickerRecovery.captureLostDataAtStartup();
+  await ImagePickerRecovery.captureLostDataAtStartup().timeout(
+    const Duration(seconds: 2),
+    onTimeout: () {
+      debugPrint(
+        'Image picker recovery timed out; continuing app startup.',
+      );
+    },
+  );
 
   // Load only the small, local configuration needed before the first frame.
   // Firebase/Remote Config is intentionally initialized after runApp so a
