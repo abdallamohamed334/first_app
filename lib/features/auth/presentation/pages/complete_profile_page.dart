@@ -143,6 +143,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   Future<void> _pickAvatar(ImageSource source) async {
     try {
       final picked = await _picker.pickImage(
+          requestFullMetadata: false,
         source: source,
         imageQuality: 70,
         maxWidth: 800,

@@ -130,6 +130,7 @@ class StorageService {
 
   Future<XFile?> pickImageFromGallery() {
     return ImagePicker().pickImage(
+          requestFullMetadata: false,
       source: ImageSource.gallery,
       imageQuality: 80,
       maxWidth: 800,
@@ -139,6 +140,7 @@ class StorageService {
 
   Future<XFile?> pickImageFromCamera() {
     return ImagePicker().pickImage(
+          requestFullMetadata: false,
       source: ImageSource.camera,
       imageQuality: 80,
       maxWidth: 800,
@@ -148,6 +150,7 @@ class StorageService {
 
   Future<List<XFile>> pickMultipleImages({int maxCount = 5}) async {
     final images = await ImagePicker().pickMultiImage(
+      requestFullMetadata: false,
       imageQuality: 80,
       maxWidth: 800,
       maxHeight: 800,

@@ -1164,9 +1164,10 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
     setState(() => _isPickingImages = true);
     try {
       final picked = await _picker.pickMultiImage(
+      requestFullMetadata: false,
         imageQuality: 82,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
       if (!mounted || picked.isEmpty) return;
       setState(() {

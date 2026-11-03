@@ -174,9 +174,10 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     if (remaining <= 0) return;
     try {
       final picked = await _picker.pickMultiImage(
+      requestFullMetadata: false,
         imageQuality: 82,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
       if (!mounted || picked.isEmpty) return;
       setState(() => _images.addAll(picked.take(remaining)));
@@ -190,10 +191,11 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     if (_images.length >= 6) return;
     try {
       final photo = await _picker.pickImage(
+          requestFullMetadata: false,
         source: ImageSource.camera,
         imageQuality: 82,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
       if (!mounted || photo == null) return;
       setState(() => _images.add(photo));

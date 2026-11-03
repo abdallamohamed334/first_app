@@ -248,9 +248,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     if (_saving) return;
     try {
       final files = await _picker.pickMultiImage(
+      requestFullMetadata: false,
         imageQuality: 84,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        maxWidth: 1200,
+        maxHeight: 1200,
       );
       if (files.isEmpty) return;
 

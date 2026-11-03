@@ -155,13 +155,22 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
   }
 
   Future<void> _pickImage() async {
-    final image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 82,
-      maxWidth: 1600,
-      maxHeight: 1600,
-    );
-    if (image != null && mounted) setState(() => _selectedImage = image);
+    try {
+      final image = await _imagePicker.pickImage(
+        requestFullMetadata: false,
+        source: ImageSource.gallery,
+        imageQuality: 82,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+      if (image != null && mounted) {
+        setState(() => _selectedImage = image);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('❌ community need image picker error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (mounted) _message('تعذر اختيار الصورة، جرّب صورة أصغر أو أخرى');
+    }
   }
 
   Future<void> _openCategoryPicker() async {

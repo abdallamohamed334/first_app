@@ -54,6 +54,7 @@ class _AddOfferPageState extends State<AddOfferPage> {
   Future<void> _pickOfferImages() async {
     try {
       final images = await _imagePicker.pickMultiImage(
+      requestFullMetadata: false,
         imageQuality: 84,
         maxWidth: 1400,
         maxHeight: 1400,

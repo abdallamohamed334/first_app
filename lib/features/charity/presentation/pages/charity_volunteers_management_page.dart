@@ -226,6 +226,7 @@ class _CharityVolunteersManagementPageState
                             borderRadius: BorderRadius.circular(48),
                             onTap: () async {
                               final image = await ImagePicker().pickImage(
+          requestFullMetadata: false,
                                 source: ImageSource.gallery,
                                 imageQuality: 82,
                                 maxWidth: 900,

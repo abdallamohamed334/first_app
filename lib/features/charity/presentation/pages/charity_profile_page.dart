@@ -74,6 +74,7 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
     if (_uploadingImage) return;
     try {
       final image = await _imagePicker.pickImage(
+          requestFullMetadata: false,
         source: ImageSource.gallery,
         imageQuality: 86,
         maxWidth: 1400,

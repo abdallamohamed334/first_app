@@ -224,11 +224,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _withPickerMode(
         'profile',
         () => _picker.pickImage(
+          requestFullMetadata: false,
           source: ImageSource.gallery,
           imageQuality: 80,
           maxWidth: 800,
           maxHeight: 800,
-          requestFullMetadata: false,
         ),
       );
       if (picked == null || !mounted) return;
@@ -243,11 +243,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _withPickerMode(
         'cover',
         () => _picker.pickImage(
+          requestFullMetadata: false,
           source: ImageSource.gallery,
           imageQuality: 80,
-          maxWidth: 1600,
+          maxWidth: 1200,
           maxHeight: 900,
-          requestFullMetadata: false,
         ),
       );
       if (picked == null || !mounted) return;
@@ -262,11 +262,11 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _withPickerMode(
         side == 'front' ? 'id_front' : 'id_back',
         () => _picker.pickImage(
+          requestFullMetadata: false,
           source: ImageSource.gallery,
           imageQuality: 85,
-          maxWidth: 1600,
-          maxHeight: 1600,
-          requestFullMetadata: false,
+          maxWidth: 1200,
+          maxHeight: 1200,
         ),
       );
       if (picked == null || !mounted) return;
@@ -297,10 +297,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _withPickerMode<List<XFile>>(
         'portfolio',
         () => _picker.pickMultiImage(
+      requestFullMetadata: false,
           imageQuality: 80,
           maxWidth: 1200,
           maxHeight: 1200,
-          requestFullMetadata: false,
         ),
       );
       if (picked == null || picked.isEmpty || !mounted) return;

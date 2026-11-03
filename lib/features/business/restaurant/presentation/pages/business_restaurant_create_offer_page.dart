@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -300,6 +300,7 @@ class _BusinessRestaurantCreateOfferPageState
   Future<void> _pickImage() async {
     try {
       final image = await _imagePicker.pickImage(
+          requestFullMetadata: false,
         source: ImageSource.gallery,
         imageQuality: 84,
         maxWidth: 1400,

@@ -328,9 +328,10 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
 
   Future<void> _pickImages() async {
     final selected = await _picker.pickMultiImage(
+      requestFullMetadata: false,
       imageQuality: 82,
-      maxWidth: 1600,
-      maxHeight: 1600,
+      maxWidth: 1200,
+      maxHeight: 1200,
     );
     if (!mounted || selected.isEmpty) return;
     final limited = selected.take(6).toList(growable: false);

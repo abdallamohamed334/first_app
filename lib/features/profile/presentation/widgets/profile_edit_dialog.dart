@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -342,6 +342,7 @@ class _ProfileEditDialogState extends State<ProfileEditDialog> {
   Future<void> _pickImage() async {
     try {
       final image = await _picker.pickImage(
+          requestFullMetadata: false,
         source: ImageSource.gallery,
         imageQuality: 82,
         maxWidth: 1000,
