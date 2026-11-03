@@ -223,9 +223,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         source: ImageSource.gallery,
         imageQuality: 80,
         maxWidth: 800,
+        requestFullMetadata: false,
       );
-      if (picked == null) return;
-      if (!mounted) return;
+      if (picked == null || !mounted) return;
       setState(() => _newProfileImage = picked);
     } catch (e) {
       if (mounted) _snack('تعذر اختيار الصورة', error: true);
@@ -238,9 +238,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         source: ImageSource.gallery,
         imageQuality: 80,
         maxWidth: 1600,
+        requestFullMetadata: false,
       );
-      if (picked == null) return;
-      if (!mounted) return;
+      if (picked == null || !mounted) return;
       setState(() => _newCoverImage = picked);
     } catch (e) {
       if (mounted) _snack('تعذر اختيار الصورة', error: true);
@@ -253,9 +253,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         source: ImageSource.gallery,
         imageQuality: 85,
         maxWidth: 1600,
+        requestFullMetadata: false,
       );
-      if (picked == null) return;
-      if (!mounted) return;
+      if (picked == null || !mounted) return;
       setState(() {
         if (side == 'front') {
           _newIdCardFront = picked;
@@ -283,9 +283,9 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       final picked = await _picker.pickMultiImage(
         imageQuality: 80,
         maxWidth: 1200,
+        requestFullMetadata: false,
       );
-      if (picked.isEmpty) return;
-      if (!mounted) return;
+      if (picked.isEmpty || !mounted) return;
 
       setState(() {
         _newPortfolioImages.addAll(
@@ -920,7 +920,14 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
               )
             : ClipRRect(
                 borderRadius: BorderRadius.circular(13),
-                child: Image.file(File(image.path), fit: BoxFit.cover),
+                child: Image.file(
+                  File(image.path),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: _blue,
+                  ),
+                ),
               ),
       ),
     );
@@ -1017,6 +1024,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                           ? Image.file(
                               File(_newProfileImage!.path),
                               fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _imagePlaceholder(Icons.person_rounded),
                             )
                           : (_profileImageUrl != null &&
                                   _profileImageUrl!.isNotEmpty)
@@ -1073,6 +1082,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                         File(_newCoverImage!.path),
                         fit: BoxFit.cover,
                         width: double.infinity,
+                        errorBuilder: (_, __, ___) => _coverPlaceholder(),
                       )
                     : (_coverImageUrl != null && _coverImageUrl!.isNotEmpty)
                         ? Image.network(
