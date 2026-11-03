@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/community/data/repositories/community_needs_repository.dart';
 
@@ -103,6 +104,17 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
     if (_isEditMode) _prefillFromInitialData();
     if (!_isEditMode) _loadUserGovernorate();
     _loadCategories();
+    _restoreLostImage();
+  }
+
+  Future<void> _restoreLostImage() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('community_add_need');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _selectedImage = files.first);
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
   }
 
   Future<void> _loadUserGovernorate() async {
@@ -156,12 +168,15 @@ class _AddCommunityNeedPageState extends State<AddCommunityNeedPage> {
 
   Future<void> _pickImage() async {
     try {
-      final image = await _imagePicker.pickImage(
-        requestFullMetadata: false,
-        source: ImageSource.gallery,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final image = await ImagePickerRecovery.launch(
+        context: 'community_add_need',
+        picker: () => _imagePicker.pickImage(
+          requestFullMetadata: false,
+          source: ImageSource.gallery,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (image != null && mounted) {
         setState(() => _selectedImage = image);

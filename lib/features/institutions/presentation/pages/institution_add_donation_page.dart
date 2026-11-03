@@ -1,9 +1,10 @@
 // lib/features/institutions/presentation/pages/institution_add_donation_page.dart
 
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 
 import '../../data/repositories/institutions_repository.dart';
 
@@ -39,7 +40,7 @@ class _InstitutionAddDonationPageState
   final _searchController = TextEditingController();
   final _repository = InstitutionsRepository();
   final _picker = ImagePicker();
-  final List<Uint8List> _images = [];
+  final List<XFile> _images = [];
 
   late Future<List<Map<String, dynamic>>> _charitiesFuture;
   String? _charityId;
@@ -50,6 +51,17 @@ class _InstitutionAddDonationPageState
   void initState() {
     super.initState();
     _charitiesFuture = _repository.listActiveCharities();
+    _restoreLostImages();
+  }
+
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('institution_add_donation');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images.addAll(files.take(6)));
+    } catch (_) {
+      // Recovery is best-effort; normal image picking remains available.
+    }
   }
 
   @override
@@ -63,24 +75,21 @@ class _InstitutionAddDonationPageState
   }
 
   Future<void> _pickImages() async {
+    final remaining = 6 - _images.length;
+    if (remaining <= 0) return;
     try {
-      final files = await _picker.pickMultiImage(
-      limit: 6,
-        requestFullMetadata: false,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final files = await ImagePickerRecovery.launch(
+        context: 'institution_add_donation',
+        picker: () => _picker.pickMultiImage(
+          limit: remaining,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
-      if (files.isEmpty) return;
-
-      final remaining = 6 - _images.length;
-      final picked = <Uint8List>[];
-      for (final file in files.take(remaining)) {
-        picked.add(await file.readAsBytes());
-      }
-
-      if (!mounted) return;
-      setState(() => _images.addAll(picked));
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images.addAll(files.take(remaining)));
     } catch (_) {
       if (mounted) _showError('تعذر اختيار الصور. حاول مرة أخرى');
     }
@@ -103,9 +112,8 @@ class _InstitutionAddDonationPageState
     try {
       final imageUrls = <String>[];
       for (final image in _images) {
-        imageUrls.add(await _repository.uploadInstitutionImage(
-          bytes: image,
-          fileExtension: 'jpg',
+        imageUrls.add(await _repository.uploadInstitutionImageFile(
+          image: image,
         ));
       }
 
@@ -941,7 +949,7 @@ class _InstitutionAddDonationPageState
 // IMAGE UPLOAD CARD
 // ═══════════════════════════════════════════════════════════
 class _ImageUploadCard extends StatelessWidget {
-  final List<Uint8List> images;
+  final List<XFile> images;
   final VoidCallback? onPick;
   final ValueChanged<int>? onRemove;
 
@@ -1081,10 +1089,10 @@ class _ImageUploadCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Image.memory(
-                                cacheWidth: 320,
-                                cacheHeight: 320,
-                  images[index],
+                child: Image.file(
+                  File(images[index].path),
+                  cacheWidth: 320,
+                  cacheHeight: 320,
                   width: 96,
                   height: 96,
                   fit: BoxFit.cover,

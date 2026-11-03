@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:loqma/core/errors/app_error_mapper.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/features/charity/data/repositories/charity_donation_repository_separate.dart';
 import 'package:loqma/features/community/presentation/pages/community_charities_page.dart';
 import 'package:loqma/features/community/presentation/pages/community_charity_option.dart';
@@ -77,6 +78,22 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   CommunityCharityOption? _charity;
   bool _busy = false;
   String? _categoryError;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreLostImages();
+  }
+
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('charity_add_donation');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images.addAll(files.take(6)));
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
+  }
 
   List<String> get _orderedSelectedCategories => _categories
       .map((item) => item.id)
@@ -173,12 +190,15 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
     final remaining = 6 - _images.length;
     if (remaining <= 0) return;
     try {
-      final picked = await _picker.pickMultiImage(
-      limit: remaining,
-        requestFullMetadata: false,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final picked = await ImagePickerRecovery.launch(
+        context: 'charity_add_donation',
+        picker: () => _picker.pickMultiImage(
+          limit: remaining,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || picked.isEmpty) return;
       setState(() => _images.addAll(picked.take(remaining)));
@@ -191,12 +211,15 @@ class _AddCharityDonationPageState extends State<AddCharityDonationPage> {
   Future<void> _takePhoto() async {
     if (_images.length >= 6) return;
     try {
-      final photo = await _picker.pickImage(
+      final photo = await ImagePickerRecovery.launch(
+        context: 'charity_add_donation',
+        picker: () => _picker.pickImage(
           requestFullMetadata: false,
-        source: ImageSource.camera,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+          source: ImageSource.camera,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || photo == null) return;
       setState(() => _images.add(photo));

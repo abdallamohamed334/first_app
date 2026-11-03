@@ -1,7 +1,8 @@
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 
 import 'package:loqma/features/provider/data/repositories/service_job_repository.dart';
 
@@ -20,11 +21,26 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
   final _picker = ImagePicker();
   DateTime _executedOn = DateTime.now();
   List<XFile> _images = [];
-  List<Uint8List> _previewBytes = [];
   bool _submitting = false;
 
   static const _green = Color(0xFF0B7650);
   static const _ink = Color(0xFF123F31);
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreLostImages();
+  }
+
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('complete_service_job');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images = files.take(6).toList());
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
+  }
 
   @override
   void dispose() {
@@ -34,24 +50,19 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
 
   Future<void> _pickImages() async {
     try {
-      final picked = await _picker.pickMultiImage(
-      limit: 6,
-        requestFullMetadata: false,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final picked = await ImagePickerRecovery.launch(
+        context: 'complete_service_job',
+        picker: () => _picker.pickMultiImage(
+          limit: 6,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || picked.isEmpty) return;
       final selected = picked.take(6).toList(growable: false);
-      final previews = <Uint8List>[];
-      for (final image in selected) {
-        previews.add(await image.readAsBytes());
-      }
-      if (!mounted) return;
-      setState(() {
-        _images = selected;
-        _previewBytes = previews;
-      });
+      setState(() => _images = selected);
       if (picked.length > 6) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم اختيار أول 6 صور فقط')),
@@ -199,10 +210,10 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.memory(
-                                cacheWidth: 320,
-                                cacheHeight: 320,
-                        _previewBytes[index],
+                      child: Image.file(
+                        File(_images[index].path),
+                        cacheWidth: 320,
+                        cacheHeight: 320,
                         fit: BoxFit.cover,
                       ),
                     ),

@@ -1,9 +1,10 @@
 // lib/features/business/presentation/pages/add_offer_page.dart
 
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/core/services/loqma_image_storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 
@@ -41,6 +42,22 @@ class _AddOfferPageState extends State<AddOfferPage> {
   final List<String> _packagingTypes = ['box', 'bag', 'container', 'other'];
 
   @override
+  void initState() {
+    super.initState();
+    _restoreLostImages();
+  }
+
+  Future<void> _restoreLostImages() async {
+    try {
+      final images = await ImagePickerRecovery.retrieve('business_add_offer');
+      if (!mounted || images.isEmpty) return;
+      setState(() => _selectedImages = images.take(6).toList());
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
@@ -53,12 +70,15 @@ class _AddOfferPageState extends State<AddOfferPage> {
   // ✅ اختيار صور متعددة
   Future<void> _pickOfferImages() async {
     try {
-      final images = await _imagePicker.pickMultiImage(
-      limit: 6,
-        requestFullMetadata: false,
-        imageQuality: 84,
-        maxWidth: 1400,
-        maxHeight: 1400,
+      final images = await ImagePickerRecovery.launch(
+        context: 'business_add_offer',
+        picker: () => _imagePicker.pickMultiImage(
+          limit: 6,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || images.isEmpty) return;
       setState(() => _selectedImages = images);
@@ -545,28 +565,13 @@ class _AddOfferPageState extends State<AddOfferPage> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: FutureBuilder<Uint8List>(
-                            future: _selectedImages[index].readAsBytes(),
-                            builder: (_, snapshot) {
-                              if (!snapshot.hasData) {
-                                return Container(
-                                  width: 120,
-                                  height: 120,
-                                  color: Colors.grey.shade200,
-                                  child: const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
-                              }
-                              return Image.memory(
-                                cacheWidth: 320,
-                                cacheHeight: 320,
-                                snapshot.data!,
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                              );
-                            },
+                          child: Image.file(
+                            File(_selectedImages[index].path),
+                            cacheWidth: 320,
+                            cacheHeight: 320,
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.cover,
                           ),
                         ),
                         if (_selectedImages.length > 1)

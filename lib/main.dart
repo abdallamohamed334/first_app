@@ -35,6 +35,7 @@ import 'features/update/presentation/widgets/app_update_gate.dart';
 
 import 'core/services/analytics_service.dart';
 import 'core/services/app_check_service.dart';
+import 'core/services/image_picker_recovery.dart';
 import 'core/services/supabase_service.dart';
 import 'core/services/sentry_service.dart';
 import 'core/config/app_config.dart';
@@ -113,6 +114,7 @@ Future<void> _bootstrapApp() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   _installGlobalErrorHandlers();
+  await ImagePickerRecovery.captureLostDataAtStartup();
 
   // Load only the small, local configuration needed before the first frame.
   // Firebase/Remote Config is intentionally initialized after runApp so a

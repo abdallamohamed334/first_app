@@ -3,6 +3,7 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:loqma/core/services/image_upload_codec.dart';
@@ -939,6 +940,28 @@ class InstitutionsRepository {
   // ============================================================
   // ✅ رفع صورة المؤسسة
   // ============================================================
+
+  Future<String> uploadInstitutionImageFile({
+    required XFile image,
+    bool cover = false,
+  }) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      throw const FormatException('يجب تسجيل الدخول أولًا');
+    }
+
+    final encoded = await ImageUploadCodec.fromXFile(image);
+    final path = '$userId/${cover ? 'cover' : 'logo'}_${DateTime.now().microsecondsSinceEpoch}.webp';
+    await _client.storage.from('institution-images').uploadBinary(
+          path,
+          encoded,
+          fileOptions: const FileOptions(
+            upsert: true,
+            contentType: 'image/webp',
+          ),
+        );
+    return _client.storage.from('institution-images').getPublicUrl(path);
+  }
 
   Future<String> uploadInstitutionImage({
     required Uint8List bytes,

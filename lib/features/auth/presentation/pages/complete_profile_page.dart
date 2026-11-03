@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:loqma/core/constants/egypt_locations.dart';
 import 'package:loqma/core/models/user_model.dart';
 import 'package:loqma/core/services/auth_state_notifier.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/core/services/storage_service.dart';
 import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/core/repositories/auth_repository.dart';
@@ -89,6 +90,17 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
     _selectedGender = widget.user.gender;
     _lat = widget.initialLat ?? widget.user.lat;
     _lng = widget.initialLng ?? widget.user.lng;
+    _restoreLostAvatar();
+  }
+
+  Future<void> _restoreLostAvatar() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('complete_profile_avatar');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _avatarFile = files.first);
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
   }
 
   @override
@@ -142,12 +154,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   // ═══════════════════════════════════════════════════════════
   Future<void> _pickAvatar(ImageSource source) async {
     try {
-      final picked = await _picker.pickImage(
+      final picked = await ImagePickerRecovery.launch(
+        context: 'complete_profile_avatar',
+        picker: () => _picker.pickImage(
           requestFullMetadata: false,
-        source: source,
-        imageQuality: 70,
-        maxWidth: 800,
-        maxHeight: 800,
+          source: source,
+          imageQuality: 70,
+          maxWidth: 800,
+          maxHeight: 800,
+        ),
       );
       if (picked == null) return;
       if (!mounted) return;

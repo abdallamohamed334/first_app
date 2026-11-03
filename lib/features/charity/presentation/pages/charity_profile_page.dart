@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/core/services/loqma_image_storage_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +29,17 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
   void initState() {
     super.initState();
     _future = _loadProfile();
+    _restoreLostLogo();
+  }
+
+  Future<void> _restoreLostLogo() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('charity_profile_logo');
+      if (!mounted || files.isEmpty) return;
+      await _saveLogo(files.first);
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
   }
 
   Future<Map<String, dynamic>> _loadProfile() async {
@@ -73,14 +85,33 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
   Future<void> _pickAndSaveLogo() async {
     if (_uploadingImage) return;
     try {
-      final image = await _imagePicker.pickImage(
+      final image = await ImagePickerRecovery.launch(
+        context: 'charity_profile_logo',
+        picker: () => _imagePicker.pickImage(
           requestFullMetadata: false,
-        source: ImageSource.gallery,
-        imageQuality: 86,
-        maxWidth: 1400,
-        maxHeight: 1400,
+          source: ImageSource.gallery,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || image == null) return;
+      await _saveLogo(image);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _uploadingImage = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر رفع صورة الجمعية، حاول مرة أخرى'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveLogo(XFile image) async {
+    if (_uploadingImage) return;
+    try {
       setState(() {
         _selectedImage = image;
         _uploadingImage = true;
@@ -101,16 +132,18 @@ class _CharityProfilePageState extends State<CharityProfilePage> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('تم تحديث صورة الجمعية بنجاح'),
-            behavior: SnackBarBehavior.floating),
+          content: Text('تم تحديث صورة الجمعية بنجاح'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _uploadingImage = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('تعذر رفع صورة الجمعية، حاول مرة أخرى'),
-            behavior: SnackBarBehavior.floating),
+          content: Text('تعذر رفع صورة الجمعية، حاول مرة أخرى'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }

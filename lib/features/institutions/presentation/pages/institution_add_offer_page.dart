@@ -1,9 +1,10 @@
 // lib/features/institutions/presentation/pages/institution_add_offer_page.dart
 
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 
 import '../../data/repositories/institutions_repository.dart';
 import '../../domain/institution_offer_policy.dart';
@@ -50,7 +51,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
 
   final _repository = InstitutionsRepository();
   final _picker = ImagePicker();
-  final List<Uint8List> _images = [];
+  final List<XFile> _images = [];
 
   // ✅ حقول إضافية
   String _category = 'food';
@@ -170,6 +171,7 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
       _productSubcategory = subcategories.first['id'];
       _category = subcategories.first['category']!;
     }
+    _restoreLostImages();
   }
 
   @override
@@ -244,31 +246,36 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     }
   }
 
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('institution_add_offer');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images.addAll(files.take(6)));
+    } catch (_) {
+      // Keep the offer form usable if Android has no recoverable picker result.
+    }
+  }
+
   Future<void> _pickImages() async {
     if (_saving) return;
+    final remaining = 6 - _images.length;
+    if (remaining <= 0) {
+      _showMessage('يمكنك إضافة 6 صور كحد أقصى', error: true);
+      return;
+    }
     try {
-      final files = await _picker.pickMultiImage(
-      limit: 6,
-        requestFullMetadata: false,
-        imageQuality: 84,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final files = await ImagePickerRecovery.launch(
+        context: 'institution_add_offer',
+        picker: () => _picker.pickMultiImage(
+          limit: remaining,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
-      if (files.isEmpty) return;
-
-      final remaining = 6 - _images.length;
-      if (remaining <= 0) {
-        _showMessage('يمكنك إضافة 6 صور كحد أقصى', error: true);
-        return;
-      }
-
-      final selectedBytes = <Uint8List>[];
-      for (final file in files.take(remaining)) {
-        selectedBytes.add(await file.readAsBytes());
-      }
-
-      if (!mounted) return;
-      setState(() => _images.addAll(selectedBytes));
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images.addAll(files.take(remaining)));
     } catch (_) {
       if (mounted) {
         _showMessage('تعذر اختيار الصور. حاول مرة أخرى', error: true);
@@ -493,10 +500,9 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
     setState(() => _saving = true);
     try {
       final imageUrls = <String>[];
-      for (final bytes in _images) {
-        imageUrls.add(await _repository.uploadInstitutionImage(
-          bytes: bytes,
-          fileExtension: 'jpg',
+      for (final image in _images) {
+        imageUrls.add(await _repository.uploadInstitutionImageFile(
+          image: image,
         ));
       }
 
@@ -1189,10 +1195,10 @@ class _InstitutionAddOfferPageState extends State<InstitutionAddOfferPage> {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                                cacheWidth: 320,
-                                cacheHeight: 320,
-                            _images[index],
+                          child: Image.file(
+                            File(_images[index].path),
+                            cacheWidth: 320,
+                            cacheHeight: 320,
                             width: 120,
                             height: 140,
                             fit: BoxFit.cover,

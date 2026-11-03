@@ -1,10 +1,11 @@
 // lib/features/community/presentation/pages/add_community_offer_page.dart
 
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 import 'package:loqma/features/auth/presentation/pages/location_picker_page.dart';
 import 'package:loqma/features/community/data/repositories/community_offer_repository.dart';
 import 'package:loqma/features/marketplace/data/repositories/marketplace_repository_impl.dart';
@@ -103,6 +104,7 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       _isInitializing = true;
       _prefillFromInitialData();
     }
+    _restoreLostImages();
     _loadCategories();
   }
 
@@ -1153,6 +1155,17 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
   // ═══════════════════════════════════════════════════════════
   // Images
   // ═══════════════════════════════════════════════════════════
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('community_add_offer');
+      final remaining = 6 - _totalImages;
+      if (!mounted || files.isEmpty || remaining <= 0) return;
+      setState(() => _newImages.addAll(files.take(remaining)));
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
+  }
+
   Future<void> _pickImages() async {
     if (_isPickingImages) return;
 
@@ -1163,12 +1176,15 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
 
     setState(() => _isPickingImages = true);
     try {
-      final picked = await _picker.pickMultiImage(
-      limit: 6 - _totalImages,
-        requestFullMetadata: false,
-        imageQuality: 82,
-        maxWidth: 1200,
-        maxHeight: 1200,
+      final picked = await ImagePickerRecovery.launch(
+        context: 'community_add_offer',
+        picker: () => _picker.pickMultiImage(
+          limit: 6 - _totalImages,
+          requestFullMetadata: false,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || picked.isEmpty) return;
       setState(() {
@@ -2505,36 +2521,21 @@ class _AddCommunityOfferPageState extends State<AddCommunityOfferPage> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: FutureBuilder<Uint8List>(
-            future: image.readAsBytes(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const SizedBox(
+          child: Image.file(
+            File(image.path),
+            cacheWidth: 320,
+            cacheHeight: 320,
+            width: 104,
+            height: 104,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) {
+              return ColoredBox(
+                color: colors.primary.withValues(alpha: 0.1),
+                child: const SizedBox(
                   width: 104,
                   height: 104,
-                  child: Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                );
-              }
-
-              return Image.memory(
-                                cacheWidth: 320,
-                                cacheHeight: 320,
-                snapshot.data!,
-                width: 104,
-                height: 104,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) {
-                  return ColoredBox(
-                    color: colors.primary.withValues(alpha: 0.1),
-                    child: const SizedBox(
-                      width: 104,
-                      height: 104,
-                      child: Icon(Icons.broken_image_outlined),
-                    ),
-                  );
-                },
+                  child: Icon(Icons.broken_image_outlined),
+                ),
               );
             },
           ),

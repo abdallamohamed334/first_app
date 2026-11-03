@@ -1,7 +1,8 @@
-import 'dart:typed_data';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 
 import 'package:loqma/features/provider/data/repositories/provider_completed_work_repository.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
@@ -314,10 +315,25 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
   final _picker = ImagePicker();
   DateTime _executedOn = DateTime.now();
   List<XFile> _images = [];
-  List<Uint8List> _previews = [];
   bool _saving = false;
 
   static const _green = Color(0xFF0B7650);
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreLostImages();
+  }
+
+  Future<void> _restoreLostImages() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('provider_completed_work');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _images = files.take(6).toList());
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
+  }
 
   @override
   void dispose() {
@@ -327,24 +343,19 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
   }
 
   Future<void> _pickImages() async {
-    final selected = await _picker.pickMultiImage(
-      limit: 6,
+    final selected = await ImagePickerRecovery.launch(
+      context: 'provider_completed_work',
+      picker: () => _picker.pickMultiImage(
+        limit: 6,
         requestFullMetadata: false,
-      imageQuality: 82,
-      maxWidth: 1200,
-      maxHeight: 1200,
+        imageQuality: 75,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      ),
     );
     if (!mounted || selected.isEmpty) return;
     final limited = selected.take(6).toList(growable: false);
-    final previews = <Uint8List>[];
-    for (final image in limited) {
-      previews.add(await image.readAsBytes());
-    }
-    if (!mounted) return;
-    setState(() {
-      _images = limited;
-      _previews = previews;
-    });
+    setState(() => _images = limited);
     if (selected.length > 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم اختيار أول 6 صور فقط')),
@@ -501,8 +512,8 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
                 ),
                 itemBuilder: (_, index) => ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.memory(
-                    _previews[index],
+                  child: Image.file(
+                    File(_images[index].path),
                     cacheWidth: 320,
                     cacheHeight: 320,
                     fit: BoxFit.cover,

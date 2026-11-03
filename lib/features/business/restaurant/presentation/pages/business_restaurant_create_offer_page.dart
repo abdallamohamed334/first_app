@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:loqma/core/services/image_picker_recovery.dart';
 
 import 'package:loqma/core/errors/app_error_mapper.dart';
 import 'package:loqma/features/business/restaurant/data/repositories/business_restaurant_repository.dart';
@@ -46,6 +47,17 @@ class _BusinessRestaurantCreateOfferPageState
     super.initState();
     _salePrice.addListener(_rebuildPriceSummary);
     _originalPrice.addListener(_rebuildPriceSummary);
+    _restoreLostImage();
+  }
+
+  Future<void> _restoreLostImage() async {
+    try {
+      final files = await ImagePickerRecovery.retrieve('restaurant_offer_image');
+      if (!mounted || files.isEmpty) return;
+      setState(() => _selectedImage = files.first);
+    } catch (_) {
+      // Ignore absent or invalid lost picker data.
+    }
   }
 
   @override
@@ -299,12 +311,15 @@ class _BusinessRestaurantCreateOfferPageState
 
   Future<void> _pickImage() async {
     try {
-      final image = await _imagePicker.pickImage(
+      final image = await ImagePickerRecovery.launch(
+        context: 'restaurant_offer_image',
+        picker: () => _imagePicker.pickImage(
           requestFullMetadata: false,
-        source: ImageSource.gallery,
-        imageQuality: 84,
-        maxWidth: 1400,
-        maxHeight: 1400,
+          source: ImageSource.gallery,
+          imageQuality: 75,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        ),
       );
       if (!mounted || image == null) return;
       setState(() {
