@@ -40,12 +40,20 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAccess());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _checkAccess();
+    });
   }
 
   /// ✅ نتأكد إن الحساب مسموح له يدخل
   Future<void> _checkAccess() async {
-    final result = await _repo.getCurrentProvider();
+    late final dynamic result;
+    try {
+      result = await _repo.getCurrentProvider();
+    } catch (_) {
+      if (mounted) setState(() => _checking = false);
+      return;
+    }
     if (!mounted) return;
 
     result.fold(
@@ -55,7 +63,12 @@ class _ProviderMainShellState extends State<ProviderMainShell> {
       },
       (provider) {
         final status = provider['verification_status']?.toString() ?? 'pending';
-        final isActive = provider['is_active'] as bool? ?? true;
+        final rawActive = provider['is_active'];
+        final isActive = rawActive == null
+            ? true
+            : rawActive is bool
+                ? rawActive
+                : rawActive.toString().toLowerCase() == 'true';
 
         final isBlocked = !isActive ||
             status == 'suspended' ||

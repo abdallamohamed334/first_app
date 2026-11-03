@@ -52,8 +52,16 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() => _loading = true);
-    final result = await _repo.getCurrentProvider();
+    late final dynamic result;
+    try {
+      result = await _repo.getCurrentProvider();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
     if (!mounted) return;
 
     await result.fold(
@@ -63,8 +71,15 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
       (provider) async {
         setState(() => _provider = provider);
 
-        final statsResult =
-            await _repo.getProviderStats(provider['id'].toString());
+        late final dynamic statsResult;
+        try {
+          statsResult =
+              await _repo.getProviderStats(provider['id'].toString());
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => _loading = false);
+          return;
+        }
 
         if (!mounted) return;
         statsResult.fold(
@@ -76,6 +91,13 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
         );
       },
     );
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -717,9 +739,13 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
   }
 
   Future<void> _makeCall(String phone) async {
-    final uri = Uri(scheme: 'tel', path: phone);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    try {
+      final uri = Uri(scheme: 'tel', path: phone);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {
+      if (mounted) _showMessage('تعذر فتح تطبيق الاتصال');
     }
   }
 
@@ -728,9 +754,13 @@ class _ProviderPublicProfilePageState extends State<ProviderPublicProfilePage> {
     if (cleaned.startsWith('0')) {
       cleaned = '20${cleaned.substring(1)}';
     }
-    final uri = Uri.parse('https://wa.me/$cleaned');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final uri = Uri.parse('https://wa.me/$cleaned');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (mounted) _showMessage('تعذر فتح واتساب');
     }
   }
 

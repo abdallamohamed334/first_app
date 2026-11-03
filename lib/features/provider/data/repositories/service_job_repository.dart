@@ -82,6 +82,21 @@ class ServiceJobRepository {
   String imageUrl(String path) =>
       _client.storage.from('service-job-completion-images').getPublicUrl(path);
 
+  Future<void> removePhotos(List<String> paths) async {
+    final cleanPaths = paths
+        .map((path) => path.trim())
+        .where((path) => path.isNotEmpty)
+        .toList(growable: false);
+    if (cleanPaths.isEmpty) return;
+    try {
+      await _client.storage
+          .from('service-job-completion-images')
+          .remove(cleanPaths);
+    } catch (error) {
+      debugPrint('[ServiceJob] photo cleanup skipped: $error');
+    }
+  }
+
   Future<String> submitCompletion({
     required String requestId,
     required DateTime executedOn,

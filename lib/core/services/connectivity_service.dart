@@ -15,11 +15,16 @@ class ConnectivityService extends ChangeNotifier {
   bool _isOffline = false;
   bool _initialized = false;
   int _checkGeneration = 0;
+  Uri? _probeUri;
 
   bool get isOffline => _isOffline;
   bool get isInitialized => _initialized;
 
-  Future<bool> initialize() async {
+  Future<bool> initialize({String? probeUrl}) async {
+    final parsedProbeUrl = Uri.tryParse(probeUrl?.trim() ?? '');
+    if (parsedProbeUrl != null && parsedProbeUrl.host.isNotEmpty) {
+      _probeUri = parsedProbeUrl;
+    }
     if (_subscription == null) {
       _subscription = _connectivity.onConnectivityChanged.listen(
         (results) => unawaited(_refresh(results)),
@@ -66,16 +71,48 @@ class ConnectivityService extends ChangeNotifier {
     }
 
     // connectivity_plus reports a network link, not guaranteed internet.
-    // A short DNS lookup catches Wi-Fi/mobile networks without internet.
+    // Probe the actual backend host so cached DNS cannot make an offline
+    // device pass the startup check.
     try {
-      final addresses = await InternetAddress.lookup('example.com')
-          .timeout(const Duration(seconds: 4));
       if (generation != _checkGeneration) return;
-      _setOffline(addresses.isEmpty);
+      final reachable = await _probeBackend();
+      if (generation != _checkGeneration) return;
+      _setOffline(!reachable);
     } catch (error) {
       if (generation != _checkGeneration) return;
       debugPrint('[Connectivity] internet probe failed: $error');
       _setOffline(true);
+    }
+  }
+
+  Future<bool> _probeBackend() async {
+    final uri = _probeUri;
+    if (uri == null || uri.host.isEmpty) {
+      try {
+        final addresses = await InternetAddress.lookup('example.com')
+            .timeout(const Duration(seconds: 3));
+        return addresses.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    final httpClient = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 3)
+      ..idleTimeout = const Duration(seconds: 3);
+    try {
+      final request = await httpClient.headUrl(uri).timeout(
+            const Duration(seconds: 3),
+          );
+      final response = await request.close().timeout(
+            const Duration(seconds: 3),
+          );
+      // 401/404/405 still prove that the backend is reachable.
+      return response.statusCode < 500;
+    } catch (_) {
+      return false;
+    } finally {
+      httpClient.close(force: true);
     }
   }
 

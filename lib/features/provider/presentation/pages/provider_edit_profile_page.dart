@@ -225,9 +225,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         maxWidth: 800,
       );
       if (picked == null) return;
+      if (!mounted) return;
       setState(() => _newProfileImage = picked);
     } catch (e) {
-      _snack('تعذر اختيار الصورة', error: true);
+      if (mounted) _snack('تعذر اختيار الصورة', error: true);
     }
   }
 
@@ -239,9 +240,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         maxWidth: 1600,
       );
       if (picked == null) return;
+      if (!mounted) return;
       setState(() => _newCoverImage = picked);
     } catch (e) {
-      _snack('تعذر اختيار الصورة', error: true);
+      if (mounted) _snack('تعذر اختيار الصورة', error: true);
     }
   }
 
@@ -253,6 +255,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         maxWidth: 1600,
       );
       if (picked == null) return;
+      if (!mounted) return;
       setState(() {
         if (side == 'front') {
           _newIdCardFront = picked;
@@ -261,7 +264,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         }
       });
     } catch (_) {
-      _snack('تعذر اختيار صورة البطاقة', error: true);
+      if (mounted) _snack('تعذر اختيار صورة البطاقة', error: true);
     }
   }
 
@@ -282,6 +285,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         maxWidth: 1200,
       );
       if (picked.isEmpty) return;
+      if (!mounted) return;
 
       setState(() {
         _newPortfolioImages.addAll(
@@ -289,7 +293,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         );
       });
     } catch (e) {
-      _snack('تعذر اختيار الصور', error: true);
+      if (mounted) _snack('تعذر اختيار الصور', error: true);
     }
   }
 
@@ -473,6 +477,10 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
             _provider = updated;
             _saving = false;
           });
+          await _repo.deleteProviderUploads(
+            imageUrls: _removedPortfolioUrls,
+          );
+          if (!mounted) return;
           _snack('تم حفظ التعديلات ✅');
           Future.delayed(const Duration(milliseconds: 600), () {
             if (mounted) context.pop();
@@ -486,7 +494,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       );
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('تعذر حفظ التعديلات، وتم تنظيف الصور المرفوعة. $e', error: true);
+      _snack('تعذر حفظ التعديلات، وتم تنظيف الصور المرفوعة.', error: true);
     }
   }
 

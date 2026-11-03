@@ -47,6 +47,7 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   Map<String, dynamic>? _stats;
   bool _loading = true;
   bool _toggling = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -58,10 +59,20 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
   // Load — مع الفحص التلقائي للظهور
   // ══════════════════════════════════════════════════════════
   Future<void> _load() async {
+    if (!mounted) return;
+    final generation = ++_loadGeneration;
     setState(() => _loading = true);
 
-    final providerResult = await _repo.getCurrentProvider();
-    if (!mounted) return;
+    late final dynamic providerResult;
+    try {
+      providerResult = await _repo.getCurrentProvider();
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _loading = false);
+      _snack('تعذر تحميل لوحة التحكم', error: true);
+      return;
+    }
+    if (!mounted || generation != _loadGeneration) return;
 
     await providerResult.fold(
       (err) async {
@@ -72,7 +83,10 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
         // ══════════════════════════════════════════════════════════
         // ✅ فحص تلقائي: لو البروفايل ناقص و is_available=true → صفّره
         // ══════════════════════════════════════════════════════════
-        final isVisible = provider['is_available'] as bool? ?? false;
+        final rawVisibility = provider['is_available'];
+        final isVisible = rawVisibility is bool
+            ? rawVisibility
+            : rawVisibility?.toString().toLowerCase() == 'true';
         final missing = _repo.checkProfileCompletion(provider);
 
         if (isVisible && missing.isNotEmpty) {
@@ -96,14 +110,21 @@ class _ProviderDashboardPageState extends State<ProviderDashboardPage> {
           }
         }
 
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
         setState(() => _provider = provider);
 
         // ✅ جيب الإحصائيات
-        final statsResult =
-            await _repo.getProviderStats(provider['id'].toString());
+        late final dynamic statsResult;
+        try {
+          statsResult =
+              await _repo.getProviderStats(provider['id'].toString());
+        } catch (_) {
+          if (!mounted || generation != _loadGeneration) return;
+          setState(() => _loading = false);
+          return;
+        }
 
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
 
         statsResult.fold(
           (err) => setState(() => _loading = false),

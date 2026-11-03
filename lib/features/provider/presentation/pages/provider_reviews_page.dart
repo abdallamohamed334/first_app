@@ -50,9 +50,17 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() => _loading = true);
 
-    final providerResult = await _repo.getCurrentProvider();
+    late final dynamic providerResult;
+    try {
+      providerResult = await _repo.getCurrentProvider();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
     if (!mounted) return;
 
     await providerResult.fold(
@@ -62,8 +70,16 @@ class _ProviderReviewsPageState extends State<ProviderReviewsPage> {
       (provider) async {
         final providerId = provider['id'].toString();
 
-        final statsResult = await _repo.getProviderStats(providerId);
-        final reviewsResult = await _repo.getProviderReviews(providerId);
+        late final dynamic statsResult;
+        late final dynamic reviewsResult;
+        try {
+          statsResult = await _repo.getProviderStats(providerId);
+          reviewsResult = await _repo.getProviderReviews(providerId);
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => _loading = false);
+          return;
+        }
 
         if (!mounted) return;
 

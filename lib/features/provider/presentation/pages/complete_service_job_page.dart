@@ -33,26 +33,31 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
   }
 
   Future<void> _pickImages() async {
-    final picked = await _picker.pickMultiImage(imageQuality: 82);
-    if (!mounted || picked.isEmpty) return;
-    final selected = picked.take(6).toList(growable: false);
-    final previews = <Uint8List>[];
-    for (final image in selected) {
-      previews.add(await image.readAsBytes());
-    }
-    if (!mounted) return;
-    setState(() {
-      _images = selected;
-      _previewBytes = previews;
-    });
-    if (picked.length > 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم اختيار أول 6 صور فقط')),
-      );
+    try {
+      final picked = await _picker.pickMultiImage(imageQuality: 82);
+      if (!mounted || picked.isEmpty) return;
+      final selected = picked.take(6).toList(growable: false);
+      final previews = <Uint8List>[];
+      for (final image in selected) {
+        previews.add(await image.readAsBytes());
+      }
+      if (!mounted) return;
+      setState(() {
+        _images = selected;
+        _previewBytes = previews;
+      });
+      if (picked.length > 6) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم اختيار أول 6 صور فقط')),
+        );
+      }
+    } catch (_) {
+      if (mounted) _message('تعذر اختيار الصور، حاول مرة أخرى');
     }
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
       _message('اكتب وصفًا قصيرًا للشغلانة');
@@ -64,9 +69,9 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
     }
 
     setState(() => _submitting = true);
+    final paths = <String>[];
     try {
       final requestId = widget.request['id'].toString();
-      final paths = <String>[];
       for (var index = 0; index < _images.length; index++) {
         paths.add(await _repository.uploadPhoto(
           requestId: requestId,
@@ -83,6 +88,7 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (error) {
+      await _repository.removePhotos(paths);
       if (!mounted) return;
       setState(() => _submitting = false);
       _message(error.toString().replaceFirst('Exception: ', ''));
@@ -119,7 +125,10 @@ class _CompleteServiceJobPageState extends State<CompleteServiceJobPage> {
                         firstDate: DateTime(2020),
                         lastDate: DateTime.now(),
                       );
-                      if (selected != null) setState(() => _executedOn = selected);
+                      if (!mounted) return;
+                      if (selected != null) {
+                        setState(() => _executedOn = selected);
+                      }
                     },
               icon: const Icon(Icons.calendar_today_rounded),
               label: Text('${_executedOn.day}/${_executedOn.month}/${_executedOn.year}'),

@@ -47,8 +47,17 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() => _loading = true);
-    final result = await _repo.getCurrentProvider();
+    late final dynamic result;
+    try {
+      result = await _repo.getCurrentProvider();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      _showMessage('تعذر تحميل البروفايل، حاول مرة أخرى');
+      return;
+    }
     if (!mounted) return;
 
     result.fold(
@@ -58,6 +67,13 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
         _loading = false;
       }),
     );
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _shareRatingLink() async {
@@ -159,7 +175,12 @@ class _ProviderProfilePageState extends State<ProviderProfilePage> {
     if (confirm != true) return;
 
     // ✅ signOut
-    await _repo.logout();
+    try {
+      await _repo.logout();
+    } catch (_) {
+      if (mounted) _showMessage('تعذر تسجيل الخروج، حاول مرة أخرى');
+      return;
+    }
 
     // ✅ نصفّر الـ AuthStateNotifier
     AuthStateNotifier.instance.clear();
