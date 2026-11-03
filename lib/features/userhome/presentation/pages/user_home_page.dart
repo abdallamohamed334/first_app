@@ -272,6 +272,7 @@ class _UserHomePageState extends State<UserHomePage>
         latitude: _userLat,
         longitude: _userLng,
         radiusKm: _AppFeatures.serviceProviderNearbyRadiusKm,
+        fetchAll: true,
       );
       if (!mounted) return;
 

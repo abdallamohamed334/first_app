@@ -101,6 +101,7 @@ class ServiceProvidersRepository {
     double? longitude,
     double radiusKm = 200,
     int limit = 100,
+    bool fetchAll = false,
   }) async {
     try {
       final cleanCity = city.trim();
@@ -133,11 +134,27 @@ class ServiceProvidersRepository {
             .gte('longitude', math.max(-180, longitude - lngDelta))
             .lte('longitude', math.min(180, longitude + lngDelta));
       }
-      final rows = await query
-          .order('updated_at', ascending: false)
-          .limit(limit);
+      const pageSize = 500;
+      final rows = <dynamic>[];
+      if (fetchAll) {
+        var offset = 0;
+        while (true) {
+          final page = await query
+              .order('updated_at', ascending: false)
+              .order('id', ascending: true)
+              .range(offset, offset + pageSize - 1);
+          rows.addAll(page);
+          if (page.length < pageSize) break;
+          offset += pageSize;
+        }
+      } else {
+        rows.addAll(await query
+            .order('updated_at', ascending: false)
+            .order('id', ascending: true)
+            .limit(limit));
+      }
 
-      return (rows as List)
+      return rows
           .map((row) => ServiceProvider.fromMap(Map<String, dynamic>.from(row)))
           .toList(growable: false);
     } catch (e) {

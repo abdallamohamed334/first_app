@@ -270,7 +270,7 @@ class _MapPageState extends State<MapPage> {
         latitude: _selectedGovernorate == null ? location.latitude : null,
         longitude: _selectedGovernorate == null ? location.longitude : null,
         radiusKm: 200,
-        limit: 500,
+        fetchAll: true,
       );
       final nearby = providers.where((provider) {
         final lat = provider.latitude;
