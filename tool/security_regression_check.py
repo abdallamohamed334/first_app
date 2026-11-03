@@ -235,7 +235,8 @@ def main() -> None:
 
     require(auth_state, "return '/account-restricted';", "unknown-role fail-closed route")
     require(auth_state, "static String resolveRole(", "centralized auth role resolution")
-    require(auth_state, "storedRole == 'user' && hasProviderProfile", "provider-only role promotion exception")
+    require(auth_state, "if (storedRole == 'provider') return 'provider';", "explicit provider role resolution")
+    require(auth_state, "must never change an explicitly ordinary `user` account into a provider", "ordinary user cannot be promoted by a linked provider profile")
     require(auth_state, "storedRole == 'institution' ||", "institution type refinement requires an institutional profile")
     require(app_router, "auth.homeRoute == accountRestricted", "unknown-role router guard")
     require(app_router, "loc == institutionsHome && auth.homeRoute != institutionsHome", "institution route role guard")
