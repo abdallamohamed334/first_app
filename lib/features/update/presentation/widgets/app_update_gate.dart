@@ -31,12 +31,16 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      setState(() => _checkFuture = AppUpdateService.instance.check());
+      setState(() {
+        _checkFuture = AppUpdateService.instance.check();
+      });
     }
   }
 
   void _retry() {
-    setState(() => _checkFuture = AppUpdateService.instance.check());
+    setState(() {
+      _checkFuture = AppUpdateService.instance.check();
+    });
   }
 
   @override
