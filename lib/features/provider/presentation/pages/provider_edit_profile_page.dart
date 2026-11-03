@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:loqma/core/services/location_service.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
@@ -97,6 +98,7 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   void initState() {
     super.initState();
     _load();
+    _restoreLostPickerData();
   }
 
   @override
@@ -219,11 +221,15 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
   // ══════════════════════════════════════════════════════════
   Future<void> _pickProfileImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 800,
-        requestFullMetadata: false,
+      final picked = await _withPickerMode(
+        'profile',
+        () => _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 800,
+          maxHeight: 800,
+          requestFullMetadata: false,
+        ),
       );
       if (picked == null || !mounted) return;
       setState(() => _newProfileImage = picked);
@@ -234,11 +240,15 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
 
   Future<void> _pickCoverImage() async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1600,
-        requestFullMetadata: false,
+      final picked = await _withPickerMode(
+        'cover',
+        () => _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 80,
+          maxWidth: 1600,
+          maxHeight: 900,
+          requestFullMetadata: false,
+        ),
       );
       if (picked == null || !mounted) return;
       setState(() => _newCoverImage = picked);
@@ -249,11 +259,15 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
 
   Future<void> _pickIdCard(String side) async {
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1600,
-        requestFullMetadata: false,
+      final picked = await _withPickerMode(
+        side == 'front' ? 'id_front' : 'id_back',
+        () => _picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 85,
+          maxWidth: 1600,
+          maxHeight: 1600,
+          requestFullMetadata: false,
+        ),
       );
       if (picked == null || !mounted) return;
       setState(() {
@@ -280,10 +294,14 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
         return;
       }
 
-      final picked = await _picker.pickMultiImage(
-        imageQuality: 80,
-        maxWidth: 1200,
-        requestFullMetadata: false,
+      final picked = await _withPickerMode(
+        'portfolio',
+        () => _picker.pickMultiImage(
+          imageQuality: 80,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          requestFullMetadata: false,
+        ),
       );
       if (picked.isEmpty || !mounted) return;
 
@@ -294,6 +312,63 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       });
     } catch (e) {
       if (mounted) _snack('تعذر اختيار الصور', error: true);
+    }
+  }
+
+  Future<T?> _withPickerMode<T>(
+    String mode,
+    Future<T?> Function() pick,
+  ) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('provider_edit_picker_mode', mode);
+    try {
+      return await pick();
+    } finally {
+      await preferences.remove('provider_edit_picker_mode');
+    }
+  }
+
+  Future<void> _restoreLostPickerData() async {
+    try {
+      final lost = await _picker.retrieveLostData();
+      if (lost.isEmpty) return;
+      final files = lost.files ?? const <XFile>[];
+      if (files.isEmpty || !mounted) return;
+
+      final preferences = await SharedPreferences.getInstance();
+      final mode = preferences.getString('provider_edit_picker_mode');
+      if (!mounted) return;
+      final first = files.first;
+
+      setState(() {
+        switch (mode) {
+          case 'cover':
+            _newCoverImage = first;
+            break;
+          case 'id_front':
+            _newIdCardFront = first;
+            break;
+          case 'id_back':
+            _newIdCardBack = first;
+            break;
+          case 'portfolio':
+            final remaining = _maxPortfolioImages -
+                _portfolioImages.length -
+                _newPortfolioImages.length;
+            if (remaining > 0) {
+              _newPortfolioImages.addAll(files.take(remaining));
+            }
+            break;
+          case 'profile':
+          default:
+            _newProfileImage = first;
+            break;
+        }
+      });
+      await preferences.remove('provider_edit_picker_mode');
+      if (mounted) _snack('تم استرجاع الصورة بعد العودة من المعرض');
+    } catch (error) {
+      debugPrint('[ProviderEditProfile] lost picker restore failed: $error');
     }
   }
 
@@ -923,6 +998,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                 child: Image.file(
                   File(image.path),
                   fit: BoxFit.cover,
+                  cacheWidth: 600,
+                  cacheHeight: 600,
                   errorBuilder: (_, __, ___) => const Icon(
                     Icons.broken_image_outlined,
                     color: _blue,
@@ -1024,6 +1101,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                           ? Image.file(
                               File(_newProfileImage!.path),
                               fit: BoxFit.cover,
+                              cacheWidth: 600,
+                              cacheHeight: 600,
                               errorBuilder: (_, __, ___) =>
                                   _imagePlaceholder(Icons.person_rounded),
                             )
@@ -1082,6 +1161,8 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
                         File(_newCoverImage!.path),
                         fit: BoxFit.cover,
                         width: double.infinity,
+                        cacheWidth: 1200,
+                        cacheHeight: 600,
                         errorBuilder: (_, __, ___) => _coverPlaceholder(),
                       )
                     : (_coverImageUrl != null && _coverImageUrl!.isNotEmpty)
