@@ -88,13 +88,13 @@ void main() {
       );
     });
 
-    test('a provider profile still resolves a user_type=user provider account', () {
+    test('a provider profile cannot promote a user_type=user account', () {
       expect(
         AuthStateNotifier.resolveRole(
           userType: 'user',
           hasProviderProfile: true,
         ),
-        'provider',
+        'user',
       );
     });
 
