@@ -163,6 +163,7 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.khedma.app',
+                    tileProvider: CancellableNetworkTileProvider(),
                   ),
                   RichAttributionWidget(
                     attributions: [

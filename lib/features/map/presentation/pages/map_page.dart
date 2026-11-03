@@ -625,6 +625,7 @@ class _MapPageState extends State<MapPage> {
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.khedma.app',
+                    tileProvider: CancellableNetworkTileProvider(),
                   ),
                   RichAttributionWidget(
                     attributions: [

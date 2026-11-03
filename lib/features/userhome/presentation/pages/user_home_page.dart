@@ -1438,6 +1438,7 @@ class _UserHomePageState extends State<UserHomePage>
                         urlTemplate:
                             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.khedma.app',
+                        tileProvider: CancellableNetworkTileProvider(),
                       ),
                       MarkerLayer(
                         markers: mapProviders.map((provider) {

@@ -2497,6 +2497,7 @@ class _CommunityOfferDetailsPageState extends State<CommunityOfferDetailsPage> {
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.jood.com',
+                    tileProvider: CancellableNetworkTileProvider(),
                   ),
                   MarkerLayer(
                     markers: [
