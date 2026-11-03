@@ -139,9 +139,12 @@ class AppRouter {
       }
 
       // ⏳ جلسة Supabase وصلت، لكن profile/provider لم يكتمل تحميله.
-      // لا نرجع إلى /home اعتمادًا على role=user المؤقت.
+      // في بداية التشغيل فقط ننتظر على Splash. بعد أن يكون المستخدم داخل
+      // التطبيق، لا نخرجه إلى Splash بسبب token refresh عابر أو رجوع Activity
+      // من image picker/إذن إشعارات؛ هذا كان يظهر للمستخدم كأن التطبيق عمل
+      // reload رغم أن MainActivity لم تتوقف.
       if (auth.isSyncing || !auth.isResolved) {
-        if (isPublic) return null;
+        if (isPublic || (auth.isLoggedIn && loc != splash)) return null;
         return splash;
       }
 
