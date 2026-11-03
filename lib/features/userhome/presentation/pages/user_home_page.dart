@@ -729,7 +729,7 @@ class _UserHomePageState extends State<UserHomePage>
             return _buildUnauthenticated();
           }
           if (state is UserHomeError) return _buildError(state.message);
-          if (state is UserHomeLoaded) return _buildLoadedHome();
+          if (state is UserHomeLoaded) return _buildLoadedHome(state);
           return const HomeLoading();
         },
       ),
@@ -880,7 +880,7 @@ class _UserHomePageState extends State<UserHomePage>
     );
   }
 
-  Widget _buildLoadedHome() {
+  Widget _buildLoadedHome(UserHomeLoaded state) {
     return Scaffold(
       backgroundColor: _bg,
       body: IndexedStack(
@@ -891,7 +891,7 @@ class _UserHomePageState extends State<UserHomePage>
           }
           switch (index) {
             case 0:
-              return _buildHomeContent();
+              return _buildHomeContent(state);
             case 1:
               return _buildCategoriesContent();
             case 2:
@@ -1137,7 +1137,7 @@ class _UserHomePageState extends State<UserHomePage>
     );
   }
 
-  Widget _buildHomeContent() {
+  Widget _buildHomeContent(UserHomeLoaded state) {
     return SafeArea(
       child: RefreshIndicator(
         color: _primaryRed,
@@ -1159,7 +1159,7 @@ class _UserHomePageState extends State<UserHomePage>
           ),
           child: KeyedSubtree(
             key: const ValueKey<_HomeMode>(_HomeMode.services),
-            child: _buildServicesContent(),
+            child: _buildServicesContent(state),
           ),
         ),
       ),
@@ -1198,7 +1198,7 @@ class _UserHomePageState extends State<UserHomePage>
     );
   }
 
-  Widget _buildServicesContent() {
+  Widget _buildServicesContent(UserHomeLoaded state) {
     return CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
@@ -1207,6 +1207,10 @@ class _UserHomePageState extends State<UserHomePage>
         if (_locationUnavailable)
           SliverToBoxAdapter(child: _buildLocationUnavailableNotice()),
         SliverToBoxAdapter(child: _buildHeader()),
+        if (state.banners.isNotEmpty)
+          SliverToBoxAdapter(
+            child: HomeCompactAdCard(banner: state.banners.first),
+          ),
         SliverToBoxAdapter(child: _buildProviderCodeSearch()),
         SliverToBoxAdapter(child: _buildServicesMapPreview()),
         SliverToBoxAdapter(child: _buildNearbyServiceCategorySections()),

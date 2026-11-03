@@ -333,3 +333,123 @@ class _HomeBannerCarouselState extends State<HomeBannerCarousel> {
     );
   }
 }
+
+/// Compact sponsored card used above the provider-code search on the Services tab.
+/// It stays small and disappears entirely when there are no active banners.
+class HomeCompactAdCard extends StatelessWidget {
+  const HomeCompactAdCard({super.key, required this.banner});
+
+  final HomeBanner banner;
+
+  Future<void> _openTarget() async {
+    final rawUrl = banner.targetUrl?.trim();
+    if (rawUrl == null || rawUrl.isEmpty) return;
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !{'http', 'https'}.contains(uri.scheme)) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (error) {
+      debugPrint('❌ Error opening compact home ad: $error');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final title = banner.title?.trim();
+    final subtitle = banner.subtitle?.trim();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openTarget,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            height: 100,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF252A2D) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.primary.withValues(alpha: .18)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? .16 : .06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: CachedNetworkImage(
+                    imageUrl: banner.imageUrl,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => Container(
+                      color: colors.primary.withValues(alpha: .08),
+                      child: Icon(Icons.campaign_rounded, color: colors.primary),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: colors.primary.withValues(alpha: .08),
+                      child: Icon(Icons.campaign_rounded, color: colors.primary),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'إعلان • ${banner.advertiserName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.primary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        (title == null || title.isEmpty) ? 'اعرف خدماتنا' : title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : const Color(0xFF18221F),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(Icons.chevron_left_rounded, color: colors.primary, size: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
