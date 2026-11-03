@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/services/app_update_service.dart';
@@ -13,13 +15,15 @@ class AppUpdateGate extends StatefulWidget {
 
 class _AppUpdateGateState extends State<AppUpdateGate>
     with WidgetsBindingObserver {
-  late Future<AppUpdateRequirement> _checkFuture;
+  AppUpdateRequirement? _requirement;
+  bool _initialCheckComplete = false;
+  int _checkGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkFuture = AppUpdateService.instance.check();
+    unawaited(_refreshRequirement());
   }
 
   @override
@@ -31,33 +35,34 @@ class _AppUpdateGateState extends State<AppUpdateGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      setState(() {
-        _checkFuture = AppUpdateService.instance.check();
-      });
+      // Do not replace the whole app with a loading page when an external
+      // activity (gallery, camera, permissions) returns to the foreground.
+      unawaited(_refreshRequirement());
     }
   }
 
-  void _retry() {
+  Future<void> _refreshRequirement() async {
+    final generation = ++_checkGeneration;
+    final result = await AppUpdateService.instance.check();
+    if (!mounted || generation != _checkGeneration) return;
     setState(() {
-      _checkFuture = AppUpdateService.instance.check();
+      _requirement = result;
+      _initialCheckComplete = true;
     });
+  }
+
+  void _retry() {
+    unawaited(_refreshRequirement());
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<AppUpdateRequirement>(
-      future: _checkFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const _UpdateLoadingPage();
-        }
-        final requirement = snapshot.data;
-        if (requirement?.isRequired != true) return widget.child;
-        return _ForceUpdatePage(
-          requirement: requirement!,
-          onRetry: _retry,
-        );
-      },
+    if (!_initialCheckComplete) return const _UpdateLoadingPage();
+    final requirement = _requirement;
+    if (requirement?.isRequired != true) return widget.child;
+    return _ForceUpdatePage(
+      requirement: requirement!,
+      onRetry: _retry,
     );
   }
 }
