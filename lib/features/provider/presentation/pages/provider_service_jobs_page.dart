@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:loqma/core/services/image_picker_recovery.dart';
-
 import 'package:loqma/features/provider/data/repositories/provider_completed_work_repository.dart';
 import 'package:loqma/features/provider/data/repositories/service_provider_repository.dart';
 
@@ -24,8 +23,11 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
   List<Map<String, dynamic>> _works = [];
 
   static const _green = Color(0xFF0B7650);
+  static const _greenDark = Color(0xFF07533A);
   static const _ink = Color(0xFF123F31);
+  static const _muted = Color(0xFF6D8078);
   static const _blue = Color(0xFF3679C8);
+  static const _background = Color(0xFFF4F8F6);
 
   @override
   void initState() {
@@ -102,7 +104,14 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تمت إضافة العمل إلى أعمالك المنفذة')),
+          SnackBar(
+            content: const Text('تمت إضافة العمل إلى أعمالك المنفذة'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: _greenDark,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
         );
       }
     }
@@ -119,15 +128,24 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F8F6),
+        backgroundColor: _background,
         appBar: AppBar(
-          title: const Text('أعمالي المنفذة'),
+          elevation: 0,
+          backgroundColor: _background,
+          surfaceTintColor: Colors.transparent,
+          titleSpacing: 20,
+          title: const Text(
+            'أعمالي المنفذة',
+            style: TextStyle(color: _ink, fontWeight: FontWeight.w900),
+          ),
+          iconTheme: const IconThemeData(color: _ink),
           actions: [
             IconButton(
               tooltip: 'تحديث',
-              onPressed: _load,
+              onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh_rounded),
             ),
+            const SizedBox(width: 8),
           ],
         ),
         floatingActionButton: _loading || _providerId == null
@@ -136,72 +154,194 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
                 onPressed: _addWork,
                 backgroundColor: _green,
                 foregroundColor: Colors.white,
+                elevation: 4,
                 icon: const Icon(Icons.add_rounded),
-                label: const Text('إضافة عمل منفذ'),
+                label: const Text(
+                  'إضافة عمل',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
         body: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: _green))
             : _error != null
                 ? _errorView()
                 : RefreshIndicator(
+                    color: _green,
                     onRefresh: _load,
                     child: _works.isEmpty
-                        ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(24),
-                            children: const [
-                              SizedBox(height: 90),
-                              Icon(Icons.handyman_outlined,
-                                  size: 58, color: _blue),
-                              SizedBox(height: 14),
-                              Center(
-                                child: Text(
-                                  'لم تضف أعمالًا منفذة بعد',
-                                  style: TextStyle(
-                                    color: _ink,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Center(
-                                child: Text(
-                                  'أضف صورًا ووصفًا وسعرًا اختياريًا ليظهر العمل في ملفك.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.black54),
-                                ),
-                              ),
-                              SizedBox(height: 80),
-                            ],
-                          )
+                        ? _emptyView()
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-                            itemCount: _works.length,
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 110),
+                            itemCount: _works.length + 1,
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 12),
-                            itemBuilder: (_, index) => _workCard(_works[index]),
+                            itemBuilder: (_, index) {
+                              if (index == 0) return _summaryHeader();
+                              return _workCard(_works[index - 1]);
+                            },
                           ),
                   ),
       ),
     );
   }
 
+  Widget _summaryHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_greenDark, _green],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _green.withValues(alpha: 0.22),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.handyman_rounded,
+              color: Colors.white,
+              size: 27,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'معرض شغلك يوصل للعميل',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  '${_works.length} ${_works.length == 1 ? 'عمل منفذ' : 'أعمال منفذة'} موثقة في ملفك',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _addWork,
+            tooltip: 'إضافة عمل',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.16),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.add_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyView() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 120),
+      children: [
+        _summaryHeader(),
+        const SizedBox(height: 54),
+        Container(
+          width: 92,
+          height: 92,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _blue.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.photo_library_outlined,
+            size: 44,
+            color: _blue,
+          ),
+        ),
+        const SizedBox(height: 18),
+        const Text(
+          'ابدأ بإضافة أول عمل منفذ',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _ink,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 9),
+        const Text(
+          'أضف صورًا ووصفًا وسعرًا اختياريًا ليشاهد العملاء خبرتك قبل التواصل معك.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: _muted, height: 1.6, fontSize: 13),
+        ),
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: _addWork,
+          icon: const Icon(Icons.add_photo_alternate_rounded),
+          label: const Text('إضافة أول عمل منفذ'),
+          style: FilledButton.styleFrom(
+            backgroundColor: _green,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _errorView() => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(_error!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('إعادة المحاولة'),
-              ),
-            ],
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.12)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_rounded, color: Colors.red, size: 42),
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: _ink, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('إعادة المحاولة'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -213,74 +353,200 @@ class _ProviderServiceJobsPageState extends State<ProviderServiceJobsPage> {
             .toList() ??
         const <String>[];
     final amount = work['amount'];
-    final amountText = amount == null
-        ? null
-        : '${_formatAmount(amount)} ج.م';
-    return Card(
+    final amountText = amount == null ? null : '${_formatAmount(amount)} ج.م';
+
+    return Container(
       clipBehavior: Clip.antiAlias,
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _ink.withValues(alpha: 0.07)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.045),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (paths.isNotEmpty) _workGallery(paths),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.calendar_month_rounded,
-                    size: 17, color: _blue),
-                const SizedBox(width: 6),
-                Text(_date(work['executed_on']),
-                    style: const TextStyle(
-                        color: _ink, fontWeight: FontWeight.w700)),
-                const Spacer(),
-                if (amountText != null)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _green.withValues(alpha: 0.09),
-                      borderRadius: BorderRadius.circular(20),
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _blue.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 18,
+                        color: _blue,
+                      ),
                     ),
-                    child: Text(amountText,
-                        style: const TextStyle(
-                            color: _green, fontWeight: FontWeight.w900)),
+                    const SizedBox(width: 9),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'تاريخ التنفيذ',
+                          style: TextStyle(
+                            color: _muted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _date(work['executed_on']),
+                          style: const TextStyle(
+                            color: _ink,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    if (amountText != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _green.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          amountText,
+                          style: const TextStyle(
+                            color: _green,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  work['description']?.toString() ?? '',
+                  style: const TextStyle(
+                    color: _ink,
+                    fontSize: 14,
+                    height: 1.65,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
               ],
             ),
-            const SizedBox(height: 10),
-            Text(work['description']?.toString() ?? '',
-                style: const TextStyle(color: _ink, height: 1.5)),
-            if (paths.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 88,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _workGallery(List<String> paths) {
+    return SizedBox(
+      height: 178,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            _workRepository.imageUrl(paths.first),
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              color: _blue.withValues(alpha: 0.08),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.broken_image_outlined,
+                color: _blue,
+                size: 36,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.18),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (paths.length > 1)
+            Positioned(
+              bottom: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${paths.length} صور',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          if (paths.length > 1)
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: SizedBox(
+                height: 42,
+                width: 180,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: paths.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemCount: paths.length > 4 ? 4 : paths.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
                   itemBuilder: (_, index) => ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      _workRepository.imageUrl(paths[index]),
-                      width: 88,
-                      height: 88,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 88,
-                        height: 88,
-                        color: Colors.black12,
-                        child: const Icon(Icons.broken_image_outlined),
+                    borderRadius: BorderRadius.circular(9),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      child: Image.network(
+                        _workRepository.imageUrl(paths[index]),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image_outlined,
+                          color: Colors.white,
+                          size: 17,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -318,6 +584,10 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
   bool _saving = false;
 
   static const _green = Color(0xFF0B7650);
+  static const _ink = Color(0xFF123F31);
+  static const _muted = Color(0xFF6D8078);
+  static const _blue = Color(0xFF3679C8);
+  static const _background = Color(0xFFF4F8F6);
 
   @override
   void initState() {
@@ -428,113 +698,395 @@ class _AddCompletedWorkPageState extends State<_AddCompletedWorkPage> {
 
   void _message(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.red.shade700,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     );
   }
+
+  String get _dateLabel =>
+      '${_executedOn.day}/${_executedOn.month}/${_executedOn.year}';
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(title: const Text('إضافة عمل منفذ')),
-        body: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
-            const Text(
-              'سجّل عملًا أنجزته ليظهر للزوار في ملفك الشخصي.',
-              style: TextStyle(color: Colors.black54, height: 1.5),
-            ),
-            const SizedBox(height: 20),
-            const Text('تاريخ التنفيذ',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 7),
-            OutlinedButton.icon(
-              onPressed: _saving ? null : _chooseDate,
-              icon: const Icon(Icons.calendar_today_rounded),
+        backgroundColor: _background,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: _background,
+          surfaceTintColor: Colors.transparent,
+          title: const Text(
+            'إضافة عمل منفذ',
+            style: TextStyle(color: _ink, fontWeight: FontWeight.w900),
+          ),
+          iconTheme: const IconThemeData(color: _ink),
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            height: 54,
+            child: FilledButton.icon(
+              onPressed: _saving ? null : _submit,
+              icon: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.publish_rounded),
               label: Text(
-                  '${_executedOn.day}/${_executedOn.month}/${_executedOn.year}'),
-            ),
-            const SizedBox(height: 18),
-            TextField(
-              controller: _descriptionController,
-              maxLength: 1000,
-              maxLines: 5,
-              textInputAction: TextInputAction.newline,
-              decoration: const InputDecoration(
-                labelText: 'وصف العمل',
-                hintText: 'ما الذي أنجزته؟',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
+                _saving ? 'جارٍ الحفظ...' : 'نشر العمل المنفذ',
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: _green,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(17),
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'المبلغ (اختياري)',
-                hintText: 'مثال: 500',
-                suffixText: 'ج.م',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text('صور العمل (حتى 6 صور)',
-                      style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-                TextButton.icon(
-                  onPressed: _saving ? null : _pickImages,
-                  icon: const Icon(Icons.add_photo_alternate_outlined),
-                  label: const Text('إضافة صور'),
-                ),
-              ],
-            ),
-            if (_images.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('أضف صورة واحدة على الأقل للعمل المنفذ.',
-                    style: TextStyle(color: Colors.black54)),
-              )
-            else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _images.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                itemBuilder: (_, index) => ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
-                    File(_images[index].path),
-                    cacheWidth: 320,
-                    cacheHeight: 320,
-                    fit: BoxFit.cover,
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          children: [
+            _introCard(),
+            const SizedBox(height: 16),
+            _sectionCard(
+              icon: Icons.event_available_rounded,
+              title: 'متى تم تنفيذ العمل؟',
+              child: InkWell(
+                onTap: _saving ? null : _chooseDate,
+                borderRadius: BorderRadius.circular(15),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: _blue.withValues(alpha: 0.16)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_month_rounded, color: _blue),
+                      const SizedBox(width: 10),
+                      Text(
+                        _dateLabel,
+                        style: const TextStyle(
+                          color: _ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const Spacer(),
+                      const Text(
+                        'تغيير',
+                        style: TextStyle(
+                          color: _blue,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            const SizedBox(height: 26),
-            SizedBox(
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _submit,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.check_circle_outline_rounded),
-                label: Text(_saving ? 'جارٍ الحفظ...' : 'نشر العمل المنفذ'),
-                style: FilledButton.styleFrom(backgroundColor: _green),
+            ),
+            const SizedBox(height: 14),
+            _sectionCard(
+              icon: Icons.description_rounded,
+              title: 'تفاصيل العمل',
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _descriptionController,
+                    maxLength: 1000,
+                    maxLines: 5,
+                    textInputAction: TextInputAction.newline,
+                    decoration: _inputDecoration(
+                      label: 'وصف العمل',
+                      hint: 'اكتب ما الذي أنجزته، نوع الخدمة، والخامات أو التفاصيل المهمة.',
+                      icon: Icons.edit_note_rounded,
+                    ).copyWith(alignLabelWithHint: true),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: _inputDecoration(
+                      label: 'المبلغ (اختياري)',
+                      hint: 'مثال: 500',
+                      icon: Icons.payments_outlined,
+                    ).copyWith(suffixText: 'ج.م'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _sectionCard(
+              icon: Icons.photo_library_rounded,
+              title: 'صور العمل',
+              trailing: Text(
+                '${_images.length}/6',
+                style: TextStyle(
+                  color: _images.isEmpty ? Colors.red.shade700 : _green,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'أضف صورًا واضحة تساعد العميل على رؤية جودة شغلك.',
+                    style: const TextStyle(color: _muted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_images.isEmpty)
+                    _emptyImagePicker()
+                  else
+                    _imageGrid(),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _pickImages,
+                    icon: const Icon(Icons.add_photo_alternate_rounded),
+                    label: Text(
+                      _images.isEmpty ? 'اختيار الصور' : 'تغيير الصور',
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _blue,
+                      side: BorderSide(color: _blue.withValues(alpha: 0.35)),
+                      minimumSize: const Size.fromHeight(46),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _introCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFE5F6EF), Color(0xFFF7FCFA)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _green.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _green.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.workspace_premium_rounded, color: _green),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'اعرض خبرتك بشكل احترافي',
+                  style: TextStyle(
+                    color: _ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 5),
+                Text(
+                  'أضف صورًا حقيقية ووصفًا مختصرًا ليظهر العمل في ملفك للزوار.',
+                  style: TextStyle(color: _muted, fontSize: 12, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: _ink.withValues(alpha: 0.07)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _green.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: _green, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: _ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon, color: _green),
+      filled: true,
+      fillColor: const Color(0xFFF8FBF9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: _ink.withValues(alpha: 0.08)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide(color: _ink.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: _green, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _emptyImagePicker() {
+    return Container(
+      height: 150,
+      width: double.infinity,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: _blue.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: _blue.withValues(alpha: 0.25),
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.add_photo_alternate_outlined, color: _blue, size: 38),
+          SizedBox(height: 8),
+          Text(
+            'لم تتم إضافة صور بعد',
+            style: TextStyle(color: _ink, fontWeight: FontWeight.w800),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'اختر صورة واحدة على الأقل',
+            style: TextStyle(color: _muted, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _imageGrid() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _images.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 9,
+        mainAxisSpacing: 9,
+        childAspectRatio: 1,
+      ),
+      itemBuilder: (_, index) => ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.file(
+              File(_images[index].path),
+              cacheWidth: 320,
+              cacheHeight: 320,
+              fit: BoxFit.cover,
+            ),
+            Positioned(
+              top: 6,
+              left: 6,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.54),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ),
             ),
           ],
