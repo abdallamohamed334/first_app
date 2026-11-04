@@ -2,6 +2,7 @@
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:loqma/core/services/supabase_service.dart';
 import 'package:loqma/features/services/data/repositories/service_providers_repository.dart';
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
@@ -25,6 +26,7 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   final _repository = ServiceProvidersRepository();
 
   // ── Location and rating sort
+  String? _homeGovernorate;
   String? _governorate;
   String? _city;
   bool _ratingAscending = false;
@@ -68,24 +70,53 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
     }
 
     try {
+      final userId = SupabaseService().client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) {
+        throw StateError('No signed-in user for provider location filter');
+      }
+      final userProfile = await SupabaseService()
+          .client
+          .from('users')
+          .select('governorate')
+          .eq('id', userId)
+          .maybeSingle();
+      final homeGovernorate =
+          userProfile?['governorate']?.toString().trim() ?? '';
+      if (homeGovernorate.isEmpty) {
+        throw StateError('User governorate is missing');
+      }
+
       // Load available governorates.
       final governorates = await _repository.getAvailableGovernorates(
         categoryId: widget.category.id,
       );
       if (!mounted) return;
-      setState(() => _availableGovernorates = governorates);
+      final availableGovernorates = [...governorates];
+      if (!availableGovernorates.contains(homeGovernorate)) {
+        availableGovernorates.add(homeGovernorate);
+        availableGovernorates.sort();
+      }
+      setState(() {
+        _homeGovernorate = homeGovernorate;
+        _governorate = homeGovernorate;
+        _availableGovernorates = availableGovernorates;
+      });
+      final cities = await _repository.getAvailableCities(
+        categoryId: widget.category.id,
+        governorate: homeGovernorate,
+      );
 
-      // Load providers using only location filters and the selected rating order.
+      // Start in the user's own governorate; never fall back to all regions.
       final list = await _repository.listByCategory(
         categoryId: widget.category.id,
-        governorate: _governorate,
+        governorate: homeGovernorate,
         city: _city,
         ratingAscending: _ratingAscending,
       );
 
       if (!mounted || requestGeneration != _providersRequestGeneration) return;
       setState(() {
-        _availableCities = const [];
+        _availableCities = cities;
         _providers = list;
         _loading = false;
       });
@@ -134,11 +165,26 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
   /// ✅ زر "مسح الفلاتر"
   void _clearFilters() {
     setState(() {
-      _governorate = null;
+      _governorate = _homeGovernorate;
       _city = null;
       _ratingAscending = false;
       _availableCities = const [];
     });
+    final governorate = _homeGovernorate;
+    if (governorate != null) {
+      _repository
+          .getAvailableCities(
+            categoryId: widget.category.id,
+            governorate: governorate,
+          )
+          .then((cities) {
+        if (mounted && _governorate == governorate && _city == null) {
+          setState(() => _availableCities = cities);
+        }
+      }, onError: (Object error, StackTrace stack) {
+        debugPrint('❌ failed to load default governorate cities: $error');
+      });
+    }
     _reloadProviders();
   }
 
