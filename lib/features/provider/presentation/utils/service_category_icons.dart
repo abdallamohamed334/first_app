@@ -38,10 +38,19 @@ class ServiceCategoryIcons {
         return Icons.water_drop_rounded;
       case 'carpentry':
         return Icons.handyman_rounded;
+      case 'car_mechanic':
+      case '🚗🔧':
+        return Icons.car_repair_rounded;
       case 'painting':
         return Icons.format_paint_rounded;
       case 'ac':
+      case 'air_conditioning':
         return Icons.ac_unit_rounded;
+      case 'water_heaters':
+      case '🔥':
+        return Icons.device_thermostat_rounded;
+      case 'waterproofing':
+        return Icons.water_damage_rounded;
       case 'appliances':
         return Icons.kitchen_rounded;
       case 'car':
@@ -99,10 +108,19 @@ class ServiceCategoryIcons {
         return const Color(0xFF2196F3);
       case 'carpentry':
         return _brown;
+      case 'car_mechanic':
+      case '🚗🔧':
+        return _red;
       case 'painting':
         return _purple;
       case 'ac':
+      case 'air_conditioning':
         return _teal;
+      case 'water_heaters':
+      case '🔥':
+        return _orange;
+      case 'waterproofing':
+        return _blue;
       case 'appliances':
         return const Color(0xFF5E6B7A);
       case 'car':

@@ -522,6 +522,14 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         return const Color(0xFF168A72);
       case 'daily_wage':
         return const Color(0xFFE76831);
+      case 'car_mechanic':
+        return const Color(0xFFD64545);
+      case 'carpentry':
+        return const Color(0xFF8B5A2B);
+      case 'water_heaters':
+        return const Color(0xFFE28B00);
+      case 'waterproofing':
+        return const Color(0xFF0D9488);
       default:
         return const Color(0xFF3679C8);
     }
@@ -546,6 +554,14 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         return Icons.local_shipping_rounded;
       case 'daily_wage':
         return Icons.engineering_rounded;
+      case 'car_mechanic':
+        return Icons.car_repair_rounded;
+      case 'carpentry':
+        return Icons.handyman_rounded;
+      case 'water_heaters':
+        return Icons.device_thermostat_rounded;
+      case 'waterproofing':
+        return Icons.water_damage_rounded;
       default:
         return Icons.handyman_rounded;
     }

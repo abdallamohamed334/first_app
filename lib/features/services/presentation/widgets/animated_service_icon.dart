@@ -35,7 +35,11 @@ class _AnimatedServiceIconState extends State<AnimatedServiceIcon>
     'screen_maintenance': 'assets/icons/flaticon/screen_maintenance.png',
     'transportation': 'assets/icons/flaticon/transportation.png',
     'daily_wage': 'assets/icons/flaticon/daily_wage.png',
+    'car_mechanic': 'assets/icons/flaticon/car_mechanic.png',
+    'carpentry': 'assets/icons/flaticon/carpentry.png',
     'air_conditioning': 'assets/icons/flaticon/air_conditioning.png',
+    'water_heaters': 'assets/icons/flaticon/air_conditioning.png',
+    'waterproofing': 'assets/icons/flaticon/plumbing.png',
     'car_electrician': 'assets/icons/flaticon/car_electrician.png',
     'water_filters': 'assets/icons/flaticon/water_filters.png',
     'home_fan_maintenance':

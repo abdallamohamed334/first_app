@@ -10,3 +10,5 @@ These preview assets are sourced from Flaticon animated icon pages.
 - `car_electrician.png`: [Flaticon animated icon page](https://www.flaticon.com/free-animated-icon/battery_18946690) — Free for personal and commercial use with attribution.
 - `water_filters.png`: [Flaticon animated icon page](https://www.flaticon.com/free-animated-icon/humidity_11095576) — Free for personal and commercial use with attribution.
 - `home_fan_maintenance.png`: [Flaticon animated icon page](https://www.flaticon.com/free-animated-icon/fan_9538512) — Free for personal and commercial use with attribution.
+- `car_mechanic.png`: [Flaticon animated icon page](https://www.flaticon.com/free-animated-icon/car-service_8722447) — Free for personal and commercial use with attribution.
+- `carpentry.png`: [Flaticon animated icon page](https://www.flaticon.com/free-animated-icon/carpentry_18655695) — Free for personal and commercial use with attribution.
