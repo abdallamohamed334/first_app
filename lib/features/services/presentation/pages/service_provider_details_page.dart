@@ -884,12 +884,13 @@ class _ServiceProviderDetailsPageState
             label: 'حتى ${p.maxDistanceKm} كم',
             color: _purple,
           ),
-        if (p.isCompany && p.acceptsInstallments)
-          _infoPill(
-            icon: Icons.credit_card_rounded,
-            label: 'يقبل التقسيط',
-            color: _green,
-          ),
+        _infoPill(
+          icon: p.acceptsInstallments
+              ? Icons.credit_card_rounded
+              : Icons.credit_card_off_rounded,
+          label: p.acceptsInstallments ? 'يقبل التقسيط' : 'لا يقبل التقسيط',
+          color: p.acceptsInstallments ? _green : _orange,
+        ),
       ],
     );
   }
