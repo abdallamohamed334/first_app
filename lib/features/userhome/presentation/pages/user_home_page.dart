@@ -2013,8 +2013,6 @@ class _UserHomePageState extends State<UserHomePage>
         return Icons.yard_rounded;
       case 'agriculture':
         return Icons.agriculture_rounded;
-      case 'waterproofing':
-        return Icons.water_damage_rounded;
       case 'construction':
         return Icons.construction_rounded;
       case 'gypsum_board':

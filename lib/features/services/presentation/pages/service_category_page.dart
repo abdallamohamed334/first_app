@@ -1074,8 +1074,6 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
         return Icons.ac_unit_rounded;
       case 'water_heaters':
         return Icons.device_thermostat_rounded;
-      case 'waterproofing':
-        return Icons.water_damage_rounded;
       case 'appliances':
         return Icons.kitchen_rounded;
       case 'car':

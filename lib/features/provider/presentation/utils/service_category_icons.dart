@@ -49,8 +49,6 @@ class ServiceCategoryIcons {
       case 'water_heaters':
       case '🔥':
         return Icons.device_thermostat_rounded;
-      case 'waterproofing':
-        return Icons.water_damage_rounded;
       case 'appliances':
         return Icons.kitchen_rounded;
       case 'car':
@@ -119,8 +117,6 @@ class ServiceCategoryIcons {
       case 'water_heaters':
       case '🔥':
         return _orange;
-      case 'waterproofing':
-        return _blue;
       case 'appliances':
         return const Color(0xFF5E6B7A);
       case 'car':

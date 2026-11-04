@@ -528,8 +528,6 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         return const Color(0xFF8B5A2B);
       case 'water_heaters':
         return const Color(0xFFE28B00);
-      case 'waterproofing':
-        return const Color(0xFF0D9488);
       default:
         return const Color(0xFF3679C8);
     }
@@ -560,8 +558,6 @@ class _ServiceProvidersMapPageState extends State<ServiceProvidersMapPage> {
         return Icons.handyman_rounded;
       case 'water_heaters':
         return Icons.device_thermostat_rounded;
-      case 'waterproofing':
-        return Icons.water_damage_rounded;
       default:
         return Icons.handyman_rounded;
     }
