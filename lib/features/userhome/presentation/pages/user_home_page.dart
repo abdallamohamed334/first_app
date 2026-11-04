@@ -40,6 +40,7 @@ import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_category_page.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
 import 'package:loqma/features/services/presentation/pages/service_providers_map_page.dart';
+import 'package:loqma/features/services/presentation/widgets/animated_service_icon.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_bloc.dart';
 import 'package:loqma/features/userhome/presentation/bloc/userhome_state.dart';
 import 'package:loqma/features/userhome/data/repositories/userhome_repository.dart';
@@ -1893,10 +1894,11 @@ class _UserHomePageState extends State<UserHomePage>
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  _serviceIconFromSlug(cat.slug),
+                child: AnimatedServiceIcon(
+                  slug: cat.slug,
+                  size: 30,
+                  fallbackIcon: _serviceIconFromSlug(cat.slug),
                   color: _blue,
-                  size: 22,
                 ),
               ),
               SizedBox(height: 9),

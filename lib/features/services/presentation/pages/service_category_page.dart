@@ -6,6 +6,7 @@ import 'package:loqma/features/services/data/repositories/service_providers_repo
 import 'package:loqma/features/services/domain/entities/service_category.dart';
 import 'package:loqma/features/services/domain/entities/service_provider.dart';
 import 'package:loqma/features/services/presentation/pages/service_provider_details_page.dart';
+import 'package:loqma/features/services/presentation/widgets/animated_service_icon.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ServiceCategoryPage extends StatefulWidget {
@@ -193,10 +194,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                 ),
               ],
             ),
-            child: Icon(
-              _iconFromName(widget.category.icon ?? ''),
+            child: AnimatedServiceIcon(
+              slug: widget.category.slug,
+              size: 26,
+              fallbackIcon: _iconFromName(widget.category.icon ?? ''),
               color: Colors.white,
-              size: 20,
             ),
           ),
           const SizedBox(width: 12),
@@ -943,10 +945,11 @@ class _ServiceCategoryPageState extends State<ServiceCategoryPage> {
                 color: _blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                _iconFromName(widget.category.icon ?? ''),
+              child: AnimatedServiceIcon(
+                slug: widget.category.slug,
+                size: 52,
+                fallbackIcon: _iconFromName(widget.category.icon ?? ''),
                 color: _blue,
-                size: 40,
               ),
             ),
             const SizedBox(height: 20),
