@@ -407,13 +407,6 @@ class _ProviderEditProfilePageState extends State<ProviderEditProfilePage> {
       _snack('اختار يوم متاح واحد على الأقل', error: true);
       return;
     }
-    if (!_profileLocked &&
-        ((_newIdCardFront == null && (_idCardFrontPath?.isEmpty ?? true)) ||
-            (_newIdCardBack == null && (_idCardBackPath?.isEmpty ?? true)))) {
-      _snack('ارفع صورة البطاقة الأمامية والخلفية لإكمال التسجيل', error: true);
-      return;
-    }
-
     setState(() => _saving = true);
 
     final userId =

@@ -230,13 +230,6 @@ class ServiceProviderRepository {
       missing.add('يوم متاح واحد على الأقل');
     }
 
-    if ((provider['id_card_front_url']?.toString().trim() ?? '').isEmpty) {
-      missing.add('صورة البطاقة الأمامية');
-    }
-    if ((provider['id_card_back_url']?.toString().trim() ?? '').isEmpty) {
-      missing.add('صورة البطاقة الخلفية');
-    }
-
     // 4️⃣ مناطق الخدمة
     final areas = provider['service_areas'];
     if (areas is! List || areas.isEmpty) {
